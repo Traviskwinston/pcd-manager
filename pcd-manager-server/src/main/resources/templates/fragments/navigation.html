@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <!-- Navigation Fragment -->
+    <nav th:fragment="navbar(activeTab)" class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/dashboard">PCD Manager</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <!-- Locations is now before Dashboard -->
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activeTab == 'locations' ? 'active' : ''}" href="/locations">
+                            <!-- Debug info temporarily displayed -->
+                            <span th:if="${defaultLocationExists != null && defaultLocationExists}" 
+                                  th:text="${defaultLocation != null && defaultLocation.displayName != null ? defaultLocation.displayName : 'Locations'}">Locations</span>
+                            <span th:unless="${defaultLocationExists != null && defaultLocationExists}">Locations</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activeTab == 'dashboard' ? 'active' : ''}" href="/dashboard">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activeTab == 'tools' ? 'active' : ''}" href="/tools">Tools</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activeTab == 'parts' ? 'active' : ''}" href="/parts">Parts</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activeTab == 'rma' ? 'active' : ''}" href="/rma">RMA Matrix</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activeTab == 'passdown' ? 'active' : ''}" href="/passdown">Passdown</a>
+                    </li>
+                </ul>
+                <form th:action="@{/logout}" method="post" class="d-flex">
+                    <button class="btn btn-outline-light" type="submit">Logout</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+</body>
+</html> 

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCD Manager - RMA Matrix</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+</head>
+<body>
+    <div th:replace="~{fragments/navigation :: navbar('rma')}"></div>
+
+    <div class="container-fluid mt-4">
+        <div class="row mb-3">
+            <div class="col">
+                <h1>RMA Matrix</h1>
+            </div>
+            <div class="col text-end">
+                <a th:href="@{/rma/new}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> New RMA
+                </a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4>Manage Return Merchandise Authorizations</h4>
+                    </div>
+                    <div class="col-md-6">
+                        <form th:action="@{/rma}" method="get" class="d-flex">
+                            <input type="text" name="search" th:value="${search}" class="form-control me-2" placeholder="Search RMA #, Customer, Part #...">
+                            <button type="submit" class="btn btn-outline-primary">Search</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Tool</th>
+                                <th>Part Names</th>
+                                <th>RMA #</th>
+                                <th>Serial #</th>
+                                <th>Model #</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${rmas.empty}">
+                                <td colspan="7" class="text-center">No RMAs found</td>
+                            </tr>
+                            <tr th:each="rma : ${rmas}">
+                                <td>
+                                    <span th:text="${rma.tool?.name ?: 'N/A'}">Tool Name</span>
+                                </td>
+                                <td>
+                                    <span th:if="${#lists.isEmpty(rma.partLineItems)}">N/A</span>
+                                    <th:block th:unless="${#lists.isEmpty(rma.partLineItems)}">
+                                        <span th:remove="tag">
+                                            <th:block th:each="item, itemStat : ${rma.partLineItems}" th:remove="tag">
+                                                <span th:text="${item.partName}" th:remove="tag"></span><span th:if="${!itemStat.last}" th:text="','" th:remove="tag"></span>
+                                            </th:block>
+                                        </span>
+                                    </th:block>
+                                </td>
+                                <td>
+                                    <a th:href="@{/rma/{id}(id=${rma.id})}" th:text="${rma.rmaNumber}">RMA Number</a>
+                                </td>
+                                <td th:text="${rma.serialNumber}">Serial Number</td>
+                                <td th:text="${rma.tool?.model1 ?: 'N/A'}">Model Number</td>
+                                <td>
+                                    <span th:if="${rma.status != null}" th:class="${'badge rounded-pill ' +
+                                        (rma.status.name() == 'RMA_WRITTEN_EMAILED' ? 'bg-primary' :
+                                        (rma.status.name() == 'NUMBER_PROVIDED' ? 'bg-info' :
+                                        (rma.status.name() == 'MEMO_EMAILED' ? 'bg-secondary' :
+                                        (rma.status.name() == 'RECEIVED_PARTS' ? 'bg-warning' :
+                                        (rma.status.name() == 'WAITING_CUSTOMER' ? 'bg-danger' :
+                                        (rma.status.name() == 'WAITING_FSE' ? 'bg-danger' :
+                                        (rma.status.name() == 'COMPLETED' ? 'bg-success' : 'bg-light'))))))) }"
+                                        th:text="${rma.status?.displayName}">
+                                        Status
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a th:href="@{/rma/{id}(id=${rma.id})}" class="btn btn-sm btn-outline-primary" title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a th:href="@{/rma/edit/{id}(id=${rma.id})}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Delete"
+                                                data-bs-toggle="modal" th:data-bs-target="${'#deleteModal-' + rma.id}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Delete Modal -->
+                                    <div class="modal fade" th:id="${'deleteModal-' + rma.id}" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Are you sure you want to delete RMA <strong th:text="${rma.rmaNumber}"></strong>?
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <form th:action="@{/rma/delete/{id}(id=${rma.id})}" method="post">
+                                                        <button type="submit" class="btn btn-danger">Delete</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <nav th:if="${totalPages > 1}">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item" th:classappend="${currentPage == 0 ? 'disabled' : ''}">
+                            <a class="page-link" th:href="@{/rma(page=${currentPage - 1}, search=${search})}" tabindex="-1">Previous</a>
+                        </li>
+                        <li class="page-item" th:each="i: ${#numbers.sequence(0, totalPages - 1)}" th:classappend="${currentPage == i ? 'active' : ''}">
+                            <a class="page-link" th:href="@{/rma(page=${i}, search=${search})}" th:text="${i + 1}"></a>
+                        </li>
+                        <li class="page-item" th:classappend="${currentPage == totalPages - 1 ? 'disabled' : ''}">
+                            <a class="page-link" th:href="@{/rma(page=${currentPage + 1}, search=${search})}">Next</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

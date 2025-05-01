@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCD Manager - View Location</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Include the navigation fragment -->
+    <div th:replace="~{fragments/navigation :: navbar('locations')}"></div>
+
+    <div class="container mt-4">
+        <div class="row mb-3">
+            <div class="col">
+                <h1>Location Details</h1>
+            </div>
+            <div class="col text-end">
+                <a th:href="@{/locations}" class="btn btn-secondary me-2">Back to Locations</a>
+                <a th:href="@{/locations/edit/{id}(id=${location.id})}" class="btn btn-primary">Edit Location</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="alert alert-info" th:if="${location == null}">
+                    Location not found.
+                </div>
+                
+                <div th:if="${location != null}">
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">ID:</div>
+                        <div class="col-md-9" th:text="${location.id}">1</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Name:</div>
+                        <div class="col-md-9" th:text="${location.name}">Storage Room</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Description:</div>
+                        <div class="col-md-9" th:text="${location.description}">Main storage area</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Location Type:</div>
+                        <div class="col-md-9" th:text="${location.locationType.displayName}">Storage</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Address:</div>
+                        <div class="col-md-9" th:text="${location.address}">123 Main St</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">State:</div>
+                        <div class="col-md-9" th:text="${location.state}">Arizona</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Fab:</div>
+                        <div class="col-md-9" th:text="${location.fab}">52</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Notes:</div>
+                        <div class="col-md-9" th:text="${location.notes}">Additional information about this location.</div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3 fw-bold">Default Location:</div>
+                        <div class="col-md-9">
+                            <span th:if="${location.default}" class="badge bg-success">Yes</span>
+                            <span th:unless="${location.default}" class="badge bg-secondary">No</span>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteLocationModal">
+                            Delete Location
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Location Modal -->
+    <div class="modal fade" id="deleteLocationModal" tabindex="-1" aria-labelledby="deleteLocationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteLocationModalLabel">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this location?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form th:action="@{/locations/delete/{id}(id=${location.id})}" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCD Manager - New RMA</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        /* Ensure select text is readable */
+        #status,
+        #priority {
+            color: #212529; /* Bootstrap's standard dark text color */
+        }
+        
+        .border-dashed {
+            border-style: dashed !important; 
+        }
+        
+        #drop-area {
+            transition: all 0.3s ease;
+        }
+        
+        #drop-area.highlight {
+            border-color: #198754 !important;
+            background-color: rgba(25, 135, 84, 0.1) !important;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{fragments/navigation :: navbar('rma')}"></div>
+
+    <div class="container mt-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 th:text="${rma.id != null ? 'Update RMA' : 'Create New RMA'}">RMA Form</h3>
+            </div>
+            <div class="card-body">
+                <form th:action="@{/rma}" th:object="${rma}" method="post" enctype="multipart/form-data">
+                    <input type="hidden" th:field="*{id}" />
+                    
+                    <!-- Main Layout Row -->
+                    <div class="row">
+                        <!-- Left Column: Tool Info -->
+                        <div class="col-md-3 border-end">
+                            <!-- Tool Selection -->
+                            <div class="mb-3">
+                                <label for="toolSelect" class="form-label">Select Tool</label>
+                                <select id="toolSelect" class="form-select" th:field="*{tool}">
+                                    <option value="">-- Select Tool --</option>
+                                    <option th:each="toolItem : ${tools}" th:value="${toolItem.id}" th:text="${toolItem.name}"></option>
+                                </select>
+                            </div>
+                            <hr />
+                            <!-- Tool Details -->
+                            <ul class="list-unstyled" id="tool-details-list">
+                                <li><strong>Type:</strong> <span id="tool-type"></span></li>
+                                <li><strong>Location:</strong> <span id="tool-location"></span></li>
+                                <li><strong>Serial #:</strong> <span id="tool-serial1"></span><span id="tool-serial2-display"></span></li>
+                                <li><strong>Model #:</strong> <span id="tool-model1"></span><span id="tool-model2-display"></span></li>
+                                <li>
+                                    <a id="tool-view-link" href="#" class="btn btn-sm btn-outline-secondary" title="View Tool Details" style="display: none;">
+                                        <i class="bi bi-eye"></i> View Tool
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Right Column: Parts Info -->
+                        <div class="col-md-9">
+                            <!-- Column Headers -->
+                            <div class="row mb-2">
+                                <div class="col-md-2"><strong>Part Name:</strong></div>
+                                <div class="col-md-3"><strong>Part Number:</strong></div>
+                                <div class="col-md-5"><strong>Item Description:</strong></div>
+                                <div class="col-md-1"><strong>Qty:</strong></div>
+                                <div class="col-md-1"></div>
+                            </div>
+                            <!-- Parts Items Container -->
+                            <div id="parts-container">
+                                <!-- Existing Part Lines (Loop if editing) -->
+                                <th:block th:if="${rma.partLineItems != null}" th:each="item, itemStat : *{partLineItems}">
+                                    <div class="part-item">
+                                        <div class="row mb-2">
+                                            <div class="col-md-2">
+                                                <input type="text" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].partName}" placeholder="Part Name" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <input type="text" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].partNumber}" placeholder="Part Number" />
+                                            </div>
+                                            <div class="col-md-5">
+                                                <input type="text" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].productDescription}" placeholder="Item Description" />
+                                            </div>
+                                            <div class="col-md-1">
+                                                <input type="number" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].quantity}" placeholder="Qty" min="0" />
+                                            </div>
+                                            <div class="col-md-1 d-flex align-items-center justify-content-start gap-1">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary add-part" title="Add Part">+</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger remove-part" title="Remove Part">-</button>
+                                            </div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-md-12">
+                                                <div class="d-flex align-items-center">
+                                                    <span class="me-2">Replacement Required:</span>
+                                                    <div class="form-check form-check-inline mb-0">
+                                                        <input type="radio" class="form-check-input" th:field="*{partLineItems[__${itemStat.index}__].replacementRequired}" value="true" />
+                                                        <label class="form-check-label">Yes</label>
+                                                    </div>
+                                                    <div class="form-check form-check-inline mb-0">
+                                                        <input type="radio" class="form-check-input" th:field="*{partLineItems[__${itemStat.index}__].replacementRequired}" value="false" />
+                                                        <label class="form-check-label">No</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </th:block>
+
+                                <!-- Template Row for Adding New Parts -->
+                                <div class="part-item template" 
+                                     th:style="${#lists.isEmpty(rma.partLineItems)} ? '' : 'display:none;'" 
+                                     data-index="__INDEX__"> 
+                                    <div class="row mb-2">
+                                        <div class="col-md-2">
+                                            <input type="text" class="form-control form-control-sm" name="partLineItems[__INDEX__].partName" placeholder="Part Name" disabled>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <input type="text" class="form-control form-control-sm" name="partLineItems[__INDEX__].partNumber" placeholder="Part Number" disabled>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <input type="text" class="form-control form-control-sm" name="partLineItems[__INDEX__].productDescription" placeholder="Item Description" disabled/>
+                                        </div>
+                                        <div class="col-md-1">
+                                            <input type="number" class="form-control form-control-sm" name="partLineItems[__INDEX__].quantity" placeholder="Qty" min="0" value="1" disabled/>
+                                        </div>
+                                        <div class="col-md-1 d-flex align-items-center justify-content-start gap-1">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary add-part" title="Add Part">+</button> 
+                                            <button type="button" class="btn btn-sm btn-outline-danger remove-part" title="Remove Part">-</button>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-12">
+                                            <div class="d-flex align-items-center">
+                                                <span class="me-2">Replacement Required:</span>
+                                                <div class="form-check form-check-inline mb-0">
+                                                    <input class="form-check-input" type="radio" name="partLineItems[__INDEX__].replacementRequired" id="replacementRequiredYes__INDEX__" value="true" disabled>
+                                                    <label class="form-check-label" for="replacementRequiredYes__INDEX__">Yes</label>
+                                                </div>
+                                                <div class="form-check form-check-inline mb-0">
+                                                    <input class="form-check-input" type="radio" name="partLineItems[__INDEX__].replacementRequired" id="replacementRequiredNo__INDEX__" value="false" disabled checked>
+                                                    <label class="form-check-label" for="replacementRequiredNo__INDEX__">No</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                    <!-- End Main Layout Row -->
+                    <hr />
+                    <!-- RMA Number -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="rmaNumber" class="form-label">RMA Number</label>
+                                <input type="text" id="rmaNumber" class="form-control" th:field="*{rmaNumber}" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="sapNotificationNumber" class="form-label">SAP Notification Number</label>
+                                <input type="text" id="sapNotificationNumber" class="form-control" th:field="*{sapNotificationNumber}" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="serviceOrder" class="form-label">Service Order</label>
+                                <input type="text" id="serviceOrder" class="form-control" th:field="*{serviceOrder}" />
+                            </div>
+                        </div>
+                    </div>
+                    <hr />
+                    <!-- Reason For Request -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="reasonForRequest" class="form-label">Reason For Request</label>
+                                <select id="reasonForRequest" class="form-select" th:field="*{reasonForRequest}">
+                                    <option value="">-- Select Reason --</option>
+                                    <option th:each="opt : ${T(com.pcd.manager.model.RmaReasonForRequest).values()}"
+                                            th:value="${opt}"
+                                            th:text="${opt.displayName}"></option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="dssProductLine" class="form-label">DSS Product Line</label>
+                                <select id="dssProductLine" class="form-select" th:field="*{dssProductLine}">
+                                    <option value="">-- Select Product Line --</option>
+                                    <option th:each="opt : ${T(com.pcd.manager.model.DssProductLine).values()}"
+                                            th:value="${opt}"
+                                            th:text="${opt.displayName}"></option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="systemDescription" class="form-label">System Description</label>
+                                <select id="systemDescription" class="form-select" th:field="*{systemDescription}">
+                                    <option value="">-- Select System Description --</option>
+                                    <option th:each="opt : ${T(com.pcd.manager.model.SystemDescription).values()}"
+                                            th:value="${opt}"
+                                            th:text="${opt.displayName}"></option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <hr />
+                    <!-- Combined File Upload Section -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <h5>Upload Files</h5>
+                            
+                            <!-- Debug Info Panel -->
+                            <div class="alert alert-info small mb-3">
+                                <p><strong>File Upload Debug Info:</strong></p>
+                                <p>Upload Directory: <span id="uploadDirDisplay">Loading...</span></p>
+                                <p>Files Selected: <span id="filesSelectedCount">0</span></p>
+                            </div>
+                            
+                            <!-- Hidden file uploads tracking input -->
+                            <input type="hidden" id="fileUploadsTracker" name="fileUploadsTracker" value="">
+                            
+                            <!-- Direct file input to avoid dialog issues -->
+                            <div class="mb-3">
+                                <div class="card border-2 border-primary-subtle p-3">
+                                    <div class="card-body text-center">
+                                        <div id="drop-area" class="py-4 px-2 rounded bg-light border border-dashed border-primary">
+                                            <i class="bi bi-cloud-arrow-up-fill text-primary" style="font-size: 2rem;"></i>
+                                            <h5 class="mt-2">Drag &amp; drop files here</h5>
+                                            <p class="text-muted mb-3">or</p>
+                                            <label for="fileInput" class="btn btn-primary">
+                                                <i class="bi bi-folder2-open me-1"></i> Browse Files
+                                            </label>
+                                            <input type="file" id="fileInput" name="fileUploads" multiple="multiple" class="d-none">
+                                            <div class="text-muted small mt-2">Supports images (jpg, png) and documents (pdf, doc, etc.)</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- File Preview Area -->
+                            <div class="mt-3">
+                                <h6>Selected Files for Upload</h6>
+                                
+                                <!-- Images Preview -->
+                                <div id="imagesPreview" class="mb-3">
+                                    <h6 class="text-muted mb-2">Images</h6>
+                                    <div class="row" id="imagePreviewContainer">
+                                        <!-- JavaScript will populate this -->
+                                        <div class="col-12 text-muted" id="noImagesMessage">No images selected yet</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Documents Preview -->
+                                <div id="documentsPreview" class="mb-3">
+                                    <h6 class="text-muted mb-2">Documents</h6>
+                                    <ul class="list-group" id="documentPreviewContainer">
+                                        <!-- JavaScript will populate this -->
+                                        <li class="list-group-item text-muted" id="noDocsMessage">No documents selected yet</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <!-- Existing Files Preview Section (only displayed when editing) -->
+                            <div th:if="${rma.id != null}" class="mt-4">
+                                <hr>
+                                <h6>Currently Attached Files</h6>
+                                
+                                <!-- Pictures Section -->
+                                <div th:if="${rma.pictures != null and not #lists.isEmpty(rma.pictures)}" class="mb-3">
+                                    <h6 class="text-muted mb-2">Images</h6>
+                                    <div class="row">
+                                        <div class="col-md-2 mb-2" th:each="picture : ${rma.pictures}">
+                                            <div class="card h-100 shadow-sm">
+                                                <div class="card-img-top text-center p-2" style="height: 100px;">
+                                                    <img th:src="@{'/rma/files/' + ${picture.filePath}}" 
+                                                         th:alt="${picture.fileName}" 
+                                                         class="img-fluid rounded" 
+                                                         style="max-height: 100%; max-width: 100%; object-fit: contain; cursor: pointer;"
+                                                         onclick="window.open(this.src, '_blank');"
+                                                         onerror="this.onerror=null; this.src=''; this.style.display='none'; this.parentNode.innerHTML += '<div class=\'text-center text-muted\'><i class=\'bi bi-image\'></i><br>Image not found</div>'"/>
+                                                </div>
+                                                <div class="card-footer p-1 text-center bg-light">
+                                                    <small class="text-muted" th:text="${#strings.length(picture.fileName) > 15 ? #strings.substring(picture.fileName, 0, 12) + '...' : picture.fileName}">Filename</small>
+                                                    <div class="mt-1 d-flex gap-1 justify-content-center">
+                                                        <a th:href="@{'/rma/files/' + ${picture.filePath}}" 
+                                                           target="_blank" 
+                                                           class="btn btn-sm btn-outline-primary" 
+                                                           title="View/Download Image">
+                                                            <i class="bi bi-download"></i>
+                                                        </a>
+                                                        <button class="btn btn-sm btn-outline-danger delete-file-btn" 
+                                                               title="Delete Image"
+                                                               th:data-id="${picture.id}"
+                                                               data-type="picture"
+                                                               th:data-rma-id="${rma.id}">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary transfer-btn" 
+                                                                title="Transfer Image to Another RMA"
+                                                                th:data-id="${picture.id}"
+                                                                data-type="picture"
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#transferModal">
+                                                            <i class="bi bi-arrow-right-square"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Documents Section -->
+                                <div th:if="${rma.documents != null and not #lists.isEmpty(rma.documents)}" class="mb-3">
+                                    <h6 class="text-muted mb-2">Documents</h6>
+                                    <ul class="list-group">
+                                        <li class="list-group-item d-flex justify-content-between align-items-center" th:each="document : ${rma.documents}">
+                                            <span th:text="${document.fileName}">Document Name</span>
+                                            <div class="btn-group">
+                                                <a th:href="@{'/rma/files/' + ${document.filePath}}" 
+                                                   target="_blank" 
+                                                   class="btn btn-sm btn-outline-primary" 
+                                                   title="View/Download Document">
+                                                    <i class="bi bi-download me-1"></i> View
+                                                </a>
+                                                <button class="btn btn-sm btn-outline-danger delete-file-btn" 
+                                                        title="Delete Document"
+                                                        th:data-id="${document.id}"
+                                                        data-type="document"
+                                                        th:data-rma-id="${rma.id}">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1 transfer-btn" 
+                                                        title="Transfer Document to Another RMA"
+                                                        th:data-id="${document.id}"
+                                                        data-type="document"
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#transferModal">
+                                                    <i class="bi bi-arrow-right-square"></i>
+                                                </button>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                                
+                                <div th:if="${(rma.pictures == null or #lists.isEmpty(rma.pictures)) and (rma.documents == null or #lists.isEmpty(rma.documents))}" class="alert alert-info">
+                                    No files are currently attached to this RMA.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <hr />
+                    <!-- Add Transfer Preview section after the "Currently Attached Files" section -->
+                    <div th:if="${rma.id != null}" class="mt-4" id="transferPreviewSection" style="display: none;">
+                        <hr>
+                        <div class="card border-info">
+                            <div class="card-header bg-info text-white">
+                                <h6 class="mb-0"><i class="bi bi-arrow-right-square me-2"></i>Files Staged for Transfer</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    Files will be transferred when you click the "Update RMA" button. 
+                                    <strong>Note:</strong> Files will be moved from this RMA to the selected destination.
+                                </div>
+                                
+                                <div class="row" id="transferPreviewContainer">
+                                    <!-- Transfer items will be added here by JavaScript -->
+                                </div>
+                                
+                                <!-- Hidden inputs to track files for transfer -->
+                                <div id="transferHiddenInputs">
+                                    <!-- Will be populated by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <hr />
+                    <!-- Status, Priority, Location, Technician Row -->
+                    <div class="row mb-3">
+                        <!-- Left Column: Status and Priority -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="status" class="form-label">Status</label>
+                                <select id="status" class="form-select" th:field="*{status}">
+                                    <option value="">-- Select Status --</option>
+                                    <option th:each="opt : ${T(com.pcd.manager.model.RmaStatus).values()}"
+                                            th:value="${opt}"
+                                            th:text="${opt.displayName}"></option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="priority" class="form-label">Priority</label>
+                                <select id="priority" class="form-select" th:field="*{priority}">
+                                    <option value="">-- Select Priority --</option>
+                                    <option th:each="opt : ${T(com.pcd.manager.model.RmaPriority).values()}"
+                                            th:value="${opt}"
+                                            th:text="${opt.displayName}"></option>
+                                </select>
+                            </div>
+                        </div>
+                        <!-- Right Column: Location and Technician -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="location" class="form-label">Location</label>
+                                <select id="location" class="form-select" th:field="*{location}">
+                                    <option value="">-- Select Location --</option>
+                                    <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.displayName}"></option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="technician" class="form-label">Technician</label>
+                                <select id="technician" class="form-select" th:field="*{technician}">
+                                    <option value="">-- Unassigned --</option>
+                                    <option th:each="tech : ${technicians}" th:value="${tech}" th:text="${tech}"></option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- End Status, Priority, Location, Technician Row -->
+
+                    <!-- Dates Row 1 (Written, RMA Provided, Memo Emailed) -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="writtenDate" class="form-label">Written Date</label>
+                                <input type="date" id="writtenDate" class="form-control" th:field="*{writtenDate}" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="rmaNumberProvidedDate" class="form-label">RMA # Provided Date</label>
+                                <input type="date" id="rmaNumberProvidedDate" class="form-control" th:field="*{rmaNumberProvidedDate}" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="shippingMemoEmailedDate" class="form-label">Shipping Memo Emailed</label>
+                                <input type="date" id="shippingMemoEmailedDate" class="form-control" th:field="*{shippingMemoEmailedDate}" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dates Row 2 (Parts Dates) -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="receivedPartsDate" class="form-label">Received Parts Date</label>
+                                <input type="date" id="receivedPartsDate" class="form-control" th:field="*{partsReceivedDate}" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="installedPartsDate" class="form-label">Parts Installed Date</label>
+                                <input type="date" id="installedPartsDate" class="form-control" th:field="*{installedPartsDate}" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="failedPartsPackedDate" class="form-label">Failed Parts Packed</label>
+                                <input type="date" id="failedPartsPackedDate" class="form-control" th:field="*{failedPartsPackedDate}" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="failedPartsShippedDate" class="form-label">Failed Parts Shipped Out Date</label>
+                                <input type="date" id="failedPartsShippedDate" class="form-control" th:field="*{failedPartsShippedDate}" />
+                            </div>
+                        </div>
+                    </div>
+                    <hr />
+                    <!-- Customer Information -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Customer Information</h5>
+                            <div class="mb-3">
+                                <label for="customerName" class="form-label">Customer Name</label>
+                                <input type="text" id="customerName" class="form-control" th:field="*{customerName}">
+                            </div>
+                            <div class="mb-3">
+                                <label for="customerContact" class="form-label">Contact</label>
+                                <input type="text" id="customerContact" class="form-control" th:field="*{customerContact}" />
+                            </div>
+                        </div>
+                    </div>
+                    <hr />
+                    <!-- Description -->
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea id="description" class="form-control" th:field="*{description}" rows="3"></textarea>
+                    </div>
+
+                    <!-- Comments -->
+                    <div class="mb-3">
+                        <label for="comments" class="form-label">Comments</label>
+                        <textarea id="comments" class="form-control" th:field="*{comments}" rows="3"></textarea>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <a th:href="@{/rma}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary" 
+                                th:text="${rma.id != null ? 'Update RMA' : 'Create RMA'}">Create RMA</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update the transfer modal to select destination without immediate transfer -->
+    <div class="modal fade" id="transferModal" tabindex="-1" aria-labelledby="transferModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="transferModalLabel">Select Transfer Destination</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="transferFileId" name="fileId" value="">
+                    <input type="hidden" id="transferFileType" name="fileType" value="">
+                    <input type="hidden" id="transferFileName" name="fileName" value="">
+                    <input type="hidden" id="transferFilePath" name="filePath" value="">
+                    <input type="hidden" id="sourceRmaId" name="sourceRmaId" th:value="${rma.id != null ? rma.id : ''}">
+                    
+                    <div class="mb-3">
+                        <label for="targetRmaId" class="form-label">Select Target RMA</label>
+                        <select id="targetRmaId" name="targetRmaId" class="form-select" required>
+                            <option value="">-- Select RMA --</option>
+                            <option th:each="otherRma : ${allRmas}" 
+                                    th:if="${otherRma.id != rma.id}" 
+                                    th:value="${otherRma.id}" 
+                                    th:text="${(otherRma.rmaNumber != null ? otherRma.rmaNumber : 'RMA-' + otherRma.id) + 
+                                              ' - ' + (otherRma.tool != null ? otherRma.tool.name : 'No Tool') + 
+                                              ' - ' + (otherRma.customerName != null ? otherRma.customerName : 'No Customer')}">
+                                RMA Number - Tool - Customer
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="addToTransferPreviewBtn">Add to Transfer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Replace the confirm handler with Bootstrap modal -->
+    <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteConfirmModalLabel">Confirm Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this file?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        // Initialize selectedFiles array for tracking uploads
+        let selectedFiles = [];
+        
+        var toolSelect = document.getElementById('toolSelect');
+        var toolTypeSpan = document.getElementById('tool-type');
+        var toolLocationSpan = document.getElementById('tool-location');
+        var toolSerial1Span = document.getElementById('tool-serial1');
+        var toolSerial2Display = document.getElementById('tool-serial2-display');
+        var toolModel1Span = document.getElementById('tool-model1');
+        var toolModel2Display = document.getElementById('tool-model2-display');
+        var toolViewLink = document.getElementById('tool-view-link');
+        
+        // Fetch and display upload directory info
+        var uploadDirDisplay = document.getElementById('uploadDirDisplay');
+        if (uploadDirDisplay) {
+            // Add a small delay to ensure all DOM elements are ready
+            setTimeout(function() {
+                fetch('/rma/api/upload-info')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch upload info');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data && data.uploadDirectory) {
+                            uploadDirDisplay.textContent = data.uploadDirectory;
+                        } else if (data && data.uploadDir) {
+                            uploadDirDisplay.textContent = data.uploadDir;
+                        } else {
+                            uploadDirDisplay.textContent = 'Not configured';
+                        }
+                        console.log('Upload directory info:', data);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching upload directory info:', error);
+                        uploadDirDisplay.textContent = 'Error: ' + error.message;
+                    });
+            }, 500);
+        }
+        
+        // Set up transfer file modal functionality
+        document.querySelectorAll('.transfer-btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Get file ID and type from button data attributes
+                const fileId = this.getAttribute('data-id');
+                const fileType = this.getAttribute('data-type');
+                
+                // Get the file name - different approaches based on element type
+                let fileName = '';
+                
+                if (fileType === 'picture') {
+                    // For pictures, get from the card
+                    const card = this.closest('.card');
+                    if (card) {
+                        // Try to get from small text element first
+                        const smallText = card.querySelector('small.text-muted');
+                        if (smallText) {
+                            fileName = smallText.textContent.trim();
+                        }
+                    }
+                } else if (fileType === 'document') {
+                    // For documents, get from the list item
+                    const listItem = this.closest('.list-group-item');
+                    if (listItem) {
+                        // Documents have the filename as the first text node
+                        const span = listItem.querySelector('span');
+                        if (span) {
+                            fileName = span.textContent.trim();
+                        }
+                    }
+                }
+                
+                // Fallback to finding any text if above methods fail
+                if (!fileName) {
+                    const container = this.closest('.card, .list-group-item');
+                    if (container) {
+                        // Get all text nodes, excluding button text
+                        const textNodes = Array.from(container.childNodes)
+                            .filter(node => node.nodeType === 3 && node.textContent.trim().length > 0);
+                        
+                        if (textNodes.length > 0) {
+                            fileName = textNodes[0].textContent.trim();
+                        } else {
+                            // Last resort - try to find any text content
+                            fileName = container.textContent.replace(/View|Delete|Transfer/g, '').trim();
+                        }
+                    }
+                }
+                
+                // Make sure we have a filename
+                if (!fileName) {
+                    fileName = fileType === 'picture' ? 'Image file' : 'Document file';
+                }
+                
+                console.log(`Transfer button clicked: fileId=${fileId}, fileType=${fileType}, fileName=${fileName}`);
+                
+                // Get file path - from image or link
+                let filePath = '';
+                if (fileType === 'picture') {
+                    const img = this.closest('.card').querySelector('img');
+                    if (img) {
+                        filePath = img.getAttribute('src');
+                    }
+                } else if (fileType === 'document') {
+                    const link = this.closest('.list-group-item').querySelector('a');
+                    if (link) {
+                        filePath = link.getAttribute('href');
+                    }
+                }
+                
+                // Set values in the modal form
+                document.getElementById('transferFileId').value = fileId;
+                document.getElementById('transferFileType').value = fileType;
+                document.getElementById('transferFileName').value = fileName;
+                document.getElementById('transferFilePath').value = filePath;
+                
+                // Update modal title to show file type
+                const modalTitle = document.getElementById('transferModalLabel');
+                modalTitle.textContent = `Transfer ${fileType.charAt(0).toUpperCase() + fileType.slice(1)} to Another RMA`;
+                
+                // Manually show the modal
+                const transferModal = new bootstrap.Modal(document.getElementById('transferModal'));
+                transferModal.show();
+            });
+        });
+
+        if (toolSelect) {
+            toolSelect.addEventListener('change', function() {
+                var selectedToolId = this.value;
+
+                if (selectedToolId) {
+                    fetch(`/rma/api/tool/${selectedToolId}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(tool => {
+                            toolTypeSpan.textContent = tool.toolType || '';
+                            toolLocationSpan.textContent = tool.location ? tool.location.displayName : '';
+                            
+                            // Handle serial numbers
+                            toolSerial1Span.textContent = tool.serialNumber1 || '';
+                            
+                            // Only show second serial number with slash if it exists
+                            if (tool.serialNumber2) {
+                                toolSerial2Display.textContent = '/' + tool.serialNumber2;
+                            } else {
+                                toolSerial2Display.textContent = '';
+                            }
+                            
+                            // Handle model numbers
+                            toolModel1Span.textContent = tool.model1 || '';
+                            
+                            // Only show second model number with slash if it exists
+                            if (tool.model2) {
+                                toolModel2Display.textContent = '/' + tool.model2;
+                            } else {
+                                toolModel2Display.textContent = '';
+                            }
+                            
+                            toolViewLink.href = `/tools/${tool.id}`;
+                            toolViewLink.style.display = 'inline-block';
+                        })
+                        .catch(error => {
+                            console.error('Error fetching tool details:', error);
+                            toolTypeSpan.textContent = '';
+                            toolLocationSpan.textContent = '';
+                            toolSerial1Span.textContent = '';
+                            toolSerial2Display.textContent = '';
+                            toolModel1Span.textContent = '';
+                            toolModel2Display.textContent = '';
+                            
+                            toolViewLink.href = '#';
+                            toolViewLink.style.display = 'none';
+                        });
+                } else {
+                    toolTypeSpan.textContent = '';
+                    toolLocationSpan.textContent = '';
+                    toolSerial1Span.textContent = '';
+                    toolSerial2Display.textContent = '';
+                    toolModel1Span.textContent = '';
+                    toolModel2Display.textContent = '';
+
+                    toolViewLink.href = '#';
+                    toolViewLink.style.display = 'none';
+                }
+            });
+        }
+
+        // Parts add/remove
+        var partsContainer = document.getElementById('parts-container');
+        var templateRow = partsContainer.querySelector('.part-item.template');
+
+        if (partsContainer && templateRow) {
+            
+            // Function to update indices (optional but good for cleanup)
+            function updateIndices() {
+                var rows = partsContainer.querySelectorAll('.part-item:not(.template)');
+                rows.forEach((row, index) => {
+                    row.querySelectorAll('input').forEach(input => {
+                        if (input.name) {
+                            input.name = input.name.replace(/\[\d+\]/, `[${index}]`);
+                        }
+                    });
+                });
+            }
+            
+            // Event delegation for ADD and REMOVE buttons
+            partsContainer.addEventListener('click', function(e) {
+                // ADD button logic
+                if (e.target.classList.contains('add-part')) {
+                    var clone = templateRow.cloneNode(true);
+                    clone.classList.remove('template');
+                    clone.style.display = ''; // Make it visible
+
+                    var currentRowCount = partsContainer.querySelectorAll('.part-item:not(.template)').length;
+                    var nextIndex = currentRowCount; 
+
+                    clone.querySelectorAll('input').forEach(function(input) { 
+                        if(input.name) { 
+                            input.name = input.name.replace('__INDEX__', nextIndex);
+                        }
+                        if (input.id && input.id.includes('__INDEX__')) {
+                            input.id = input.id.replace(/__INDEX__/g, nextIndex);
+                        }
+                        input.disabled = false; // Re-enable the cloned input
+                        if (input.type !== 'number' && input.type !== 'radio') {
+                            input.value = ''; 
+                        }
+                        // Initialize radio buttons - default to No
+                        if (input.type === 'radio') {
+                            input.checked = (input.value === 'false');
+                        }
+                    });
+                    
+                    partsContainer.appendChild(clone);
+                    updateIndices(); // Call updateIndices after adding a new row
+                } 
+                // REMOVE button logic
+                else if (e.target.classList.contains('remove-part')) {
+                    var rowToRemove = e.target.closest('.part-item');
+                    var visibleRows = partsContainer.querySelectorAll('.part-item:not(.template)');
+                    if (rowToRemove && !rowToRemove.classList.contains('template') && visibleRows.length > 1) {
+                         partsContainer.removeChild(rowToRemove);
+                         // updateIndices(); // Optional: Re-index remaining rows
+                    } else if (visibleRows.length <= 1 && !rowToRemove.classList.contains('template')) {
+                        rowToRemove.querySelectorAll('input').forEach(input => {
+                             if (input.type !== 'number') input.value = '';
+                             else if (input.name && input.name.includes('quantity')) input.value = '1'; 
+                        });
+                    }
+                }
+            });
+             
+             // Initial part row handling - show a usable row if there are none
+             if (partsContainer.querySelectorAll('.part-item:not(.template)').length === 0) {
+                 var initialRow = templateRow.cloneNode(true);
+                 initialRow.classList.remove('template');
+                 initialRow.style.display = '';
+                 
+                 initialRow.querySelectorAll('input').forEach(function(input) {
+                     if(input.name) {
+                         input.name = input.name.replace('__INDEX__', '0');
+                     }
+                     if (input.id && input.id.includes('__INDEX__')) {
+                         input.id = input.id.replace(/__INDEX__/g, '0');
+                     }
+                     input.disabled = false;
+                     if (input.type !== 'number' && input.type !== 'radio') {
+                         input.value = '';
+                     }
+                     // Initialize radio buttons - default to No
+                     if (input.type === 'radio') {
+                         input.checked = (input.value === 'false');
+                     }
+                 });
+                 
+                 partsContainer.appendChild(initialRow);
+                 templateRow.style.display = 'none';
+             } else {
+                 templateRow.style.display = 'none';
+             }
+        }
+
+        // File Upload Handlers
+        const fileInput = document.getElementById('fileInput');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const documentPreviewContainer = document.getElementById('documentPreviewContainer');
+        const noImagesMessage = document.getElementById('noImagesMessage');
+        const noDocsMessage = document.getElementById('noDocsMessage');
+        const dropArea = document.getElementById('drop-area');
+        
+        // Setup drag and drop events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener('dragleave', unhighlight, false);
+        });
+        
+        function highlight() {
+            dropArea.classList.add('highlight');
+        }
+        
+        function unhighlight() {
+            dropArea.classList.remove('highlight');
+        }
+        
+        // Handle dropped files
+        dropArea.addEventListener('drop', function(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            console.log('Files dropped:', files.length);
+            
+            if (files.length > 0) {
+                // Just pass the files directly to handleFiles
+                handleFiles(Array.from(files));
+            }
+        });
+        
+        // Handle files from file input
+        fileInput.addEventListener('change', function() {
+            handleFiles(this.files);
+        });
+        
+        function handleFiles(files) {
+            if (!files || files.length === 0) return;
+            
+            console.log(`Handling ${files.length} files`);
+            
+            // Track the valid files to add to selectedFiles array
+            const validFiles = [];
+            
+            // Process files for preview
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                console.log(`Processing file: ${file.name}, size: ${formatFileSize(file.size)}, type: ${file.type}`);
+                
+                // Check for duplicate filenames
+                const isDuplicate = selectedFiles.some(existing => existing.name === file.name);
+                if (isDuplicate) {
+                    console.warn(`Skipping duplicate file: ${file.name}`);
+                    continue;
+                }
+                
+                // Add to valid files array
+                validFiles.push(file);
+                
+                // Process based on file type
+                if (isImageFile(file)) {
+                    addImagePreview(file);
+                } else {
+                    addDocumentPreview(file);
+                }
+            }
+            
+            // Add valid files to the selectedFiles array
+            if (validFiles.length > 0) {
+                // Add to selectedFiles array
+                selectedFiles = [...selectedFiles, ...validFiles];
+                console.log(`Added ${validFiles.length} files to selectedFiles array. Total: ${selectedFiles.length}`);
+            }
+            
+            // Update files count in debug panel
+            updateFileCount();
+        }
+        
+        // Function to update the file count display
+        function updateFileCount() {
+            const filesSelectedCount = document.getElementById('filesSelectedCount');
+            if (filesSelectedCount) {
+                // Count image elements
+                const imageCount = imagePreviewContainer.querySelectorAll('.col-md-2').length;
+                // Count document elements
+                const docCount = documentPreviewContainer.querySelectorAll('li:not(#noDocsMessage)').length;
+                // Total count
+                const totalCount = imageCount + docCount;
+                
+                filesSelectedCount.textContent = totalCount;
+                console.log(`File count updated: ${totalCount} (${imageCount} images, ${docCount} documents)`);
+                
+                // Make sure selectedFiles array matches the UI count
+                if (selectedFiles.length !== totalCount) {
+                    console.warn(`Selected files count mismatch: UI shows ${totalCount}, array has ${selectedFiles.length}`);
+                }
+            }
+        }
+        
+        // More robust image file detection
+        function isImageFile(file) {
+            // Check by MIME type (primary method)
+            if (file.type.match(/^image\//)) {
+                return true;
+            }
+            
+            // Fallback: check by extension for browsers with inconsistent MIME reporting
+            const name = file.name.toLowerCase();
+            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.svg'];
+            
+            return imageExtensions.some(ext => name.endsWith(ext));
+        }
+        
+        function addImagePreview(file) {
+            // Clear no images message
+            if (noImagesMessage) {
+                noImagesMessage.style.display = 'none';
+            }
+            
+            try {
+                console.log(`Processing image: ${file.name}, size: ${formatFileSize(file.size)}`);
+                
+                // Create preview elements
+                const colDiv = document.createElement('div');
+                colDiv.className = 'col-md-2 mb-2';
+                colDiv.dataset.filename = file.name;
+                
+                const card = document.createElement('div');
+                card.className = 'card h-100 shadow-sm';
+                
+                const imgDiv = document.createElement('div');
+                imgDiv.className = 'card-img-top text-center p-2';
+                imgDiv.style.height = '100px';
+                
+                // Add loading indicator first (always visible during processing)
+                const loadingIndicator = document.createElement('div');
+                loadingIndicator.className = 'text-center my-2';
+                loadingIndicator.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div><div class="mt-1 small text-muted">Processing...</div>';
+                imgDiv.appendChild(loadingIndicator);
+                
+                const footer = document.createElement('div');
+                footer.className = 'card-footer p-1 text-center bg-light d-flex justify-content-between align-items-center';
+                
+                const name = document.createElement('small');
+                name.className = 'text-muted';
+                name.textContent = file.name.length > 15 ? file.name.substring(0, 12) + '...' : file.name;
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn btn-sm btn-outline-danger p-0 px-1';
+                removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+                removeBtn.title = 'Remove image';
+                
+                // Handle remove button click
+                removeBtn.addEventListener('click', function() {
+                    // Remove from UI
+                    colDiv.remove();
+                    
+                    // Remove from selected files array
+                    removeFileFromArray(file.name);
+                    
+                    // Show "no images" message if no images left
+                    if (imagePreviewContainer.querySelectorAll('.col-md-2').length === 0) {
+                        noImagesMessage.style.display = '';
+                    }
+                    
+                    // Update the file count
+                    updateFileCount();
+                });
+                
+                // Add the card to DOM early so user sees the loading indicator
+                footer.appendChild(name);
+                footer.appendChild(removeBtn);
+                card.appendChild(imgDiv);
+                card.appendChild(footer);
+                colDiv.appendChild(card);
+                imagePreviewContainer.appendChild(colDiv);
+                
+                // Process the image with a timeout to ensure we don't get stuck
+                const imageLoadTimeout = 5000; // 5 seconds timeout
+                let timeoutId;
+                let objectUrl = null;
+                
+                // Create a new image element - separate from DOM for initial loading
+                const img = new Image();
+                img.className = 'img-fluid rounded';
+                img.style.maxHeight = '100%';
+                img.style.maxWidth = '100%';
+                img.style.objectFit = 'contain';
+                
+                const handleSuccess = () => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                        timeoutId = null;
+                    }
+                    
+                    console.log(`Successfully loaded image: ${file.name}`);
+                    
+                    // Clear loading indicator
+                    imgDiv.innerHTML = '';
+                    
+                    // Clone the loaded image to ensure a clean state
+                    const displayImg = document.createElement('img');
+                    displayImg.className = img.className;
+                    displayImg.style.cssText = img.style.cssText;
+                    displayImg.src = img.src;
+                    
+                    // Add the image to the DOM
+                    imgDiv.appendChild(displayImg);
+                    
+                    // Clean up the objectUrl only after the image is displayed
+                    if (objectUrl) {
+                        // Small delay to ensure the image is rendered first
+                        setTimeout(() => {
+                            URL.revokeObjectURL(objectUrl);
+                            objectUrl = null;
+                        }, 100);
+                    }
+                };
+                
+                const handleError = (error) => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                        timeoutId = null;
+                    }
+                    
+                    console.error(`Failed to load image: ${file.name}`, error);
+                    
+                    // Remove this element
+                    colDiv.remove();
+                    
+                    // Show "no images" message if no images left
+                    if (imagePreviewContainer.querySelectorAll('.col-md-2').length === 0) {
+                        noImagesMessage.style.display = '';
+                    }
+                    
+                    // Add as document instead
+                    addDocumentPreview(file);
+                    
+                    // Clean up the objectUrl if it exists
+                    if (objectUrl) {
+                        URL.revokeObjectURL(objectUrl);
+                        objectUrl = null;
+                    }
+                };
+                
+                // Set up timeout to prevent hanging on large images
+                timeoutId = setTimeout(() => {
+                    console.warn(`Timed out loading image: ${file.name}`);
+                    handleError(new Error("Image load timeout"));
+                }, imageLoadTimeout);
+                
+                // Set up image events
+                img.onload = handleSuccess;
+                img.onerror = () => handleError(new Error("Image load error"));
+                
+                // Start loading the image - use a controlled approach with a new blob
+                // This can help with browser caching/memory issues
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        // Create a blob from the array buffer
+                        const blob = new Blob([event.target.result], { type: file.type });
+                        objectUrl = URL.createObjectURL(blob);
+                        img.src = objectUrl;
+                    } catch (error) {
+                        handleError(error);
+                    }
+                };
+                reader.onerror = () => handleError(new Error("FileReader error"));
+                
+                // Read the file as array buffer (more reliable than direct blob)
+                reader.readAsArrayBuffer(file);
+                
+            } catch (error) {
+                console.error("Error creating image preview:", error);
+                // Fall back to document preview on error
+                addDocumentPreview(file);
+            }
+        }
+        
+        function addDocumentPreview(file) {
+            // Clear no docs message
+            if (noDocsMessage) {
+                noDocsMessage.style.display = 'none';
+            }
+            
+            // File icon based on type
+            let icon = 'bi-file-earmark';
+            if (file.name.match(/\.(pdf)$/i)) icon = 'bi-file-earmark-pdf';
+            if (file.name.match(/\.(doc|docx)$/i)) icon = 'bi-file-earmark-word';
+            if (file.name.match(/\.(xls|xlsx)$/i)) icon = 'bi-file-earmark-excel';
+            if (file.name.match(/\.(ppt|pptx)$/i)) icon = 'bi-file-earmark-slides';
+            
+            // Create UI element
+            const listItem = document.createElement('li');
+            listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+            listItem.dataset.filename = file.name;
+            
+            // File info
+            const fileInfo = document.createElement('div');
+            fileInfo.innerHTML = `<i class="bi ${icon} me-2"></i>${file.name} <small class="text-muted">(${formatFileSize(file.size)})</small>`;
+            
+            // Remove button
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'btn btn-sm btn-outline-danger';
+            removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+            removeBtn.title = 'Remove file';
+            
+            // Handle remove button click
+            removeBtn.addEventListener('click', function() {
+                // Remove from UI
+                listItem.remove();
+                
+                // Remove from selected files array
+                removeFileFromArray(file.name);
+                
+                // Show "no docs" message if no documents left
+                if (documentPreviewContainer.querySelectorAll('li:not(#noDocsMessage)').length === 0) {
+                    noDocsMessage.style.display = '';
+                }
+            });
+            
+            listItem.appendChild(fileInfo);
+            listItem.appendChild(removeBtn);
+            documentPreviewContainer.appendChild(listItem);
+        }
+        
+        // Helper function to remove a file from the array by name
+        function removeFileFromArray(fileName) {
+            // Store original length to check if removal was successful
+            const originalLength = selectedFiles.length;
+            
+            // Filter out the file with the matching name
+            selectedFiles = selectedFiles.filter(file => file.name !== fileName);
+            
+            // Log warning if nothing was removed
+            if (originalLength === selectedFiles.length) {
+                console.warn(`Failed to remove file "${fileName}" from selectedFiles array`);
+                // Try to find similar filenames that might be the intended target
+                const similarFiles = selectedFiles.map(f => f.name).filter(name => 
+                    name.includes(fileName) || fileName.includes(name));
+                if (similarFiles.length > 0) {
+                    console.warn(`Similar filenames found: ${similarFiles.join(', ')}`);
+                }
+            } else {
+                console.log(`Successfully removed file "${fileName}". Remaining files: ${selectedFiles.length}`);
+            }
+            
+            // Update files count in debug panel
+            updateFileCount();
+        }
+        
+        // Helper function to format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Enhance the form submission to handle file transfers
+        document.querySelector('form[action="/rma"]').addEventListener('submit', function(e) {
+            // Prevent default form submission
+            e.preventDefault();
+            
+            console.log('Form submission intercepted - preparing to submit files');
+            console.log('Selected files:', selectedFiles.length);
+            
+            // Create a FormData object from the form
+            const formData = new FormData(this);
+            
+            // Remove any existing file inputs to avoid duplicates
+            formData.delete('fileUploads');
+            formData.delete('documentUploads');
+            formData.delete('imageUploads');
+            
+            // Add all selected files to the FormData object
+            selectedFiles.forEach(file => {
+                formData.append('fileUploads', file);
+                console.log(`Added file to form: ${file.name}, size: ${file.size}, type: ${file.type}`);
+            });
+            
+            // Get the transfer preview container
+            const transferPreviewContainer = document.getElementById('transferPreviewContainer');
+            
+            if (transferPreviewContainer && transferPreviewContainer.children.length > 0) {
+                console.log('TRANSFER DATA SUBMISSION - START');
+                
+                // Add flag for transfers
+                formData.append('hasFileTransfers', 'true');
+                
+                // Get all transfer cards
+                const transferCards = transferPreviewContainer.children;
+                
+                // Process each transfer card
+                Array.from(transferCards).forEach(card => {
+                    // Extract data from the card's hidden inputs
+                    const fileIdInput = card.querySelector('input[name="transferFileIds"]');
+                    const fileTypeInput = card.querySelector('input[name="transferFileTypes"]');
+                    const targetRmaIdInput = card.querySelector('input[name="transferTargetRmaIds"]');
+                    
+                    if (fileIdInput && fileTypeInput && targetRmaIdInput) {
+                        formData.append('transferFileIds', fileIdInput.value);
+                        formData.append('transferFileTypes', fileTypeInput.value);
+                        formData.append('transferTargetRmaIds', targetRmaIdInput.value);
+                        
+                        console.log(`Adding transfer: ${fileTypeInput.value} ID=${fileIdInput.value} to RMA=${targetRmaIdInput.value}`);
+                    }
+                });
+                
+                console.log(`TRANSFER DATA SUBMISSION - ${transferCards.length} transfers added to form`);
+            }
+            
+            // Process file uploads tracker
+            const fileUploadsTracker = document.getElementById('fileUploadsTracker');
+            if (fileUploadsTracker) {
+                fileUploadsTracker.value = selectedFiles ? selectedFiles.length + ' files selected' : '0 files selected';
+            }
+            
+            // Show loading indicator
+            const loadingIndicator = document.createElement('div');
+            loadingIndicator.className = 'position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-dark bg-opacity-50';
+            loadingIndicator.style.zIndex = '9999';
+            loadingIndicator.innerHTML = `
+                <div class="bg-white p-4 rounded shadow">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border text-primary me-3" role="status"></div>
+                        <div>
+                            <h5 class="mb-1">Submitting form...</h5>
+                            <p class="mb-0 small text-muted">Uploading ${selectedFiles.length} files</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(loadingIndicator);
+            
+            // Submit the form with fetch
+            fetch(this.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Form submission failed');
+                }
+                
+                // Get the redirect URL
+                const redirectUrl = response.url;
+                
+                // Navigate to the redirect location
+                window.location.href = redirectUrl;
+            })
+            .catch(error => {
+                console.error('Error submitting form:', error);
+                document.body.removeChild(loadingIndicator);
+                alert('Error submitting form: ' + error.message);
+            });
+            
+            return false; // Prevent default form submission
+        });
+        
+        // Fix to prevent any potential file input issues
+        const fixExistingFileLinks = function() {
+            // Add event listeners to all file action buttons to prevent them from
+            // interfering with the form submission
+            document.querySelectorAll('.file-actions a, .file-actions button').forEach(function(element) {
+                element.addEventListener('click', function(e) {
+                    // Don't let these clicks bubble up to the form
+                    e.stopPropagation();
+                });
+            });
+        };
+        
+        // Call fix function
+        fixExistingFileLinks();
+        
+        // Additional fix for file deletion buttons
+        document.querySelectorAll('form[action="/rma/file/delete"]').forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                // Don't let the delete form submission interfere with the main form
+                e.stopPropagation();
+            });
+        });
+
+        // Handle adding files to transfer preview
+        document.getElementById('addToTransferPreviewBtn').addEventListener('click', function(e) {
+            const fileId = document.getElementById('transferFileId').value;
+            const fileType = document.getElementById('transferFileType').value;
+            const fileName = document.getElementById('transferFileName').value;
+            const filePath = document.getElementById('transferFilePath').value;
+            const sourceRmaId = document.getElementById('sourceRmaId').value;
+            const targetRmaId = document.getElementById('targetRmaId').value;
+            const targetRmaText = targetRmaId ? document.getElementById('targetRmaId').options[document.getElementById('targetRmaId').selectedIndex].text : '';
+            
+            // Validate target RMA is selected
+            if (!targetRmaId) {
+                alert('Please select a target RMA');
+                return;
+            }
+            
+            // First create the preview card so it's visible when modal is hidden
+            // Show the transfer preview section
+            document.getElementById('transferPreviewSection').style.display = 'block';
+            
+            // Create a unique ID for this transfer
+            const transferId = `transfer-${fileType}-${fileId}-${targetRmaId}`;
+            
+            // Check if this file is already in the preview
+            if (document.getElementById(transferId)) {
+                alert('This file is already staged for transfer to this RMA');
+                bootstrap.Modal.getInstance(document.getElementById('transferModal')).hide();
+                return;
+            }
+            
+            // Create preview card
+            const card = document.createElement('div');
+            card.className = 'col-md-4 mb-3';
+            card.id = transferId;
+            
+            // Create card content
+            let cardHtml = `
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Transfer ${fileType.charAt(0).toUpperCase() + fileType.slice(1)}</span>
+                            <button type="button" class="btn-close btn-close-white remove-transfer" aria-label="Remove"></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+            `;
+            
+            // Add appropriate content based on file type
+            if (fileType === 'picture' && filePath) {
+                cardHtml += `
+                    <div class="text-center">
+                        <img src="${filePath}" alt="${fileName}" class="img-fluid mb-2" style="max-height: 100px;">
+                    </div>
+                `;
+            }
+            
+            cardHtml += `
+                <div class="card-text">
+                    <p><strong>File:</strong> <span class="file-name">${fileName}</span></p>
+                    <p><strong>To:</strong> <span class="target-rma">${targetRmaText}</span></p>
+                    <div class="text-center mt-2">
+                        <i class="bi bi-arrow-right fs-3 text-success"></i>
+                    </div>
+                </div>
+            `;
+            
+            cardHtml += `
+                    </div>
+                </div>
+            `;
+            
+            // Add the hidden inputs correctly (separate from the card's HTML)
+            card.innerHTML = cardHtml;
+            
+            // Now add the hidden inputs directly to the card
+            const fileIdInput = document.createElement('input');
+            fileIdInput.type = 'hidden';
+            fileIdInput.name = 'transferFileIds';
+            fileIdInput.value = fileId;
+            card.appendChild(fileIdInput);
+            
+            const fileTypeInput = document.createElement('input');
+            fileTypeInput.type = 'hidden';
+            fileTypeInput.name = 'transferFileTypes';
+            fileTypeInput.value = fileType;
+            card.appendChild(fileTypeInput);
+            
+            const targetRmaIdInput = document.createElement('input');
+            targetRmaIdInput.type = 'hidden';
+            targetRmaIdInput.name = 'transferTargetRmaIds';
+            targetRmaIdInput.value = targetRmaId;
+            card.appendChild(targetRmaIdInput);
+            
+            // Add card to preview container
+            document.getElementById('transferPreviewContainer').appendChild(card);
+            
+            // Add event listener to remove button
+            card.querySelector('.remove-transfer').addEventListener('click', function() {
+                card.remove();
+                
+                // Hide section if empty
+                if (document.getElementById('transferPreviewContainer').children.length === 0) {
+                    document.getElementById('transferPreviewSection').style.display = 'none';
+                }
+            });
+            
+            // Now properly close the modal
+            try {
+                const modalElement = document.getElementById('transferModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                modalInstance.hide();
+                
+                // Extra cleanup to ensure modal backdrop is removed
+                setTimeout(function() {
+                    if (document.body.classList.contains('modal-open')) {
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                    }
+                    
+                    // Remove any lingering backdrop
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => {
+                        backdrop.remove();
+                    });
+                }, 200);
+            } catch (error) {
+                console.error('Error closing modal:', error);
+                // Try alternative closing method
+                try {
+                    jQuery('#transferModal').modal('hide');
+                } catch (e) {
+                    console.error('Alternative modal closing failed:', e);
+                    // Last resort - force backdrop removal
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => backdrop.remove());
+                }
+            }
+        });
+
+        // Variables to store the delete data
+        let deleteFileId = null;
+        let deleteFileType = null;
+        let deleteRmaId = null;
+        
+        // Handle delete button clicks - show modal instead of browser confirm
+        document.querySelectorAll('.delete-file-btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Store the delete data
+                deleteFileId = this.getAttribute('data-id');
+                deleteFileType = this.getAttribute('data-type');
+                deleteRmaId = this.getAttribute('data-rma-id');
+                
+                // Show the confirm modal
+                const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+                deleteModal.show();
+            });
+        });
+        
+        // Handle confirm delete button
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            if (deleteFileId && deleteFileType && deleteRmaId) {
+                // Hide the modal
+                bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal')).hide();
+                
+                // Show loading indicator
+                const loadingIndicator = document.createElement('div');
+                loadingIndicator.className = 'position-fixed top-50 start-50 translate-middle bg-white p-3 rounded shadow text-center';
+                loadingIndicator.innerHTML = '<div class="spinner-border text-primary" role="status"></div><div class="mt-2">Processing...</div>';
+                loadingIndicator.id = 'loadingIndicator';
+                document.body.appendChild(loadingIndicator);
+                
+                // Send AJAX request to delete the file
+                fetch('/rma/file/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `fileId=${deleteFileId}&fileType=${deleteFileType}&rmaId=${deleteRmaId}`
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    // Reload the page to show changes
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting file: ' + error.message);
+                    document.body.removeChild(loadingIndicator);
+                });
+            }
+        });
+
+        // Set up event listener for modal hidden event to ensure proper cleanup
+        const transferModal = document.getElementById('transferModal');
+        if (transferModal) {
+            transferModal.addEventListener('hidden.bs.modal', function() {
+                // Ensure modal backdrop is completely removed
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+                
+                // Remove any lingering backdrop
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                backdrops.forEach(backdrop => {
+                    backdrop.remove();
+                });
+                
+                console.log('Modal hidden event - cleanup complete');
+            });
+            
+            // Add a failsafe to ensure modal closes on Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && document.body.classList.contains('modal-open')) {
+                    const openModals = document.querySelectorAll('.modal.show');
+                    if (openModals.length > 0) {
+                        openModals.forEach(modal => {
+                            try {
+                                const modalInstance = bootstrap.Modal.getInstance(modal);
+                                if (modalInstance) {
+                                    modalInstance.hide();
+                                }
+                            } catch (error) {
+                                console.error('Error closing modal:', error);
+                            }
+                        });
+                        
+                        // Force cleanup if needed
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                        const backdrops = document.querySelectorAll('.modal-backdrop');
+                        backdrops.forEach(backdrop => {
+                            backdrop.remove();
+                        });
+                    }
+                }
+            });
+        }
+      });
+    </script>
+</body>
+</html> 

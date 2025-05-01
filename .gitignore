@@ -1,0 +1,106 @@
+# Java / Spring Boot
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Build files
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# IDE - Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# IDE - IntelliJ IDEA
+.idea
+*.iws
+*.iml
+*.ipr
+
+# IDE - VS Code
+.vscode/
+**/.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IDE - NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database
+*.sqlite
+*.db
+h2*.db
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Upload directories (keep the directory structure but not the files)
+**/uploads/**/*.jpg
+**/uploads/**/*.jpeg
+**/uploads/**/*.png
+**/uploads/**/*.gif
+**/uploads/**/*.pdf
+**/uploads/**/*.doc
+**/uploads/**/*.docx
+**/uploads/**/*.xls
+**/uploads/**/*.xlsx
+**/uploads/**/*.txt
+
+# Make sure upload directories exist
+!**/uploads/
+!**/uploads/pictures/
+!**/uploads/documents/
+!**/uploads/rma-pictures/
+!**/uploads/rma-documents/
+!**/uploads/**/README.md
+
+# Node modules and build files for client
+pcd-manager-client/node_modules/
+pcd-manager-client/build/
+pcd-manager-client/dist/
+pcd-manager-client/.env
+pcd-manager-client/.env.local
+pcd-manager-client/.env.development.local
+pcd-manager-client/.env.test.local
+pcd-manager-client/.env.production.local
+
+# Application specific files
+application-dev.properties
+application-local.properties
+**/*-dev.properties
+**/*-dev.yml
+**/*-local.yml
+*.log 

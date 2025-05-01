@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCD Manager - Parts</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div th:replace="~{fragments/navigation :: navbar('parts')}"></div>
+
+    <div class="container mt-4">
+        <div class="row mb-3">
+            <div class="col">
+                <h1>Parts</h1>
+            </div>
+            <div class="col text-end">
+                <a href="/parts/new" class="btn btn-primary">Add New Part</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div th:if="${parts.empty}" class="alert alert-info">
+                    No parts found. Click "Add New Part" to create one.
+                </div>
+                
+                <div th:if="${!parts.empty}" class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Component</th>
+                                <th>Location</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="part : ${parts}">
+                                <td th:text="${part.id}">1</td>
+                                <td th:text="${part.name}">Part Name</td>
+                                <td th:text="${part.component ?: '-'}">Component</td>
+                                <td th:text="${part.location != null ? part.location.displayName : '-'}">AZ F52</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a th:href="@{/parts/{id}(id=${part.id})}" class="btn btn-outline-primary">View</a>
+                                        <a th:href="@{/parts/{id}/edit(id=${part.id})}" class="btn btn-outline-secondary">Edit</a>
+                                        <button type="button" class="btn btn-outline-danger" 
+                                                data-bs-toggle="modal" th:data-bs-target="${'#deletePartModal-' + part.id}">
+                                            Delete
+                                        </button>
+                                    </div>
+
+                                    <!-- Delete Part Modal -->
+                                    <div class="modal fade" th:id="${'deletePartModal-' + part.id}" tabindex="-1" aria-labelledby="deletePartModalLabel" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="deletePartModalLabel">Confirm Delete</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Are you sure you want to delete this part?
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <form th:action="@{/parts/{id}/delete(id=${part.id})}" method="post">
+                                                        <button type="submit" class="btn btn-danger">Delete</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

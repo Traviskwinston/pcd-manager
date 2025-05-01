@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCD Manager - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        .scrollable-list {
+            /* Allow list to fill the card body and scroll fully */
+            flex: 1 1 auto;
+            overflow-y: auto;
+            max-height: none;
+        }
+        .tool-item {
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            background-color: #f8f9fa;
+        }
+        .passdown-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .filter-icon {
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .filter-icon:hover {
+            background-color: rgba(0,0,0,.1);
+        }
+        
+        .tool-hidden {
+            display: none !important;
+        }
+        
+        .list-group-item-link {
+            display: block;
+            color: #212529;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            margin: -0.5rem -1rem;
+        }
+        
+        .list-group-item-link:hover {
+            background-color: rgba(0,0,0,.03);
+            color: #0d6efd;
+        }
+        /* Ensure full-height layout for dashboard cards */
+        html, body {
+            height: 100%;
+        }
+        .dashboard-container {
+            height: calc(100vh - 56px); /* adjust if navbar height differs */
+        }
+        .full-height-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .full-height-card .card-body {
+            /* Make card-body fill remaining space and host a flex layout */
+            display: flex;
+            flex: 1 1 auto;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        /* Clamp passdown comments to 3 lines with ellipsis */
+        .clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /* Adjust Tools column width to ~29% */
+        .tools-col {
+            flex: 0 0 29%;
+            max-width: 29%;
+        }
+        /* Main column holds grid and passdowns, remaining ~71% width */
+        .main-col {
+            flex: 0 0 71%;
+            max-width: 71%;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .main-col .top-half, .main-col .bottom-half {
+            flex: 1 1 50%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        /* Grid container and canvas styling */
+        #grid-controls {
+            padding: .5rem;
+            background: #f1f1f1;
+            border-bottom: 1px solid #ddd;
+        }
+        #grid-canvas {
+            flex: 1 1 auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Include the navigation fragment with modern syntax -->
+    <div th:replace="~{fragments/navigation :: navbar('dashboard')}"></div>
+
+    <div class="container-fluid mt-4 dashboard-container h-100">
+        <div class="row h-100">
+            <!-- Left Column: Tools -->
+            <div class="d-flex h-100 tools-col">
+                <div class="card full-height-card w-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Tools</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="me-2">
+                                <span class="filter-icon" title="Filter by type">
+                                    <i class="bi bi-filter"></i>
+                                </span>
+                            </div>
+                            <input id="tool-search" type="text" class="form-control form-control-sm ms-2" placeholder="Search tools..." style="max-width:200px;">
+                        </div>
+                    </div>
+                    <!-- Collapsible filter panel -->
+                    <div id="tool-filter-panel" class="px-3 py-2 bg-light border-bottom" style="display:none;">
+                        <div class="row g-2">
+                            <div class="col">
+                                <select id="filter-type" class="form-select form-select-sm">
+                                    <option value="">All Types</option>
+                                    <option th:each="t : ${T(com.pcd.manager.model.Tool.ToolType).values()}"
+                                            th:value="${t.name()}" th:text="${t.name()}"></option>
+                                </select>
+                            </div>
+                            <div class="col">
+                                <select id="filter-status" class="form-select form-select-sm">
+                                    <option value="">All Status</option>
+                                    <option th:each="s : ${T(com.pcd.manager.model.Tool.ToolStatus).values()}"
+                                            th:value="${s.name()}"
+                                            th:text="${s.name().replace('_',' ').toLowerCase().replaceFirst('.', s.name().replace('_',' ').substring(0,1).toUpperCase())}">
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col">
+                                <select id="filter-location" class="form-select form-select-sm">
+                                    <option value="">All Locations</option>
+                                    <option th:each="loc : ${locations}" 
+                                            th:value="${loc.id}" th:text="${loc.displayName}"></option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="scrollable-list">
+                            <!-- No tools message -->
+                            <div th:if="${tools == null || tools.isEmpty()}" class="text-center text-muted p-3">
+                                <p>No tools available</p>
+                            </div>
+                            
+                            <!-- Tools list -->
+                            <div th:if="${tools != null && !tools.isEmpty()}">
+                                <div th:each="tool : ${tools}" 
+                                     class="tool-item position-relative p-0" 
+                                     th:data-type="${tool.toolType}" 
+                                     th:attr="data-serial=${tool.serialNumber1},data-model=${tool.model1},data-status=${tool.status},data-location=${tool.location != null ? tool.location.id : ''}">
+                                    <a th:href="@{/tools/{id}(id=${tool.id})}" 
+                                       class="list-group-item-link"
+                                       th:text="${tool.name != null ? tool.name : 'Unnamed Tool'}">
+                                        Tool Name
+                                    </a>
+                                    <div th:if="${tool.location != null && tool.location.name != null}" 
+                                         class="small text-muted ps-3 pb-2">
+                                        Location: <span th:text="${tool.location.name}">Location</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main Column: Grid (top) and Passdowns (bottom) -->
+            <div class="main-col">
+                <!-- Top half: Grid -->
+                <div class="top-half">
+                    <div id="grid-controls" class="d-flex gap-2">
+                        <button id="cancel-placement" class="btn btn-sm btn-dark" title="Pointer mode"><i class="bi bi-mouse"></i></button>
+                        <button id="add-room" class="btn btn-sm btn-outline-dark">Room 2x2</button>
+                        <button id="add-room-drag" class="btn btn-sm btn-outline-dark">Room</button>
+                        <button id="add-tool1x2" class="btn btn-sm btn-outline-dark">Tool 1x2</button>
+                        <button id="add-tool2x1" class="btn btn-sm btn-outline-dark">Tool 2x1</button>
+                        <button id="add-tool1x1" class="btn btn-sm btn-outline-dark">Tool 1x1</button>
+                        <button id="add-misc" class="btn btn-sm btn-outline-dark">Misc 1x1</button>
+                    </div>
+                    <div id="grid-canvas" class="flex-grow-1"></div>
+                </div>
+                <!-- Bottom half: Passdowns -->
+                <div class="bottom-half">
+                    <div class="card full-height-card w-100">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Recent Passdowns</h5>
+                                <input id="passdown-search" type="text" class="form-control form-control-sm ms-2" placeholder="Search passdowns..." style="max-width:200px;">
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="scrollable-list">
+                                <div th:if="${passdowns == null || passdowns.isEmpty()}" class="text-center text-muted p-3"><p>No passdowns available</p></div>
+                                <div th:if="${passdowns != null && !passdowns.isEmpty()}">
+                                    <div th:each="passdown : ${passdowns}" class="passdown-item" th:attr="data-comment=${passdown.comment},data-user=${passdown.user != null ? passdown.user.name : ''},data-tool=${passdown.tool != null ? passdown.tool.name : ''}">
+                                        <p class="mb-1 clamp-3" th:text="${passdown.comment != null ? passdown.comment : 'No comment'}"></p>
+                                        <div th:if="${passdown.user != null && passdown.user.name != null}" class="small text-muted d-flex align-items-center">
+                                            <span>Posted by: <span th:text="${passdown.user.name}">User</span></span>
+                                            <span class="ms-3">Date: <span th:text="${#temporals.format(passdown.date, 'MM/dd/yyyy')}">MM/dd/yyyy</span></span>
+                                        </div>
+                                        <div class="mt-1"><a th:href="@{/passdown/{id}(id=${passdown.id})}" class="btn btn-sm btn-link p-0">View Details</a></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/konva@8/konva.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get filter links
+            const filterLinks = document.querySelectorAll('.dropdown-item[data-filter]');
+            
+            // Add click event to each filter link
+            filterLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Get the filter value
+                    const filterValue = this.getAttribute('data-filter');
+                    
+                    // Update active class
+                    filterLinks.forEach(item => item.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Get all tool items
+                    const toolItems = document.querySelectorAll('.tool-item');
+                    
+                    // Apply filter
+                    toolItems.forEach(item => {
+                        const toolType = item.getAttribute('data-type');
+                        
+                        if (filterValue === 'all' || filterValue === toolType) {
+                            item.classList.remove('tool-hidden');
+                        } else {
+                            item.classList.add('tool-hidden');
+                        }
+                    });
+                });
+            });
+            // Tool search filter
+            const searchInput = document.getElementById('tool-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', function(e) {
+                    const filter = e.target.value.toLowerCase();
+                    document.querySelectorAll('.tool-item').forEach(item => {
+                        const name = item.querySelector('.list-group-item-link').textContent.toLowerCase();
+                        const serial = (item.getAttribute('data-serial') || '').toLowerCase();
+                        const model = (item.getAttribute('data-model') || '').toLowerCase();
+                        if (name.includes(filter) || serial.includes(filter) || model.includes(filter)) {
+                            item.classList.remove('tool-hidden');
+                        } else {
+                            item.classList.add('tool-hidden');
+                        }
+                    });
+                });
+            }
+            // Passdown search filter
+            const passdownInput = document.getElementById('passdown-search');
+            if (passdownInput) {
+                passdownInput.addEventListener('input', function(e) {
+                    const filter = e.target.value.toLowerCase();
+                    document.querySelectorAll('.passdown-item').forEach(item => {
+                        const comment = (item.getAttribute('data-comment') || '').toLowerCase();
+                        const user = (item.getAttribute('data-user') || '').toLowerCase();
+                        const toolName = (item.getAttribute('data-tool') || '').toLowerCase();
+                        if (comment.includes(filter) || user.includes(filter) || toolName.includes(filter)) {
+                            item.classList.remove('tool-hidden');
+                        } else {
+                            item.classList.add('tool-hidden');
+                        }
+                    });
+                });
+            }
+            // Toggle filter panel
+            const filterIcon = document.querySelector('.filter-icon');
+            const filterPanel = document.getElementById('tool-filter-panel');
+            if (filterIcon && filterPanel) {
+                filterIcon.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    filterPanel.style.display = filterPanel.style.display === 'none' ? 'block' : 'none';
+                });
+            }
+            // Filter selects
+            const typeSelect = document.getElementById('filter-type');
+            const statusSelect = document.getElementById('filter-status');
+            const locationSelect = document.getElementById('filter-location');
+            function filterTools() {
+                const typeVal = typeSelect.value;
+                const statusVal = statusSelect.value;
+                const locVal = locationSelect.value;
+                const textFilter = (searchInput && searchInput.value.toLowerCase()) || '';
+                document.querySelectorAll('.tool-item').forEach(item => {
+                    const name = item.querySelector('.list-group-item-link').textContent.toLowerCase();
+                    const serial = (item.getAttribute('data-serial') || '').toLowerCase();
+                    const model = (item.getAttribute('data-model') || '').toLowerCase();
+                    const type = (item.getAttribute('data-type') || '');
+                    const status = (item.getAttribute('data-status') || '');
+                    const location = (item.getAttribute('data-location') || '');
+                    let visible = true;
+                    // Text search
+                    if (textFilter && !(name.includes(textFilter) || serial.includes(textFilter) || model.includes(textFilter))) {
+                        visible = false;
+                    }
+                    // Type filter
+                    if (visible && typeVal && typeVal !== type) {
+                        visible = false;
+                    }
+                    // Status filter
+                    if (visible && statusVal && statusVal !== status) {
+                        visible = false;
+                    }
+                    // Location filter
+                    if (visible && locVal && locVal !== location) {
+                        visible = false;
+                    }
+                    item.style.display = visible ? '' : 'none';
+                });
+            }
+            if (typeSelect) typeSelect.addEventListener('change', filterTools);
+            if (statusSelect) statusSelect.addEventListener('change', filterTools);
+            if (locationSelect) locationSelect.addEventListener('change', filterTools);
+            if (searchInput) searchInput.addEventListener('input', filterTools);
+
+            var container = document.getElementById('grid-canvas');
+            var viewCols = 32; // Kept for potential column calcs
+            var viewWidth = container.offsetWidth;
+            var viewHeight = container.offsetHeight;
+            // default view should be 24 rows tall, so derive cellSize from height
+            var cellSize = viewHeight / 24;
+            // create a large grid of 1000x1000 cells
+            var gridSize = 1000;
+            var stageWidth = gridSize * cellSize;
+            var stageHeight = gridSize * cellSize;
+            // stage acts as viewport, fixed size
+            var stage = new Konva.Stage({
+                container: 'grid-canvas',
+                width: viewWidth,
+                height: viewHeight
+            });
+            var gridGroup = new Konva.Group({ draggable: true });
+            var layer = new Konva.Layer();
+            layer.add(gridGroup);
+            stage.add(layer);
+            // add transparent background for full-area dragging
+            var background = new Konva.Rect({
+                x: 0,
+                y: 0,
+                width: stageWidth,
+                height: stageHeight,
+                fill: 'transparent'
+            });
+            gridGroup.add(background);
+            // center the grid view
+            gridGroup.position({
+                x: (viewWidth - stageWidth) / 2,
+                y: (viewHeight - stageHeight) / 2
+            });
+            // draw grid lines up to gridSize
+            for (var i = 0; i <= gridSize; i++) {
+                gridGroup.add(new Konva.Line({
+                    points: [i * cellSize, 0, i * cellSize, stageHeight],
+                    stroke: '#ddd',
+                    strokeWidth: 1
+                }));
+            }
+            for (var j = 0; j <= gridSize; j++) {
+                gridGroup.add(new Konva.Line({
+                    points: [0, j * cellSize, stageWidth, j * cellSize],
+                    stroke: '#ddd',
+                    strokeWidth: 1
+                }));
+            }
+            layer.draw();
+            // zoom on wheel around pointer
+            stage.on('wheel', function(e) {
+                e.evt.preventDefault();
+                var oldScale = gridGroup.scaleX();
+                var pointer = stage.getPointerPosition();
+                var mousePointTo = {
+                    x: (pointer.x - gridGroup.x()) / oldScale,
+                    y: (pointer.y - gridGroup.y()) / oldScale
+                };
+                var scaleBy = 1.05;
+                var newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
+                gridGroup.scale({ x: newScale, y: newScale });
+                var newPos = {
+                    x: pointer.x - mousePointTo.x * newScale,
+                    y: pointer.y - mousePointTo.y * newScale
+                };
+                gridGroup.position(newPos);
+                layer.batchDraw();
+            });
+            // add shapes via group
+            var shapeSize = cellSize * 2;
+            var currentShapeType = null;
+            var isDragCreating = false;
+            var dragStart = null;
+            var previewRect = null;
+            var isPointerActive = true;
+            // Cancel placement
+            document.getElementById('cancel-placement').addEventListener('click', function() {
+                isPointerActive = true;
+                currentShapeType = null;
+                gridGroup.draggable(true);
+                // highlight pointer, reset others
+                ['cancel-placement','add-room','add-room-drag','add-tool1x2','add-tool2x1','add-tool1x1','add-misc'].forEach(function(id) {
+                    var btn = document.getElementById(id);
+                    if (id === 'cancel-placement') {
+                        btn.classList.remove('btn-outline-dark'); btn.classList.add('btn-dark');
+                    } else {
+                        btn.classList.remove('btn-dark'); btn.classList.add('btn-outline-dark');
+                    }
+                });
+            });
+            // Shape selection buttons
+            ['cancel-placement','add-room','add-room-drag','add-tool1x2','add-tool2x1','add-tool1x1','add-misc'].forEach(function(id) {
+                document.getElementById(id).addEventListener('click', function() {
+                    isPointerActive = false;
+                    gridGroup.draggable(false);
+                    currentShapeType = id;
+                    ['cancel-placement','add-room','add-room-drag','add-tool1x2','add-tool2x1','add-tool1x1','add-misc'].forEach(function(other) {
+                        var btn = document.getElementById(other);
+                        if (other === id) {
+                            btn.classList.remove('btn-outline-dark'); btn.classList.add('btn-dark');
+                        } else {
+                            btn.classList.remove('btn-dark'); btn.classList.add('btn-outline-dark');
+                        }
+                    });
+                });
+            });
+            // add transformer to allow resizing of hollow shapes
+            var tr = new Konva.Transformer({
+                enabledAnchors: ['top-left', 'top-center', 'top-right', 'middle-right', 'bottom-right', 'bottom-center', 'bottom-left', 'middle-left'],
+                rotateEnabled: false,
+                boundBoxFunc: function(oldBox, newBox) {
+                    // handle snapping: for hollow shapes include stroke in outer dimensions
+                    var nodes = this.nodes();
+                    if (nodes.length === 1 && nodes[0].getAttr('hollow')) {
+                        var sw = nodes[0].strokeWidth() || 0;
+                        var halfSw = sw / 2;
+                        // calculate outer bounds including stroke
+                        var outerX = newBox.x - halfSw;
+                        var outerY = newBox.y - halfSw;
+                        var outerW = newBox.width + sw;
+                        var outerH = newBox.height + sw;
+                        // snap outer edges to grid
+                        var snappedOuterX = Math.round(outerX / cellSize) * cellSize;
+                        var snappedOuterY = Math.round(outerY / cellSize) * cellSize;
+                        var snappedOuterW = Math.round(outerW / cellSize) * cellSize;
+                        var snappedOuterH = Math.round(outerH / cellSize) * cellSize;
+                        // apply inner box adjustments
+                        newBox.x = snappedOuterX + halfSw;
+                        newBox.y = snappedOuterY + halfSw;
+                        newBox.width = snappedOuterW - sw;
+                        newBox.height = snappedOuterH - sw;
+                    } else {
+                        // normal snap for solid shapes
+                        newBox.x = Math.round(newBox.x / cellSize) * cellSize;
+                        newBox.y = Math.round(newBox.y / cellSize) * cellSize;
+                        newBox.width = Math.round(newBox.width / cellSize) * cellSize;
+                        newBox.height = Math.round(newBox.height / cellSize) * cellSize;
+                    }
+                    return newBox;
+                }
+            });
+            gridGroup.add(tr);
+            // after transformer snapping, apply new size and reset scale
+            tr.on('transformend', function() {
+                var nodes = tr.nodes();
+                if (nodes.length === 1) {
+                    var node = nodes[0];
+                    var sw = node.getAttr('hollow') ? (node.strokeWidth() || 0) : 0;
+                    var halfSw = sw / 2;
+                    // calculate absolute dimensions including stroke
+                    var absW = node.width() * node.scaleX() + sw;
+                    var absH = node.height() * node.scaleY() + sw;
+                    // snap outer dimensions to grid
+                    var snappedW = Math.round(absW / cellSize) * cellSize;
+                    var snappedH = Math.round(absH / cellSize) * cellSize;
+                    // compute new inner size
+                    var newW = snappedW - sw;
+                    var newH = snappedH - sw;
+                    // calculate absolute position including stroke
+                    var absX = node.x() - halfSw;
+                    var absY = node.y() - halfSw;
+                    // snap position to grid
+                    var snappedX = Math.round(absX / cellSize) * cellSize;
+                    var snappedY = Math.round(absY / cellSize) * cellSize;
+                    var newX = snappedX + halfSw;
+                    var newY = snappedY + halfSw;
+                    // apply size and reset scale
+                    node.width(newW);
+                    node.height(newH);
+                    node.scaleX(1);
+                    node.scaleY(1);
+                    node.position({ x: newX, y: newY });
+                    layer.batchDraw();
+                }
+            });
+            stage.on('click', function(e) {
+                // only left-click
+                if (e.evt.button !== 0) return;
+                // if in placement mode, place shapes
+                if (currentShapeType) {
+                    // calculate local point and snap to grid cell
+                    var pointer = stage.getPointerPosition();
+                    var transformInv = gridGroup.getAbsoluteTransform().copy().invert();
+                    var local = transformInv.point(pointer);
+                    var cellX = Math.floor(local.x / cellSize) * cellSize;
+                    var cellY = Math.floor(local.y / cellSize) * cellSize;
+                    // determine dimensions and style
+                    var wCells = 1, hCells = 1, isHollow = false;
+                    switch (currentShapeType) {
+                        case 'add-room': wCells = 2; hCells = 2; isHollow = true; break;
+                        case 'add-tool1x2': wCells = 1; hCells = 2; break;
+                        case 'add-tool2x1': wCells = 2; hCells = 1; break;
+                        case 'add-tool1x1': wCells = 1; hCells = 1; break;
+                        case 'add-misc': wCells = 1; hCells = 1; isHollow = true; break;
+                    }
+                    var config = {
+                        x: cellX,
+                        y: cellY,
+                        width: cellSize * wCells,
+                        height: cellSize * hCells,
+                        draggable: true
+                    };
+                    // place a single Rect: hollow or solid
+                    var rectConfig = {
+                        x: config.x,
+                        y: config.y,
+                        width: config.width,
+                        height: config.height,
+                        draggable: true
+                    };
+                    var rect;
+                    // apply simple border and shadow for both hollow and solid
+                    if (isHollow) {
+                        rect = new Konva.Rect(Object.assign({}, rectConfig, {
+                            fill: 'transparent',
+                            stroke: 'black', // keep hollow objects black
+                            strokeWidth: 2,
+                            strokeScaleEnabled: false, // keep stroke width constant when resized
+                            shadowColor: 'black',
+                            shadowBlur: 10,
+                            shadowOffset: { x: 5, y: 5 },
+                            shadowOpacity: 0.5
+                        }));
+                        rect.setAttr('hollow', true);
+                    } else {
+                        rect = new Konva.Rect(Object.assign({}, rectConfig, {
+                            fill: '#6f2f9f', // primary purple
+                            stroke: '#4f1c7f', // darker border
+                            strokeWidth: 2,
+                            shadowColor: 'black',
+                            shadowBlur: 10,
+                            shadowOffset: { x: 5, y: 5 },
+                            shadowOpacity: 0.5
+                        }));
+                    }
+                    rect.on('dragend', function() {
+                        var pos = this.position();
+                        this.position({ x: Math.round(pos.x / cellSize) * cellSize, y: Math.round(pos.y / cellSize) * cellSize });
+                        layer.batchDraw();
+                    });
+                    gridGroup.add(rect);
+                    layer.batchDraw();
+                } else {
+                    // not in placement: select hollow shapes
+                    var target = e.target;
+                    if (target && target.getClassName && target.getClassName() === 'Rect' && target.getAttr('hollow')) {
+                        tr.nodes([target]);
+                    } else {
+                        tr.nodes([]);
+                    }
+                    layer.draw();
+                }
+            });
+            // mousedown for room drag placement
+            stage.on('mousedown', function(e) {
+                if (currentShapeType === 'add-room-drag' && e.evt.button === 0) {
+                    isDragCreating = true;
+                    var pointer = stage.getPointerPosition();
+                    var local = gridGroup.getAbsoluteTransform().copy().invert().point(pointer);
+                    var startX = Math.floor(local.x / cellSize) * cellSize;
+                    var startY = Math.floor(local.y / cellSize) * cellSize;
+                    dragStart = { x: startX, y: startY };
+                    previewRect = new Konva.Rect({
+                        x: startX,
+                        y: startY,
+                        width: 0,
+                        height: 0,
+                        fill: 'transparent',
+                        stroke: 'black',
+                        strokeWidth: 2,
+                        strokeScaleEnabled: false,
+                        dash: [4, 4]
+                    });
+                    gridGroup.add(previewRect);
+                    layer.batchDraw();
+                }
+            });
+            // mousemove updates preview size
+            stage.on('mousemove', function(e) {
+                if (isDragCreating && previewRect) {
+                    var pointer = stage.getPointerPosition();
+                    var local = gridGroup.getAbsoluteTransform().copy().invert().point(pointer);
+                    var currX = Math.ceil(local.x / cellSize) * cellSize;
+                    var currY = Math.ceil(local.y / cellSize) * cellSize;
+                    previewRect.width(currX - dragStart.x);
+                    previewRect.height(currY - dragStart.y);
+                    layer.batchDraw();
+                }
+            });
+            // mouseup finalizes the hollow room
+            stage.on('mouseup', function(e) {
+                if (isDragCreating) {
+                    isDragCreating = false;
+                    var finalRect = new Konva.Rect({
+                        x: previewRect.x(),
+                        y: previewRect.y(),
+                        width: previewRect.width(),
+                        height: previewRect.height(),
+                        fill: 'transparent',
+                        stroke: 'black',
+                        strokeWidth: 2,
+                        strokeScaleEnabled: false,
+                        shadowColor: 'black',
+                        shadowBlur: 10,
+                        shadowOffset: { x: 5, y: 5 },
+                        shadowOpacity: 0.5
+                    });
+                    finalRect.setAttr('hollow', true);
+                    previewRect.destroy();
+                    previewRect = null;
+                    dragStart = null;
+                    gridGroup.add(finalRect);
+                    layer.draw();
+                    // reset selection
+                    currentShapeType = null;
+                    ['cancel-placement','add-room','add-room-drag','add-tool1x2','add-tool2x1','add-tool1x1','add-misc'].forEach(function(id) {
+                        var btn = document.getElementById(id);
+                        btn.classList.remove('btn-dark'); btn.classList.add('btn-outline-dark');
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

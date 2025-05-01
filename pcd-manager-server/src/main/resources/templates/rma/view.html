@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCD Manager - RMA Details</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div th:replace="~{fragments/navigation :: navbar('rma')}"></div>
+
+    <div class="container mt-4">
+        <div class="row mb-3">
+            <div class="col">
+                <h1>RMA Details</h1>
+            </div>
+            <div class="col text-end">
+                <a th:href="@{/rma}" class="btn btn-secondary">Back to RMA Matrix</a>
+                <a th:href="@{/rma/edit/{id}(id=${rma.id})}" class="btn btn-primary">Edit</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="row">
+                    <div class="col">
+                        <h4 th:text="${'RMA: ' + rma.rmaNumber}">RMA Number</h4>
+                    </div>
+                    <div class="col text-end">
+                        <div class="mb-1">
+                            <span th:if="${rma.status != null}" th:class="${'badge rounded-pill ' + 
+                                (rma.status.name() == 'RMA_WRITTEN_EMAILED' ? 'bg-primary' : 
+                                (rma.status.name() == 'NUMBER_PROVIDED' ? 'bg-info' : 
+                                (rma.status.name() == 'MEMO_EMAILED' ? 'bg-secondary' :
+                                (rma.status.name() == 'RECEIVED_PARTS' ? 'bg-warning' : 
+                                (rma.status.name() == 'WAITING_CUSTOMER' ? 'bg-danger' : 
+                                (rma.status.name() == 'WAITING_FSE' ? 'bg-danger' : 
+                                (rma.status.name() == 'COMPLETED' ? 'bg-success' : 'bg-light')))))))}"
+                                th:text="${rma.status?.displayName}">
+                                Status
+                            </span>
+                            <span th:if="${rma.priority != null}" th:class="${'ms-2 badge rounded-pill ' + 
+                                (rma.priority == 'LOW' ? 'bg-info' : 
+                                (rma.priority == 'MEDIUM' ? 'bg-warning' : 
+                                (rma.priority == 'HIGH' ? 'bg-danger' : 
+                                (rma.priority == 'URGENT' ? 'bg-danger text-uppercase' : 'bg-light'))))}"
+                                th:text="${rma.priority}">
+                                Priority
+                            </span>
+                        </div>
+                        <div class="small text-muted">
+                            <div>Location: <span th:text="${rma.location != null ? rma.location.displayName : 'N/A'}"></span></div>
+                            <div>Technician: <span th:text="${rma.technician != null ? rma.technician : 'Not assigned'}"></span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5>Customer Information</h5>
+                        <table class="table table-bordered">
+                            <tr>
+                                <th style="width:30%">Customer</th>
+                                <td th:text="${rma.customerName}">Customer name</td>
+                            </tr>
+                            <tr>
+                                <th>Sales Order</th>
+                                <td th:text="${rma.salesOrder}">Sales order</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Parts Information</h5>
+                        <!-- Table to display part line items -->
+                        <table class="table table-sm table-bordered" th:if="${rma.partLineItems != null and not #lists.isEmpty(rma.partLineItems)}">
+                            <thead>
+                                <tr>
+                                    <th>Part Name</th>
+                                    <th>Part #</th>
+                                    <th>Description</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-center">Replacement</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="item : ${rma.partLineItems}">
+                                    <td th:text="${item.partName}">Part Name</td>
+                                    <td th:text="${item.partNumber}">Part number</td>
+                                    <td th:text="${item.productDescription}">Description</td>
+                                    <td class="text-center" th:text="${item.quantity}">Qty</td>
+                                    <td class="text-center">
+                                        <span th:if="${item.replacementRequired}" class="badge bg-success">Yes</span>
+                                        <span th:unless="${item.replacementRequired}" class="badge bg-secondary">No</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p th:if="${rma.partLineItems == null or #lists.isEmpty(rma.partLineItems)}" class="text-muted">(No parts associated)</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <h5>Dates</h5>
+                        <table class="table table-bordered">
+                            <tr>
+                                <th style="width:40%">Received</th>
+                                <td th:text="${rma.receivedDate != null ? #temporals.format(rma.receivedDate, 'yyyy-MM-dd') : 'N/A'}">Received date</td>
+                            </tr>
+                            <tr>
+                                <th>Written</th>
+                                <td th:text="${rma.writtenDate != null ? #temporals.format(rma.writtenDate, 'yyyy-MM-dd') : 'N/A'}">Written date</td>
+                            </tr>
+                            <tr>
+                                <th>Created</th>
+                                <td th:text="${rma.createdDate != null ? #temporals.format(rma.createdDate, 'yyyy-MM-dd') : 'N/A'}">Created date</td>
+                            </tr>
+                            <tr>
+                                <th>RMA # Provided</th>
+                                <td th:text="${rma.rmaNumberProvidedDate != null ? #temporals.format(rma.rmaNumberProvidedDate, 'yyyy-MM-dd') : 'N/A'}">RMA # Provided date</td>
+                            </tr>
+                            <tr>
+                                <th>Memo Emailed</th>
+                                <td th:text="${rma.shippingMemoEmailedDate != null ? #temporals.format(rma.shippingMemoEmailedDate, 'yyyy-MM-dd') : 'N/A'}">Memo Emailed date</td>
+                            </tr>
+                            <tr>
+                                <th>Parts Received</th>
+                                <td th:text="${rma.partsReceivedDate != null ? #temporals.format(rma.partsReceivedDate, 'yyyy-MM-dd') : 'N/A'}">Parts Received date</td>
+                            </tr>
+                            <tr>
+                                <th>Parts Installed</th>
+                                <td th:text="${rma.installedPartsDate != null ? #temporals.format(rma.installedPartsDate, 'yyyy-MM-dd') : 'N/A'}">Parts Installed date</td>
+                            </tr>
+                            <tr>
+                                <th>Failed Packed</th>
+                                <td th:text="${rma.failedPartsPackedDate != null ? #temporals.format(rma.failedPartsPackedDate, 'yyyy-MM-dd') : 'N/A'}">Failed Packed date</td>
+                            </tr>
+                            <tr>
+                                <th>Failed Shipped</th>
+                                <td th:text="${rma.failedPartsShippedDate != null ? #temporals.format(rma.failedPartsShippedDate, 'yyyy-MM-dd') : 'N/A'}">Failed Shipped date</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-8">
+                        <h5>Assignment</h5>
+                        <table class="table table-bordered">
+                            <tr>
+                                <th style="width:20%">Location</th>
+                                <td th:text="${rma.location != null ? rma.location.displayName : 'N/A'}">Location</td>
+                            </tr>
+                            <tr>
+                                <th>Technician</th>
+                                <td th:text="${rma.technician != null ? rma.technician : 'Not assigned'}">Technician</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Description</h5>
+                            </div>
+                            <div class="card-body">
+                                <p th:text="${rma.description != null ? rma.description : 'No description provided'}" class="mb-0">Description</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-12 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Root Cause</h5>
+                            </div>
+                            <div class="card-body">
+                                <p th:text="${rma.rootCause != null ? rma.rootCause : 'Not yet determined'}" class="mb-0">Root cause</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-12 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Resolution</h5>
+                            </div>
+                            <div class="card-body">
+                                <p th:text="${rma.resolution != null ? rma.resolution : 'Not yet resolved'}" class="mb-0">Resolution</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Notes</h5>
+                            </div>
+                            <div class="card-body">
+                                <p th:text="${rma.notes != null ? rma.notes : 'No notes available'}" class="mb-0">Notes</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pictures Section -->
+                <div class="row mt-4" th:if="${rma.pictures != null and not rma.pictures.empty}">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Pictures</h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Debug info to see picture paths -->
+                                <div class="alert alert-info small mb-3">
+                                    <p><strong>Debug Info:</strong> Picture paths from database</p>
+                                    <ul class="mb-0">
+                                        <li th:each="picture : ${rma.pictures}" th:text="${picture.fileName + ' ➡ ' + picture.filePath}">picture.fileName → picture.filePath</li>
+                                    </ul>
+                                    <hr />
+                                    <button id="btnCheckFiles" class="btn btn-sm btn-secondary mt-2">Check File Existence</button>
+                                    <div id="fileCheckResults" class="mt-2"></div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-3 mb-3" th:each="picture : ${rma.pictures}">
+                                        <div class="card h-100 shadow-sm">
+                                            <div class="card-img-top text-center p-2" style="height: 150px;">
+                                                <!-- Direct URL to the image using stored filePath -->
+                                                <img th:src="@{'/rma/files/' + ${picture.filePath}}" 
+                                                     th:alt="${picture.fileName}" 
+                                                     class="img-fluid rounded" 
+                                                     style="max-height: 100%; max-width: 100%; object-fit: contain; cursor: pointer;"
+                                                     data-bs-toggle="modal" 
+                                                     data-bs-target="#imageModal"
+                                                     th:data-bs-img-src="@{'/rma/files/' + ${picture.filePath}}"
+                                                     th:data-bs-img-title="${picture.fileName}"
+                                                     th:data-path="${picture.filePath}"
+                                                     onerror="handleImageError(this);"
+                                                     />
+                                            </div>
+                                            <div class="card-footer p-1 text-center bg-light">
+                                                <small class="text-muted" th:text="${#strings.length(picture.fileName) > 20 ? #strings.substring(picture.fileName, 0, 17) + '...' : picture.fileName}">Filename</small>
+                                                <!-- Direct link to the file -->
+                                                <a th:href="@{'/rma/files/' + ${picture.filePath}}" target="_blank" class="d-block mt-1">
+                                                    <small>View/Download</small>
+                                                </a>
+                                                <small class="text-muted mt-1">
+                                                    Path: <span class="text-truncate d-inline-block" style="max-width: 100px;" th:text="${picture.filePath}">path</span>
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Image Modal for enlarged view -->
+                <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="imageModalLabel">Image Preview</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body text-center">
+                                <img id="modalImage" src="" alt="Full size image" class="img-fluid">
+                            </div>
+                            <div class="modal-footer">
+                                <a id="downloadLink" href="" class="btn btn-primary" download>Download</a>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End Pictures Section -->
+
+                <!-- Documents Section -->
+                <div class="row mt-4" th:if="${rma.documents != null and not rma.documents.empty}">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Documents</h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Debug info to see document paths -->
+                                <div class="alert alert-info small mb-3">
+                                    <p><strong>Debug Info:</strong> Document paths from database</p>
+                                    <ul class="mb-0">
+                                        <li th:each="doc : ${rma.documents}" th:text="${doc.fileName + ' ➡ ' + doc.filePath}">document.fileName → document.filePath</li>
+                                    </ul>
+                                </div>
+                                
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center" th:each="document : ${rma.documents}">
+                                        <span th:text="${document.fileName}">Document Name</span>
+                                        <a th:href="@{'/rma/files/' + ${document.filePath}}" 
+                                           target="_blank" 
+                                           class="btn btn-sm btn-outline-primary" 
+                                           title="View/Download Document">
+                                            <i class="bi bi-download me-1"></i> View/Download
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End Documents Section -->
+
+            </div>
+            <div class="card-footer text-end">
+                <span class="text-muted" th:if="${rma.id != null}">RMA ID: <span th:text="${rma.id}"></span></span>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up image modal functionality
+            const imageModal = document.getElementById('imageModal');
+            if (imageModal) {
+                imageModal.addEventListener('show.bs.modal', function (event) {
+                    const button = event.relatedTarget;
+                    const imgSrc = button.getAttribute('data-bs-img-src');
+                    const imgTitle = button.getAttribute('data-bs-img-title');
+                    
+                    const modalImage = document.getElementById('modalImage');
+                    const modalTitle = imageModal.querySelector('.modal-title');
+                    const downloadLink = document.getElementById('downloadLink');
+                    
+                    modalImage.src = imgSrc;
+                    modalTitle.textContent = imgTitle || 'Image Preview';
+                    downloadLink.href = imgSrc;
+                    downloadLink.setAttribute('download', imgTitle || 'image');
+                });
+                
+                // Remove any duplicate error messages that might be added by the onerror event
+                const cleanupDuplicateErrors = function() {
+                    document.querySelectorAll('.card-img-top').forEach(container => {
+                        const errorDivs = container.querySelectorAll('div.text-center.text-muted');
+                        if (errorDivs.length > 1) {
+                            // Keep only the first error message
+                            for (let i = 1; i < errorDivs.length; i++) {
+                                container.removeChild(errorDivs[i]);
+                            }
+                        }
+                    });
+                };
+                
+                // Run cleanup once after page load
+                setTimeout(cleanupDuplicateErrors, 500);
+            }
+            
+            // Set up the file check button
+            const btnCheckFiles = document.getElementById('btnCheckFiles');
+            const fileCheckResults = document.getElementById('fileCheckResults');
+            
+            if (btnCheckFiles && fileCheckResults) {
+                btnCheckFiles.addEventListener('click', function() {
+                    fileCheckResults.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div> Checking files...';
+                    
+                    // Get all image paths
+                    const imagePaths = [];
+                    document.querySelectorAll('img[data-path]').forEach(img => {
+                        const path = img.getAttribute('data-path');
+                        if (path) {
+                            imagePaths.push(path);
+                        }
+                    });
+                    
+                    if (imagePaths.length === 0) {
+                        fileCheckResults.innerHTML = '<div class="alert alert-warning">No file paths found to check</div>';
+                        return;
+                    }
+                    
+                    // Create a results table
+                    let resultsHtml = '<table class="table table-sm table-bordered mt-2">';
+                    resultsHtml += '<thead><tr><th>Path</th><th>Status</th></tr></thead><tbody>';
+                    
+                    // Check each path
+                    let completedChecks = 0;
+                    imagePaths.forEach(path => {
+                        fetch(`/rma/api/file-exists?path=${encodeURIComponent(path)}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                const exists = data.exists;
+                                const status = exists 
+                                    ? '<span class="text-success">Exists</span>' 
+                                    : '<span class="text-danger">Not found</span>';
+                                    
+                                resultsHtml += `<tr>
+                                    <td class="small">${path}</td>
+                                    <td>${status}</td>
+                                </tr>`;
+                                
+                                completedChecks++;
+                                if (completedChecks === imagePaths.length) {
+                                    resultsHtml += '</tbody></table>';
+                                    fileCheckResults.innerHTML = resultsHtml;
+                                }
+                            })
+                            .catch(error => {
+                                resultsHtml += `<tr>
+                                    <td class="small">${path}</td>
+                                    <td><span class="text-danger">Error: ${error.message}</span></td>
+                                </tr>`;
+                                
+                                completedChecks++;
+                                if (completedChecks === imagePaths.length) {
+                                    resultsHtml += '</tbody></table>';
+                                    fileCheckResults.innerHTML = resultsHtml;
+                                }
+                            });
+                    });
+                });
+            }
+        });
+        
+        // Function to handle image loading errors
+        function handleImageError(imageElement) {
+            // Prevent infinite recursion
+            imageElement.onerror = null;
+            
+            // Get file path for debugging
+            const filePath = imageElement.getAttribute('data-path') || 'Unknown path';
+            
+            // Hide the broken image
+            imageElement.style.display = 'none';
+            
+            // Replace with error message
+            const errorHtml = `
+                <div class='text-center text-muted'>
+                    <i class='bi bi-exclamation-triangle'></i>
+                    <br>Image not found
+                    <br><small class="text-danger">${filePath}</small>
+                </div>`;
+            
+            imageElement.parentNode.innerHTML += errorHtml;
+            
+            // Log the error to console
+            console.error('Failed to load image:', filePath);
+            
+            return true;
+        }
+    </script>
+</body>
+</html> 

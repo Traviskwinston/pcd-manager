@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+
+Whenever you make any changes that will update the structure of database files, check to see if it conflicts with the DataInitilizer.java, DatabaseSchemaUpdater.java and DatabaseInit.java. If the update does affect those, provide a command to delete the associated tables in the database and update the files so when the server restarts it remakes the database to work with the updates.

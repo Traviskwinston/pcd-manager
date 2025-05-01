@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCD Manager - Projects</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div th:replace="~{fragments/navigation :: navbar('projects')}"></div>
+
+    <div class="container mt-4">
+        <div class="row mb-3">
+            <div class="col">
+                <h1>Projects</h1>
+            </div>
+            <div class="col text-end">
+                <a href="/projects/new" class="btn btn-primary">Add New Project</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div th:if="${projects.empty}" class="alert alert-info">
+                    No projects found. Click "Add New Project" to create one.
+                </div>
+                
+                <div th:if="${!projects.empty}" class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Client</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Due Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="project : ${projects}">
+                                <td th:text="${project.id}">1</td>
+                                <td th:text="${project.name}">Project Name</td>
+                                <td th:text="${project.client ?: '-'}">Client</td>
+                                <td>
+                                    <span th:class="${'badge ' + 
+                                        (project.status.name() == 'PLANNED' ? 'bg-info' : 
+                                        (project.status.name() == 'IN_PROGRESS' ? 'bg-primary' : 
+                                        (project.status.name() == 'ON_HOLD' ? 'bg-warning' : 
+                                        (project.status.name() == 'COMPLETED' ? 'bg-success' : 'bg-danger'))))}">
+                                        <span th:text="${project.status}">Status</span>
+                                    </span>
+                                </td>
+                                <td>
+                                    <span th:class="${'badge ' + 
+                                        (project.priority.name() == 'LOW' ? 'bg-success' : 
+                                        (project.priority.name() == 'MEDIUM' ? 'bg-info' : 
+                                        (project.priority.name() == 'HIGH' ? 'bg-warning' : 'bg-danger')))}">
+                                        <span th:text="${project.priority}">Priority</span>
+                                    </span>
+                                </td>
+                                <td th:text="${project.dueDate != null ? #temporals.format(project.dueDate, 'MM/dd/yyyy') : '-'}">Due Date</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a th:href="@{/projects/{id}(id=${project.id})}" class="btn btn-outline-primary">View</a>
+                                        <a th:href="@{/projects/{id}/edit(id=${project.id})}" class="btn btn-outline-secondary">Edit</a>
+                                        <button type="button" class="btn btn-outline-danger" 
+                                                data-bs-toggle="modal" th:data-bs-target="${'#deleteProjectModal-' + project.id}">
+                                            Delete
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Delete Project Modal -->
+                                    <div class="modal fade" th:id="${'deleteProjectModal-' + project.id}" tabindex="-1" aria-labelledby="deleteProjectModalLabel" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="deleteProjectModalLabel">Confirm Delete</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Are you sure you want to delete this project?
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <form th:action="@{/projects/{id}/delete(id=${project.id})}" method="post">
+                                                        <button type="submit" class="btn btn-danger">Delete</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

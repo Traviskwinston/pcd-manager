@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCD Manager - Tool Form</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+</head>
+<body>
+    <div th:replace="~{fragments/navigation :: navbar('tools')}"></div>
+
+    <div class="container mt-4">
+        <div class="row mb-3">
+            <div class="col">
+                <h1 th:text="${tool.id != null ? 'Edit Tool' : 'Create New Tool'}">Tool Form</h1>
+            </div>
+            <div class="col text-end">
+                <a href="/tools" class="btn btn-secondary">Back to Tools</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form th:action="@{/tools}" th:object="${tool}" method="post" enctype="multipart/form-data">
+                    <input type="hidden" th:field="*{id}" />
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="name" class="form-label">Primary Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" th:field="*{name}" required>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">
+                                Please provide a valid name.
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="secondaryName" class="form-label">Secondary Name</label>
+                            <input type="text" class="form-control" id="secondaryName" th:field="*{secondaryName}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="toolType" class="form-label">Tool Type <span class="text-danger">*</span></label>
+                            <select class="form-select" id="toolType" th:field="*{toolType}" required>
+                                <option value="">-- Select Tool Type --</option>
+                                <option th:each="type : ${T(com.pcd.manager.model.Tool.ToolType).values()}" 
+                                        th:value="${type}" 
+                                        th:text="${type.name() == 'CHEMBLEND' ? 'Chemblend' : (type.name() == 'SLURRY' ? 'Slurry' : type.name())}">
+                                </option>
+                            </select>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('toolType')}" th:errors="*{toolType}">
+                                Please select a tool type.
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="status" class="form-label">Status <span class="text-danger">*</span></label>
+                            <select class="form-select" id="status" th:field="*{status}" required>
+                                <option value="">-- Select Status --</option>
+                                <option th:each="stat : ${T(com.pcd.manager.model.Tool.ToolStatus).values()}" 
+                                        th:value="${stat}" 
+                                        th:text="${stat.name().replace('_',' ').toLowerCase().replaceFirst('.',stat.name().replace('_',' ').substring(0,1).toUpperCase())}">
+                                </option>
+                            </select>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('status')}" th:errors="*{status}">
+                                Please select a status.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="serialNumber1" class="form-label">Serial Number 1</label>
+                            <input type="text" class="form-control" id="serialNumber1" th:field="*{serialNumber1}">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="serialNumber2" class="form-label">Serial Number 2</label>
+                            <input type="text" class="form-control" id="serialNumber2" th:field="*{serialNumber2}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="model1" class="form-label">Model 1</label>
+                            <input type="text" class="form-control" id="model1" th:field="*{model1}">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="model2" class="form-label">Model 2</label>
+                            <input type="text" class="form-control" id="model2" th:field="*{model2}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="location" class="form-label">Location</label>
+                            <select class="form-select" id="location" th:field="*{location.id}">
+                                <option value="">-- Select Location --</option>
+                                <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.displayName}" 
+                                        th:selected="${loc.isDefault}">AZ F52</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="setDate" class="form-label">Set Date</label>
+                            <input type="date" class="form-control" id="setDate" th:field="*{setDate}">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" th:field="*{notes}" rows="3"></textarea>
+                    </div>
+                    
+                    <h4 class="mt-4 mb-3">Tool Checklist</h4>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="preSl1Completed" th:field="*{preSl1Completed}">
+                                <label class="form-check-label" for="preSl1Completed">PreSL1</label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="sl1Completed" th:field="*{sl1Completed}">
+                                <label class="form-check-label" for="sl1Completed">SL1</label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="sl2Completed" th:field="*{sl2Completed}">
+                                <label class="form-check-label" for="sl2Completed">SL2</label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="electricalOperationPreSl1Completed" th:field="*{electricalOperationPreSl1Completed}">
+                                <label class="form-check-label" for="electricalOperationPreSl1Completed">Electrical Operation: Pre SL1</label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="hazardousEnergyChecklistCompleted" th:field="*{hazardousEnergyChecklistCompleted}">
+                                <label class="form-check-label" for="hazardousEnergyChecklistCompleted">Hazardous Energy Checklist</label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="mechanicalPreSl1Completed" th:field="*{mechanicalPreSl1Completed}">
+                                <label class="form-check-label" for="mechanicalPreSl1Completed">Mechanical: Pre SL1</label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="mechanicalPostSl1Completed" th:field="*{mechanicalPostSl1Completed}">
+                                <label class="form-check-label" for="mechanicalPostSl1Completed">Mechanical: Post SL1</label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="specificInputFunctionalityTested" th:field="*{specificInputFunctionalityTested}">
+                                <label class="form-check-label" for="specificInputFunctionalityTested">Specific Input Functionality Tested</label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="modesOfOperationTested" th:field="*{modesOfOperationTested}">
+                                <label class="form-check-label" for="modesOfOperationTested">Modes of Operation Tested</label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="specificSoosTestsed" th:field="*{specificSoosTestsed}">
+                                <label class="form-check-label" for="specificSoosTestsed">Specific SOO's Tested</label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="fieldServiceReportUploaded" th:field="*{fieldServiceReportUploaded}">
+                                <label class="form-check-label" for="fieldServiceReportUploaded">Field Service Report Uploaded</label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="certificateOfApprovalUploaded" th:field="*{certificateOfApprovalUploaded}">
+                                <label class="form-check-label" for="certificateOfApprovalUploaded">Certificate of Approval Uploaded</label>
+                            </div>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="turnedOverToCustomer" th:field="*{turnedOverToCustomer}">
+                                <label class="form-check-label" for="turnedOverToCustomer">Turned over to Customer</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h4 class="mt-4 mb-3">File Uploads</h4>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="documentUpload" class="form-label">Upload Documents</label>
+                            <input class="form-control" type="file" id="documentUpload" name="documentFiles" multiple>
+                            <small class="text-muted">You can select multiple files. Allowed file types: PDF, DOC, DOCX, XLS, XLSX</small>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="pictureUpload" class="form-label">Upload Pictures</label>
+                            <input class="form-control" type="file" id="pictureUpload" name="pictureFiles" multiple accept="image/*">
+                            <small class="text-muted">You can select multiple files. Allowed file types: JPG, JPEG, PNG, GIF</small>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="/tools" class="btn btn-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save Tool</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 
