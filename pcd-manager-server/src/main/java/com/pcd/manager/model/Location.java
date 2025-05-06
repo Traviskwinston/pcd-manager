@@ -149,4 +149,13 @@ public class Location {
     public void setNotes(String notes) {
         this.notes = notes;
     }
+
+    @Override
+    public String toString() {
+        return "Location{" +
+               "id=" + id +
+               ", name='" + name + '\'' +
+               ", displayName='" + (name + (fab != null ? " - " + fab : "")) + '\'' +
+               '}';
+    }
 } 

@@ -15,4 +15,6 @@ public interface PassdownRepository extends JpaRepository<Passdown, Long> {
     List<Passdown> findByDateOrderByDateDesc(LocalDate date);
     
     List<Passdown> findByDateBetweenOrderByDateDesc(LocalDate startDate, LocalDate endDate);
+    
+    List<Passdown> findByToolIdOrderByDateDesc(Long toolId);
 } 

@@ -24,8 +24,10 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
+        // In Spring Security, 'username' parameter is the identifier provided in login form
+        // Since we're using email as the identifier, we'll search by email
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
 
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
         
@@ -37,7 +39,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         }
 
         return new org.springframework.security.core.userdetails.User(
-                user.getUsername(),
+                user.getEmail(), // Use email as the username
                 user.getPassword(),
                 user.getActive() != null ? user.getActive() : true,   // enabled
                 true,   // accountNonExpired

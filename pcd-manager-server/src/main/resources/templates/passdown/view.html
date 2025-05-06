@@ -50,22 +50,45 @@
                 <div class="mt-4" th:if="${passdown.picturePaths != null && !passdown.picturePaths.isEmpty()}">
                     <h5>Pictures</h5>
                     <div class="row">
-                        <div th:each="picPath : ${passdown.picturePaths}" class="col-md-4 mb-3">
-                            <div class="picture-item p-2 border rounded h-100 d-flex flex-column">
+                        <div th:each="picPath : ${passdown.picturePaths}" class="col-md-3 mb-3">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-header p-2">
+                                    <!-- Tags display -->
+                                    <span class="badge bg-info" th:if="${passdown.tool != null}" 
+                                          th:text="${'Tool: ' + passdown.tool.name}">Tool</span>
+                                    <span class="badge bg-secondary" 
+                                          th:text="${'Passdown: ' + #temporals.format(passdown.date, 'MM/dd/yyyy')}">Date</span>
+                                </div>
                                 <!-- Image Preview -->
-                                <div class="flex-grow-1 d-flex justify-content-center align-items-center mb-2">
+                                <div class="card-body d-flex justify-content-center align-items-center p-2">
                                     <img th:src="@{'/uploads/' + ${picPath}}" 
                                          th:alt="${passdown.pictureNames.get(picPath)}" 
-                                         class="img-fluid" style="max-height: 200px;">
+                                         class="img-fluid rounded" style="max-height: 150px; object-fit: contain;">
                                 </div>
                                 <!-- Action Buttons -->
-                                <div class="d-flex gap-1 mt-auto">
-                                    <a th:href="@{'/uploads/' + ${picPath}}" target="_blank" class="btn btn-sm btn-primary flex-fill">
-                                        <i class="bi bi-eye"></i> View
-                                    </a>
-                                    <a th:href="@{'/uploads/' + ${picPath}}" th:download="${passdown.pictureNames.get(picPath)}" class="btn btn-sm btn-secondary flex-fill">
-                                        <i class="bi bi-download"></i> Download
-                                    </a>
+                                <div class="card-footer p-2">
+                                    <div class="d-flex gap-1 justify-content-center">
+                                        <a th:href="@{'/uploads/' + ${picPath}}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </a>
+                                        <a th:href="@{'/uploads/' + ${picPath}}" th:download="${passdown.pictureNames.get(picPath)}" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger delete-picture-btn" 
+                                                th:data-path="${picPath}"
+                                                th:data-name="${passdown.pictureNames.get(picPath)}"
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#deletePictureModal">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-info link-picture-btn" 
+                                                th:data-path="${picPath}"
+                                                th:data-name="${passdown.pictureNames.get(picPath)}"
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#linkPictureModal">
+                                            <i class="bi bi-link-45deg"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -76,6 +99,100 @@
                     <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
                         <i class="bi bi-trash"></i> Delete
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Hidden Passdown ID for JS -->
+    <input type="hidden" id="passdownId" th:value="${passdown.id}">
+    
+    <!-- Enhanced Delete Confirmation Modal -->
+    <div class="modal fade" id="deletePictureModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Selected picture: <strong id="picNameToDelete">picture.jpg</strong></p>
+                    <p>How would you like to handle this picture?</p>
+                    <input type="hidden" id="picPathToDelete">
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="deletePicOption" id="deletePicOnly" value="unlink" checked>
+                        <label class="form-check-label" for="deletePicOnly">
+                            <strong>Unlink only:</strong> Remove only from this passdown, keep in other locations
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="deletePicOption" id="deletePicEverywhere" value="delete">
+                        <label class="form-check-label" for="deletePicEverywhere">
+                            <strong>Delete everywhere:</strong> Remove from all locations
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmPicDeleteBtn">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Link Picture Modal -->
+    <div class="modal fade" id="linkPictureModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Link Picture</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Link <strong id="picNameToLink">picture.jpg</strong> to:</p>
+                    <input type="hidden" id="picPathToLink">
+                    
+                    <div class="mb-3">
+                        <label for="linkPictureType" class="form-label">Link to:</label>
+                        <select class="form-select" id="linkPictureType">
+                            <option value="tool">Tool</option>
+                            <option value="rma">RMA</option>
+                        </select>
+                    </div>
+                    
+                    <div id="linkPictureToolSection">
+                        <div class="mb-3">
+                            <label for="linkPictureToolId" class="form-label">Select Tool:</label>
+                            <select class="form-select" id="linkPictureToolId">
+                                <option value="">-- Select a Tool --</option>
+                                <option th:each="tool : ${allTools}" 
+                                        th:value="${tool.id}" 
+                                        th:text="${tool.name + (tool.secondaryName != null ? ' (' + tool.secondaryName + ')' : '')}">
+                                    Tool Name
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="linkPictureRmaSection" style="display: none;">
+                        <div class="mb-3">
+                            <label for="linkPictureRmaId" class="form-label">Select RMA:</label>
+                            <select class="form-select" id="linkPictureRmaId">
+                                <option value="">-- Select an RMA --</option>
+                                <option th:each="rma : ${allRmas}" 
+                                        th:value="${rma.id}" 
+                                        th:text="${(rma.rmaNumber != null ? rma.rmaNumber : 'RMA-' + rma.id) + 
+                                                 (rma.customerName != null ? ' - ' + rma.customerName : '')}">
+                                    RMA Number - Customer
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmPicLinkBtn">Link</button>
                 </div>
             </div>
         </div>
@@ -103,5 +220,131 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Delete picture button handlers
+            document.querySelectorAll('.delete-picture-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const picPath = this.getAttribute('data-path');
+                    const picName = this.getAttribute('data-name');
+                    document.getElementById('picPathToDelete').value = picPath;
+                    document.getElementById('picNameToDelete').textContent = picName;
+                });
+            });
+            
+            // Link picture button handlers
+            document.querySelectorAll('.link-picture-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const picPath = this.getAttribute('data-path');
+                    const picName = this.getAttribute('data-name');
+                    document.getElementById('picPathToLink').value = picPath;
+                    document.getElementById('picNameToLink').textContent = picName;
+                });
+            });
+            
+            // Toggle link sections based on selection
+            document.getElementById('linkPictureType').addEventListener('change', function() {
+                const toolSection = document.getElementById('linkPictureToolSection');
+                const rmaSection = document.getElementById('linkPictureRmaSection');
+                
+                if (this.value === 'tool') {
+                    toolSection.style.display = 'block';
+                    rmaSection.style.display = 'none';
+                } else if (this.value === 'rma') {
+                    toolSection.style.display = 'none';
+                    rmaSection.style.display = 'block';
+                }
+            });
+            
+            // Handle picture delete confirmation
+            document.getElementById('confirmPicDeleteBtn').addEventListener('click', function() {
+                const picPath = document.getElementById('picPathToDelete').value;
+                const deleteOption = document.querySelector('input[name="deletePicOption"]:checked').value;
+                const passdownId = document.getElementById('passdownId').value;
+                
+                // Create and submit form for deletion
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/passdown/picture/delete';
+                
+                const pathInput = document.createElement('input');
+                pathInput.type = 'hidden';
+                pathInput.name = 'picturePath';
+                pathInput.value = picPath;
+                
+                const passdownInput = document.createElement('input');
+                passdownInput.type = 'hidden';
+                passdownInput.name = 'passdownId';
+                passdownInput.value = passdownId;
+                
+                const optionInput = document.createElement('input');
+                optionInput.type = 'hidden';
+                optionInput.name = 'deleteOption';
+                optionInput.value = deleteOption;
+                
+                form.appendChild(pathInput);
+                form.appendChild(passdownInput);
+                form.appendChild(optionInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+            });
+            
+            // Handle picture link confirmation
+            document.getElementById('confirmPicLinkBtn').addEventListener('click', function() {
+                const picPath = document.getElementById('picPathToLink').value;
+                const linkType = document.getElementById('linkPictureType').value;
+                const passdownId = document.getElementById('passdownId').value;
+                let targetId = '';
+                
+                if (linkType === 'tool') {
+                    targetId = document.getElementById('linkPictureToolId').value;
+                    if (!targetId) {
+                        alert('Please select a tool to link to');
+                        return;
+                    }
+                } else if (linkType === 'rma') {
+                    targetId = document.getElementById('linkPictureRmaId').value;
+                    if (!targetId) {
+                        alert('Please select an RMA to link to');
+                        return;
+                    }
+                }
+                
+                // Create and submit form for linking
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/passdown/picture/link';
+                
+                const pathInput = document.createElement('input');
+                pathInput.type = 'hidden';
+                pathInput.name = 'picturePath';
+                pathInput.value = picPath;
+                
+                const passdownInput = document.createElement('input');
+                passdownInput.type = 'hidden';
+                passdownInput.name = 'passdownId';
+                passdownInput.value = passdownId;
+                
+                const linkTypeInput = document.createElement('input');
+                linkTypeInput.type = 'hidden';
+                linkTypeInput.name = 'linkType';
+                linkTypeInput.value = linkType;
+                
+                const targetIdInput = document.createElement('input');
+                targetIdInput.type = 'hidden';
+                targetIdInput.name = 'targetId';
+                targetIdInput.value = targetId;
+                
+                form.appendChild(pathInput);
+                form.appendChild(passdownInput);
+                form.appendChild(linkTypeInput);
+                form.appendChild(targetIdInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+            });
+        });
+    </script>
 </body>
 </html> 

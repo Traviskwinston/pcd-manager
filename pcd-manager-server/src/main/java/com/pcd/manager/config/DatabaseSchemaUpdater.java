@@ -26,7 +26,9 @@ public class DatabaseSchemaUpdater implements CommandLineRunner {
             
             logger.info("Successfully updated passdown comment field size");
         } catch (Exception e) {
-            logger.error("Error updating passdown comment field: " + e.getMessage(), e);
+            logger.error("Error updating passdown comment field: {}", e.getMessage());
+            logger.info("This may be caused by database already in use. The application will continue without schema updates.");
+            // Don't propagate the error, allow the application to continue
         }
     }
 } 

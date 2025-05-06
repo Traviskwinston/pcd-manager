@@ -56,7 +56,11 @@
                             </tr>
                             <tr th:each="rma : ${rmas}">
                                 <td>
-                                    <span th:text="${rma.tool?.name ?: 'N/A'}">Tool Name</span>
+                                    <a th:if="${rma.tool != null}" th:href="@{/tools/{id}(id=${rma.tool.id})}" class="text-decoration-none">
+                                        <span th:text="${rma.tool.name}" class="text-primary"></span>
+                                        <span th:if="${rma.tool.secondaryName != null}" th:text="${' (' + rma.tool.secondaryName + ')'}" class="text-muted small"></span>
+                                    </a>
+                                    <span th:unless="${rma.tool != null}">N/A</span>
                                 </td>
                                 <td>
                                     <span th:if="${#lists.isEmpty(rma.partLineItems)}">N/A</span>

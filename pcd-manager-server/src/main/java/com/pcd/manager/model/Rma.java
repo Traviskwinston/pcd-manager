@@ -37,6 +37,14 @@ public class Rma {
     private String customerContact;
     private String customerEmail;
     private String customerPhone;
+    
+    // Company shipping information
+    private String companyShipToName;
+    private String companyShipToAddress;
+    private String city;
+    private String state;
+    private String zipCode;
+    private String attn;
 
     private String serialNumber;
 
@@ -132,6 +140,16 @@ public class Rma {
     private LocalDate installedPartsDate;
     private LocalDate failedPartsPackedDate;
 
+    // Process impact information
+    private Boolean interruptionToFlow = false;
+    private Boolean interruptionToProduction = false;
+    private Double downtimeHours = 0.0;
+    private Boolean exposedToProcessGasOrChemicals = false;
+    private Boolean purged = false;
+    
+    @Column(columnDefinition = "TEXT")
+    private String instructionsForExposedComponent;
+    
     @Column(nullable = false)
     private LocalDateTime createdDate;
 

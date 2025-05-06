@@ -3,7 +3,12 @@ package com.pcd.manager.service;
 import com.pcd.manager.model.Passdown;
 import com.pcd.manager.model.Tool;
 import com.pcd.manager.model.User;
+import com.pcd.manager.model.Rma;
+import com.pcd.manager.model.RmaPicture;
 import com.pcd.manager.repository.PassdownRepository;
+import com.pcd.manager.repository.ToolRepository;
+import com.pcd.manager.repository.RmaRepository;
+import com.pcd.manager.repository.RmaPictureRepository;
 import com.pcd.manager.util.UploadUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.HashSet;
@@ -24,14 +30,27 @@ public class PassdownService {
 
     private static final Logger logger = LoggerFactory.getLogger(PassdownService.class);
     private final PassdownRepository passdownRepository;
-    private final ToolService toolService;
+    private ToolService toolService; // Not final anymore, will be set by setter
     private final UploadUtils uploadUtils;
+    private final ToolRepository toolRepository;
+    private final RmaRepository rmaRepository;
+    private final RmaPictureRepository pictureRepository;
 
     @Autowired
-    public PassdownService(PassdownRepository passdownRepository, ToolService toolService, UploadUtils uploadUtils) {
+    public PassdownService(PassdownRepository passdownRepository, UploadUtils uploadUtils,
+                          ToolRepository toolRepository, RmaRepository rmaRepository, RmaPictureRepository pictureRepository) {
         this.passdownRepository = passdownRepository;
-        this.toolService = toolService;
         this.uploadUtils = uploadUtils;
+        this.toolRepository = toolRepository;
+        this.rmaRepository = rmaRepository;
+        this.pictureRepository = pictureRepository;
+        // ToolService will be injected via setter
+    }
+    
+    // Setter method for ToolService
+    @Autowired
+    public void setToolService(ToolService toolService) {
+        this.toolService = toolService;
     }
 
     public List<Passdown> getAllPassdowns() {
@@ -174,7 +193,14 @@ public class PassdownService {
                  
                  // Add the picture to the tool with a prefix to indicate it's from a passdown
                  selectedTool.getPicturePaths().add(newPicturePath);
-                 selectedTool.getPictureNames().put(newPicturePath, "Passdown: " + originalFilename);
+                 
+                 // Format the passdown info to include user and date
+                 String userInfo = currentUser != null ? (currentUser.getName() != null ? currentUser.getName() : currentUser.getEmail()) : "Unknown User";
+                 String dateInfo = passdownToSave.getDate() != null ? 
+                     passdownToSave.getDate().format(java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy")) : 
+                     java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy"));
+                 
+                 selectedTool.getPictureNames().put(newPicturePath, "Passdown: " + userInfo + " " + dateInfo);
                  
                  // Save the tool
                  toolService.saveTool(selectedTool);
@@ -195,25 +221,39 @@ public class PassdownService {
     }
     
     /**
-     * Special method to safely save a passdown after deleting a picture.
-     * This avoids the complex logic in the regular save method.
+     * Save a passdown entity after updating its document or picture links
+     * Used for linking between RMA and Passdown
      * 
-     * @param passdown The passdown entity to save
+     * @param passdown The passdown to save
      * @return The saved passdown
      */
     @Transactional
+    public Passdown savePassdown(Passdown passdown) {
+        logger.debug("Saving passdown ID: {} after updating links", passdown.getId());
+        return passdownRepository.save(passdown);
+    }
+    
+    /**
+     * Update passdown when deleting a picture
+     */
+    @Transactional
     public Passdown savePassdownForDelete(Passdown passdown) {
-        logger.debug("Saving passdown after picture deletion, ID: {}", passdown.getId());
+        logger.debug("Saving passdown ID: {} after deleting pictures", passdown.getId());
         
-        // Pre-save log for debugging
-        if (passdown.getPicturePaths() != null) {
-            logger.debug("Current picture paths ({}): {}", passdown.getPicturePaths().size(), passdown.getPicturePaths());
+        // Make sure the collections are initialized
+        if (passdown.getPicturePaths() == null) {
+            passdown.setPicturePaths(new HashSet<>());
         }
-        if (passdown.getPictureNames() != null) {
-            logger.debug("Current picture names ({}): {}", passdown.getPictureNames().size(), passdown.getPictureNames());
+        if (passdown.getPictureNames() == null) {
+            passdown.setPictureNames(new HashMap<>());
+        }
+        if (passdown.getDocumentPaths() == null) {
+            passdown.setDocumentPaths(new HashSet<>());
+        }
+        if (passdown.getDocumentNames() == null) {
+            passdown.setDocumentNames(new HashMap<>());
         }
         
-        // Simple save bypassing the complex logic in the regular save method
         return passdownRepository.save(passdown);
     }
 
@@ -265,5 +305,160 @@ public class PassdownService {
         // Now delete the passdown itself
         passdownRepository.deleteById(id);
         logger.info("Passdown with ID: {} deleted from database", id);
+    }
+
+    /**
+     * Link a picture from a passdown to an RMA
+     *
+     * @param picturePath the path of the picture
+     * @param rmaId the ID of the RMA to link to
+     * @return true if successful, false otherwise
+     */
+    @Transactional
+    public boolean linkPictureToRma(String picturePath, Long rmaId) {
+        logger.info("Linking picture {} from passdown to RMA {}", picturePath, rmaId);
+        
+        try {
+            // Get all passdowns and find one with the matching picture path
+            List<Passdown> allPassdowns = passdownRepository.findAll();
+            Optional<Passdown> passdownOpt = Optional.empty();
+            
+            for (Passdown passdown : allPassdowns) {
+                if (passdown.getPicturePaths() != null && passdown.getPicturePaths().contains(picturePath)) {
+                    passdownOpt = Optional.of(passdown);
+                    break;
+                }
+            }
+            
+            if (passdownOpt.isEmpty()) {
+                logger.warn("No passdown found with picture path: {}", picturePath);
+                return false;
+            }
+            
+            Passdown passdown = passdownOpt.get();
+            
+            // Get the original filename if available
+            String originalFilename = passdown.getPictureNames().get(picturePath);
+            if (originalFilename == null) {
+                originalFilename = "Passdown_" + passdown.getId() + "_" + System.currentTimeMillis();
+                logger.info("No original filename found, using generated name: {}", originalFilename);
+            }
+            
+            // Find the RMA
+            Optional<Rma> rmaOpt = rmaRepository.findById(rmaId);
+            if (rmaOpt.isEmpty()) {
+                logger.warn("RMA with ID {} not found", rmaId);
+                return false;
+            }
+            
+            Rma rma = rmaOpt.get();
+            
+            // Create a new RMA picture
+            RmaPicture picture = new RmaPicture();
+            picture.setRma(rma);
+            picture.setFilePath(picturePath);
+            picture.setFileName(originalFilename);
+            picture.setFileType(getFileTypeFromPath(picturePath));
+            picture.setFileSize(0L); // We don't have this info, but the field is required
+            
+            // Save the picture
+            pictureRepository.save(picture);
+            logger.info("Successfully linked picture to RMA {}", rmaId);
+            
+            return true;
+        } catch (Exception e) {
+            logger.error("Error linking picture to RMA: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Link a picture from a passdown to a tool
+     *
+     * @param picturePath the path of the picture
+     * @param toolId the ID of the tool to link to
+     * @return true if successful, false otherwise
+     */
+    @Transactional
+    public boolean linkPictureToTool(String picturePath, Long toolId) {
+        logger.info("Linking picture {} from passdown to tool {}", picturePath, toolId);
+        
+        try {
+            // Get all passdowns and find one with the matching picture path
+            List<Passdown> allPassdowns = passdownRepository.findAll();
+            Optional<Passdown> passdownOpt = Optional.empty();
+            
+            for (Passdown passdown : allPassdowns) {
+                if (passdown.getPicturePaths() != null && passdown.getPicturePaths().contains(picturePath)) {
+                    passdownOpt = Optional.of(passdown);
+                    break;
+                }
+            }
+            
+            if (passdownOpt.isEmpty()) {
+                logger.warn("No passdown found with picture path: {}", picturePath);
+                return false;
+            }
+            
+            Passdown passdown = passdownOpt.get();
+            
+            // Get the original filename if available
+            String originalFilename = passdown.getPictureNames().get(picturePath);
+            if (originalFilename == null) {
+                originalFilename = "Passdown_" + passdown.getId() + "_" + System.currentTimeMillis();
+                logger.info("No original filename found, using generated name: {}", originalFilename);
+            }
+            
+            // Find the tool
+            Optional<Tool> toolOpt = toolRepository.findById(toolId);
+            if (toolOpt.isEmpty()) {
+                logger.warn("Tool with ID {} not found", toolId);
+                return false;
+            }
+            
+            Tool tool = toolOpt.get();
+            
+            // Add the picture to the tool
+            tool.getPicturePaths().add(picturePath);
+            tool.getPictureNames().put(picturePath, originalFilename);
+            
+            // Save the tool
+            toolRepository.save(tool);
+            logger.info("Successfully linked picture to tool {}", toolId);
+            
+            return true;
+        } catch (Exception e) {
+            logger.error("Error linking picture to tool: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Extract file type from a file path
+     *
+     * @param filePath the path of the file
+     * @return the file type (extension)
+     */
+    private String getFileTypeFromPath(String filePath) {
+        if (filePath == null || filePath.isEmpty()) {
+            return "unknown";
+        }
+        
+        int lastDotIndex = filePath.lastIndexOf(".");
+        if (lastDotIndex > 0 && lastDotIndex < filePath.length() - 1) {
+            return filePath.substring(lastDotIndex + 1).toLowerCase();
+        }
+        
+        return "unknown";
+    }
+
+    /**
+     * Gets passdowns associated with a specific tool
+     * @param toolId The ID of the tool
+     * @return List of passdowns for the specified tool
+     */
+    public List<Passdown> getPassdownsByToolId(Long toolId) {
+        logger.debug("Getting passdowns for tool ID: {}", toolId);
+        return passdownRepository.findByToolIdOrderByDateDesc(toolId);
     }
 } 

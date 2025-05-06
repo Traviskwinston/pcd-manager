@@ -27,4 +27,12 @@ public interface RmaRepository extends JpaRepository<Rma, Long> {
     List<Rma> findAllOrderedByStatusAndPriority();
     
     List<Rma> findTop5ByOrderByCreatedDateDesc();
+    
+    /**
+     * Find all RMAs associated with a specific tool
+     * 
+     * @param toolId the ID of the tool
+     * @return list of RMAs associated with the tool
+     */
+    List<Rma> findByToolId(Long toolId);
 } 

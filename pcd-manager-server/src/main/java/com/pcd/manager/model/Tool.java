@@ -6,6 +6,10 @@ import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -20,6 +24,16 @@ import java.util.Set;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({
+    "currentTechnicians",
+    "partMovements",
+    "partsMovedFrom",
+    "partsMovedTo",
+    "documentPaths",
+    "documentNames",
+    "picturePaths",
+    "pictureNames"
+})
 public class Tool {
 
     @Id
@@ -47,6 +61,9 @@ public class Tool {
     
     @Column
     private String model2;
+
+    @Column
+    private String chemicalGasService;
     
     @ManyToOne
     @JoinColumn(name = "location_id")
@@ -63,45 +80,51 @@ public class Tool {
     @Column(length = 1000)
     private String notes;
     
-    // Checkboxes for tool checklist (stored as boolean flags)
+    // Dates for tool checklist (replacing boolean flags with completion dates)
     @Column
-    private boolean preSl1Completed;
+    private LocalDate commissionDate;
 
     @Column
-    private boolean sl1Completed;
+    private LocalDate preSl1Date;
 
     @Column
-    private boolean sl2Completed;
+    private LocalDate sl1Date;
 
     @Column
-    private boolean electricalOperationPreSl1Completed;
+    private LocalDate sl2Date;
 
     @Column
-    private boolean hazardousEnergyChecklistCompleted;
+    private LocalDate electricalOperationPreSl1Date;
 
     @Column
-    private boolean mechanicalPreSl1Completed;
+    private LocalDate hazardousEnergyChecklistDate;
 
     @Column
-    private boolean mechanicalPostSl1Completed;
+    private LocalDate mechanicalPreSl1Date;
 
     @Column
-    private boolean specificInputFunctionalityTested;
+    private LocalDate mechanicalPostSl1Date;
 
     @Column
-    private boolean modesOfOperationTested;
+    private LocalDate specificInputFunctionalityDate;
 
     @Column
-    private boolean specificSoosTestsed;
+    private LocalDate modesOfOperationDate;
 
     @Column
-    private boolean fieldServiceReportUploaded;
+    private LocalDate specificSoosDate;
 
     @Column
-    private boolean certificateOfApprovalUploaded;
+    private LocalDate fieldServiceReportDate;
 
     @Column
-    private boolean turnedOverToCustomer;
+    private LocalDate certificateOfApprovalDate;
+
+    @Column
+    private LocalDate turnedOverToCustomerDate;
+    
+    @Column
+    private LocalDate startUpSl03Date;
 
     // Document and picture paths
     @ElementCollection
@@ -127,12 +150,14 @@ public class Tool {
     private Map<String, String> pictureNames = new HashMap<>();
 
     // Current technicians assigned to the tool
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "tool_technicians",
         joinColumns = @JoinColumn(name = "tool_id"),
         inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Set<User> currentTechnicians = new HashSet<>();
 
     // Tags for the tool
@@ -143,7 +168,27 @@ public class Tool {
 
     // Parts history (parts taken out or put in)
     @OneToMany(mappedBy = "tool", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<PartMovement> partMovements = new ArrayList<>();
+
+    // Moving parts relationships
+    @OneToMany(mappedBy = "fromTool", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<MovingPart> partsMovedFrom = new ArrayList<>();
+
+    @OneToMany(mappedBy = "toTool", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<MovingPart> partsMovedTo = new ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "active_tool_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @JsonIgnore
+    private Tool activeTool;
 
     public enum ToolType {
         CHEMBLEND, SLURRY
@@ -151,5 +196,79 @@ public class Tool {
     
     public enum ToolStatus {
         NOT_STARTED, IN_PROGRESS, COMPLETED
+    }
+    
+    // Helper methods to check if a checklist item is completed
+    public boolean isCommissionCompleted() {
+        return commissionDate != null;
+    }
+    
+    public boolean isPreSl1Completed() {
+        return preSl1Date != null;
+    }
+    
+    public boolean isSl1Completed() {
+        return sl1Date != null;
+    }
+    
+    public boolean isSl2Completed() {
+        return sl2Date != null;
+    }
+    
+    public boolean isElectricalOperationPreSl1Completed() {
+        return electricalOperationPreSl1Date != null;
+    }
+    
+    public boolean isHazardousEnergyChecklistCompleted() {
+        return hazardousEnergyChecklistDate != null;
+    }
+    
+    public boolean isMechanicalPreSl1Completed() {
+        return mechanicalPreSl1Date != null;
+    }
+    
+    public boolean isMechanicalPostSl1Completed() {
+        return mechanicalPostSl1Date != null;
+    }
+    
+    public boolean isSpecificInputFunctionalityTested() {
+        return specificInputFunctionalityDate != null;
+    }
+    
+    public boolean isModesOfOperationTested() {
+        return modesOfOperationDate != null;
+    }
+    
+    public boolean isSpecificSoosTestsed() {
+        return specificSoosDate != null;
+    }
+    
+    public boolean isFieldServiceReportUploaded() {
+        return fieldServiceReportDate != null;
+    }
+    
+    public boolean isCertificateOfApprovalUploaded() {
+        return certificateOfApprovalDate != null;
+    }
+    
+    public boolean isTurnedOverToCustomer() {
+        return turnedOverToCustomerDate != null;
+    }
+    
+    public boolean isStartUpSl03Completed() {
+        return startUpSl03Date != null;
+    }
+    
+    @Override
+    public String toString() {
+        return "Tool{" +
+               "id=" + id +
+               ", name='" + name + '\'' +
+               ", secondaryName='" + secondaryName + '\'' +
+               ", toolType=" + toolType +
+               ", serialNumber1='" + serialNumber1 + '\'' +
+               ", serialNumber2='" + serialNumber2 + '\'' +
+               ", status=" + status +
+               '}';
     }
 } 

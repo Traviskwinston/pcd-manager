@@ -37,6 +37,12 @@
                     <li class="nav-item">
                         <a class="nav-link" th:classappend="${activeTab == 'passdown' ? 'active' : ''}" href="/passdown">Passdown</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activeTab == 'documents' ? 'active' : ''}" href="/documents">Documents</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activeTab == 'users' ? 'active' : ''}" href="/users">Users</a>
+                    </li>
                 </ul>
                 <form th:action="@{/logout}" method="post" class="d-flex">
                     <button class="btn btn-outline-light" type="submit">Logout</button>

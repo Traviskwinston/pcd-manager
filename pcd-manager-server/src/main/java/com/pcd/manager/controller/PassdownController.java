@@ -3,9 +3,11 @@ package com.pcd.manager.controller;
 import com.pcd.manager.model.Passdown;
 import com.pcd.manager.model.Tool;
 import com.pcd.manager.model.User;
+import com.pcd.manager.model.Rma;
 import com.pcd.manager.service.PassdownService;
 import com.pcd.manager.service.ToolService;
 import com.pcd.manager.service.UserService;
+import com.pcd.manager.service.RmaService;
 import com.pcd.manager.util.UploadUtils;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,16 +45,18 @@ public class PassdownController {
     private final PassdownService passdownService;
     private final UserService userService;
     private final ToolService toolService;
+    private final RmaService rmaService;
     private final UploadUtils uploadUtils;
 
     @Value("${app.upload.dir:${user.home}/uploads}")
     private String uploadDir;
 
     @Autowired
-    public PassdownController(PassdownService passdownService, UserService userService, ToolService toolService, UploadUtils uploadUtils) {
+    public PassdownController(PassdownService passdownService, UserService userService, ToolService toolService, RmaService rmaService, UploadUtils uploadUtils) {
         this.passdownService = passdownService;
         this.userService = userService;
         this.toolService = toolService;
+        this.rmaService = rmaService;
         this.uploadUtils = uploadUtils;
     }
 
@@ -92,15 +96,48 @@ public class PassdownController {
 
     @GetMapping("/new")
     public String showCreateForm(Model model) {
-        model.addAttribute("passdown", new Passdown());
+        Passdown passdown = new Passdown();
+        
+        // Get current user's active tool (if any)
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
+            String email = auth.getName();
+            userService.getUserByEmail(email).ifPresent(currentUser -> {
+                if (currentUser.getActiveTool() != null) {
+                    // Set the activeTool as the default tool for the passdown
+                    passdown.setTool(currentUser.getActiveTool());
+                    logger.info("Autofilled tool: {} for user: {}", 
+                        currentUser.getActiveTool().getName(), currentUser.getName());
+                }
+            });
+        }
+        
+        model.addAttribute("passdown", passdown);
         model.addAttribute("tools", toolService.getAllTools());
         model.addAttribute("today", LocalDate.now());
         return "passdown/form";
     }
 
     @GetMapping("/{id}")
-    public String showPassdown(@PathVariable Long id, Model model) {
-        passdownService.getPassdownById(id).ifPresent(passdown -> model.addAttribute("passdown", passdown));
+    public String view(@PathVariable Long id, Model model) {
+        Optional<Passdown> passdownOpt = passdownService.getPassdownById(id);
+        
+        if (passdownOpt.isPresent()) {
+            Passdown passdown = passdownOpt.get();
+            model.addAttribute("passdown", passdown);
+            model.addAttribute("title", "Passdown Details");
+            
+            // Add all tools for the linking functionality
+            List<Tool> allTools = toolService.getAllTools();
+            model.addAttribute("allTools", allTools);
+            
+            // Add all RMAs for linking functionality
+            List<Rma> allRmas = rmaService.getAllRmas();
+            model.addAttribute("allRmas", allRmas);
+        } else {
+            return "redirect:/passdown";
+        }
+        
         return "passdown/view";
     }
 
@@ -108,6 +145,23 @@ public class PassdownController {
     public String showEditForm(@PathVariable Long id, Model model) {
         Passdown passdown = passdownService.getPassdownByIdWithDetails(id)
             .orElseThrow(() -> new RuntimeException("Passdown not found with id: " + id));
+        
+        // If the passdown doesn't have a tool set, get the current user's active tool (if any)
+        if (passdown.getTool() == null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
+                String email = auth.getName();
+                userService.getUserByEmail(email).ifPresent(currentUser -> {
+                    if (currentUser.getActiveTool() != null) {
+                        // Set the activeTool as the default tool for the passdown
+                        passdown.setTool(currentUser.getActiveTool());
+                        logger.info("Autofilled tool: {} for existing passdown ID: {}", 
+                            currentUser.getActiveTool().getName(), passdown.getId());
+                    }
+                });
+            }
+        }
+        
         model.addAttribute("passdown", passdown);
         model.addAttribute("tools", toolService.getAllTools());
         model.addAttribute("today", LocalDate.now());
@@ -132,8 +186,8 @@ public class PassdownController {
         try {
             // Get current user
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String username = auth.getName();
-            User currentUser = userService.getUserByUsername(username)
+            String email = auth.getName();
+            User currentUser = userService.getUserByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
                     
             // Process picture upload if present
@@ -370,5 +424,40 @@ public class PassdownController {
             redirectAttributes.addFlashAttribute("error", "Error deleting passdown: " + e.getMessage());
             return "redirect:/passdown";
         }
+    }
+
+    /**
+     * Link a file (document/picture) to another entity (RMA/Tool)
+     */
+    @PostMapping("/file/link")
+    public String linkFile(@RequestParam String filePath,
+                          @RequestParam Long passdownId,
+                          @RequestParam String linkType,
+                          @RequestParam Long targetId) {
+        
+        logger.info("Linking picture {} from Passdown {} to {} {}", filePath, passdownId, linkType, targetId);
+        
+        boolean success = false;
+        
+        try {
+            if ("rma".equals(linkType)) {
+                // Link to RMA
+                success = passdownService.linkPictureToRma(filePath, targetId);
+            } else if ("tool".equals(linkType)) {
+                // Link to Tool
+                success = passdownService.linkPictureToTool(filePath, targetId);
+            }
+            
+            if (success) {
+                logger.info("Successfully linked picture to {} {}", linkType, targetId);
+            } else {
+                logger.warn("Failed to link picture to {} {}", linkType, targetId);
+            }
+        } catch (Exception e) {
+            logger.error("Error linking picture to {} {}: {}", linkType, targetId, e.getMessage(), e);
+        }
+        
+        // Redirect back to passdown details
+        return "redirect:/passdown/" + passdownId;
     }
 } 

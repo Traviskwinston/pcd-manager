@@ -22,16 +22,11 @@ public class UserService {
     }
 
     /**
-     * Create a new user with proper username and encoded password
+     * Create a new user with encoded password
      */
     public User createUser(User user) {
-        // Ensure username is set to email if not provided
-        if (user.getUsername() == null || user.getUsername().isEmpty()) {
-            user.setUsername(user.getEmail());
-        }
-        
         // Encode the password before saving
-        if (user.getPassword() != null) {
+        if (user.getPassword() != null && !user.getPassword().isEmpty()) {
             user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
         
@@ -42,14 +37,19 @@ public class UserService {
      * Update an existing user
      */
     public User updateUser(User user) {
-        // For updates, we also ensure username matches email
-        if (user.getUsername() == null || user.getUsername().isEmpty()) {
-            user.setUsername(user.getEmail());
+        // Get the existing user to check if password needs updating
+        Optional<User> existingUserOpt = userRepository.findById(user.getId());
+        if (existingUserOpt.isPresent()) {
+            User existingUser = existingUserOpt.get();
+            
+            // If password is empty in the form, keep the existing password
+            if (user.getPassword() == null || user.getPassword().isEmpty()) {
+                user.setPassword(existingUser.getPassword());
+            } else {
+                // Password was provided, encode the new password
+                user.setPassword(passwordEncoder.encode(user.getPassword()));
+            }
         }
-        
-        // Only encode password if it has changed (a non-encoded value was provided)
-        // This would need more sophisticated handling in a real application
-        // to determine if the password was changed
         
         return userRepository.save(user);
     }
@@ -76,16 +76,18 @@ public class UserService {
     }
 
     /**
-     * Find user by username (which is typically the email)
-     */
-    public Optional<User> getUserByUsername(String username) {
-        return userRepository.findByUsername(username);
-    }
-
-    /**
      * Delete a user by id
      */
     public void deleteUser(Long id) {
         userRepository.deleteById(id);
+    }
+
+    /**
+     * Find users by active tool
+     * @param toolId The ID of the tool
+     * @return List of users with the specified tool as their active tool
+     */
+    public List<User> getUsersByActiveTool(Long toolId) {
+        return userRepository.findByActiveToolId(toolId);
     }
 } 

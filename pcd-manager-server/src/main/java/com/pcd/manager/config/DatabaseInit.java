@@ -100,7 +100,9 @@ public class DatabaseInit {
                 logger.error("Error updating tool_type enum: {}", e.getMessage(), e);
             }
         } catch (Exception e) {
-            logger.error("Error updating database schema", e);
+            logger.error("Error updating database schema: {}", e.getMessage());
+            logger.error("This may be caused by database already in use. The application will continue without schema updates.");
+            // Don't rethrow, allow the application to continue
         }
     }
     

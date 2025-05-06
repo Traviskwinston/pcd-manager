@@ -63,31 +63,4 @@ public class AuthController {
 
         return "login";
     }
-
-    @GetMapping("/dashboard")
-    public String dashboard(Model model, HttpSession session) {
-        try {
-            logger.debug("Fetching tools for dashboard");
-            List<Tool> tools = toolService.getAllTools();
-            model.addAttribute("tools", tools);
-            
-            logger.debug("Fetching recent passdowns for dashboard");
-            List<Passdown> passdowns = passdownService.getRecentPassdowns(10);
-            model.addAttribute("passdowns", passdowns);
-            
-            // Add all locations for filtering on dashboard
-            List<Location> locations = locationService.getAllLocations();
-            model.addAttribute("locations", locations);
-            
-            // Add default location to model for the navigation fragment
-            logger.debug("Fetching default location for navigation");
-            Optional<Location> defaultLocation = locationService.getDefaultLocation();
-            defaultLocation.ifPresent(location -> model.addAttribute("defaultLocation", location));
-            
-            return "dashboard";
-        } catch (Exception e) {
-            logger.error("Error loading dashboard: ", e);
-            return "dashboard";
-        }
-    }
 } 

@@ -4,6 +4,7 @@ import com.pcd.manager.model.Location;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,4 +22,10 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
     @Transactional
     @Query(value = "UPDATE locations SET default_location = FALSE", nativeQuery = true)
     void clearDefaultLocations();
+    
+    // Add method to find location where defaultLocation is true
+    Optional<Location> findByDefaultLocationIsTrue();
+
+    // Method to find a location by state and fab
+    Optional<Location> findByStateAndFab(String state, String fab);
 } 

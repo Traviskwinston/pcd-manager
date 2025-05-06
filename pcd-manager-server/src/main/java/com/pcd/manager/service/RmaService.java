@@ -1,8 +1,14 @@
 package com.pcd.manager.service;
 
 import com.pcd.manager.model.Rma;
+import com.pcd.manager.model.RmaStatus;
+import com.pcd.manager.model.RmaPriority;
+import com.pcd.manager.model.Location;
+import com.pcd.manager.model.Tool;
 import com.pcd.manager.model.RmaDocument;
 import com.pcd.manager.model.RmaPicture;
+import com.pcd.manager.model.Passdown;
+import com.pcd.manager.model.PartLineItem;
 import com.pcd.manager.repository.RmaRepository;
 import com.pcd.manager.repository.RmaPictureRepository;
 import com.pcd.manager.repository.RmaDocumentRepository;
@@ -21,6 +27,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.stream.Collectors;
 
 @Service
 public class RmaService {
@@ -30,6 +41,8 @@ public class RmaService {
     private final RmaPictureRepository rmaPictureRepository;
     private final RmaDocumentRepository rmaDocumentRepository;
     private final UploadUtils uploadUtils;
+    private final ToolService toolService;
+    private final PassdownService passdownService;
 
     private static final List<String> IMAGE_TYPES = Arrays.asList(
         "image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp"
@@ -39,15 +52,40 @@ public class RmaService {
     public RmaService(RmaRepository rmaRepository, 
                      RmaPictureRepository rmaPictureRepository,
                      RmaDocumentRepository rmaDocumentRepository,
-                     UploadUtils uploadUtils) {
+                     UploadUtils uploadUtils,
+                     ToolService toolService,
+                     PassdownService passdownService) {
         this.rmaRepository = rmaRepository;
         this.rmaPictureRepository = rmaPictureRepository;
         this.rmaDocumentRepository = rmaDocumentRepository;
         this.uploadUtils = uploadUtils;
+        this.toolService = toolService;
+        this.passdownService = passdownService;
     }
 
     public List<Rma> getAllRmas() {
         return rmaRepository.findAll();
+    }
+
+    /**
+     * Find all RMAs associated with a specific tool
+     * 
+     * @param toolId the ID of the tool
+     * @return list of RMAs associated with the tool
+     */
+    @Transactional(readOnly = true)
+    public List<Rma> findRmasByToolId(Long toolId) {
+        logger.info("Finding RMAs for tool ID: {}", toolId);
+        List<Rma> rmas = rmaRepository.findByToolId(toolId);
+        
+        // Initialize lazy-loaded collections
+        for (Rma rma : rmas) {
+            if (rma.getDocuments() != null) rma.getDocuments().size();
+            if (rma.getPictures() != null) rma.getPictures().size();
+        }
+        
+        logger.info("Found {} RMAs for tool ID: {}", rmas.size(), toolId);
+        return rmas;
     }
 
     @Transactional(readOnly = true)
@@ -63,11 +101,15 @@ public class RmaService {
     @Transactional
     public Rma saveRma(Rma rmaData, MultipartFile[] fileUploads) throws IOException {
         Rma rmaToSave;
+        Long oldToolId = null;
 
         if (rmaData.getId() != null) {
             logger.info("Updating RMA ID: {}", rmaData.getId());
             rmaToSave = getRmaById(rmaData.getId())
                 .orElseThrow(() -> new RuntimeException("RMA not found for update: " + rmaData.getId()));
+            
+            // Store old tool ID for later comparison
+            oldToolId = rmaToSave.getTool() != null ? rmaToSave.getTool().getId() : null;
             
             rmaToSave.setRmaNumber(rmaData.getRmaNumber());
             rmaToSave.setCustomerName(rmaData.getCustomerName());
@@ -77,7 +119,7 @@ public class RmaService {
             rmaToSave.setTechnician(rmaData.getTechnician());
             rmaToSave.setDescription(rmaData.getDescription());
             rmaToSave.setComments(rmaData.getComments());
-            rmaToSave.setTool(rmaData.getTool());
+            rmaToSave.setTool(rmaData.getTool()); // This may change the tool
             rmaToSave.setSerialNumber(rmaData.getSerialNumber());
             rmaToSave.setSalesOrder(rmaData.getSalesOrder());
             rmaToSave.setWrittenDate(rmaData.getWrittenDate());
@@ -90,6 +132,15 @@ public class RmaService {
             rmaToSave.setCustomerContact(rmaData.getCustomerContact());
             rmaToSave.setCustomerEmail(rmaData.getCustomerEmail());
             rmaToSave.setCustomerPhone(rmaData.getCustomerPhone());
+            
+            // Set new shipping fields
+            rmaToSave.setCompanyShipToName(rmaData.getCompanyShipToName());
+            rmaToSave.setCompanyShipToAddress(rmaData.getCompanyShipToAddress());
+            rmaToSave.setCity(rmaData.getCity());
+            rmaToSave.setState(rmaData.getState());
+            rmaToSave.setZipCode(rmaData.getZipCode());
+            rmaToSave.setAttn(rmaData.getAttn());
+            
             rmaToSave.setRootCause(rmaData.getRootCause());
             rmaToSave.setResolution(rmaData.getResolution());
             rmaToSave.setNotes(rmaData.getNotes());
@@ -221,6 +272,17 @@ public class RmaService {
         }
 
         logger.info("Successfully saved RMA ID: {} (complete)", savedRma.getId());
+        
+        // Update tool associations if the tool has changed or there are files
+        Long newToolId = savedRma.getTool() != null ? savedRma.getTool().getId() : null;
+        if ((oldToolId != null || newToolId != null) && !java.util.Objects.equals(oldToolId, newToolId)) {
+            // Tool has changed - update associations
+            updateRmaToolAssociation(savedRma, oldToolId);
+        } else if (newToolId != null) {
+            // Tool hasn't changed but make sure files are linked
+            linkAllFilesToTool(savedRma);
+        }
+        
         return savedRma;
     }
 
@@ -228,6 +290,75 @@ public class RmaService {
     public void deleteRma(Long id) {
         logger.info("Attempting to delete RMA ID: {}", id);
         Rma rma = getRmaById(id).orElseThrow(() -> new RuntimeException("RMA not found: " + id));
+
+        // Detach pictures and documents from the tool if there is one
+        if (rma.getTool() != null) {
+            Tool tool = rma.getTool();
+            
+            // Handle pictures
+            if (rma.getPictures() != null && !rma.getPictures().isEmpty() && 
+                tool.getPicturePaths() != null && !tool.getPicturePaths().isEmpty()) {
+                
+                Set<String> rmaPicturePaths = rma.getPictures().stream()
+                    .map(RmaPicture::getFilePath)
+                    .filter(path -> path != null && !path.isEmpty())
+                    .collect(Collectors.toSet());
+                    
+                // Find the paths to remove
+                Set<String> picPathsToRemove = new HashSet<>();
+                for (String path : tool.getPicturePaths()) {
+                    if (rmaPicturePaths.contains(path)) {
+                        picPathsToRemove.add(path);
+                        // Also remove from names map
+                        if (tool.getPictureNames() != null) {
+                            tool.getPictureNames().remove(path);
+                        }
+                    }
+                }
+                
+                if (!picPathsToRemove.isEmpty()) {
+                    tool.getPicturePaths().removeAll(picPathsToRemove);
+                    logger.info("Detached {} pictures from Tool {} before deleting RMA {}", 
+                        picPathsToRemove.size(), tool.getId(), id);
+                }
+            }
+            
+            // Handle documents
+            if (rma.getDocuments() != null && !rma.getDocuments().isEmpty() && 
+                tool.getDocumentPaths() != null && !tool.getDocumentPaths().isEmpty()) {
+                
+                Set<String> rmaDocumentPaths = rma.getDocuments().stream()
+                    .map(RmaDocument::getFilePath)
+                    .filter(path -> path != null && !path.isEmpty())
+                    .collect(Collectors.toSet());
+                    
+                // Find the paths to remove
+                Set<String> docPathsToRemove = new HashSet<>();
+                for (String path : tool.getDocumentPaths()) {
+                    if (rmaDocumentPaths.contains(path)) {
+                        docPathsToRemove.add(path);
+                        // Also remove from names map
+                        if (tool.getDocumentNames() != null) {
+                            tool.getDocumentNames().remove(path);
+                        }
+                    }
+                }
+                
+                if (!docPathsToRemove.isEmpty()) {
+                    tool.getDocumentPaths().removeAll(docPathsToRemove);
+                    logger.info("Detached {} documents from Tool {} before deleting RMA {}", 
+                        docPathsToRemove.size(), tool.getId(), id);
+                }
+            }
+            
+            // Save tool if any files were detached
+            try {
+                toolService.saveTool(tool);
+                logger.info("Saved Tool {} after detaching files from RMA {}", tool.getId(), id);
+            } catch (Exception e) {
+                logger.error("Error saving tool after detaching files: {}", e.getMessage(), e);
+            }
+        }
 
         if (rma.getDocuments() != null) {
             for (RmaDocument doc : rma.getDocuments()) {
@@ -841,6 +972,510 @@ public class RmaService {
             return true;
         } catch (Exception e) {
             logger.error("Error transferring document with ID {} to RMA {}: {}", documentId, targetRmaId, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * Link RMA pictures to the associated tool
+     * 
+     * @param rma The RMA containing pictures to link
+     */
+    @Transactional
+    public void linkPicturesToTool(Rma rma) {
+        if (rma == null || rma.getTool() == null || rma.getPictures() == null || rma.getPictures().isEmpty()) {
+            logger.debug("No pictures to link or no tool associated with RMA ID: {}", 
+                rma != null ? rma.getId() : "null");
+            return;
+        }
+        
+        Long toolId = rma.getTool().getId();
+        logger.info("Linking {} pictures from RMA {} to Tool {}", 
+            rma.getPictures().size(), rma.getId(), toolId);
+        
+        Tool tool = rma.getTool();
+        
+        // Process each picture in the RMA
+        for (RmaPicture rmaPicture : rma.getPictures()) {
+            // Skip null or empty paths
+            if (rmaPicture.getFilePath() == null || rmaPicture.getFilePath().isEmpty()) {
+                continue;
+            }
+            
+            // Create tag with RMA and parts info
+            String tag = createPictureTag(rma);
+            
+            // Only add if not already linked
+            if (tool.getPicturePaths() == null) {
+                tool.setPicturePaths(new HashSet<>());
+            }
+            if (tool.getPictureNames() == null) {
+                tool.setPictureNames(new HashMap<>());
+            }
+            
+            // Check if already exists in tool
+            if (!tool.getPicturePaths().contains(rmaPicture.getFilePath())) {
+                tool.getPicturePaths().add(rmaPicture.getFilePath());
+                
+                // Store the original name with the RMA tag prefix
+                String originalName = rmaPicture.getFileName() != null ? rmaPicture.getFileName() : 
+                    rmaPicture.getFilePath().substring(rmaPicture.getFilePath().lastIndexOf('/') + 1);
+                
+                tool.getPictureNames().put(rmaPicture.getFilePath(), tag + ": " + originalName);
+                
+                logger.info("Linked picture {} from RMA {} to Tool {}", 
+                    rmaPicture.getFilePath(), rma.getId(), toolId);
+            }
+        }
+        
+        // Save the tool with the updated pictures
+        try {
+            toolService.saveTool(tool);
+            logger.info("Successfully saved tool {} with linked pictures from RMA {}", 
+                toolId, rma.getId());
+        } catch (Exception e) {
+            logger.error("Error saving tool with linked pictures: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Link RMA documents to the associated tool
+     * 
+     * @param rma The RMA containing documents to link
+     */
+    @Transactional
+    public void linkDocumentsToTool(Rma rma) {
+        if (rma == null || rma.getTool() == null || rma.getDocuments() == null || rma.getDocuments().isEmpty()) {
+            logger.debug("No documents to link or no tool associated with RMA ID: {}", 
+                rma != null ? rma.getId() : "null");
+            return;
+        }
+        
+        Long toolId = rma.getTool().getId();
+        logger.info("Linking {} documents from RMA {} to Tool {}", 
+            rma.getDocuments().size(), rma.getId(), toolId);
+        
+        Tool tool = rma.getTool();
+        
+        // Process each document in the RMA
+        for (RmaDocument rmaDocument : rma.getDocuments()) {
+            // Skip null or empty paths
+            if (rmaDocument.getFilePath() == null || rmaDocument.getFilePath().isEmpty()) {
+                continue;
+            }
+            
+            // Create tag with RMA and parts info
+            String tag = createPictureTag(rma);
+            
+            // Only add if not already linked
+            if (tool.getDocumentPaths() == null) {
+                tool.setDocumentPaths(new HashSet<>());
+            }
+            if (tool.getDocumentNames() == null) {
+                tool.setDocumentNames(new HashMap<>());
+            }
+            
+            // Check if already exists in tool
+            if (!tool.getDocumentPaths().contains(rmaDocument.getFilePath())) {
+                tool.getDocumentPaths().add(rmaDocument.getFilePath());
+                
+                // Store the original name with the RMA tag prefix
+                String originalName = rmaDocument.getFileName() != null ? rmaDocument.getFileName() : 
+                    rmaDocument.getFilePath().substring(rmaDocument.getFilePath().lastIndexOf('/') + 1);
+                
+                tool.getDocumentNames().put(rmaDocument.getFilePath(), tag + ": " + originalName);
+                
+                logger.info("Linked document {} from RMA {} to Tool {}", 
+                    rmaDocument.getFilePath(), rma.getId(), toolId);
+            }
+        }
+        
+        // Save the tool with the updated documents
+        try {
+            toolService.saveTool(tool);
+            logger.info("Successfully saved tool {} with linked documents from RMA {}", 
+                toolId, rma.getId());
+        } catch (Exception e) {
+            logger.error("Error saving tool with linked documents: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Link all RMA files (pictures and documents) to the associated tool
+     * 
+     * @param rma The RMA containing files to link
+     */
+    @Transactional
+    public void linkAllFilesToTool(Rma rma) {
+        if (rma == null || rma.getTool() == null) {
+            return;
+        }
+        
+        linkPicturesToTool(rma);
+        linkDocumentsToTool(rma);
+    }
+
+    /**
+     * Create a tag for files with RMA and parts information
+     */
+    private String createPictureTag(Rma rma) {
+        StringBuilder tag = new StringBuilder();
+        
+        // Just show the RMA number
+        if (rma.getRmaNumber() != null && !rma.getRmaNumber().isEmpty()) {
+            tag.append("RMA ").append(rma.getRmaNumber());
+        } else {
+            tag.append("RMA-").append(rma.getId());
+        }
+        
+        // Add part info if available - using part names instead of numbers
+        if (rma.getPartLineItems() != null && !rma.getPartLineItems().isEmpty()) {
+            tag.append(" | Parts: ");
+            int count = 0;
+            for (PartLineItem part : rma.getPartLineItems()) {
+                if (count++ < 3) { // Limit to first 3 parts to keep tag manageable
+                    // Use part name if available, otherwise use part number
+                    String partName = part.getPartName();
+                    if (partName == null || partName.isEmpty()) {
+                        partName = part.getPartNumber();
+                    }
+                    
+                    if (count > 1) {
+                        tag.append(", ");
+                    }
+                    tag.append(partName);
+                } else {
+                    tag.append("...");
+                    break;
+                }
+            }
+        }
+        
+        return tag.toString();
+    }
+    
+    /**
+     * Update tool associations when an RMA's tool is changed
+     * 
+     * @param rma The RMA with updated tool
+     * @param oldToolId The previous tool ID
+     */
+    @Transactional
+    public void updateRmaToolAssociation(Rma rma, Long oldToolId) {
+        if (rma == null || rma.getId() == null) {
+            logger.warn("Cannot update tool association for null RMA");
+            return;
+        }
+        
+        // If tool didn't change or there are no files, nothing to do
+        if ((oldToolId == null && rma.getTool() == null) || 
+            (oldToolId != null && rma.getTool() != null && oldToolId.equals(rma.getTool().getId())) ||
+            ((rma.getPictures() == null || rma.getPictures().isEmpty()) && 
+             (rma.getDocuments() == null || rma.getDocuments().isEmpty()))) {
+            return;
+        }
+        
+        logger.info("Updating tool association for RMA {} from Tool {} to Tool {}", 
+            rma.getId(), oldToolId, rma.getTool() != null ? rma.getTool().getId() : "null");
+        
+        // If there was a previous tool, remove files from it
+        if (oldToolId != null) {
+            Tool oldTool = toolService.getToolById(oldToolId).orElse(null);
+            if (oldTool != null) {
+                // Handle pictures
+                if (rma.getPictures() != null && !rma.getPictures().isEmpty() &&
+                    oldTool.getPicturePaths() != null && !oldTool.getPicturePaths().isEmpty()) {
+                    
+                    logger.info("Removing pictures from previous Tool {}", oldToolId);
+                    
+                    // Get paths of pictures associated with this RMA
+                    Set<String> rmaPicturePaths = rma.getPictures().stream()
+                        .map(RmaPicture::getFilePath)
+                        .filter(path -> path != null && !path.isEmpty())
+                        .collect(Collectors.toSet());
+                    
+                    // Remove these paths from the old tool
+                    Set<String> picPathsToRemove = new HashSet<>();
+                    for (String path : oldTool.getPicturePaths()) {
+                        if (rmaPicturePaths.contains(path)) {
+                            picPathsToRemove.add(path);
+                            oldTool.getPictureNames().remove(path);
+                        }
+                    }
+                    
+                    oldTool.getPicturePaths().removeAll(picPathsToRemove);
+                    logger.info("Removed {} pictures from Tool {}", picPathsToRemove.size(), oldToolId);
+                }
+                
+                // Handle documents
+                if (rma.getDocuments() != null && !rma.getDocuments().isEmpty() &&
+                    oldTool.getDocumentPaths() != null && !oldTool.getDocumentPaths().isEmpty()) {
+                    
+                    logger.info("Removing documents from previous Tool {}", oldToolId);
+                    
+                    // Get paths of documents associated with this RMA
+                    Set<String> rmaDocumentPaths = rma.getDocuments().stream()
+                        .map(RmaDocument::getFilePath)
+                        .filter(path -> path != null && !path.isEmpty())
+                        .collect(Collectors.toSet());
+                    
+                    // Remove these paths from the old tool
+                    Set<String> docPathsToRemove = new HashSet<>();
+                    for (String path : oldTool.getDocumentPaths()) {
+                        if (rmaDocumentPaths.contains(path)) {
+                            docPathsToRemove.add(path);
+                            oldTool.getDocumentNames().remove(path);
+                        }
+                    }
+                    
+                    oldTool.getDocumentPaths().removeAll(docPathsToRemove);
+                    logger.info("Removed {} documents from Tool {}", docPathsToRemove.size(), oldToolId);
+                }
+                
+                // Save the old tool with files removed
+                try {
+                    toolService.saveTool(oldTool);
+                    logger.info("Successfully saved old Tool {} after removing files", oldToolId);
+                } catch (Exception e) {
+                    logger.error("Error removing files from old tool: {}", e.getMessage(), e);
+                }
+            }
+        }
+        
+        // Add files to the new tool if there is one
+        if (rma.getTool() != null) {
+            linkAllFilesToTool(rma);
+        }
+    }
+
+    /**
+     * Link a document from an RMA to a Tool
+     * 
+     * @param documentId the ID of the document
+     * @param toolId the ID of the tool
+     * @return true if successful, false otherwise
+     */
+    @Transactional
+    public boolean linkDocumentToTool(Long documentId, Long toolId) {
+        logger.info("Linking document {} to tool {}", documentId, toolId);
+        try {
+            // Get the document
+            Optional<RmaDocument> documentOpt = findDocumentById(documentId);
+            if (documentOpt.isEmpty()) {
+                logger.warn("Document with ID {} not found", documentId);
+                return false;
+            }
+            
+            RmaDocument document = documentOpt.get();
+            String documentPath = document.getFilePath();
+            String fileName = document.getFileName();
+            
+            // Get the tool
+            Optional<Tool> toolOpt = toolService.getToolById(toolId);
+            if (toolOpt.isEmpty()) {
+                logger.warn("Tool with ID {} not found", toolId);
+                return false;
+            }
+            
+            Tool tool = toolOpt.get();
+            
+            // Check if the document is already linked to the tool
+            if (tool.getDocumentPaths() != null && tool.getDocumentPaths().contains(documentPath)) {
+                logger.warn("Document is already linked to tool {}", toolId);
+                return true; // Already linked, so technically successful
+            }
+            
+            // Add the document path to the tool
+            if (tool.getDocumentPaths() == null) {
+                tool.setDocumentPaths(new HashSet<>());
+            }
+            tool.getDocumentPaths().add(documentPath);
+            
+            // Update document name mapping if needed
+            if (tool.getDocumentNames() == null) {
+                tool.setDocumentNames(new HashMap<>());
+            }
+            
+            // Format: "RMA-123: filename.pdf"
+            String rmaPrefix = "RMA-" + document.getRma().getId() + ": ";
+            tool.getDocumentNames().put(documentPath, rmaPrefix + fileName);
+            
+            // Save the tool
+            toolService.saveTool(tool);
+            
+            logger.info("Successfully linked document to tool {}", toolId);
+            return true;
+        } catch (Exception e) {
+            logger.error("Error linking document to tool: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Link a picture from an RMA to a Tool
+     * 
+     * @param pictureId the ID of the picture
+     * @param toolId the ID of the tool
+     * @return true if successful, false otherwise
+     */
+    @Transactional
+    public boolean linkPictureToTool(Long pictureId, Long toolId) {
+        logger.info("Linking picture {} to tool {}", pictureId, toolId);
+        try {
+            // Get the picture
+            Optional<RmaPicture> pictureOpt = findPictureById(pictureId);
+            if (pictureOpt.isEmpty()) {
+                logger.warn("Picture with ID {} not found", pictureId);
+                return false;
+            }
+            
+            RmaPicture picture = pictureOpt.get();
+            String picturePath = picture.getFilePath();
+            String fileName = picture.getFileName();
+            
+            // Get the tool
+            Optional<Tool> toolOpt = toolService.getToolById(toolId);
+            if (toolOpt.isEmpty()) {
+                logger.warn("Tool with ID {} not found", toolId);
+                return false;
+            }
+            
+            Tool tool = toolOpt.get();
+            
+            // Check if the picture is already linked to the tool
+            if (tool.getPicturePaths() != null && tool.getPicturePaths().contains(picturePath)) {
+                logger.warn("Picture is already linked to tool {}", toolId);
+                return true; // Already linked, so technically successful
+            }
+            
+            // Add the picture path to the tool
+            if (tool.getPicturePaths() == null) {
+                tool.setPicturePaths(new HashSet<>());
+            }
+            tool.getPicturePaths().add(picturePath);
+            
+            // Update picture name mapping if needed
+            if (tool.getPictureNames() == null) {
+                tool.setPictureNames(new HashMap<>());
+            }
+            
+            // Format: "RMA-123: filename.jpg"
+            String rmaPrefix = "RMA-" + picture.getRma().getId() + ": ";
+            tool.getPictureNames().put(picturePath, rmaPrefix + fileName);
+            
+            // Save the tool
+            toolService.saveTool(tool);
+            
+            logger.info("Successfully linked picture to tool {}", toolId);
+            return true;
+        } catch (Exception e) {
+            logger.error("Error linking picture to tool: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Link a document from an RMA to a Passdown
+     * 
+     * @param documentId the ID of the document
+     * @param passdownId the ID of the passdown
+     * @return true if successful, false otherwise
+     */
+    @Transactional
+    public boolean linkDocumentToPassdown(Long documentId, Long passdownId) {
+        logger.info("Linking document {} to passdown {}", documentId, passdownId);
+        try {
+            // Get the document
+            Optional<RmaDocument> documentOpt = findDocumentById(documentId);
+            if (documentOpt.isEmpty()) {
+                logger.warn("Document with ID {} not found", documentId);
+                return false;
+            }
+            
+            RmaDocument document = documentOpt.get();
+            String documentPath = document.getFilePath();
+            
+            // Get the passdown
+            Optional<Passdown> passdownOpt = passdownService.getPassdownById(passdownId);
+            if (passdownOpt.isEmpty()) {
+                logger.warn("Passdown with ID {} not found", passdownId);
+                return false;
+            }
+            
+            Passdown passdown = passdownOpt.get();
+            
+            // Check if the document is already linked to the passdown
+            if (passdown.getDocumentPaths() != null && passdown.getDocumentPaths().contains(documentPath)) {
+                logger.warn("Document is already linked to passdown {}", passdownId);
+                return true; // Already linked, so technically successful
+            }
+            
+            // Add the document path to the passdown
+            if (passdown.getDocumentPaths() == null) {
+                passdown.setDocumentPaths(new HashSet<>());
+            }
+            passdown.getDocumentPaths().add(documentPath);
+            
+            // Save the passdown
+            passdownService.savePassdown(passdown);
+            
+            logger.info("Successfully linked document to passdown {}", passdownId);
+            return true;
+        } catch (Exception e) {
+            logger.error("Error linking document to passdown: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Link a picture from an RMA to a Passdown
+     * 
+     * @param pictureId the ID of the picture
+     * @param passdownId the ID of the passdown
+     * @return true if successful, false otherwise
+     */
+    @Transactional
+    public boolean linkPictureToPassdown(Long pictureId, Long passdownId) {
+        logger.info("Linking picture {} to passdown {}", pictureId, passdownId);
+        try {
+            // Get the picture
+            Optional<RmaPicture> pictureOpt = findPictureById(pictureId);
+            if (pictureOpt.isEmpty()) {
+                logger.warn("Picture with ID {} not found", pictureId);
+                return false;
+            }
+            
+            RmaPicture picture = pictureOpt.get();
+            String picturePath = picture.getFilePath();
+            
+            // Get the passdown
+            Optional<Passdown> passdownOpt = passdownService.getPassdownById(passdownId);
+            if (passdownOpt.isEmpty()) {
+                logger.warn("Passdown with ID {} not found", passdownId);
+                return false;
+            }
+            
+            Passdown passdown = passdownOpt.get();
+            
+            // Check if the picture is already linked to the passdown
+            if (passdown.getPicturePaths() != null && passdown.getPicturePaths().contains(picturePath)) {
+                logger.warn("Picture is already linked to passdown {}", passdownId);
+                return true; // Already linked, so technically successful
+            }
+            
+            // Add the picture path to the passdown
+            if (passdown.getPicturePaths() == null) {
+                passdown.setPicturePaths(new HashSet<>());
+            }
+            passdown.getPicturePaths().add(picturePath);
+            
+            // Save the passdown
+            passdownService.savePassdown(passdown);
+            
+            logger.info("Successfully linked picture to passdown {}", passdownId);
+            return true;
+        } catch (Exception e) {
+            logger.error("Error linking picture to passdown: {}", e.getMessage(), e);
             return false;
         }
     }

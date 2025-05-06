@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,16 +8,39 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         .scrollable-list {
-            /* Allow list to fill the card body and scroll fully */
             flex: 1 1 auto;
             overflow-y: auto;
-            max-height: none;
+            max-height: none; /* Allow full scroll within card body */
         }
         .tool-item {
-            padding: 8px 12px;
+            padding: 8px 120x;
+            font-size: 1rem;
+            max-width: 95%;
             border-radius: 4px;
             margin-bottom: 8px;
             background-color: #f8f9fa;
+        }
+        .tool-item.assigned {
+            background-color: #e6f7ff; /* Light blue background for assigned tools */
+            border-left: 3px solid #8400ac; /* Blue left border indicator */
+        }
+        .tool-assigned-icon {
+            color: #0d6efd;
+            margin-left: 4px;
+            cursor: help;
+        }
+        .assigned-user-tooltip {
+            position: absolute;
+            background-color: #343a40;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            white-space: nowrap;
+            pointer-events: none;
+            display: none;
         }
         .passdown-item {
             padding: 10px;
@@ -43,20 +66,20 @@
             display: block;
             color: #212529;
             text-decoration: none;
-            padding: 0.5rem 1rem;
-            margin: -0.5rem -1rem;
+            padding: 0.5rem 0.5rem;
+            margin: -0.5rem -0.5rem;
         }
         
         .list-group-item-link:hover {
             background-color: rgba(0,0,0,.03);
             color: #0d6efd;
         }
-        /* Ensure full-height layout for dashboard cards */
+        /* Ensure full-height layout */
         html, body {
             height: 100%;
         }
         .dashboard-container {
-            height: calc(100vh - 56px); /* adjust if navbar height differs */
+            height: calc(100vh - 56px); /* Adjust if navbar height differs */
         }
         .full-height-card {
             display: flex;
@@ -64,13 +87,12 @@
             height: 100%;
         }
         .full-height-card .card-body {
-            /* Make card-body fill remaining space and host a flex layout */
             display: flex;
             flex: 1 1 auto;
             flex-direction: column;
-            overflow: hidden;
+            overflow: hidden; /* Prevent content from breaking card layout */
         }
-        /* Clamp passdown comments to 3 lines with ellipsis */
+        /* Clamp passdown comments */
         .clamp-3 {
             display: -webkit-box;
             -webkit-line-clamp: 3;
@@ -78,39 +100,159 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        /* Adjust Tools column width to ~29% */
+        /* Column widths */
         .tools-col {
-            flex: 0 0 29%;
-            max-width: 29%;
+            flex: 0 0 15%;
+            max-width: 15%;
         }
-        /* Main column holds grid and passdowns, remaining ~71% width */
         .main-col {
-            flex: 0 0 71%;
-            max-width: 71%;
-            display: flex;
+            flex: 0 0 85%;
+            max-width: 85%;
+            display: flex; /* Keep flex for inner content alignment */
             flex-direction: column;
-            height: 100%;
+            height: 100%; /* Ensure main col takes full height */
         }
-        .main-col .top-half, .main-col .bottom-half {
-            flex: 1 1 50%;
-            display: flex;
-            flex-direction: column;
+        /* Restore grid elements */
+        #grid-canvas, #grid-controls {
+            display: block !important;
+        }
+        .top-half {
+            display: flex !important;
+            flex: 1 1 50%; /* Take 50% of the main column height */
+            position: relative;
             overflow: hidden;
         }
-        /* Grid container and canvas styling */
-        #grid-controls {
-            padding: .5rem;
-            background: #f1f1f1;
-            border-bottom: 1px solid #ddd;
+        /* Make passdowns section take 50% of the height */
+        .bottom-half {
+             flex: 1 1 50%; /* Take 50% of the main column height */
+             display: flex; 
+             flex-direction: column;
+             overflow: hidden;
         }
+        
+        /* Grid specific styles */
         #grid-canvas {
-            flex: 1 1 auto;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            overflow: hidden;
+        }
+        #grid-controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            z-index: 100;
+            background-color: #6f42c1;
+            border-radius: 0.25rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            min-width: 200px;
+        }
+        #grid-controls-header {
+            background-color: #6f42c1;
+            color: white;
+            padding: 8px 12px;
+            border-top-left-radius: 0.25rem;
+            border-top-right-radius: 0.25rem;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #grid-controls-body {
+            padding: 10px;
+            background-color: white;
+            border-bottom-left-radius: 0.25rem;
+            border-bottom-right-radius: 0.25rem;
+        }
+        .grid-control-btn {
+            border: 1px solid #ced4da;
+            background-color: white;
+            padding: 8px 10px;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            margin-right: 5px;
+            font-size: 0.875rem;
+        }
+        .grid-control-btn:hover {
+            background-color: #f8f9fa;
+        }
+        .grid-control-btn.active {
+            background-color: #e9ecef;
+            border-color: #adb5bd;
+        }
+        .grid-tool-icon {
+            font-size: 1rem;
+        }
+        .disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        /* Tooltip styles */
+        .tool-tooltip {
+            position: absolute;
+            background-color: #fff;
+            color: #333;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            max-width: 200px;
+            white-space: normal;
+            pointer-events: none;
+            display: none;
+        }
+        /* Tool preview styles */
+        .tool-preview {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        /* Tool and drawing styles */
+        .tool-shape {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .tool-shape.highlight {
+            box-shadow: 0 0 12px 4px rgba(13, 110, 253, 0.8);
+            animation: highlight-pulse 1.5s infinite alternate;
+        }
+        @keyframes highlight-pulse {
+            from {
+                box-shadow: 0 0 8px 2px rgba(13, 110, 253, 0.7);
+            }
+            to {
+                box-shadow: 0 0 15px 5px rgba(13, 110, 253, 0.9);
+            }
+        }
+        .tool-shape.teal-tool {
+            background-color: teal;
+        }
+        .tool-shape.purple-tool {
+            background-color: purple;
+        }
+        
+        /* Glow effect for selected items */
+        .selected-glow {
+            animation: glow-pulse 1.5s infinite alternate;
+        }
+        @keyframes glow-pulse {
+            from {
+                box-shadow: 0 0 8px 2px rgba(13, 110, 253, 0.5);
+            }
+            to {
+                box-shadow: 0 0 15px 5px rgba(13, 110, 253, 0.7);
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Include the navigation fragment with modern syntax -->
-    <div th:replace="~{fragments/navigation :: navbar('dashboard')}"></div>
+    <!-- Include the navigation fragment -->
+    <div th:replace="~{fragments/navigation :: navbar(activeTab='dashboard')}"></div>
+
+    <!-- Tooltip element (added globally) -->
+    <div class="assigned-user-tooltip" id="assigned-user-tooltip"></div>
 
     <div class="container-fluid mt-4 dashboard-container h-100">
         <div class="row h-100">
@@ -118,40 +260,32 @@
             <div class="d-flex h-100 tools-col">
                 <div class="card full-height-card w-100">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Tools</h5>
                         <div class="d-flex align-items-center">
-                            <div class="me-2">
-                                <span class="filter-icon" title="Filter by type">
-                                    <i class="bi bi-filter"></i>
-                                </span>
-                            </div>
-                            <input id="tool-search" type="text" class="form-control form-control-sm ms-2" placeholder="Search tools..." style="max-width:200px;">
+                            <h5 class="mb-0">Tools</h5>
+                            <span class="filter-icon ms-2" title="Filter by type">
+                                <i class="bi bi-filter"></i>
+                            </span>
+                        </div>
+                        <div>
+                            <input id="tool-search" type="text" class="form-control form-control-sm" placeholder="Search tools..." style="max-width:150px;">
                         </div>
                     </div>
                     <!-- Collapsible filter panel -->
                     <div id="tool-filter-panel" class="px-3 py-2 bg-light border-bottom" style="display:none;">
+                        <!-- Filter dropdowns remain -->
                         <div class="row g-2">
                             <div class="col">
                                 <select id="filter-type" class="form-select form-select-sm">
                                     <option value="">All Types</option>
-                                    <option th:each="t : ${T(com.pcd.manager.model.Tool.ToolType).values()}"
-                                            th:value="${t.name()}" th:text="${t.name()}"></option>
+                                    <option th:each="type : ${T(com.pcd.manager.model.Tool.ToolType).values()}"
+                                            th:value="${type}" th:text="${type}">CHEMBLEND</option>
                                 </select>
                             </div>
                             <div class="col">
                                 <select id="filter-status" class="form-select form-select-sm">
                                     <option value="">All Status</option>
-                                    <option th:each="s : ${T(com.pcd.manager.model.Tool.ToolStatus).values()}"
-                                            th:value="${s.name()}"
-                                            th:text="${s.name().replace('_',' ').toLowerCase().replaceFirst('.', s.name().replace('_',' ').substring(0,1).toUpperCase())}">
-                                    </option>
-                                </select>
-                            </div>
-                            <div class="col">
-                                <select id="filter-location" class="form-select form-select-sm">
-                                    <option value="">All Locations</option>
-                                    <option th:each="loc : ${locations}" 
-                                            th:value="${loc.id}" th:text="${loc.displayName}"></option>
+                                    <option th:each="status : ${T(com.pcd.manager.model.Tool.ToolStatus).values()}"
+                                            th:value="${status}" th:text="${status}">Not started</option>
                                 </select>
                             </div>
                         </div>
@@ -159,24 +293,40 @@
                     <div class="card-body">
                         <div class="scrollable-list">
                             <!-- No tools message -->
-                            <div th:if="${tools == null || tools.isEmpty()}" class="text-center text-muted p-3">
-                                <p>No tools available</p>
+                            <div th:if="${#lists.isEmpty(tools)}" class="text-center text-muted py-3">
+                                No tools found. <a th:href="@{/tools/new}">Add a new tool?</a>
                             </div>
                             
                             <!-- Tools list -->
-                            <div th:if="${tools != null && !tools.isEmpty()}">
+                            <div th:unless="${#lists.isEmpty(tools)}">
+                                <!-- Debug: Total tools count -->
+                                <div class="small text-muted mb-2" th:text="${'Total tools: ' + #lists.size(tools)}"></div>
+                                
+                                <!-- All tools in a single loop -->
                                 <div th:each="tool : ${tools}" 
+                                     th:classappend="${!#lists.isEmpty(tool.currentTechnicians) ? 'assigned' : ''}"
                                      class="tool-item position-relative p-0" 
+                                     th:attr="data-tool-id=${tool.id}" 
                                      th:data-type="${tool.toolType}" 
-                                     th:attr="data-serial=${tool.serialNumber1},data-model=${tool.model1},data-status=${tool.status},data-location=${tool.location != null ? tool.location.id : ''}">
-                                    <a th:href="@{/tools/{id}(id=${tool.id})}" 
-                                       class="list-group-item-link"
-                                       th:text="${tool.name != null ? tool.name : 'Unnamed Tool'}">
-                                        Tool Name
-                                    </a>
-                                    <div th:if="${tool.location != null && tool.location.name != null}" 
-                                         class="small text-muted ps-3 pb-2">
-                                        Location: <span th:text="${tool.location.name}">Location</span>
+                                     th:data-serial="${tool.serialNumber1}"
+                                     th:data-model="${tool.model1}"
+                                     th:data-status="${tool.status}"
+                                     th:data-location="${tool.location != null ? tool.location.id : ''}"
+                                     th:data-assigned-users="${!#lists.isEmpty(tool.currentTechnicians) ? #strings.listJoin(tool.currentTechnicians.![name], ', ') : ''}">
+                                    <div class="d-flex align-items-center">
+                                        <a th:href="@{'/tools/' + ${tool.id}}" 
+                                           class="list-group-item-link flex-grow-1"
+                                           th:text="${tool.name}">
+                                            Tool Name
+                                        </a>
+                                        <span class="tool-assigned-icon" th:if="${!#lists.isEmpty(tool.currentTechnicians)}">
+                                            <i class="bi bi-person-check"></i>
+                                        </span>
+                                    </div>
+                                    <div class="small text-muted ps-3">
+                                        <div th:if="${tool.location != null && tool.location.name != null}" class="pb-2">
+                                            Location: <span th:text="${tool.location.name}">Location</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -185,23 +335,56 @@
                 </div>
             </div>
             
-            <!-- Main Column: Grid (top) and Passdowns (bottom) -->
+            <!-- Main Column: Map + Passdowns -->
             <div class="main-col">
-                <!-- Top half: Grid -->
+                <!-- Map Section (top-half) -->
                 <div class="top-half">
-                    <div id="grid-controls" class="d-flex gap-2">
-                        <button id="cancel-placement" class="btn btn-sm btn-dark" title="Pointer mode"><i class="bi bi-mouse"></i></button>
-                        <button id="add-room" class="btn btn-sm btn-outline-dark">Room 2x2</button>
-                        <button id="add-room-drag" class="btn btn-sm btn-outline-dark">Room</button>
-                        <button id="add-tool1x2" class="btn btn-sm btn-outline-dark">Tool 1x2</button>
-                        <button id="add-tool2x1" class="btn btn-sm btn-outline-dark">Tool 2x1</button>
-                        <button id="add-tool1x1" class="btn btn-sm btn-outline-dark">Tool 1x1</button>
-                        <button id="add-misc" class="btn btn-sm btn-outline-dark">Misc 1x1</button>
+                    <div id="grid-canvas"></div>
+                    
+                    <!-- Controls -->
+                    <div id="grid-controls">
+                        <div id="grid-controls-header">
+                            <span>Controls</span>
+                            <i class="bi bi-chevron-up toggle-grid-controls"></i>
+                        </div>
+                        <div id="grid-controls-body">
+                            <div class="d-flex mb-2">
+                                <button class="grid-control-btn active" data-mode="select" title="Select Mode">
+                                    <i class="bi bi-cursor grid-tool-icon"></i>
+                                </button>
+                                <button class="grid-control-btn" data-mode="edit" title="Edit Mode">
+                                    <i class="bi bi-pencil grid-tool-icon"></i>
+                                </button>
+                                <button class="grid-control-btn" data-mode="add-tool" title="Add Tool">
+                                    <i class="bi bi-plus-square grid-tool-icon"></i>
+                                </button>
+                                <button class="grid-control-btn" data-mode="draw" title="Draw">
+                                    <i class="bi bi-square grid-tool-icon"></i>
+                                </button>
+                            </div>
+                            <div class="d-flex">
+                                <button class="grid-control-btn" data-action="zoom-in" title="Zoom In">
+                                    <i class="bi bi-zoom-in grid-tool-icon"></i>
+                                </button>
+                                <button class="grid-control-btn" data-action="zoom-out" title="Zoom Out">
+                                    <i class="bi bi-zoom-out grid-tool-icon"></i>
+                                </button>
+                                <button class="grid-control-btn disabled" data-action="delete" title="Delete" id="delete-btn">
+                                    <i class="bi bi-trash grid-tool-icon"></i>
+                                </button>
+                                <button class="grid-control-btn disabled" data-action="save" title="Save" id="save-btn">
+                                    <i class="bi bi-save grid-tool-icon"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div id="grid-canvas" class="flex-grow-1"></div>
+                    
+                    <!-- Tool tooltip container -->
+                    <div class="tool-tooltip" id="tool-tooltip"></div>
                 </div>
-                <!-- Bottom half: Passdowns -->
-                <div class="bottom-half">
+                
+                <!-- Passdowns Section (bottom-half) -->
+                <div class="bottom-half"> 
                     <div class="card full-height-card w-100">
                         <div class="card-header">
                             <div class="d-flex justify-content-between align-items-center">
@@ -211,466 +394,432 @@
                         </div>
                         <div class="card-body">
                             <div class="scrollable-list">
-                                <div th:if="${passdowns == null || passdowns.isEmpty()}" class="text-center text-muted p-3"><p>No passdowns available</p></div>
-                                <div th:if="${passdowns != null && !passdowns.isEmpty()}">
-                                    <div th:each="passdown : ${passdowns}" class="passdown-item" th:attr="data-comment=${passdown.comment},data-user=${passdown.user != null ? passdown.user.name : ''},data-tool=${passdown.tool != null ? passdown.tool.name : ''}">
-                                        <p class="mb-1 clamp-3" th:text="${passdown.comment != null ? passdown.comment : 'No comment'}"></p>
-                                        <div th:if="${passdown.user != null && passdown.user.name != null}" class="small text-muted d-flex align-items-center">
+                                <div th:if="${#lists.isEmpty(recentPassdowns)}" class="text-center text-muted py-3">
+                                    No recent passdowns.
+                                </div>
+                                <div th:unless="${#lists.isEmpty(recentPassdowns)}">
+                                    <div th:each="passdown : ${recentPassdowns}" class="passdown-item"
+                                         th:data-comment="${passdown.comment}"
+                                         th:data-user="${passdown.user.name}"
+                                         th:data-tool="${passdown.tool != null ? passdown.tool.name : ''}">
+                                        <p class="mb-1 clamp-3" th:text="${passdown.comment}">Passdown comment...</p>
+                                        <div class="small text-muted d-flex align-items-center">
                                             <span>Posted by: <span th:text="${passdown.user.name}">User</span></span>
-                                            <span class="ms-3">Date: <span th:text="${#temporals.format(passdown.date, 'MM/dd/yyyy')}">MM/dd/yyyy</span></span>
+                                            <span class="ms-3">Date: <span th:text="${#temporals.format(passdown.createdDate, 'MM/dd/yyyy HH:mm')}">Date</span></span>
+                                            <span th:if="${passdown.tool != null}" class="ms-3">Tool: <span th:text="${passdown.tool.name}">Tool</span></span>
                                         </div>
-                                        <div class="mt-1"><a th:href="@{/passdown/{id}(id=${passdown.id})}" class="btn btn-sm btn-link p-0">View Details</a></div>
+                                        <div class="mt-1"><a th:href="@{'/passdown/' + ${passdown.id}}" class="btn btn-sm btn-link p-0">View Details</a></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div> 
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Tool Modal -->
+    <div class="modal fade" id="add-tool-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Tool to Map</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="tool-search-modal" class="form-label">Search Tool</label>
+                        <input type="text" class="form-control" id="tool-search-modal" placeholder="Search by name, model, or serial...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Available Tools</label>
+                        <select class="form-select" id="tool-select" size="6">
+                            <!-- Tools will be populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Size</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="tool-size" id="size-4x2" value="4x2" checked>
+                            <label class="btn btn-outline-primary" for="size-4x2">4x2</label>
+                            
+                            <input type="radio" class="btn-check" name="tool-size" id="size-2x2" value="2x2">
+                            <label class="btn btn-outline-primary" for="size-2x2">2x2</label>
+                            
+                            <input type="radio" class="btn-check" name="tool-size" id="size-2x4" value="2x4">
+                            <label class="btn btn-outline-primary" for="size-2x4">2x4</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="place-tool-btn">Place Tool</button>
                 </div>
             </div>
         </div>
     </div>
     
+    <!-- Draw Shape Modal -->
+    <div class="modal fade" id="draw-shape-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Draw Shape</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="drawing-text" class="form-label">Text</label>
+                        <input type="text" class="form-control" id="drawing-text" placeholder="Enter text to display (can be blank)...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Size</label>
+                        <div class="row">
+                            <div class="col">
+                                <label for="drawing-width" class="form-label">Width (grid units)</label>
+                                <input type="number" class="form-control" id="drawing-width" min="1" max="20" value="4">
+                            </div>
+                            <div class="col">
+                                <label for="drawing-height" class="form-label">Height (grid units)</label>
+                                <input type="number" class="form-control" id="drawing-height" min="1" max="20" value="3">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Color</label>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-dark color-btn active" data-color="black">Black</button>
+                            <button type="button" class="btn btn-primary color-btn" data-color="blue">Blue</button>
+                            <button type="button" class="btn btn-success color-btn" data-color="green">Green</button>
+                            <button type="button" class="btn btn-danger color-btn" data-color="red">Red</button>
+                            <button type="button" class="btn btn-warning color-btn" data-color="yellow">Yellow</button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Style</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="drawing-style" id="style-hollow" value="hollow" checked>
+                            <label class="btn btn-outline-primary" for="style-hollow">Hollow</label>
+                            
+                            <input type="radio" class="btn-check" name="drawing-style" id="style-solid" value="solid">
+                            <label class="btn btn-outline-primary" for="style-solid">Solid</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="place-drawing-btn">Draw</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Text Modal -->
+    <div class="modal fade" id="edit-text-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Drawing</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit-drawing-text" class="form-label">Text</label>
+                        <input type="text" class="form-control" id="edit-drawing-text" placeholder="Enter text to display (can be blank)...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Size</label>
+                        <div class="row">
+                            <div class="col">
+                                <label for="edit-drawing-width" class="form-label">Width (grid units)</label>
+                                <input type="number" class="form-control" id="edit-drawing-width" min="1" max="20" value="4">
+                            </div>
+                            <div class="col">
+                                <label for="edit-drawing-height" class="form-label">Height (grid units)</label>
+                                <input type="number" class="form-control" id="edit-drawing-height" min="1" max="20" value="3">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Color</label>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-dark edit-color-btn" data-color="black">Black</button>
+                            <button type="button" class="btn btn-primary edit-color-btn" data-color="blue">Blue</button>
+                            <button type="button" class="btn btn-success edit-color-btn" data-color="green">Green</button>
+                            <button type="button" class="btn btn-danger edit-color-btn" data-color="red">Red</button>
+                            <button type="button" class="btn btn-warning edit-color-btn" data-color="yellow">Yellow</button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Style</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="edit-drawing-style" id="edit-style-hollow" value="hollow">
+                            <label class="btn btn-outline-primary" for="edit-style-hollow">Hollow</label>
+                            
+                            <input type="radio" class="btn-check" name="edit-drawing-style" id="edit-style-solid" value="solid">
+                            <label class="btn btn-outline-primary" for="edit-style-solid">Solid</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="update-drawing-btn">Update Drawing</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="delete-confirm-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete this item from the map?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/konva@8/konva.min.js"></script>
+    <script src="https://unpkg.com/konva@8.4.2/konva.min.js"></script>
+
+    <!-- Data Embedding Script -->
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        window.allToolsData = /*[[${allToolsData}]]*/ [];
+        window.gridItems = /*[[${gridItems}]]*/ [];
+        /*]]>*/
+    </script>
+
+    <!-- External Grid Logic Script Reference -->
+    <script src="/js/dashboard-grid.js"></script>
+
+    <!-- Toolbar Filter/Search Logic -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Get filter links
-            const filterLinks = document.querySelectorAll('.dropdown-item[data-filter]');
-            
-            // Add click event to each filter link
-            filterLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    
-                    // Get the filter value
-                    const filterValue = this.getAttribute('data-filter');
-                    
-                    // Update active class
-                    filterLinks.forEach(item => item.classList.remove('active'));
-                    this.classList.add('active');
-                    
-                    // Get all tool items
-                    const toolItems = document.querySelectorAll('.tool-item');
-                    
-                    // Apply filter
-                    toolItems.forEach(item => {
-                        const toolType = item.getAttribute('data-type');
-                        
-                        if (filterValue === 'all' || filterValue === toolType) {
-                            item.classList.remove('tool-hidden');
-                        } else {
-                            item.classList.add('tool-hidden');
-                        }
-                    });
-                });
-            });
-            // Tool search filter
-            const searchInput = document.getElementById('tool-search');
-            if (searchInput) {
-                searchInput.addEventListener('input', function(e) {
-                    const filter = e.target.value.toLowerCase();
-                    document.querySelectorAll('.tool-item').forEach(item => {
-                        const name = item.querySelector('.list-group-item-link').textContent.toLowerCase();
-                        const serial = (item.getAttribute('data-serial') || '').toLowerCase();
-                        const model = (item.getAttribute('data-model') || '').toLowerCase();
-                        if (name.includes(filter) || serial.includes(filter) || model.includes(filter)) {
-                            item.classList.remove('tool-hidden');
-                        } else {
-                            item.classList.add('tool-hidden');
-                        }
-                    });
-                });
-            }
-            // Passdown search filter
-            const passdownInput = document.getElementById('passdown-search');
-            if (passdownInput) {
-                passdownInput.addEventListener('input', function(e) {
-                    const filter = e.target.value.toLowerCase();
-                    document.querySelectorAll('.passdown-item').forEach(item => {
-                        const comment = (item.getAttribute('data-comment') || '').toLowerCase();
-                        const user = (item.getAttribute('data-user') || '').toLowerCase();
-                        const toolName = (item.getAttribute('data-tool') || '').toLowerCase();
-                        if (comment.includes(filter) || user.includes(filter) || toolName.includes(filter)) {
-                            item.classList.remove('tool-hidden');
-                        } else {
-                            item.classList.add('tool-hidden');
-                        }
-                    });
-                });
-            }
-            // Toggle filter panel
+            const toolSearchInput = document.getElementById('tool-search');
+            const filterTypeSelect = document.getElementById('filter-type');
+            const filterStatusSelect = document.getElementById('filter-status');
+            const toolItems = document.querySelectorAll('.tool-item');
             const filterIcon = document.querySelector('.filter-icon');
             const filterPanel = document.getElementById('tool-filter-panel');
+            const noToolsMessage = document.querySelector('.scrollable-list > .text-center.text-muted'); 
+            // Grid-related variables
+            const visibleToolIds = new Set();
+            let totalToolCount = 0;
+            // Tooltip element
+            const assignedUserTooltip = document.getElementById('assigned-user-tooltip');
+            
+            // Function for highlighting tools on the grid based on search/filters
+            function updateGridShapesHighlight() {
+                // Check if window.toolShapes exists (set by the grid.js)
+                if (window.toolShapes) {
+                    // Count total number of tools on the map
+                    totalToolCount = Object.keys(window.toolShapes).length;
+                    const isFiltered = visibleToolIds.size > 0 && visibleToolIds.size < totalToolCount;
+                    
+                    // Reset all tools to normal state first
+                    for (const id in window.toolShapes) {
+                        const shape = window.toolShapes[id];
+                        if (shape) {
+                            // Use direct property access since we stored it there
+                            const rect = shape.mainRect;
+                            const textNode = shape.findOne('.text');
+                            
+                            if (rect) {
+                                // Default style
+                                rect.stroke('#333');
+                                rect.strokeWidth(1);
+                                rect.shadowColor('black');
+                                rect.shadowBlur(5);
+                                rect.shadowOffset({ x: 2, y: 2 });
+                                rect.shadowOpacity(0.3);
+                                
+                                if (textNode) {
+                                    textNode.fill('black'); // Change all text to black
+                                    textNode.fontStyle('normal'); // Reset to normal
+                                }
+                            }
+                            
+                            // Always reset opacity for all shapes to full
+                            shape.opacity(1);
+                        }
+                    }
+                    
+                    // Only apply highlighting if we're filtering results
+                    if (isFiltered) {
+                        // Make non-matching tools semi-transparent
+                        for (const id in window.toolShapes) {
+                            if (!visibleToolIds.has(id)) {
+                                const shape = window.toolShapes[id];
+                                if (shape && shape.mainRect) {
+                                    shape.opacity(0.4); // Make non-matches transparent
+                                }
+                            }
+                        }
+                        
+                        // Add highlights to visible/matching tools
+                        for (const id of visibleToolIds) {
+                            const shape = window.toolShapes[id];
+                            if (shape) {
+                                const rect = shape.mainRect;
+                                const textNode = shape.findOne('.text');
+                                
+                                if (rect) {
+                                    // Enhanced highlight effect
+                                    rect.stroke('#007bff');
+                                    rect.strokeWidth(3);
+                                    rect.shadowColor('#007bff');
+                                    rect.shadowBlur(15);
+                                    rect.shadowOffset({ x: 0, y: 0 });
+                                    rect.shadowOpacity(0.9);
+                                    
+                                    if (textNode) {
+                                        textNode.fontStyle('bold'); // Make text bold for highlighted items
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Force redraw to show changes
+                    if (window.toolLayer) {
+                        window.toolLayer.batchDraw();
+                    }
+                }
+            }
+
+            // Function to filter the list and update grid highlights
+            function applyToolFiltersAndSearch() {
+                const searchTerm = toolSearchInput.value.toLowerCase();
+                const selectedType = filterTypeSelect.value;
+                const selectedStatus = filterStatusSelect.value;
+                let visibleListCount = 0;
+                visibleToolIds.clear(); // Reset the visible tools set
+                
+                // Check if any filters are active - empty strings count as no filter
+                const hasActiveFilters = 
+                    (searchTerm && searchTerm.length > 0) || 
+                    (selectedType && selectedType.length > 0) || 
+                    (selectedStatus && selectedStatus.length > 0);
+
+                // --- Filter HTML List --- 
+                toolItems.forEach(item => {
+                    const toolType = item.dataset.type || '';
+                    const toolStatus = item.dataset.status || '';
+                    const toolName = item.querySelector('a')?.textContent?.toLowerCase() || '';
+                    const toolSerial = item.dataset.serial?.toLowerCase() || '';
+                    const toolModel = item.dataset.model?.toLowerCase() || '';
+                    const toolId = item.dataset.toolId;
+                    
+                    const typeMatch = !selectedType || toolType === selectedType;
+                    const statusMatch = !selectedStatus || toolStatus === selectedStatus;
+                    const searchMatch = !searchTerm || 
+                                        toolName.includes(searchTerm) || 
+                                        toolSerial.includes(searchTerm) || 
+                                        toolModel.includes(searchTerm);
+
+                    if (typeMatch && statusMatch && searchMatch) {
+                        item.style.display = 'block'; 
+                        item.classList.remove('tool-hidden');
+                        visibleListCount++;
+                        // Only add to visible set if we have active filters
+                        if (toolId && hasActiveFilters) visibleToolIds.add(toolId);
+                    } else {
+                        item.style.display = 'none';
+                        item.classList.add('tool-hidden');
+                    }
+                });
+                
+                // Show/hide the "No tools found" message in the list
+                if (noToolsMessage) {
+                    noToolsMessage.style.display = visibleListCount === 0 ? 'block' : 'none';
+                }
+                
+                console.log('Visible tool IDs:', Array.from(visibleToolIds));
+                console.log('Total tools:', totalToolCount, 'Showing:', visibleToolIds.size, 'Filtered:', hasActiveFilters);
+                
+                // Update grid highlights
+                updateGridShapesHighlight();
+            }
+
+            // --- Event Listeners --- 
+            if (toolSearchInput) toolSearchInput.addEventListener('input', applyToolFiltersAndSearch);
+            if (filterTypeSelect) filterTypeSelect.addEventListener('change', applyToolFiltersAndSearch);
+            if (filterStatusSelect) filterStatusSelect.addEventListener('change', applyToolFiltersAndSearch);
+
             if (filterIcon && filterPanel) {
-                filterIcon.addEventListener('click', function(e) {
-                    e.preventDefault();
+                filterIcon.addEventListener('click', () => {
                     filterPanel.style.display = filterPanel.style.display === 'none' ? 'block' : 'none';
                 });
             }
-            // Filter selects
-            const typeSelect = document.getElementById('filter-type');
-            const statusSelect = document.getElementById('filter-status');
-            const locationSelect = document.getElementById('filter-location');
-            function filterTools() {
-                const typeVal = typeSelect.value;
-                const statusVal = statusSelect.value;
-                const locVal = locationSelect.value;
-                const textFilter = (searchInput && searchInput.value.toLowerCase()) || '';
-                document.querySelectorAll('.tool-item').forEach(item => {
-                    const name = item.querySelector('.list-group-item-link').textContent.toLowerCase();
-                    const serial = (item.getAttribute('data-serial') || '').toLowerCase();
-                    const model = (item.getAttribute('data-model') || '').toLowerCase();
-                    const type = (item.getAttribute('data-type') || '');
-                    const status = (item.getAttribute('data-status') || '');
-                    const location = (item.getAttribute('data-location') || '');
-                    let visible = true;
-                    // Text search
-                    if (textFilter && !(name.includes(textFilter) || serial.includes(textFilter) || model.includes(textFilter))) {
-                        visible = false;
-                    }
-                    // Type filter
-                    if (visible && typeVal && typeVal !== type) {
-                        visible = false;
-                    }
-                    // Status filter
-                    if (visible && statusVal && statusVal !== status) {
-                        visible = false;
-                    }
-                    // Location filter
-                    if (visible && locVal && locVal !== location) {
-                        visible = false;
-                    }
-                    item.style.display = visible ? '' : 'none';
-                });
-            }
-            if (typeSelect) typeSelect.addEventListener('change', filterTools);
-            if (statusSelect) statusSelect.addEventListener('change', filterTools);
-            if (locationSelect) locationSelect.addEventListener('change', filterTools);
-            if (searchInput) searchInput.addEventListener('input', filterTools);
 
-            var container = document.getElementById('grid-canvas');
-            var viewCols = 32; // Kept for potential column calcs
-            var viewWidth = container.offsetWidth;
-            var viewHeight = container.offsetHeight;
-            // default view should be 24 rows tall, so derive cellSize from height
-            var cellSize = viewHeight / 24;
-            // create a large grid of 1000x1000 cells
-            var gridSize = 1000;
-            var stageWidth = gridSize * cellSize;
-            var stageHeight = gridSize * cellSize;
-            // stage acts as viewport, fixed size
-            var stage = new Konva.Stage({
-                container: 'grid-canvas',
-                width: viewWidth,
-                height: viewHeight
+            // Listen for grid ready event
+            document.addEventListener('gridReady', function() {
+                console.log('Grid ready - applying initial highlights');
+                // Expose toolLayer for direct access
+                window.toolLayer = toolLayer;
+                // Set total tool count after grid is ready
+                if (window.toolShapes) {
+                    totalToolCount = Object.keys(window.toolShapes).length;
+                }
+                // Apply initial filter after grid is ready
+                applyToolFiltersAndSearch();
             });
-            var gridGroup = new Konva.Group({ draggable: true });
-            var layer = new Konva.Layer();
-            layer.add(gridGroup);
-            stage.add(layer);
-            // add transparent background for full-area dragging
-            var background = new Konva.Rect({
-                x: 0,
-                y: 0,
-                width: stageWidth,
-                height: stageHeight,
-                fill: 'transparent'
-            });
-            gridGroup.add(background);
-            // center the grid view
-            gridGroup.position({
-                x: (viewWidth - stageWidth) / 2,
-                y: (viewHeight - stageHeight) / 2
-            });
-            // draw grid lines up to gridSize
-            for (var i = 0; i <= gridSize; i++) {
-                gridGroup.add(new Konva.Line({
-                    points: [i * cellSize, 0, i * cellSize, stageHeight],
-                    stroke: '#ddd',
-                    strokeWidth: 1
-                }));
-            }
-            for (var j = 0; j <= gridSize; j++) {
-                gridGroup.add(new Konva.Line({
-                    points: [0, j * cellSize, stageWidth, j * cellSize],
-                    stroke: '#ddd',
-                    strokeWidth: 1
-                }));
-            }
-            layer.draw();
-            // zoom on wheel around pointer
-            stage.on('wheel', function(e) {
-                e.evt.preventDefault();
-                var oldScale = gridGroup.scaleX();
-                var pointer = stage.getPointerPosition();
-                var mousePointTo = {
-                    x: (pointer.x - gridGroup.x()) / oldScale,
-                    y: (pointer.y - gridGroup.y()) / oldScale
-                };
-                var scaleBy = 1.05;
-                var newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
-                gridGroup.scale({ x: newScale, y: newScale });
-                var newPos = {
-                    x: pointer.x - mousePointTo.x * newScale,
-                    y: pointer.y - mousePointTo.y * newScale
-                };
-                gridGroup.position(newPos);
-                layer.batchDraw();
-            });
-            // add shapes via group
-            var shapeSize = cellSize * 2;
-            var currentShapeType = null;
-            var isDragCreating = false;
-            var dragStart = null;
-            var previewRect = null;
-            var isPointerActive = true;
-            // Cancel placement
-            document.getElementById('cancel-placement').addEventListener('click', function() {
-                isPointerActive = true;
-                currentShapeType = null;
-                gridGroup.draggable(true);
-                // highlight pointer, reset others
-                ['cancel-placement','add-room','add-room-drag','add-tool1x2','add-tool2x1','add-tool1x1','add-misc'].forEach(function(id) {
-                    var btn = document.getElementById(id);
-                    if (id === 'cancel-placement') {
-                        btn.classList.remove('btn-outline-dark'); btn.classList.add('btn-dark');
+            
+            // Initial filter application for the list
+            applyToolFiltersAndSearch(); 
+            
+            // Toggle grid controls
+            const toggleGridControls = document.querySelector('.toggle-grid-controls');
+            const gridControlsBody = document.getElementById('grid-controls-body');
+            
+            if (toggleGridControls && gridControlsBody) {
+                toggleGridControls.addEventListener('click', function() {
+                    if (gridControlsBody.style.display === 'none') {
+                        gridControlsBody.style.display = 'block';
+                        this.classList.remove('bi-chevron-down');
+                        this.classList.add('bi-chevron-up');
                     } else {
-                        btn.classList.remove('btn-dark'); btn.classList.add('btn-outline-dark');
+                        gridControlsBody.style.display = 'none';
+                        this.classList.remove('bi-chevron-up');
+                        this.classList.add('bi-chevron-down');
                     }
                 });
-            });
-            // Shape selection buttons
-            ['cancel-placement','add-room','add-room-drag','add-tool1x2','add-tool2x1','add-tool1x1','add-misc'].forEach(function(id) {
-                document.getElementById(id).addEventListener('click', function() {
-                    isPointerActive = false;
-                    gridGroup.draggable(false);
-                    currentShapeType = id;
-                    ['cancel-placement','add-room','add-room-drag','add-tool1x2','add-tool2x1','add-tool1x1','add-misc'].forEach(function(other) {
-                        var btn = document.getElementById(other);
-                        if (other === id) {
-                            btn.classList.remove('btn-outline-dark'); btn.classList.add('btn-dark');
-                        } else {
-                            btn.classList.remove('btn-dark'); btn.classList.add('btn-outline-dark');
+            }
+            
+            // --- Tooltip Logic ---
+            if (assignedUserTooltip) {
+                document.querySelectorAll('.tool-assigned-icon').forEach(icon => {
+                    icon.addEventListener('mouseover', (event) => {
+                        const toolItem = event.target.closest('.tool-item');
+                        const userNames = toolItem.dataset.assignedUsers;
+                        if (userNames) {
+                            assignedUserTooltip.textContent = userNames;
+                            // Position tooltip near the icon
+                            const iconRect = event.target.getBoundingClientRect();
+                            assignedUserTooltip.style.left = `${window.scrollX + iconRect.left + iconRect.width / 2 - assignedUserTooltip.offsetWidth / 2}px`;
+                            assignedUserTooltip.style.top = `${window.scrollY + iconRect.top - assignedUserTooltip.offsetHeight - 5}px`; // 5px above
+                            assignedUserTooltip.style.display = 'block';
                         }
                     });
+
+                    icon.addEventListener('mouseout', () => {
+                        assignedUserTooltip.style.display = 'none';
+                    });
                 });
-            });
-            // add transformer to allow resizing of hollow shapes
-            var tr = new Konva.Transformer({
-                enabledAnchors: ['top-left', 'top-center', 'top-right', 'middle-right', 'bottom-right', 'bottom-center', 'bottom-left', 'middle-left'],
-                rotateEnabled: false,
-                boundBoxFunc: function(oldBox, newBox) {
-                    // handle snapping: for hollow shapes include stroke in outer dimensions
-                    var nodes = this.nodes();
-                    if (nodes.length === 1 && nodes[0].getAttr('hollow')) {
-                        var sw = nodes[0].strokeWidth() || 0;
-                        var halfSw = sw / 2;
-                        // calculate outer bounds including stroke
-                        var outerX = newBox.x - halfSw;
-                        var outerY = newBox.y - halfSw;
-                        var outerW = newBox.width + sw;
-                        var outerH = newBox.height + sw;
-                        // snap outer edges to grid
-                        var snappedOuterX = Math.round(outerX / cellSize) * cellSize;
-                        var snappedOuterY = Math.round(outerY / cellSize) * cellSize;
-                        var snappedOuterW = Math.round(outerW / cellSize) * cellSize;
-                        var snappedOuterH = Math.round(outerH / cellSize) * cellSize;
-                        // apply inner box adjustments
-                        newBox.x = snappedOuterX + halfSw;
-                        newBox.y = snappedOuterY + halfSw;
-                        newBox.width = snappedOuterW - sw;
-                        newBox.height = snappedOuterH - sw;
-                    } else {
-                        // normal snap for solid shapes
-                        newBox.x = Math.round(newBox.x / cellSize) * cellSize;
-                        newBox.y = Math.round(newBox.y / cellSize) * cellSize;
-                        newBox.width = Math.round(newBox.width / cellSize) * cellSize;
-                        newBox.height = Math.round(newBox.height / cellSize) * cellSize;
-                    }
-                    return newBox;
-                }
-            });
-            gridGroup.add(tr);
-            // after transformer snapping, apply new size and reset scale
-            tr.on('transformend', function() {
-                var nodes = tr.nodes();
-                if (nodes.length === 1) {
-                    var node = nodes[0];
-                    var sw = node.getAttr('hollow') ? (node.strokeWidth() || 0) : 0;
-                    var halfSw = sw / 2;
-                    // calculate absolute dimensions including stroke
-                    var absW = node.width() * node.scaleX() + sw;
-                    var absH = node.height() * node.scaleY() + sw;
-                    // snap outer dimensions to grid
-                    var snappedW = Math.round(absW / cellSize) * cellSize;
-                    var snappedH = Math.round(absH / cellSize) * cellSize;
-                    // compute new inner size
-                    var newW = snappedW - sw;
-                    var newH = snappedH - sw;
-                    // calculate absolute position including stroke
-                    var absX = node.x() - halfSw;
-                    var absY = node.y() - halfSw;
-                    // snap position to grid
-                    var snappedX = Math.round(absX / cellSize) * cellSize;
-                    var snappedY = Math.round(absY / cellSize) * cellSize;
-                    var newX = snappedX + halfSw;
-                    var newY = snappedY + halfSw;
-                    // apply size and reset scale
-                    node.width(newW);
-                    node.height(newH);
-                    node.scaleX(1);
-                    node.scaleY(1);
-                    node.position({ x: newX, y: newY });
-                    layer.batchDraw();
-                }
-            });
-            stage.on('click', function(e) {
-                // only left-click
-                if (e.evt.button !== 0) return;
-                // if in placement mode, place shapes
-                if (currentShapeType) {
-                    // calculate local point and snap to grid cell
-                    var pointer = stage.getPointerPosition();
-                    var transformInv = gridGroup.getAbsoluteTransform().copy().invert();
-                    var local = transformInv.point(pointer);
-                    var cellX = Math.floor(local.x / cellSize) * cellSize;
-                    var cellY = Math.floor(local.y / cellSize) * cellSize;
-                    // determine dimensions and style
-                    var wCells = 1, hCells = 1, isHollow = false;
-                    switch (currentShapeType) {
-                        case 'add-room': wCells = 2; hCells = 2; isHollow = true; break;
-                        case 'add-tool1x2': wCells = 1; hCells = 2; break;
-                        case 'add-tool2x1': wCells = 2; hCells = 1; break;
-                        case 'add-tool1x1': wCells = 1; hCells = 1; break;
-                        case 'add-misc': wCells = 1; hCells = 1; isHollow = true; break;
-                    }
-                    var config = {
-                        x: cellX,
-                        y: cellY,
-                        width: cellSize * wCells,
-                        height: cellSize * hCells,
-                        draggable: true
-                    };
-                    // place a single Rect: hollow or solid
-                    var rectConfig = {
-                        x: config.x,
-                        y: config.y,
-                        width: config.width,
-                        height: config.height,
-                        draggable: true
-                    };
-                    var rect;
-                    // apply simple border and shadow for both hollow and solid
-                    if (isHollow) {
-                        rect = new Konva.Rect(Object.assign({}, rectConfig, {
-                            fill: 'transparent',
-                            stroke: 'black', // keep hollow objects black
-                            strokeWidth: 2,
-                            strokeScaleEnabled: false, // keep stroke width constant when resized
-                            shadowColor: 'black',
-                            shadowBlur: 10,
-                            shadowOffset: { x: 5, y: 5 },
-                            shadowOpacity: 0.5
-                        }));
-                        rect.setAttr('hollow', true);
-                    } else {
-                        rect = new Konva.Rect(Object.assign({}, rectConfig, {
-                            fill: '#6f2f9f', // primary purple
-                            stroke: '#4f1c7f', // darker border
-                            strokeWidth: 2,
-                            shadowColor: 'black',
-                            shadowBlur: 10,
-                            shadowOffset: { x: 5, y: 5 },
-                            shadowOpacity: 0.5
-                        }));
-                    }
-                    rect.on('dragend', function() {
-                        var pos = this.position();
-                        this.position({ x: Math.round(pos.x / cellSize) * cellSize, y: Math.round(pos.y / cellSize) * cellSize });
-                        layer.batchDraw();
-                    });
-                    gridGroup.add(rect);
-                    layer.batchDraw();
-                } else {
-                    // not in placement: select hollow shapes
-                    var target = e.target;
-                    if (target && target.getClassName && target.getClassName() === 'Rect' && target.getAttr('hollow')) {
-                        tr.nodes([target]);
-                    } else {
-                        tr.nodes([]);
-                    }
-                    layer.draw();
-                }
-            });
-            // mousedown for room drag placement
-            stage.on('mousedown', function(e) {
-                if (currentShapeType === 'add-room-drag' && e.evt.button === 0) {
-                    isDragCreating = true;
-                    var pointer = stage.getPointerPosition();
-                    var local = gridGroup.getAbsoluteTransform().copy().invert().point(pointer);
-                    var startX = Math.floor(local.x / cellSize) * cellSize;
-                    var startY = Math.floor(local.y / cellSize) * cellSize;
-                    dragStart = { x: startX, y: startY };
-                    previewRect = new Konva.Rect({
-                        x: startX,
-                        y: startY,
-                        width: 0,
-                        height: 0,
-                        fill: 'transparent',
-                        stroke: 'black',
-                        strokeWidth: 2,
-                        strokeScaleEnabled: false,
-                        dash: [4, 4]
-                    });
-                    gridGroup.add(previewRect);
-                    layer.batchDraw();
-                }
-            });
-            // mousemove updates preview size
-            stage.on('mousemove', function(e) {
-                if (isDragCreating && previewRect) {
-                    var pointer = stage.getPointerPosition();
-                    var local = gridGroup.getAbsoluteTransform().copy().invert().point(pointer);
-                    var currX = Math.ceil(local.x / cellSize) * cellSize;
-                    var currY = Math.ceil(local.y / cellSize) * cellSize;
-                    previewRect.width(currX - dragStart.x);
-                    previewRect.height(currY - dragStart.y);
-                    layer.batchDraw();
-                }
-            });
-            // mouseup finalizes the hollow room
-            stage.on('mouseup', function(e) {
-                if (isDragCreating) {
-                    isDragCreating = false;
-                    var finalRect = new Konva.Rect({
-                        x: previewRect.x(),
-                        y: previewRect.y(),
-                        width: previewRect.width(),
-                        height: previewRect.height(),
-                        fill: 'transparent',
-                        stroke: 'black',
-                        strokeWidth: 2,
-                        strokeScaleEnabled: false,
-                        shadowColor: 'black',
-                        shadowBlur: 10,
-                        shadowOffset: { x: 5, y: 5 },
-                        shadowOpacity: 0.5
-                    });
-                    finalRect.setAttr('hollow', true);
-                    previewRect.destroy();
-                    previewRect = null;
-                    dragStart = null;
-                    gridGroup.add(finalRect);
-                    layer.draw();
-                    // reset selection
-                    currentShapeType = null;
-                    ['cancel-placement','add-room','add-room-drag','add-tool1x2','add-tool2x1','add-tool1x1','add-misc'].forEach(function(id) {
-                        var btn = document.getElementById(id);
-                        btn.classList.remove('btn-dark'); btn.classList.add('btn-outline-dark');
-                    });
-                }
-            });
+            }
         });
     </script>
+
 </body>
 </html> 

@@ -21,6 +21,7 @@ import java.util.Random;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.HashMap;
+import java.util.Optional;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -49,27 +50,36 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        // Create default admin user if no users exist
-        if (userRepository.count() == 0) {
-            createDefaultAdmin();
-            createTestUsers();
-        }
-        
-        // Create some sample tools if none exist
-        if (toolRepository.count() == 0) {
-            createSampleTools();
-        }
-        
-        // Create sample passdowns if none exist
-        if (passdownRepository.count() == 0) {
-            createSamplePassdowns();
+        try {
+            // Create default admin user if no users exist
+            if (userRepository.count() == 0) {
+                createDefaultAdmin();
+                createTestUsers();
+            }
+            
+            // Create some sample tools if none exist
+            if (toolRepository.count() == 0) {
+                createSampleTools();
+            }
+            
+            // Create sample passdowns if none exist
+            if (passdownRepository.count() == 0) {
+                createSamplePassdowns();
+            }
+
+            // Create specific user and assign to tool for testing
+            createAndAssignDuaneSmith();
+            
+        } catch (Exception e) {
+            System.err.println("Error during data initialization: " + e.getMessage());
+            System.err.println("This may be caused by database already in use. The application will continue without initializing sample data.");
+            // Log the error but allow the application to continue
         }
     }
 
     private void createDefaultAdmin() {
         User adminUser = new User();
         adminUser.setEmail("admin@pcd.com");
-        adminUser.setUsername("admin@pcd.com");
         adminUser.setPassword(passwordEncoder.encode("admin123"));
         adminUser.setName("Admin User");
         adminUser.setRole("ADMIN");
@@ -83,7 +93,6 @@ public class DataInitializer implements CommandLineRunner {
     private void createTestUsers() {
         User techUser = new User();
         techUser.setEmail("tech@pcd.com");
-        techUser.setUsername("tech@pcd.com");
         techUser.setPassword(passwordEncoder.encode("tech123"));
         techUser.setName("Tech User");
         techUser.setRole("TECHNICIAN");
@@ -189,5 +198,71 @@ public class DataInitializer implements CommandLineRunner {
     
     private Location getRandomLocation(List<Location> locations) {
         return locations.get(random.nextInt(locations.size()));
+    }
+    
+    private void createAndAssignDuaneSmith() {
+        Location arizonaF52 = locationRepository.findByStateAndFab("Arizona", "52")
+                .orElse(null); // Handle case where AZ F52 might not exist yet
+                
+        Tool rr151d = toolRepository.findByName("RR151D")
+                .orElse(null); // Handle case where RR151D might not exist yet
+
+        if (arizonaF52 == null) {
+            System.out.println("Skipping Duane Smith creation: Location Arizona F52 not found.");
+            return;
+        }
+        
+        if (rr151d == null) {
+            System.out.println("Skipping Duane Smith assignment: Tool RR151D not found.");
+            // Proceed to create the user but cannot assign the tool or set active tool
+        }
+
+        Optional<User> existingUser = userRepository.findByEmail("duane.smith@emdgroup.com");
+
+        if (existingUser.isEmpty()) {
+            User duane = new User();
+            duane.setEmail("duane.smith@emdgroup.com");
+            duane.setPassword(passwordEncoder.encode("password"));
+            duane.setName("Duane Smith");
+            duane.setRole("TECHNICIAN");
+            duane.setActive(true);
+            duane.setActiveSite(arizonaF52);
+            if (rr151d != null) {
+                 duane.setActiveTool(rr151d);
+            }
+           
+            User savedDuane = userRepository.save(duane);
+            System.out.println("Created user: Duane Smith (duane.smith@emdgroup.com)");
+
+            // Now assign the newly saved user to the tool if the tool exists
+            if (rr151d != null) {
+                rr151d.getCurrentTechnicians().add(savedDuane);
+                toolRepository.save(rr151d);
+                System.out.println("Assigned Duane Smith to Tool RR151D");
+            }
+        } else {
+            System.out.println("User Duane Smith already exists. Checking assignment...");
+            // User exists, ensure assignment is made if tool exists
+            if (rr151d != null && !rr151d.getCurrentTechnicians().contains(existingUser.get())) {
+                 rr151d.getCurrentTechnicians().add(existingUser.get());
+                 toolRepository.save(rr151d);
+                 System.out.println("Assigned existing Duane Smith to Tool RR151D");
+            }
+            // Optionally update active site/tool if needed
+            User duane = existingUser.get();
+            boolean needsUpdate = false;
+            if (!arizonaF52.equals(duane.getActiveSite())) {
+                duane.setActiveSite(arizonaF52);
+                needsUpdate = true;
+            }
+            if (rr151d != null && !rr151d.equals(duane.getActiveTool())) {
+                duane.setActiveTool(rr151d);
+                needsUpdate = true;
+            }
+            if (needsUpdate) {
+                userRepository.save(duane);
+                System.out.println("Updated active site/tool for existing Duane Smith");
+            }
+        }
     }
 } 

@@ -59,6 +59,42 @@
                                 <li><strong>Serial #:</strong> <span id="tool-serial1"></span><span id="tool-serial2-display"></span></li>
                                 <li><strong>Model #:</strong> <span id="tool-model1"></span><span id="tool-model2-display"></span></li>
                                 <li>
+                                    <strong>Chemical/Gas Service:</strong> 
+                                    <span id="tool-chemical-gas-service"></span>
+                                    <button type="button" id="btn-add-chemical" class="btn btn-sm btn-primary d-none" style="padding: 0 4px; font-size: 10px; line-height: 1.2">+</button>
+                                    <div id="chemical-edit-container" class="d-none mt-1">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" id="chemical-gas-service-input" class="form-control form-control-sm" placeholder="Enter value">
+                                            <button class="btn btn-danger btn-sm" id="btn-cancel-chemical" type="button" style="padding: 0 4px; font-size: 10px;">-</button>
+                                        </div>
+                                        <input type="hidden" id="update-tool-chemical-gas-service" name="updateToolChemicalGasService" value="">
+                                    </div>
+                                </li> 
+                                <li>
+                                    <strong>Commission Date:</strong> 
+                                    <span id="tool-commission-date"></span>
+                                    <button type="button" id="btn-add-commission" class="btn btn-sm btn-primary d-none" style="padding: 0 4px; font-size: 10px; line-height: 1.2">+</button>
+                                    <div id="commission-edit-container" class="d-none mt-1">
+                                        <div class="input-group input-group-sm">
+                                            <input type="date" id="commission-date-input" class="form-control form-control-sm">
+                                            <button class="btn btn-danger btn-sm" id="btn-cancel-commission" type="button" style="padding: 0 4px; font-size: 10px;">-</button>
+                                        </div>
+                                        <input type="hidden" id="update-tool-commission-date" name="updateToolCommissionDate" value="">
+                                    </div>
+                                </li> 
+                                <li>
+                                    <strong>Start-Up/SL03 Date:</strong> 
+                                    <span id="tool-startup-sl03-date"></span>
+                                    <button type="button" id="btn-add-startup" class="btn btn-sm btn-primary d-none" style="padding: 0 4px; font-size: 10px; line-height: 1.2">+</button>
+                                    <div id="startup-edit-container" class="d-none mt-1">
+                                        <div class="input-group input-group-sm">
+                                            <input type="date" id="startup-sl03-date-input" class="form-control form-control-sm">
+                                            <button class="btn btn-danger btn-sm" id="btn-cancel-startup" type="button" style="padding: 0 4px; font-size: 10px;">-</button>
+                                        </div>
+                                        <input type="hidden" id="update-tool-startup-sl03-date" name="updateToolStartupSl03Date" value="">
+                                    </div>
+                                </li>
+                                <li>
                                     <a id="tool-view-link" href="#" class="btn btn-sm btn-outline-secondary" title="View Tool Details" style="display: none;">
                                         <i class="bi bi-eye"></i> View Tool
                                     </a>
@@ -118,43 +154,7 @@
                                 </th:block>
 
                                 <!-- Template Row for Adding New Parts -->
-                                <div class="part-item template" 
-                                     th:style="${#lists.isEmpty(rma.partLineItems)} ? '' : 'display:none;'" 
-                                     data-index="__INDEX__"> 
-                                    <div class="row mb-2">
-                                        <div class="col-md-2">
-                                            <input type="text" class="form-control form-control-sm" name="partLineItems[__INDEX__].partName" placeholder="Part Name" disabled>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <input type="text" class="form-control form-control-sm" name="partLineItems[__INDEX__].partNumber" placeholder="Part Number" disabled>
-                                        </div>
-                                        <div class="col-md-5">
-                                            <input type="text" class="form-control form-control-sm" name="partLineItems[__INDEX__].productDescription" placeholder="Item Description" disabled/>
-                                        </div>
-                                        <div class="col-md-1">
-                                            <input type="number" class="form-control form-control-sm" name="partLineItems[__INDEX__].quantity" placeholder="Qty" min="0" value="1" disabled/>
-                                        </div>
-                                        <div class="col-md-1 d-flex align-items-center justify-content-start gap-1">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary add-part" title="Add Part">+</button> 
-                                            <button type="button" class="btn btn-sm btn-outline-danger remove-part" title="Remove Part">-</button>
-                                        </div>
-                                    </div>
-                                    <div class="row mb-3">
-                                        <div class="col-md-12">
-                                            <div class="d-flex align-items-center">
-                                                <span class="me-2">Replacement Required:</span>
-                                                <div class="form-check form-check-inline mb-0">
-                                                    <input class="form-check-input" type="radio" name="partLineItems[__INDEX__].replacementRequired" id="replacementRequiredYes__INDEX__" value="true" disabled>
-                                                    <label class="form-check-label" for="replacementRequiredYes__INDEX__">Yes</label>
-                                                </div>
-                                                <div class="form-check form-check-inline mb-0">
-                                                    <input class="form-check-input" type="radio" name="partLineItems[__INDEX__].replacementRequired" id="replacementRequiredNo__INDEX__" value="false" disabled checked>
-                                                    <label class="form-check-label" for="replacementRequiredNo__INDEX__">No</label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <div class="part-item template d-none" data-index="__INDEX__"></div>
 
                             </div>
                         </div>
@@ -220,13 +220,93 @@
                         </div>
                     </div>
                     <hr />
+                    <!-- Process Impact Information -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <h5>Process Impact Information</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Interruption to Flow?</label>
+                                        <div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input interruption-radio" type="radio" name="interruptionToFlow" id="interruptionToFlowYes" th:field="*{interruptionToFlow}" value="true">
+                                                <label class="form-check-label" for="interruptionToFlowYes">Yes</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input interruption-radio" type="radio" name="interruptionToFlow" id="interruptionToFlowNo" th:field="*{interruptionToFlow}" value="false">
+                                                <label class="form-check-label" for="interruptionToFlowNo">No</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Interruption to Production?</label>
+                                        <div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input interruption-radio" type="radio" name="interruptionToProduction" id="interruptionToProductionYes" th:field="*{interruptionToProduction}" value="true">
+                                                <label class="form-check-label" for="interruptionToProductionYes">Yes</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input interruption-radio" type="radio" name="interruptionToProduction" id="interruptionToProductionNo" th:field="*{interruptionToProduction}" value="false">
+                                                <label class="form-check-label" for="interruptionToProductionNo">No</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="downtimeContainer" class="mb-3" style="display: none;">
+                                        <label for="downtimeHours" class="form-label">Downtime (Hrs):</label>
+                                        <input type="number" step="0.1" min="0" id="downtimeHours" class="form-control" th:field="*{downtimeHours}">
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Exposed to Process Gas or Chemicals?</label>
+                                        <div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="exposedToProcessGasOrChemicals" id="exposedYes" th:field="*{exposedToProcessGasOrChemicals}" value="true">
+                                                <label class="form-check-label" for="exposedYes">Yes</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="exposedToProcessGasOrChemicals" id="exposedNo" th:field="*{exposedToProcessGasOrChemicals}" value="false">
+                                                <label class="form-check-label" for="exposedNo">No</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="exposedFieldsContainer" style="display: none;">
+                                        <div class="mb-3">
+                                            <label class="form-label">Purged?</label>
+                                            <div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="purged" id="purgedYes" th:field="*{purged}" value="true">
+                                                    <label class="form-check-label" for="purgedYes">Yes</label>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="purged" id="purgedNo" th:field="*{purged}" value="false">
+                                                    <label class="form-check-label" for="purgedNo">No</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="instructionsForExposedComponent" class="form-label">Instructions for Exposed Component:</label>
+                                            <textarea id="instructionsForExposedComponent" class="form-control" th:field="*{instructionsForExposedComponent}" rows="3"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <hr />
                     <!-- Combined File Upload Section -->
                     <div class="row mb-3">
                         <div class="col-md-12">
                             <h5>Upload Files</h5>
                             
                             <!-- Debug Info Panel -->
-                            <div class="alert alert-info small mb-3">
+                            <div class="alert alert-info small mb-3" style="display: none;">
                                 <p><strong>File Upload Debug Info:</strong></p>
                                 <p>Upload Directory: <span id="uploadDirDisplay">Loading...</span></p>
                                 <p>Files Selected: <span id="filesSelectedCount">0</span></p>
@@ -487,15 +567,61 @@
                     <hr />
                     <!-- Customer Information -->
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <h5>Customer Information</h5>
+                            <div class="row">
+                                <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="customerName" class="form-label">Customer Name</label>
+                                        <label for="customerName" class="form-label">Customer</label>
                                 <input type="text" id="customerName" class="form-control" th:field="*{customerName}">
                             </div>
                             <div class="mb-3">
-                                <label for="customerContact" class="form-label">Contact</label>
+                                        <label for="companyShipToName" class="form-label">Company Ship To Name:</label>
+                                        <input type="text" id="companyShipToName" class="form-control" th:field="*{companyShipToName}" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="companyShipToAddress" class="form-label">Company Ship To Address:</label>
+                                        <input type="text" id="companyShipToAddress" class="form-control" th:field="*{companyShipToAddress}" />
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="city" class="form-label">City:</label>
+                                                <input type="text" id="city" class="form-control" th:field="*{city}" />
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="state" class="form-label">State:</label>
+                                                <input type="text" id="state" class="form-control" th:field="*{state}" />
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="zipCode" class="form-label">Zip Code:</label>
+                                                <input type="text" id="zipCode" class="form-control" th:field="*{zipCode}" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="attn" class="form-label">Attn:</label>
+                                        <input type="text" id="attn" class="form-control" th:field="*{attn}" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="customerContact" class="form-label">Contact:</label>
                                 <input type="text" id="customerContact" class="form-control" th:field="*{customerContact}" />
+                            </div>
+                                    <div class="mb-3">
+                                        <label for="customerPhone" class="form-label">Contact Phone Number:</label>
+                                        <input type="text" id="customerPhone" class="form-control" th:field="*{customerPhone}" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="customerEmail" class="form-label">Email:</label>
+                                        <input type="email" id="customerEmail" class="form-control" th:field="*{customerEmail}" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -583,1046 +709,386 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-        // Initialize selectedFiles array for tracking uploads
-        let selectedFiles = [];
-        
-        var toolSelect = document.getElementById('toolSelect');
-        var toolTypeSpan = document.getElementById('tool-type');
-        var toolLocationSpan = document.getElementById('tool-location');
-        var toolSerial1Span = document.getElementById('tool-serial1');
-        var toolSerial2Display = document.getElementById('tool-serial2-display');
-        var toolModel1Span = document.getElementById('tool-model1');
-        var toolModel2Display = document.getElementById('tool-model2-display');
-        var toolViewLink = document.getElementById('tool-view-link');
-        
-        // Fetch and display upload directory info
-        var uploadDirDisplay = document.getElementById('uploadDirDisplay');
-        if (uploadDirDisplay) {
-            // Add a small delay to ensure all DOM elements are ready
-            setTimeout(function() {
-                fetch('/rma/api/upload-info')
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Failed to fetch upload info');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data && data.uploadDirectory) {
-                            uploadDirDisplay.textContent = data.uploadDirectory;
-                        } else if (data && data.uploadDir) {
-                            uploadDirDisplay.textContent = data.uploadDir;
+            // Process Impact Information conditional logic
+            function setupConditionalFields() {
+                // Downtime field logic
+                const interruptionFlowRadios = document.querySelectorAll('input[name="interruptionToFlow"]');
+                const interruptionProdRadios = document.querySelectorAll('input[name="interruptionToProduction"]');
+                const downtimeContainer = document.getElementById('downtimeContainer');
+                
+                // Exposed to Process Gas fields logic
+                const exposedRadios = document.querySelectorAll('input[name="exposedToProcessGasOrChemicals"]');
+                const exposedFieldsContainer = document.getElementById('exposedFieldsContainer');
+                
+                // Function to check if downtime should be visible
+                function updateDowntimeVisibility() {
+                    const flowYes = document.getElementById('interruptionToFlowYes');
+                    const prodYes = document.getElementById('interruptionToProductionYes');
+                    
+                    if ((flowYes && flowYes.checked) || (prodYes && prodYes.checked)) {
+                        downtimeContainer.style.display = 'block';
                         } else {
-                            uploadDirDisplay.textContent = 'Not configured';
-                        }
-                        console.log('Upload directory info:', data);
-                    })
-                    .catch(error => {
-                        console.error('Error fetching upload directory info:', error);
-                        uploadDirDisplay.textContent = 'Error: ' + error.message;
-                    });
-            }, 500);
-        }
-        
-        // Set up transfer file modal functionality
-        document.querySelectorAll('.transfer-btn').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Get file ID and type from button data attributes
-                const fileId = this.getAttribute('data-id');
-                const fileType = this.getAttribute('data-type');
-                
-                // Get the file name - different approaches based on element type
-                let fileName = '';
-                
-                if (fileType === 'picture') {
-                    // For pictures, get from the card
-                    const card = this.closest('.card');
-                    if (card) {
-                        // Try to get from small text element first
-                        const smallText = card.querySelector('small.text-muted');
-                        if (smallText) {
-                            fileName = smallText.textContent.trim();
-                        }
-                    }
-                } else if (fileType === 'document') {
-                    // For documents, get from the list item
-                    const listItem = this.closest('.list-group-item');
-                    if (listItem) {
-                        // Documents have the filename as the first text node
-                        const span = listItem.querySelector('span');
-                        if (span) {
-                            fileName = span.textContent.trim();
-                        }
+                        downtimeContainer.style.display = 'none';
                     }
                 }
                 
-                // Fallback to finding any text if above methods fail
-                if (!fileName) {
-                    const container = this.closest('.card, .list-group-item');
-                    if (container) {
-                        // Get all text nodes, excluding button text
-                        const textNodes = Array.from(container.childNodes)
-                            .filter(node => node.nodeType === 3 && node.textContent.trim().length > 0);
-                        
-                        if (textNodes.length > 0) {
-                            fileName = textNodes[0].textContent.trim();
+                // Function to check if exposed fields should be visible
+                function updateExposedFieldsVisibility() {
+                    const exposedYes = document.getElementById('exposedYes');
+                    
+                    if (exposedYes && exposedYes.checked) {
+                        exposedFieldsContainer.style.display = 'block';
                         } else {
-                            // Last resort - try to find any text content
-                            fileName = container.textContent.replace(/View|Delete|Transfer/g, '').trim();
-                        }
+                        exposedFieldsContainer.style.display = 'none';
                     }
                 }
                 
-                // Make sure we have a filename
-                if (!fileName) {
-                    fileName = fileType === 'picture' ? 'Image file' : 'Document file';
-                }
+                // Add event listeners to interruption radios
+                interruptionFlowRadios.forEach(radio => {
+                    radio.addEventListener('change', updateDowntimeVisibility);
+                });
                 
-                console.log(`Transfer button clicked: fileId=${fileId}, fileType=${fileType}, fileName=${fileName}`);
+                interruptionProdRadios.forEach(radio => {
+                    radio.addEventListener('change', updateDowntimeVisibility);
+                });
                 
-                // Get file path - from image or link
-                let filePath = '';
-                if (fileType === 'picture') {
-                    const img = this.closest('.card').querySelector('img');
-                    if (img) {
-                        filePath = img.getAttribute('src');
-                    }
-                } else if (fileType === 'document') {
-                    const link = this.closest('.list-group-item').querySelector('a');
-                    if (link) {
-                        filePath = link.getAttribute('href');
-                    }
-                }
+                // Add event listeners to exposed radios
+                exposedRadios.forEach(radio => {
+                    radio.addEventListener('change', updateExposedFieldsVisibility);
+                });
                 
-                // Set values in the modal form
-                document.getElementById('transferFileId').value = fileId;
-                document.getElementById('transferFileType').value = fileType;
-                document.getElementById('transferFileName').value = fileName;
-                document.getElementById('transferFilePath').value = filePath;
-                
-                // Update modal title to show file type
-                const modalTitle = document.getElementById('transferModalLabel');
-                modalTitle.textContent = `Transfer ${fileType.charAt(0).toUpperCase() + fileType.slice(1)} to Another RMA`;
-                
-                // Manually show the modal
-                const transferModal = new bootstrap.Modal(document.getElementById('transferModal'));
-                transferModal.show();
-            });
-        });
-
-        if (toolSelect) {
-            toolSelect.addEventListener('change', function() {
-                var selectedToolId = this.value;
-
-                if (selectedToolId) {
-                    fetch(`/rma/api/tool/${selectedToolId}`)
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Network response was not ok');
-                            }
-                            return response.json();
-                        })
-                        .then(tool => {
-                            toolTypeSpan.textContent = tool.toolType || '';
-                            toolLocationSpan.textContent = tool.location ? tool.location.displayName : '';
-                            
-                            // Handle serial numbers
-                            toolSerial1Span.textContent = tool.serialNumber1 || '';
-                            
-                            // Only show second serial number with slash if it exists
-                            if (tool.serialNumber2) {
-                                toolSerial2Display.textContent = '/' + tool.serialNumber2;
-                            } else {
-                                toolSerial2Display.textContent = '';
-                            }
-                            
-                            // Handle model numbers
-                            toolModel1Span.textContent = tool.model1 || '';
-                            
-                            // Only show second model number with slash if it exists
-                            if (tool.model2) {
-                                toolModel2Display.textContent = '/' + tool.model2;
-                            } else {
-                                toolModel2Display.textContent = '';
-                            }
-                            
-                            toolViewLink.href = `/tools/${tool.id}`;
-                            toolViewLink.style.display = 'inline-block';
-                        })
-                        .catch(error => {
-                            console.error('Error fetching tool details:', error);
-                            toolTypeSpan.textContent = '';
-                            toolLocationSpan.textContent = '';
-                            toolSerial1Span.textContent = '';
-                            toolSerial2Display.textContent = '';
-                            toolModel1Span.textContent = '';
-                            toolModel2Display.textContent = '';
-                            
-                            toolViewLink.href = '#';
-                            toolViewLink.style.display = 'none';
-                        });
-                } else {
-                    toolTypeSpan.textContent = '';
-                    toolLocationSpan.textContent = '';
-                    toolSerial1Span.textContent = '';
-                    toolSerial2Display.textContent = '';
-                    toolModel1Span.textContent = '';
-                    toolModel2Display.textContent = '';
-
-                    toolViewLink.href = '#';
-                    toolViewLink.style.display = 'none';
-                }
-            });
-        }
-
-        // Parts add/remove
-        var partsContainer = document.getElementById('parts-container');
-        var templateRow = partsContainer.querySelector('.part-item.template');
-
-        if (partsContainer && templateRow) {
+                // Initial setup based on current values
+                updateDowntimeVisibility();
+                updateExposedFieldsVisibility();
+            }
             
-            // Function to update indices (optional but good for cleanup)
-            function updateIndices() {
-                var rows = partsContainer.querySelectorAll('.part-item:not(.template)');
-                rows.forEach((row, index) => {
-                    row.querySelectorAll('input').forEach(input => {
-                        if (input.name) {
-                            input.name = input.name.replace(/\[\d+\]/, `[${index}]`);
-                        }
-                    });
+            // Call setup function once DOM is loaded
+            setupConditionalFields();
+            
+            // Initialize form elements after DOM is fully loaded
+            var toolSelect = document.getElementById('toolSelect');
+            var toolChemicalBtn = document.getElementById('btn-add-chemical');
+            var toolCommissionBtn = document.getElementById('btn-add-commission');
+            var toolStartupBtn = document.getElementById('btn-add-startup');
+            
+            var chemicalInput = document.getElementById('chemical-gas-service-input');
+            var commissionInput = document.getElementById('commission-date-input');
+            var startupInput = document.getElementById('startup-sl03-date-input');
+            
+            var updateChemicalInput = document.getElementById('update-tool-chemical-gas-service');
+            var updateCommissionInput = document.getElementById('update-tool-commission-date');
+            var updateStartupInput = document.getElementById('update-tool-startup-sl03-date');
+            
+            var chemicalContainer = document.getElementById('chemical-edit-container');
+            var commissionContainer = document.getElementById('commission-edit-container');
+            var startupContainer = document.getElementById('startup-edit-container');
+            
+            // Initialize event listeners for the edit buttons only if elements exist
+            if (document.getElementById('btn-cancel-chemical')) {
+                document.getElementById('btn-cancel-chemical').addEventListener('click', function() {
+                    chemicalContainer.classList.add('d-none');
+                    toolChemicalBtn.classList.remove('d-none');
+                    updateChemicalInput.value = '';
                 });
             }
             
-            // Event delegation for ADD and REMOVE buttons
-            partsContainer.addEventListener('click', function(e) {
-                // ADD button logic
-                if (e.target.classList.contains('add-part')) {
-                    var clone = templateRow.cloneNode(true);
-                    clone.classList.remove('template');
-                    clone.style.display = ''; // Make it visible
-
-                    var currentRowCount = partsContainer.querySelectorAll('.part-item:not(.template)').length;
-                    var nextIndex = currentRowCount; 
-
-                    clone.querySelectorAll('input').forEach(function(input) { 
-                        if(input.name) { 
-                            input.name = input.name.replace('__INDEX__', nextIndex);
-                        }
-                        if (input.id && input.id.includes('__INDEX__')) {
-                            input.id = input.id.replace(/__INDEX__/g, nextIndex);
-                        }
-                        input.disabled = false; // Re-enable the cloned input
-                        if (input.type !== 'number' && input.type !== 'radio') {
-                            input.value = ''; 
-                        }
-                        // Initialize radio buttons - default to No
-                        if (input.type === 'radio') {
-                            input.checked = (input.value === 'false');
-                        }
-                    });
-                    
-                    partsContainer.appendChild(clone);
-                    updateIndices(); // Call updateIndices after adding a new row
-                } 
-                // REMOVE button logic
-                else if (e.target.classList.contains('remove-part')) {
-                    var rowToRemove = e.target.closest('.part-item');
-                    var visibleRows = partsContainer.querySelectorAll('.part-item:not(.template)');
-                    if (rowToRemove && !rowToRemove.classList.contains('template') && visibleRows.length > 1) {
-                         partsContainer.removeChild(rowToRemove);
-                         // updateIndices(); // Optional: Re-index remaining rows
-                    } else if (visibleRows.length <= 1 && !rowToRemove.classList.contains('template')) {
-                        rowToRemove.querySelectorAll('input').forEach(input => {
-                             if (input.type !== 'number') input.value = '';
-                             else if (input.name && input.name.includes('quantity')) input.value = '1'; 
-                        });
-                    }
-                }
-            });
-             
-             // Initial part row handling - show a usable row if there are none
-             if (partsContainer.querySelectorAll('.part-item:not(.template)').length === 0) {
-                 var initialRow = templateRow.cloneNode(true);
-                 initialRow.classList.remove('template');
-                 initialRow.style.display = '';
-                 
-                 initialRow.querySelectorAll('input').forEach(function(input) {
-                     if(input.name) {
-                         input.name = input.name.replace('__INDEX__', '0');
-                     }
-                     if (input.id && input.id.includes('__INDEX__')) {
-                         input.id = input.id.replace(/__INDEX__/g, '0');
-                     }
-                     input.disabled = false;
-                     if (input.type !== 'number' && input.type !== 'radio') {
-                         input.value = '';
-                     }
-                     // Initialize radio buttons - default to No
-                     if (input.type === 'radio') {
-                         input.checked = (input.value === 'false');
-                     }
-                 });
-                 
-                 partsContainer.appendChild(initialRow);
-                 templateRow.style.display = 'none';
-             } else {
-                 templateRow.style.display = 'none';
-             }
-        }
-
-        // File Upload Handlers
-        const fileInput = document.getElementById('fileInput');
-        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
-        const documentPreviewContainer = document.getElementById('documentPreviewContainer');
-        const noImagesMessage = document.getElementById('noImagesMessage');
-        const noDocsMessage = document.getElementById('noDocsMessage');
-        const dropArea = document.getElementById('drop-area');
-        
-        // Setup drag and drop events
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, preventDefaults, false);
-        });
-        
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropArea.addEventListener(eventName, highlight, false);
-        });
-        
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener('dragleave', unhighlight, false);
-        });
-        
-        function highlight() {
-            dropArea.classList.add('highlight');
-        }
-        
-        function unhighlight() {
-            dropArea.classList.remove('highlight');
-        }
-        
-        // Handle dropped files
-        dropArea.addEventListener('drop', function(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            
-            console.log('Files dropped:', files.length);
-            
-            if (files.length > 0) {
-                // Just pass the files directly to handleFiles
-                handleFiles(Array.from(files));
-            }
-        });
-        
-        // Handle files from file input
-        fileInput.addEventListener('change', function() {
-            handleFiles(this.files);
-        });
-        
-        function handleFiles(files) {
-            if (!files || files.length === 0) return;
-            
-            console.log(`Handling ${files.length} files`);
-            
-            // Track the valid files to add to selectedFiles array
-            const validFiles = [];
-            
-            // Process files for preview
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                console.log(`Processing file: ${file.name}, size: ${formatFileSize(file.size)}, type: ${file.type}`);
-                
-                // Check for duplicate filenames
-                const isDuplicate = selectedFiles.some(existing => existing.name === file.name);
-                if (isDuplicate) {
-                    console.warn(`Skipping duplicate file: ${file.name}`);
-                    continue;
-                }
-                
-                // Add to valid files array
-                validFiles.push(file);
-                
-                // Process based on file type
-                if (isImageFile(file)) {
-                    addImagePreview(file);
-                } else {
-                    addDocumentPreview(file);
-                }
-            }
-            
-            // Add valid files to the selectedFiles array
-            if (validFiles.length > 0) {
-                // Add to selectedFiles array
-                selectedFiles = [...selectedFiles, ...validFiles];
-                console.log(`Added ${validFiles.length} files to selectedFiles array. Total: ${selectedFiles.length}`);
-            }
-            
-            // Update files count in debug panel
-            updateFileCount();
-        }
-        
-        // Function to update the file count display
-        function updateFileCount() {
-            const filesSelectedCount = document.getElementById('filesSelectedCount');
-            if (filesSelectedCount) {
-                // Count image elements
-                const imageCount = imagePreviewContainer.querySelectorAll('.col-md-2').length;
-                // Count document elements
-                const docCount = documentPreviewContainer.querySelectorAll('li:not(#noDocsMessage)').length;
-                // Total count
-                const totalCount = imageCount + docCount;
-                
-                filesSelectedCount.textContent = totalCount;
-                console.log(`File count updated: ${totalCount} (${imageCount} images, ${docCount} documents)`);
-                
-                // Make sure selectedFiles array matches the UI count
-                if (selectedFiles.length !== totalCount) {
-                    console.warn(`Selected files count mismatch: UI shows ${totalCount}, array has ${selectedFiles.length}`);
-                }
-            }
-        }
-        
-        // More robust image file detection
-        function isImageFile(file) {
-            // Check by MIME type (primary method)
-            if (file.type.match(/^image\//)) {
-                return true;
-            }
-            
-            // Fallback: check by extension for browsers with inconsistent MIME reporting
-            const name = file.name.toLowerCase();
-            const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.svg'];
-            
-            return imageExtensions.some(ext => name.endsWith(ext));
-        }
-        
-        function addImagePreview(file) {
-            // Clear no images message
-            if (noImagesMessage) {
-                noImagesMessage.style.display = 'none';
-            }
-            
-            try {
-                console.log(`Processing image: ${file.name}, size: ${formatFileSize(file.size)}`);
-                
-                // Create preview elements
-                const colDiv = document.createElement('div');
-                colDiv.className = 'col-md-2 mb-2';
-                colDiv.dataset.filename = file.name;
-                
-                const card = document.createElement('div');
-                card.className = 'card h-100 shadow-sm';
-                
-                const imgDiv = document.createElement('div');
-                imgDiv.className = 'card-img-top text-center p-2';
-                imgDiv.style.height = '100px';
-                
-                // Add loading indicator first (always visible during processing)
-                const loadingIndicator = document.createElement('div');
-                loadingIndicator.className = 'text-center my-2';
-                loadingIndicator.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div><div class="mt-1 small text-muted">Processing...</div>';
-                imgDiv.appendChild(loadingIndicator);
-                
-                const footer = document.createElement('div');
-                footer.className = 'card-footer p-1 text-center bg-light d-flex justify-content-between align-items-center';
-                
-                const name = document.createElement('small');
-                name.className = 'text-muted';
-                name.textContent = file.name.length > 15 ? file.name.substring(0, 12) + '...' : file.name;
-                
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'btn btn-sm btn-outline-danger p-0 px-1';
-                removeBtn.innerHTML = '<i class="bi bi-x"></i>';
-                removeBtn.title = 'Remove image';
-                
-                // Handle remove button click
-                removeBtn.addEventListener('click', function() {
-                    // Remove from UI
-                    colDiv.remove();
-                    
-                    // Remove from selected files array
-                    removeFileFromArray(file.name);
-                    
-                    // Show "no images" message if no images left
-                    if (imagePreviewContainer.querySelectorAll('.col-md-2').length === 0) {
-                        noImagesMessage.style.display = '';
-                    }
-                    
-                    // Update the file count
-                    updateFileCount();
+            if (document.getElementById('btn-cancel-commission')) {
+                document.getElementById('btn-cancel-commission').addEventListener('click', function() {
+                    commissionContainer.classList.add('d-none');
+                    toolCommissionBtn.classList.remove('d-none');
+                    updateCommissionInput.value = '';
                 });
-                
-                // Add the card to DOM early so user sees the loading indicator
-                footer.appendChild(name);
-                footer.appendChild(removeBtn);
-                card.appendChild(imgDiv);
-                card.appendChild(footer);
-                colDiv.appendChild(card);
-                imagePreviewContainer.appendChild(colDiv);
-                
-                // Process the image with a timeout to ensure we don't get stuck
-                const imageLoadTimeout = 5000; // 5 seconds timeout
-                let timeoutId;
-                let objectUrl = null;
-                
-                // Create a new image element - separate from DOM for initial loading
-                const img = new Image();
-                img.className = 'img-fluid rounded';
-                img.style.maxHeight = '100%';
-                img.style.maxWidth = '100%';
-                img.style.objectFit = 'contain';
-                
-                const handleSuccess = () => {
-                    if (timeoutId) {
-                        clearTimeout(timeoutId);
-                        timeoutId = null;
-                    }
-                    
-                    console.log(`Successfully loaded image: ${file.name}`);
-                    
-                    // Clear loading indicator
-                    imgDiv.innerHTML = '';
-                    
-                    // Clone the loaded image to ensure a clean state
-                    const displayImg = document.createElement('img');
-                    displayImg.className = img.className;
-                    displayImg.style.cssText = img.style.cssText;
-                    displayImg.src = img.src;
-                    
-                    // Add the image to the DOM
-                    imgDiv.appendChild(displayImg);
-                    
-                    // Clean up the objectUrl only after the image is displayed
-                    if (objectUrl) {
-                        // Small delay to ensure the image is rendered first
-                        setTimeout(() => {
-                            URL.revokeObjectURL(objectUrl);
-                            objectUrl = null;
-                        }, 100);
-                    }
-                };
-                
-                const handleError = (error) => {
-                    if (timeoutId) {
-                        clearTimeout(timeoutId);
-                        timeoutId = null;
-                    }
-                    
-                    console.error(`Failed to load image: ${file.name}`, error);
-                    
-                    // Remove this element
-                    colDiv.remove();
-                    
-                    // Show "no images" message if no images left
-                    if (imagePreviewContainer.querySelectorAll('.col-md-2').length === 0) {
-                        noImagesMessage.style.display = '';
-                    }
-                    
-                    // Add as document instead
-                    addDocumentPreview(file);
-                    
-                    // Clean up the objectUrl if it exists
-                    if (objectUrl) {
-                        URL.revokeObjectURL(objectUrl);
-                        objectUrl = null;
-                    }
-                };
-                
-                // Set up timeout to prevent hanging on large images
-                timeoutId = setTimeout(() => {
-                    console.warn(`Timed out loading image: ${file.name}`);
-                    handleError(new Error("Image load timeout"));
-                }, imageLoadTimeout);
-                
-                // Set up image events
-                img.onload = handleSuccess;
-                img.onerror = () => handleError(new Error("Image load error"));
-                
-                // Start loading the image - use a controlled approach with a new blob
-                // This can help with browser caching/memory issues
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        // Create a blob from the array buffer
-                        const blob = new Blob([event.target.result], { type: file.type });
-                        objectUrl = URL.createObjectURL(blob);
-                        img.src = objectUrl;
-                    } catch (error) {
-                        handleError(error);
-                    }
-                };
-                reader.onerror = () => handleError(new Error("FileReader error"));
-                
-                // Read the file as array buffer (more reliable than direct blob)
-                reader.readAsArrayBuffer(file);
-                
-            } catch (error) {
-                console.error("Error creating image preview:", error);
-                // Fall back to document preview on error
-                addDocumentPreview(file);
-            }
-        }
-        
-        function addDocumentPreview(file) {
-            // Clear no docs message
-            if (noDocsMessage) {
-                noDocsMessage.style.display = 'none';
             }
             
-            // File icon based on type
-            let icon = 'bi-file-earmark';
-            if (file.name.match(/\.(pdf)$/i)) icon = 'bi-file-earmark-pdf';
-            if (file.name.match(/\.(doc|docx)$/i)) icon = 'bi-file-earmark-word';
-            if (file.name.match(/\.(xls|xlsx)$/i)) icon = 'bi-file-earmark-excel';
-            if (file.name.match(/\.(ppt|pptx)$/i)) icon = 'bi-file-earmark-slides';
+            if (document.getElementById('btn-cancel-startup')) {
+                document.getElementById('btn-cancel-startup').addEventListener('click', function() {
+                    startupContainer.classList.add('d-none');
+                    toolStartupBtn.classList.remove('d-none');
+                    updateStartupInput.value = '';
+                });
+            }
             
-            // Create UI element
-            const listItem = document.createElement('li');
-            listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-            listItem.dataset.filename = file.name;
+            if (toolChemicalBtn) {
+                toolChemicalBtn.addEventListener('click', function() {
+                    chemicalContainer.classList.remove('d-none');
+                    toolChemicalBtn.classList.add('d-none');
+                    chemicalInput.focus();
+                });
+            }
             
-            // File info
-            const fileInfo = document.createElement('div');
-            fileInfo.innerHTML = `<i class="bi ${icon} me-2"></i>${file.name} <small class="text-muted">(${formatFileSize(file.size)})</small>`;
+            if (toolCommissionBtn) {
+                toolCommissionBtn.addEventListener('click', function() {
+                    commissionContainer.classList.remove('d-none');
+                    toolCommissionBtn.classList.add('d-none');
+                    commissionInput.focus();
+                });
+            }
             
-            // Remove button
-            const removeBtn = document.createElement('button');
-            removeBtn.className = 'btn btn-sm btn-outline-danger';
-            removeBtn.innerHTML = '<i class="bi bi-x"></i>';
-            removeBtn.title = 'Remove file';
+            if (toolStartupBtn) {
+                toolStartupBtn.addEventListener('click', function() {
+                    startupContainer.classList.remove('d-none');
+                    toolStartupBtn.classList.add('d-none');
+                    startupInput.focus();
+                });
+            }
             
-            // Handle remove button click
-            removeBtn.addEventListener('click', function() {
-                // Remove from UI
-                listItem.remove();
+            // Event listeners for input changes
+            if (chemicalInput) {
+                chemicalInput.addEventListener('input', function() {
+                    updateChemicalInput.value = this.value;
+                });
+            }
+            
+            if (commissionInput) {
+                commissionInput.addEventListener('change', function() {
+                    updateCommissionInput.value = this.value;
+                });
+            }
+            
+            if (startupInput) {
+                startupInput.addEventListener('change', function() {
+                    updateStartupInput.value = this.value;
+                });
+            }
+            
+            // Define functions inside the DOMContentLoaded event
+            function updateToolDetails(toolId) {
+                // Reset all fields
+                if (document.getElementById('tool-type')) document.getElementById('tool-type').textContent = '';
+                if (document.getElementById('tool-location')) document.getElementById('tool-location').textContent = '';
+                if (document.getElementById('tool-serial1')) document.getElementById('tool-serial1').textContent = '';
+                if (document.getElementById('tool-serial2-display')) document.getElementById('tool-serial2-display').textContent = '';
+                if (document.getElementById('tool-model1')) document.getElementById('tool-model1').textContent = '';
+                if (document.getElementById('tool-model2-display')) document.getElementById('tool-model2-display').textContent = '';
+                if (document.getElementById('tool-chemical-gas-service')) document.getElementById('tool-chemical-gas-service').textContent = '';
+                if (document.getElementById('tool-commission-date')) document.getElementById('tool-commission-date').textContent = '';
+                if (document.getElementById('tool-startup-sl03-date')) document.getElementById('tool-startup-sl03-date').textContent = '';
                 
-                // Remove from selected files array
-                removeFileFromArray(file.name);
+                if (document.getElementById('tool-view-link')) {
+                    document.getElementById('tool-view-link').style.display = 'none';
+                }
                 
-                // Show "no docs" message if no documents left
-                if (documentPreviewContainer.querySelectorAll('li:not(#noDocsMessage)').length === 0) {
-                    noDocsMessage.style.display = '';
+                // Reset edit buttons and containers only if they exist
+                if (toolChemicalBtn) toolChemicalBtn.classList.add('d-none');
+                if (toolCommissionBtn) toolCommissionBtn.classList.add('d-none');
+                if (toolStartupBtn) toolStartupBtn.classList.add('d-none');
+                
+                if (chemicalContainer) chemicalContainer.classList.add('d-none');
+                if (commissionContainer) commissionContainer.classList.add('d-none');
+                if (startupContainer) startupContainer.classList.add('d-none');
+                
+                if (updateChemicalInput) updateChemicalInput.value = '';
+                if (updateCommissionInput) updateCommissionInput.value = '';
+                if (updateStartupInput) updateStartupInput.value = '';
+                
+                if (toolId === '') {
+                    if (document.getElementById('tool-details-list')) {
+                        document.getElementById('tool-details-list').style.display = 'none';
+                    }
+                    return;
                 }
-            });
-            
-            listItem.appendChild(fileInfo);
-            listItem.appendChild(removeBtn);
-            documentPreviewContainer.appendChild(listItem);
-        }
-        
-        // Helper function to remove a file from the array by name
-        function removeFileFromArray(fileName) {
-            // Store original length to check if removal was successful
-            const originalLength = selectedFiles.length;
-            
-            // Filter out the file with the matching name
-            selectedFiles = selectedFiles.filter(file => file.name !== fileName);
-            
-            // Log warning if nothing was removed
-            if (originalLength === selectedFiles.length) {
-                console.warn(`Failed to remove file "${fileName}" from selectedFiles array`);
-                // Try to find similar filenames that might be the intended target
-                const similarFiles = selectedFiles.map(f => f.name).filter(name => 
-                    name.includes(fileName) || fileName.includes(name));
-                if (similarFiles.length > 0) {
-                    console.warn(`Similar filenames found: ${similarFiles.join(', ')}`);
+                
+                if (document.getElementById('tool-details-list')) {
+                    document.getElementById('tool-details-list').style.display = 'block';
                 }
+                
+                fetch('/rma/api/tool/' + toolId)
+                .then(response => response.json())
+                .then(data => {
+                    if (document.getElementById('tool-type')) {
+                        document.getElementById('tool-type').textContent = data.toolType || 'N/A';
+                    }
+                    
+                    if (document.getElementById('tool-location')) {
+                        if (data.location && data.location.displayName) {
+                            document.getElementById('tool-location').textContent = data.location.displayName;
+                        } else {
+                            document.getElementById('tool-location').textContent = 'N/A';
+                        }
+                    }
+                    
+                    if (document.getElementById('tool-serial1')) {
+                        document.getElementById('tool-serial1').textContent = data.serialNumber1 || 'N/A';
+                    }
+                    
+                    if (document.getElementById('tool-serial2-display') && data.serialNumber2) {
+                        document.getElementById('tool-serial2-display').textContent = ' / ' + data.serialNumber2;
+                    }
+                    
+                    if (document.getElementById('tool-model1')) {
+                        document.getElementById('tool-model1').textContent = data.model1 || 'N/A';
+                    }
+                    
+                    if (document.getElementById('tool-model2-display') && data.model2) {
+                        document.getElementById('tool-model2-display').textContent = ' / ' + data.model2;
+                    }
+                    
+                    // Set Chemical/Gas Service value or show + button if null
+                    if (document.getElementById('tool-chemical-gas-service')) {
+                        if (data.chemicalGasService) {
+                            document.getElementById('tool-chemical-gas-service').textContent = data.chemicalGasService;
+                            if (toolChemicalBtn) toolChemicalBtn.classList.add('d-none');
+                        } else {
+                            document.getElementById('tool-chemical-gas-service').textContent = 'N/A';
+                            if (toolChemicalBtn) toolChemicalBtn.classList.remove('d-none');
+                        }
+                    }
+                    
+                    // Set Commission Date value or show + button if null
+                    if (document.getElementById('tool-commission-date')) {
+                        if (data.commissionDate) {
+                            document.getElementById('tool-commission-date').textContent = formatDate(data.commissionDate);
+                            if (toolCommissionBtn) toolCommissionBtn.classList.add('d-none');
+                        } else {
+                            document.getElementById('tool-commission-date').textContent = 'N/A';
+                            if (toolCommissionBtn) toolCommissionBtn.classList.remove('d-none');
+                        }
+                    }
+                    
+                    // Set Start-Up/SL03 Date value or show + button if null
+                    if (document.getElementById('tool-startup-sl03-date')) {
+                        if (data.startUpSl03Date) {
+                            document.getElementById('tool-startup-sl03-date').textContent = formatDate(data.startUpSl03Date);
+                            if (toolStartupBtn) toolStartupBtn.classList.add('d-none');
             } else {
-                console.log(`Successfully removed file "${fileName}". Remaining files: ${selectedFiles.length}`);
-            }
-            
-            // Update files count in debug panel
-            updateFileCount();
-        }
-        
-        // Helper function to format file size
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-        
-        // Enhance the form submission to handle file transfers
-        document.querySelector('form[action="/rma"]').addEventListener('submit', function(e) {
-            // Prevent default form submission
-            e.preventDefault();
-            
-            console.log('Form submission intercepted - preparing to submit files');
-            console.log('Selected files:', selectedFiles.length);
-            
-            // Create a FormData object from the form
-            const formData = new FormData(this);
-            
-            // Remove any existing file inputs to avoid duplicates
-            formData.delete('fileUploads');
-            formData.delete('documentUploads');
-            formData.delete('imageUploads');
-            
-            // Add all selected files to the FormData object
-            selectedFiles.forEach(file => {
-                formData.append('fileUploads', file);
-                console.log(`Added file to form: ${file.name}, size: ${file.size}, type: ${file.type}`);
-            });
-            
-            // Get the transfer preview container
-            const transferPreviewContainer = document.getElementById('transferPreviewContainer');
-            
-            if (transferPreviewContainer && transferPreviewContainer.children.length > 0) {
-                console.log('TRANSFER DATA SUBMISSION - START');
-                
-                // Add flag for transfers
-                formData.append('hasFileTransfers', 'true');
-                
-                // Get all transfer cards
-                const transferCards = transferPreviewContainer.children;
-                
-                // Process each transfer card
-                Array.from(transferCards).forEach(card => {
-                    // Extract data from the card's hidden inputs
-                    const fileIdInput = card.querySelector('input[name="transferFileIds"]');
-                    const fileTypeInput = card.querySelector('input[name="transferFileTypes"]');
-                    const targetRmaIdInput = card.querySelector('input[name="transferTargetRmaIds"]');
-                    
-                    if (fileIdInput && fileTypeInput && targetRmaIdInput) {
-                        formData.append('transferFileIds', fileIdInput.value);
-                        formData.append('transferFileTypes', fileTypeInput.value);
-                        formData.append('transferTargetRmaIds', targetRmaIdInput.value);
-                        
-                        console.log(`Adding transfer: ${fileTypeInput.value} ID=${fileIdInput.value} to RMA=${targetRmaIdInput.value}`);
-                    }
-                });
-                
-                console.log(`TRANSFER DATA SUBMISSION - ${transferCards.length} transfers added to form`);
-            }
-            
-            // Process file uploads tracker
-            const fileUploadsTracker = document.getElementById('fileUploadsTracker');
-            if (fileUploadsTracker) {
-                fileUploadsTracker.value = selectedFiles ? selectedFiles.length + ' files selected' : '0 files selected';
-            }
-            
-            // Show loading indicator
-            const loadingIndicator = document.createElement('div');
-            loadingIndicator.className = 'position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-dark bg-opacity-50';
-            loadingIndicator.style.zIndex = '9999';
-            loadingIndicator.innerHTML = `
-                <div class="bg-white p-4 rounded shadow">
-                    <div class="d-flex align-items-center">
-                        <div class="spinner-border text-primary me-3" role="status"></div>
-                        <div>
-                            <h5 class="mb-1">Submitting form...</h5>
-                            <p class="mb-0 small text-muted">Uploading ${selectedFiles.length} files</p>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(loadingIndicator);
-            
-            // Submit the form with fetch
-            fetch(this.action, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Form submission failed');
-                }
-                
-                // Get the redirect URL
-                const redirectUrl = response.url;
-                
-                // Navigate to the redirect location
-                window.location.href = redirectUrl;
-            })
-            .catch(error => {
-                console.error('Error submitting form:', error);
-                document.body.removeChild(loadingIndicator);
-                alert('Error submitting form: ' + error.message);
-            });
-            
-            return false; // Prevent default form submission
-        });
-        
-        // Fix to prevent any potential file input issues
-        const fixExistingFileLinks = function() {
-            // Add event listeners to all file action buttons to prevent them from
-            // interfering with the form submission
-            document.querySelectorAll('.file-actions a, .file-actions button').forEach(function(element) {
-                element.addEventListener('click', function(e) {
-                    // Don't let these clicks bubble up to the form
-                    e.stopPropagation();
-                });
-            });
-        };
-        
-        // Call fix function
-        fixExistingFileLinks();
-        
-        // Additional fix for file deletion buttons
-        document.querySelectorAll('form[action="/rma/file/delete"]').forEach(function(form) {
-            form.addEventListener('submit', function(e) {
-                // Don't let the delete form submission interfere with the main form
-                e.stopPropagation();
-            });
-        });
-
-        // Handle adding files to transfer preview
-        document.getElementById('addToTransferPreviewBtn').addEventListener('click', function(e) {
-            const fileId = document.getElementById('transferFileId').value;
-            const fileType = document.getElementById('transferFileType').value;
-            const fileName = document.getElementById('transferFileName').value;
-            const filePath = document.getElementById('transferFilePath').value;
-            const sourceRmaId = document.getElementById('sourceRmaId').value;
-            const targetRmaId = document.getElementById('targetRmaId').value;
-            const targetRmaText = targetRmaId ? document.getElementById('targetRmaId').options[document.getElementById('targetRmaId').selectedIndex].text : '';
-            
-            // Validate target RMA is selected
-            if (!targetRmaId) {
-                alert('Please select a target RMA');
-                return;
-            }
-            
-            // First create the preview card so it's visible when modal is hidden
-            // Show the transfer preview section
-            document.getElementById('transferPreviewSection').style.display = 'block';
-            
-            // Create a unique ID for this transfer
-            const transferId = `transfer-${fileType}-${fileId}-${targetRmaId}`;
-            
-            // Check if this file is already in the preview
-            if (document.getElementById(transferId)) {
-                alert('This file is already staged for transfer to this RMA');
-                bootstrap.Modal.getInstance(document.getElementById('transferModal')).hide();
-                return;
-            }
-            
-            // Create preview card
-            const card = document.createElement('div');
-            card.className = 'col-md-4 mb-3';
-            card.id = transferId;
-            
-            // Create card content
-            let cardHtml = `
-                <div class="card h-100">
-                    <div class="card-header bg-info text-white">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span>Transfer ${fileType.charAt(0).toUpperCase() + fileType.slice(1)}</span>
-                            <button type="button" class="btn-close btn-close-white remove-transfer" aria-label="Remove"></button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-            `;
-            
-            // Add appropriate content based on file type
-            if (fileType === 'picture' && filePath) {
-                cardHtml += `
-                    <div class="text-center">
-                        <img src="${filePath}" alt="${fileName}" class="img-fluid mb-2" style="max-height: 100px;">
-                    </div>
-                `;
-            }
-            
-            cardHtml += `
-                <div class="card-text">
-                    <p><strong>File:</strong> <span class="file-name">${fileName}</span></p>
-                    <p><strong>To:</strong> <span class="target-rma">${targetRmaText}</span></p>
-                    <div class="text-center mt-2">
-                        <i class="bi bi-arrow-right fs-3 text-success"></i>
-                    </div>
-                </div>
-            `;
-            
-            cardHtml += `
-                    </div>
-                </div>
-            `;
-            
-            // Add the hidden inputs correctly (separate from the card's HTML)
-            card.innerHTML = cardHtml;
-            
-            // Now add the hidden inputs directly to the card
-            const fileIdInput = document.createElement('input');
-            fileIdInput.type = 'hidden';
-            fileIdInput.name = 'transferFileIds';
-            fileIdInput.value = fileId;
-            card.appendChild(fileIdInput);
-            
-            const fileTypeInput = document.createElement('input');
-            fileTypeInput.type = 'hidden';
-            fileTypeInput.name = 'transferFileTypes';
-            fileTypeInput.value = fileType;
-            card.appendChild(fileTypeInput);
-            
-            const targetRmaIdInput = document.createElement('input');
-            targetRmaIdInput.type = 'hidden';
-            targetRmaIdInput.name = 'transferTargetRmaIds';
-            targetRmaIdInput.value = targetRmaId;
-            card.appendChild(targetRmaIdInput);
-            
-            // Add card to preview container
-            document.getElementById('transferPreviewContainer').appendChild(card);
-            
-            // Add event listener to remove button
-            card.querySelector('.remove-transfer').addEventListener('click', function() {
-                card.remove();
-                
-                // Hide section if empty
-                if (document.getElementById('transferPreviewContainer').children.length === 0) {
-                    document.getElementById('transferPreviewSection').style.display = 'none';
-                }
-            });
-            
-            // Now properly close the modal
-            try {
-                const modalElement = document.getElementById('transferModal');
-                const modalInstance = bootstrap.Modal.getInstance(modalElement);
-                modalInstance.hide();
-                
-                // Extra cleanup to ensure modal backdrop is removed
-                setTimeout(function() {
-                    if (document.body.classList.contains('modal-open')) {
-                        document.body.classList.remove('modal-open');
-                        document.body.style.overflow = '';
-                        document.body.style.paddingRight = '';
+                            document.getElementById('tool-startup-sl03-date').textContent = 'N/A';
+                            if (toolStartupBtn) toolStartupBtn.classList.remove('d-none');
+                        }
                     }
                     
-                    // Remove any lingering backdrop
-                    const backdrops = document.querySelectorAll('.modal-backdrop');
-                    backdrops.forEach(backdrop => {
-                        backdrop.remove();
-                    });
-                }, 200);
-            } catch (error) {
-                console.error('Error closing modal:', error);
-                // Try alternative closing method
-                try {
-                    jQuery('#transferModal').modal('hide');
-                } catch (e) {
-                    console.error('Alternative modal closing failed:', e);
-                    // Last resort - force backdrop removal
-                    document.body.classList.remove('modal-open');
-                    document.body.style.overflow = '';
-                    document.body.style.paddingRight = '';
-                    const backdrops = document.querySelectorAll('.modal-backdrop');
-                    backdrops.forEach(backdrop => backdrop.remove());
-                }
-            }
-        });
-
-        // Variables to store the delete data
-        let deleteFileId = null;
-        let deleteFileType = null;
-        let deleteRmaId = null;
-        
-        // Handle delete button clicks - show modal instead of browser confirm
-        document.querySelectorAll('.delete-file-btn').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Store the delete data
-                deleteFileId = this.getAttribute('data-id');
-                deleteFileType = this.getAttribute('data-type');
-                deleteRmaId = this.getAttribute('data-rma-id');
-                
-                // Show the confirm modal
-                const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
-                deleteModal.show();
-            });
-        });
-        
-        // Handle confirm delete button
-        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
-            if (deleteFileId && deleteFileType && deleteRmaId) {
-                // Hide the modal
-                bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal')).hide();
-                
-                // Show loading indicator
-                const loadingIndicator = document.createElement('div');
-                loadingIndicator.className = 'position-fixed top-50 start-50 translate-middle bg-white p-3 rounded shadow text-center';
-                loadingIndicator.innerHTML = '<div class="spinner-border text-primary" role="status"></div><div class="mt-2">Processing...</div>';
-                loadingIndicator.id = 'loadingIndicator';
-                document.body.appendChild(loadingIndicator);
-                
-                // Send AJAX request to delete the file
-                fetch('/rma/file/delete', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: `fileId=${deleteFileId}&fileType=${deleteFileType}&rmaId=${deleteRmaId}`
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
+                    // Set the "View Tool" link
+                    var viewLink = document.getElementById('tool-view-link');
+                    if (viewLink) {
+                        viewLink.href = '/tools/' + data.id;
+                        viewLink.style.display = 'inline-block';
                     }
-                    // Reload the page to show changes
-                    window.location.reload();
                 })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error deleting file: ' + error.message);
-                    document.body.removeChild(loadingIndicator);
-                });
+                .catch(error => console.error('Error fetching tool details:', error));
             }
-        });
-
-        // Set up event listener for modal hidden event to ensure proper cleanup
-        const transferModal = document.getElementById('transferModal');
-        if (transferModal) {
-            transferModal.addEventListener('hidden.bs.modal', function() {
-                // Ensure modal backdrop is completely removed
-                document.body.classList.remove('modal-open');
-                document.body.style.overflow = '';
-                document.body.style.paddingRight = '';
-                
-                // Remove any lingering backdrop
-                const backdrops = document.querySelectorAll('.modal-backdrop');
-                backdrops.forEach(backdrop => {
-                    backdrop.remove();
-                });
-                
-                console.log('Modal hidden event - cleanup complete');
-            });
             
-            // Add a failsafe to ensure modal closes on Escape key
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape' && document.body.classList.contains('modal-open')) {
-                    const openModals = document.querySelectorAll('.modal.show');
-                    if (openModals.length > 0) {
-                        openModals.forEach(modal => {
-                            try {
-                                const modalInstance = bootstrap.Modal.getInstance(modal);
-                                if (modalInstance) {
-                                    modalInstance.hide();
-                                }
-                            } catch (error) {
-                                console.error('Error closing modal:', error);
-                            }
-                        });
-                        
-                        // Force cleanup if needed
-                        document.body.classList.remove('modal-open');
-                        document.body.style.overflow = '';
-                        document.body.style.paddingRight = '';
-                        const backdrops = document.querySelectorAll('.modal-backdrop');
-                        backdrops.forEach(backdrop => {
-                            backdrop.remove();
-                        });
+            // Helper function to format dates
+            function formatDate(dateString) {
+                if (!dateString) return '';
+                const date = new Date(dateString);
+                return date.toLocaleDateString();
+            }
+
+            // If toolSelect exists, add the event listener
+            if (toolSelect) {
+                toolSelect.addEventListener('change', function() {
+                    updateToolDetails(this.value);
+                });
+                
+                // If a tool is already selected (in edit mode), load its details
+                if (toolSelect.value) {
+                    updateToolDetails(toolSelect.value);
+                }
+            }
+            
+            // Part line items handling
+            let partIndex = 0;
+            const partsContainer = document.getElementById('parts-container');
+            
+            // Find the highest index of existing part items to ensure new items have unique indices
+            if (partsContainer) {
+                const existingItems = partsContainer.querySelectorAll('.part-item:not(.template)');
+                if (existingItems.length > 0) {
+                    partIndex = existingItems.length;
+                }
+                
+                // Clone and prepare the template for use
+                const template = partsContainer.querySelector('.part-item.template');
+                
+                // Add event listeners to existing add/remove buttons
+                document.querySelectorAll('.add-part').forEach(button => {
+                    button.addEventListener('click', addPartItem);
+                });
+                
+                document.querySelectorAll('.remove-part').forEach(button => {
+                    button.addEventListener('click', removePartItem);
+                });
+                
+                // When no parts exist initially, add an empty one
+                if (existingItems.length === 0 && template) {
+                    addPartItem();
+                }
+                
+                // Add a global "Add Part" button after the parts container if it doesn't exist already
+                if (!document.querySelector('.global-add-part')) {
+                    const addButton = document.createElement('button');
+                    addButton.type = 'button';
+                    addButton.className = 'btn btn-sm btn-primary global-add-part mt-2';
+                    addButton.innerHTML = '<i class="bi bi-plus-circle"></i> Add Part';
+                    addButton.addEventListener('click', addPartItem);
+                    partsContainer.parentNode.insertBefore(addButton, partsContainer.nextSibling);
+                }
+                
+                // Function to add a new part item
+                function addPartItem() {
+                    if (!template) return;
+                    
+                    // Clone the template
+                    const newItem = template.cloneNode(true);
+                    newItem.classList.remove('template', 'd-none');
+                    
+                    // Set the HTML directly with the correct index
+                    const html = `
+                        <div class="row mb-2">
+                            <div class="col-md-2">
+                                <input type="text" class="form-control form-control-sm" name="partLineItems[${partIndex}].partName" placeholder="Part Name">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="text" class="form-control form-control-sm" name="partLineItems[${partIndex}].partNumber" placeholder="Part Number">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="text" class="form-control form-control-sm" name="partLineItems[${partIndex}].productDescription" placeholder="Description">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" class="form-control form-control-sm" name="partLineItems[${partIndex}].quantity" value="1" min="1" placeholder="Quantity">
+                            </div>
+                            <div class="col-md-1">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="partLineItems[${partIndex}].replacementRequired">
+                                </div>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-part">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    newItem.innerHTML = html;
+                    
+                    // Add event listener to the new remove button
+                    const removeBtn = newItem.querySelector('.remove-part');
+                    if (removeBtn) {
+                        removeBtn.addEventListener('click', removePartItem);
+                    }
+                    
+                    // Add the new item to the container
+                    partsContainer.appendChild(newItem);
+                    
+                    // Focus the first input in the new item
+                    const firstInput = newItem.querySelector('input');
+                    if (firstInput) firstInput.focus();
+                    
+                    // Increment the index for the next item
+                    partIndex++;
+                }
+                
+                // Function to remove a part item
+                function removePartItem(event) {
+                    const button = event.target.closest('.remove-part');
+                    if (button) {
+                        const partItem = button.closest('.part-item');
+                        if (partItem && !partItem.classList.contains('template')) {
+                            partItem.remove();
+                        }
                     }
                 }
-            });
-        }
+            }
       });
     </script>
 </body>

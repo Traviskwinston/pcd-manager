@@ -52,7 +52,7 @@ public class WebConfig implements WebMvcConfigurer {
             }
             
             // Make sure subdirectories exist for different uploads
-            String[] subdirs = {"pictures", "documents", "rma-pictures", "rma-documents"};
+            String[] subdirs = {"pictures", "documents", "rma-pictures", "rma-documents", "reference-documents"};
             for (String subdir : subdirs) {
                 Path subdirPath = uploadPath.resolve(subdir);
                 if (!Files.exists(subdirPath)) {

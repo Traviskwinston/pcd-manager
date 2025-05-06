@@ -96,6 +96,11 @@
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
+                            <label for="chemicalGasService" class="form-label">Chemical/Gas Service</label>
+                            <input type="text" class="form-control" id="chemicalGasService" th:field="*{chemicalGasService}">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
                             <label for="location" class="form-label">Location</label>
                             <select class="form-select" id="location" th:field="*{location.id}">
                                 <option value="">-- Select Location --</option>
@@ -103,7 +108,9 @@
                                         th:selected="${loc.isDefault}">AZ F52</option>
                             </select>
                         </div>
-                        
+                    </div>
+                    
+                    <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="setDate" class="form-label">Set Date</label>
                             <input type="date" class="form-control" id="setDate" th:field="*{setDate}">
@@ -118,71 +125,81 @@
                     <h4 class="mt-4 mb-3">Tool Checklist</h4>
                     <div class="row">
                         <div class="col-md-6">
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="preSl1Completed" th:field="*{preSl1Completed}">
-                                <label class="form-check-label" for="preSl1Completed">PreSL1</label>
+                            <div class="mb-3">
+                                <label for="commissionDate" class="form-label">Commission Date</label>
+                                <input type="date" class="form-control" id="commissionDate" th:field="*{commissionDate}">
                             </div>
                             
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="sl1Completed" th:field="*{sl1Completed}">
-                                <label class="form-check-label" for="sl1Completed">SL1</label>
+                            <div class="mb-3">
+                                <label for="preSl1Date" class="form-label">PreSL1 Completion Date</label>
+                                <input type="date" class="form-control" id="preSl1Date" th:field="*{preSl1Date}">
                             </div>
                             
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="sl2Completed" th:field="*{sl2Completed}">
-                                <label class="form-check-label" for="sl2Completed">SL2</label>
+                            <div class="mb-3">
+                                <label for="sl1Date" class="form-label">SL1 Completion Date</label>
+                                <input type="date" class="form-control" id="sl1Date" th:field="*{sl1Date}">
                             </div>
                             
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="electricalOperationPreSl1Completed" th:field="*{electricalOperationPreSl1Completed}">
-                                <label class="form-check-label" for="electricalOperationPreSl1Completed">Electrical Operation: Pre SL1</label>
+                            <div class="mb-3">
+                                <label for="sl2Date" class="form-label">SL2 Completion Date</label>
+                                <input type="date" class="form-control" id="sl2Date" th:field="*{sl2Date}">
                             </div>
                             
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="hazardousEnergyChecklistCompleted" th:field="*{hazardousEnergyChecklistCompleted}">
-                                <label class="form-check-label" for="hazardousEnergyChecklistCompleted">Hazardous Energy Checklist</label>
+                            <div class="mb-3">
+                                <label for="electricalOperationPreSl1Date" class="form-label">Electrical Operation: Pre SL1 Date</label>
+                                <input type="date" class="form-control" id="electricalOperationPreSl1Date" th:field="*{electricalOperationPreSl1Date}">
                             </div>
                             
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="mechanicalPreSl1Completed" th:field="*{mechanicalPreSl1Completed}">
-                                <label class="form-check-label" for="mechanicalPreSl1Completed">Mechanical: Pre SL1</label>
+                            <div class="mb-3">
+                                <label for="hazardousEnergyChecklistDate" class="form-label">Hazardous Energy Checklist Date</label>
+                                <input type="date" class="form-control" id="hazardousEnergyChecklistDate" th:field="*{hazardousEnergyChecklistDate}">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="mechanicalPreSl1Date" class="form-label">Mechanical: Pre SL1 Date</label>
+                                <input type="date" class="form-control" id="mechanicalPreSl1Date" th:field="*{mechanicalPreSl1Date}">
                             </div>
                         </div>
                         
                         <div class="col-md-6">
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="mechanicalPostSl1Completed" th:field="*{mechanicalPostSl1Completed}">
-                                <label class="form-check-label" for="mechanicalPostSl1Completed">Mechanical: Post SL1</label>
+                            <div class="mb-3">
+                                <label for="mechanicalPostSl1Date" class="form-label">Mechanical: Post SL1 Date</label>
+                                <input type="date" class="form-control" id="mechanicalPostSl1Date" th:field="*{mechanicalPostSl1Date}">
                             </div>
                             
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="specificInputFunctionalityTested" th:field="*{specificInputFunctionalityTested}">
-                                <label class="form-check-label" for="specificInputFunctionalityTested">Specific Input Functionality Tested</label>
+                            <div class="mb-3">
+                                <label for="specificInputFunctionalityDate" class="form-label">Specific Input Functionality Tested Date</label>
+                                <input type="date" class="form-control" id="specificInputFunctionalityDate" th:field="*{specificInputFunctionalityDate}">
                             </div>
                             
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="modesOfOperationTested" th:field="*{modesOfOperationTested}">
-                                <label class="form-check-label" for="modesOfOperationTested">Modes of Operation Tested</label>
+                            <div class="mb-3">
+                                <label for="modesOfOperationDate" class="form-label">Modes of Operation Tested Date</label>
+                                <input type="date" class="form-control" id="modesOfOperationDate" th:field="*{modesOfOperationDate}">
                             </div>
                             
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="specificSoosTestsed" th:field="*{specificSoosTestsed}">
-                                <label class="form-check-label" for="specificSoosTestsed">Specific SOO's Tested</label>
+                            <div class="mb-3">
+                                <label for="specificSoosDate" class="form-label">Specific SOO's Tested Date</label>
+                                <input type="date" class="form-control" id="specificSoosDate" th:field="*{specificSoosDate}">
                             </div>
                             
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="fieldServiceReportUploaded" th:field="*{fieldServiceReportUploaded}">
-                                <label class="form-check-label" for="fieldServiceReportUploaded">Field Service Report Uploaded</label>
+                            <div class="mb-3">
+                                <label for="fieldServiceReportDate" class="form-label">Field Service Report Uploaded Date</label>
+                                <input type="date" class="form-control" id="fieldServiceReportDate" th:field="*{fieldServiceReportDate}">
                             </div>
                             
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="certificateOfApprovalUploaded" th:field="*{certificateOfApprovalUploaded}">
-                                <label class="form-check-label" for="certificateOfApprovalUploaded">Certificate of Approval Uploaded</label>
+                            <div class="mb-3">
+                                <label for="certificateOfApprovalDate" class="form-label">Certificate of Approval Uploaded Date</label>
+                                <input type="date" class="form-control" id="certificateOfApprovalDate" th:field="*{certificateOfApprovalDate}">
                             </div>
                             
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="turnedOverToCustomer" th:field="*{turnedOverToCustomer}">
-                                <label class="form-check-label" for="turnedOverToCustomer">Turned over to Customer</label>
+                            <div class="mb-3">
+                                <label for="turnedOverToCustomerDate" class="form-label">Turned over to Customer Date</label>
+                                <input type="date" class="form-control" id="turnedOverToCustomerDate" th:field="*{turnedOverToCustomerDate}">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="startUpSl03Date" class="form-label">Start-Up/SL03 Date</label>
+                                <input type="date" class="form-control" id="startUpSl03Date" th:field="*{startUpSl03Date}">
                             </div>
                         </div>
                     </div>

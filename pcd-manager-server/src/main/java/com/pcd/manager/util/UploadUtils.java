@@ -69,7 +69,7 @@ public class UploadUtils {
             }
             
             // Create subdirectories for different file types
-            String[] subdirs = {"pictures", "documents", "rma-pictures", "rma-documents"};
+            String[] subdirs = {"pictures", "documents", "rma-pictures", "rma-documents", "reference-documents"};
             for (String subdir : subdirs) {
                 Path subdirPath = baseUploadPath.resolve(subdir);
                 if (!Files.exists(subdirPath)) {

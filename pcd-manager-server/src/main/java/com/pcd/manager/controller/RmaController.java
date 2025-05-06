@@ -43,6 +43,13 @@ import java.util.HashSet;
 import java.util.Set;
 import com.pcd.manager.service.FileTransferService;
 import java.util.HashMap;
+import com.pcd.manager.model.Passdown;
+import com.pcd.manager.service.PassdownService;
+import java.time.LocalDate;
+import com.pcd.manager.service.ExcelService;
+import java.security.Principal;
+import org.springframework.util.StringUtils;
+import com.pcd.manager.model.User;
 
 @Controller
 @RequestMapping("/rma")
@@ -56,6 +63,8 @@ public class RmaController {
     private final UserService userService;
     private final UploadUtils uploadUtils;
     private final FileTransferService fileTransferService;
+    private final PassdownService passdownService;
+    private final ExcelService excelService;
 
     @Autowired
     public RmaController(RmaService rmaService,
@@ -63,13 +72,17 @@ public class RmaController {
                          ToolService toolService,
                          UserService userService,
                          UploadUtils uploadUtils,
-                         FileTransferService fileTransferService) {
+                         FileTransferService fileTransferService,
+                         PassdownService passdownService,
+                         ExcelService excelService) {
         this.rmaService = rmaService;
         this.locationService = locationService;
         this.toolService = toolService;
         this.userService = userService;
         this.uploadUtils = uploadUtils;
         this.fileTransferService = fileTransferService;
+        this.passdownService = passdownService;
+        this.excelService = excelService;
     }
 
     @GetMapping
@@ -100,8 +113,23 @@ public class RmaController {
     }
 
     @GetMapping("/new")
-    public String showCreateForm(Model model) {
-        model.addAttribute("rma", new Rma());
+    public String showCreateForm(Model model, @RequestParam(required = false) Long toolId) {
+        Rma rma = new Rma();
+        
+        // If toolId is provided, fetch and set the tool
+        if (toolId != null) {
+            logger.info("Tool ID {} provided for new RMA", toolId);
+            toolService.getToolById(toolId).ifPresent(tool -> {
+                rma.setTool(tool);
+                // Optionally pre-fill other fields based on the tool
+                if (tool.getLocation() != null) {
+                    rma.setLocation(tool.getLocation());
+                }
+                logger.info("Pre-selected tool {} for new RMA", tool.getName());
+            });
+        }
+        
+        model.addAttribute("rma", rma);
         model.addAttribute("locations", locationService.getAllLocations());
         model.addAttribute("tools", toolService.getAllTools());
         model.addAttribute("technicians", userService.getAllUsers());
@@ -110,7 +138,21 @@ public class RmaController {
 
     @GetMapping("/{id}")
     public String showRma(@PathVariable Long id, Model model) {
-        rmaService.getRmaById(id).ifPresent(rma -> model.addAttribute("rma", rma));
+        rmaService.getRmaById(id).ifPresent(rma -> {
+            model.addAttribute("rma", rma);
+            
+            // Add all tools for the linking functionality
+            List<Tool> allTools = toolService.getAllTools();
+            model.addAttribute("allTools", allTools);
+            
+            // Add all RMAs for transfer functionality
+            List<Rma> allRmas = rmaService.getAllRmas();
+            model.addAttribute("allRmas", allRmas);
+            
+            // Add recent passdowns for linking functionality
+            List<Passdown> recentPassdowns = passdownService.getRecentPassdowns(20);
+            model.addAttribute("recentPassdowns", recentPassdowns);
+        });
         return "rma/view";
     }
 
@@ -136,6 +178,9 @@ public class RmaController {
                           @RequestParam(value = "transferFileIds", required = false) List<Long> transferFileIds,
                           @RequestParam(value = "transferFileTypes", required = false) List<String> transferFileTypes,
                           @RequestParam(value = "transferTargetRmaIds", required = false) List<Long> transferTargetRmaIds,
+                          @RequestParam(value = "updateToolChemicalGasService", required = false) String updateToolChemicalGasService,
+                          @RequestParam(value = "updateToolCommissionDate", required = false) String updateToolCommissionDate,
+                          @RequestParam(value = "updateToolStartupSl03Date", required = false) String updateToolStartupSl03Date,
                           RedirectAttributes redirectAttributes) {
         try {
             // Log upload parameters for debugging
@@ -150,6 +195,55 @@ public class RmaController {
             logger.info("transferFileIds: {}", transferFileIds);
             logger.info("transferFileTypes: {}", transferFileTypes);
             logger.info("transferTargetRmaIds: {}", transferTargetRmaIds);
+            
+            // Check if we need to update tool fields
+            if (rma.getTool() != null && rma.getTool().getId() != null) {
+                Long toolId = rma.getTool().getId();
+                boolean toolUpdated = false;
+                
+                // Get the tool from database
+                Optional<Tool> toolOpt = toolService.getToolById(toolId);
+                if (toolOpt.isPresent()) {
+                    Tool tool = toolOpt.get();
+                    
+                    // Update Chemical/Gas Service if provided
+                    if (updateToolChemicalGasService != null && !updateToolChemicalGasService.trim().isEmpty()) {
+                        logger.info("Updating Tool {} Chemical/Gas Service to: {}", toolId, updateToolChemicalGasService);
+                        tool.setChemicalGasService(updateToolChemicalGasService.trim());
+                        toolUpdated = true;
+                    }
+                    
+                    // Update Commission Date if provided
+                    if (updateToolCommissionDate != null && !updateToolCommissionDate.trim().isEmpty()) {
+                        try {
+                            LocalDate commissionDate = LocalDate.parse(updateToolCommissionDate.trim());
+                            logger.info("Updating Tool {} Commission Date to: {}", toolId, commissionDate);
+                            tool.setCommissionDate(commissionDate);
+                            toolUpdated = true;
+                        } catch (Exception e) {
+                            logger.warn("Invalid date format for Commission Date: {}", updateToolCommissionDate);
+                        }
+                    }
+                    
+                    // Update Start-Up/SL03 Date if provided
+                    if (updateToolStartupSl03Date != null && !updateToolStartupSl03Date.trim().isEmpty()) {
+                        try {
+                            LocalDate startupDate = LocalDate.parse(updateToolStartupSl03Date.trim());
+                            logger.info("Updating Tool {} Start-Up/SL03 Date to: {}", toolId, startupDate);
+                            tool.setStartUpSl03Date(startupDate);
+                            toolUpdated = true;
+                        } catch (Exception e) {
+                            logger.warn("Invalid date format for Start-Up/SL03 Date: {}", updateToolStartupSl03Date);
+                        }
+                    }
+                    
+                    // Save the tool if any changes were made
+                    if (toolUpdated) {
+                        toolService.saveTool(tool);
+                        logger.info("Tool {} updated with new values", toolId);
+                    }
+                }
+            }
             
             // Combine all file uploads into a single array
             List<MultipartFile> allFiles = new ArrayList<>();
@@ -279,9 +373,35 @@ public class RmaController {
     // Re-add API endpoint for fetching tool details
     @GetMapping("/api/tool/{id}")
     @ResponseBody
-    public ResponseEntity<Tool> getToolDetails(@PathVariable Long id) {
-        Optional<Tool> tool = toolService.getToolById(id);
-        return tool.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    public Map<String, Object> ajaxGetToolDetails(@PathVariable Long id) {
+        Map<String, Object> result = new HashMap<>();
+        Optional<Tool> toolOpt = toolService.getToolById(id);
+        
+        if (toolOpt.isPresent()) {
+            Tool tool = toolOpt.get();
+            result.put("id", tool.getId());
+            result.put("name", tool.getName());
+            result.put("secondaryName", tool.getSecondaryName());
+            result.put("toolType", tool.getToolType());
+            result.put("serialNumber1", tool.getSerialNumber1());
+            result.put("serialNumber2", tool.getSerialNumber2());
+            result.put("model1", tool.getModel1());
+            result.put("model2", tool.getModel2());
+            
+            // Add new tool fields
+            result.put("commissionDate", tool.getCommissionDate());
+            result.put("chemicalGasService", tool.getChemicalGasService());
+            result.put("startUpSl03Date", tool.getStartUpSl03Date());
+            
+            if (tool.getLocation() != null) {
+                Map<String, Object> location = new HashMap<>();
+                location.put("id", tool.getLocation().getId());
+                location.put("displayName", tool.getLocation().getDisplayName());
+                result.put("location", location);
+            }
+        }
+        
+        return result;
     }
 
     // Verify upload directory exists when accessing files
@@ -584,6 +704,93 @@ public class RmaController {
                 "success", false,
                 "message", "Error: " + e.getMessage()
             ));
+        }
+    }
+
+    /**
+     * API endpoint to link a file between RMA and other entities (Tool, Passdown)
+     */
+    @PostMapping("/file/link")
+    public String linkFile(@RequestParam Long fileId,
+                           @RequestParam String fileType,
+                           @RequestParam Long sourceRmaId,
+                           @RequestParam String linkTarget,
+                           @RequestParam(required = false) Long linkToolId,
+                           @RequestParam(required = false) Long linkPassdownId) {
+        
+        logger.info("Request to link file - ID: {}, Type: {}, Source RMA: {}, Target Type: {}, Target ID: {}/{}",
+                 fileId, fileType, sourceRmaId, linkTarget, linkToolId, linkPassdownId);
+        
+        try {
+            boolean success = false;
+            
+            if ("tool".equals(linkTarget) && linkToolId != null) {
+                // Handle linking to tool
+                logger.info("Linking {} to Tool ID: {}", fileType, linkToolId);
+                if ("document".equalsIgnoreCase(fileType)) {
+                    // Logic for linking document to tool
+                    success = rmaService.linkDocumentToTool(fileId, linkToolId);
+                } else if ("picture".equalsIgnoreCase(fileType)) {
+                    // Logic for linking picture to tool
+                    success = rmaService.linkPictureToTool(fileId, linkToolId);
+                }
+            } else if ("passdown".equals(linkTarget) && linkPassdownId != null) {
+                // Handle linking to passdown
+                logger.info("Linking {} to Passdown ID: {}", fileType, linkPassdownId);
+                if ("document".equalsIgnoreCase(fileType)) {
+                    // Logic for linking document to passdown
+                    success = rmaService.linkDocumentToPassdown(fileId, linkPassdownId);
+                } else if ("picture".equalsIgnoreCase(fileType)) {
+                    // Logic for linking picture to passdown
+                    success = rmaService.linkPictureToPassdown(fileId, linkPassdownId);
+                }
+            }
+            
+            if (success) {
+                logger.info("Successfully linked file");
+            } else {
+                logger.warn("Failed to link file");
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error linking file: {}", e.getMessage(), e);
+        }
+        
+        // Return to the RMA view
+        return "redirect:/rma/" + sourceRmaId;
+    }
+
+    /**
+     * Generate Excel RMA form
+     */
+    @GetMapping("/{id}/excel")
+    public ResponseEntity<byte[]> generateExcelRma(@PathVariable Long id, Principal principal) {
+        try {
+            // Get the RMA
+            Rma rma = rmaService.getRmaById(id)
+                    .orElseThrow(() -> new RuntimeException("RMA not found with ID: " + id));
+            
+            // Get current user
+            User currentUser = null;
+            if (principal != null) {
+                currentUser = userService.getUserByEmail(principal.getName())
+                        .orElse(null);
+            }
+            
+            // Generate the Excel file
+            byte[] excelContent = excelService.populateRmaTemplate(rma, currentUser);
+            
+            // Set up response headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            String filename = "RMA_" + (rma.getRmaNumber() != null ? rma.getRmaNumber() : id) + ".xlsx";
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
+            
+            return new ResponseEntity<>(excelContent, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            logger.error("Error generating Excel RMA form", e);
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 } 
