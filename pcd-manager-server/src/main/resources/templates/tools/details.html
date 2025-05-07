@@ -411,6 +411,29 @@
             </div>
         </div>
 
+        <!-- Track/Trends Section -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Track/Trends</h5>
+                <span class="badge bg-secondary" th:text="${trackTrendsForTool != null ? trackTrendsForTool.size() : 0}">0</span>
+            </div>
+            <div class="card-body">
+                <div th:if="${trackTrendsForTool == null or trackTrendsForTool.empty}" class="alert alert-info">
+                    No Track/Trends associated with this tool.
+                </div>
+                <div th:if="${trackTrendsForTool != null and !trackTrendsForTool.empty}">
+                    <ul class="list-group">
+                        <li th:each="tt : ${trackTrendsForTool}" class="list-group-item d-flex justify-content-between align-items-center">
+                            <a th:href="@{/tracktrend/{id}(id=${tt.id})}" th:text="${tt.name}">Trend Name</a>
+                            <a th:href="@{/tracktrend/{id}(id=${tt.id})}" class="btn btn-sm btn-outline-primary" title="View">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <!-- Associated Users Section -->
         <div class="card mt-4">
             <div class="card-header bg-primary text-white">

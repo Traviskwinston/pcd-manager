@@ -9,6 +9,7 @@ import com.pcd.manager.model.Passdown;
 import com.pcd.manager.model.User;
 import com.pcd.manager.model.Note;
 import com.pcd.manager.model.MovingPart;
+import com.pcd.manager.model.TrackTrend;
 import com.pcd.manager.service.ToolService;
 import com.pcd.manager.service.LocationService;
 import com.pcd.manager.service.RmaService;
@@ -16,6 +17,7 @@ import com.pcd.manager.service.PassdownService;
 import com.pcd.manager.service.UserService;
 import com.pcd.manager.service.NoteService;
 import com.pcd.manager.service.MovingPartService;
+import com.pcd.manager.service.TrackTrendService;
 import com.pcd.manager.util.UploadUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,12 +61,14 @@ public class ToolController {
     private final UserService userService;
     private final NoteService noteService;
     private final MovingPartService movingPartService;
+    private final TrackTrendService trackTrendService;
     
     @Value("${app.upload.dir:${user.home}/uploads}")
     private String uploadDir;
 
     @Autowired
-    public ToolController(ToolService toolService, LocationService locationService, RmaService rmaService, UploadUtils uploadUtils, PassdownService passdownService, UserService userService, NoteService noteService, MovingPartService movingPartService) {
+    public ToolController(ToolService toolService, LocationService locationService, RmaService rmaService, UploadUtils uploadUtils, PassdownService passdownService, UserService userService, NoteService noteService, MovingPartService movingPartService,
+                         TrackTrendService trackTrendService) {
         this.toolService = toolService;
         this.locationService = locationService;
         this.rmaService = rmaService;
@@ -73,6 +77,7 @@ public class ToolController {
         this.userService = userService;
         this.noteService = noteService;
         this.movingPartService = movingPartService;
+        this.trackTrendService = trackTrendService;
     }
     
     @PostConstruct
@@ -152,6 +157,17 @@ public class ToolController {
                     model.addAttribute("isCurrentUserAssigned", isCurrentUserAssigned);
                 });
             }
+            
+            // Get moving parts data
+            List<MovingPart> movingParts = movingPartService.getMovingPartsByToolId(id);
+            model.addAttribute("movingParts", movingParts);
+            
+            // Create a new Note object for the note creation form
+            model.addAttribute("newNote", new Note());
+            
+            // Fetch Track/Trends associated with this tool
+            List<TrackTrend> trackTrendsForTool = trackTrendService.getTrackTrendsByToolId(id);
+            model.addAttribute("trackTrendsForTool", trackTrendsForTool);
         });
         
         // Add all tools for the move document/picture dropdowns
@@ -165,13 +181,6 @@ public class ToolController {
         // Add recent passdowns for link functionality
         List<Passdown> recentPassdowns = passdownService.getRecentPassdowns(20);
         model.addAttribute("recentPassdowns", recentPassdowns);
-        
-        // Get moving parts data
-        List<MovingPart> movingParts = movingPartService.getMovingPartsByToolId(id);
-        model.addAttribute("movingParts", movingParts);
-        
-        // Create a new Note object for the note creation form
-        model.addAttribute("newNote", new Note());
         
         return "tools/details";
     }

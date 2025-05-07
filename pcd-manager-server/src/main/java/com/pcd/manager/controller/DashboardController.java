@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.Objects;
 
 @Controller
 @RequestMapping("/dashboard")
@@ -89,6 +90,17 @@ public class DashboardController {
         List<Passdown> recentPassdowns = passdownRepository.findAll(PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdDate"))).getContent();
         logger.info("Fetched {} recent passdowns for dashboard.", recentPassdowns.size());
 
+        // Prepare filter dropdown data: distinct users and tools
+        List<String> passdownUsers = recentPassdowns.stream()
+                .map(pd -> pd.getUser().getName())
+                .distinct()
+                .collect(Collectors.toList());
+        List<String> passdownTools = recentPassdowns.stream()
+                .map(pd -> pd.getTool() != null ? pd.getTool().getName() : null)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
         List<MapGridItem> gridItems = mapGridService.getAllGridItems();
         logger.info("Fetched {} grid items for facility map.", gridItems.size());
 
@@ -109,6 +121,8 @@ public class DashboardController {
         // Add data needed for the dashboard template
         model.addAttribute("tools", sortedTools);
         model.addAttribute("recentPassdowns", recentPassdowns);
+        model.addAttribute("passdownUsers", passdownUsers);
+        model.addAttribute("passdownTools", passdownTools);
         model.addAttribute("locations", locationRepository.findAll());
         model.addAttribute("currentUser", user);
         model.addAttribute("gridItems", gridItems);

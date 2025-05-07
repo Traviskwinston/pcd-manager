@@ -488,77 +488,59 @@ function handleMouseDown(e) {
     
     // Check if we clicked on a shape
     const shape = toolLayer.getIntersection(pos);
-    
+    const shapeGroup = (shape && shape.getParent() && (shape.getParent().attrs.id || shape.getParent().attrs.type)) ? shape.getParent() : null;
+
     if (currentMode === 'select' || currentMode === 'edit') {
-        // Check if we clicked on a shape
-        if (shape && shape.getParent() && (shape.getParent().attrs.id || shape.getParent().attrs.type)) {
-            const shapeGroup = shape.getParent();
-            
+        if (shapeGroup) { // Clicked on a shape group
+            potentialSelectShape = shapeGroup; // Always set potential shape on click
+
             if (currentMode === 'edit') {
-                // In edit mode, check if we clicked on the already selected shape
                 if (selectedShape && selectedShape === shapeGroup) {
-                    // This is a click on an already selected shape - enable dragging and 
-                    // store as potential for checking if it's a click or drag in mouseup
-                    potentialSelectShape = shapeGroup;
-                    isDragging = true;
-                    
-                    // Calculate the relative position of click within the shape
-                    // Account for zoom level to maintain consistent position
+                    // Clicked on the ALREADY selected shape in EDIT mode.
+                    // DO NOT set isDragging = true here. Let mousemove/mouseup decide.
+                    // Just record the potential shape (already done above).
+                    // Calculate drag offset in case it *becomes* a drag.
                     dragOffsetX = pos.x / zoomLevel - shapeGroup.x();
                     dragOffsetY = pos.y / zoomLevel - shapeGroup.y();
                 } else {
-                    // Store this as potential shape to select on mouseup
-                    potentialSelectShape = shapeGroup;
-                    
-                    // Start a small timeout - if mouse moves significantly before timeout,
-                    // we'll assume user wants to pan instead of select
+                    // Clicked on a DIFFERENT shape in EDIT mode (or no shape was selected).
+                    // Set potential shape (already done above).
+                    // Start timeout to potentially switch to panning if held.
                     setTimeout(() => {
                         if (isMouseDown && !isPanning && potentialSelectShape && !isDragging) {
-                            // Still mouse down, not panning, and same potential shape
-                            // This is a "click and hold" - start panning
                             isPanning = true;
                             stage.container().style.cursor = 'grabbing';
-                            potentialSelectShape = null;
+                            potentialSelectShape = null; // Panning overrides selection intent
                         }
                     }, 200);
                 }
             } else if (currentMode === 'select') {
-                // In select mode, check if we clicked on a tool
                 if (shapeGroup.attrs.type === 'tool') {
-                    // Always store as potential tool, even if already selected
-                    potentialSelectShape = shapeGroup;
-                    
-                    // Start a small timeout - if mouse moves significantly before timeout,
-                    // we'll assume user wants to pan instead of select
+                    // Clicked on a tool in SELECT mode.
+                    // Set potential shape (already done above).
+                    // Start timeout to potentially switch to panning if held.
                     setTimeout(() => {
                         if (isMouseDown && !isPanning && potentialSelectShape && !isDragging) {
-                            // Still mouse down, not panning, and same potential shape
-                            // This is a "click and hold" - start panning
                             isPanning = true;
                             stage.container().style.cursor = 'grabbing';
-                            potentialSelectShape = null;
+                            potentialSelectShape = null; // Panning overrides selection intent
                         }
                     }, 200);
                 } else if (shapeGroup.attrs.type === 'drawing') {
-                    // For drawings in select mode, allow panning
+                    // Clicked on a drawing in SELECT mode - just start panning.
                     isPanning = true;
                     stage.container().style.cursor = 'grabbing';
+                    potentialSelectShape = null;
                 }
             }
-        } else {
-            // Start panning
+        } else { // Clicked on empty space
             isPanning = true;
-            // Set cursor to grabbing when starting to pan
             stage.container().style.cursor = 'grabbing';
-            
-            // If we're not clicking on a shape, clear potential selection
             potentialSelectShape = null;
         }
     } else if (currentMode === 'add-tool' && toolPreview) {
-        // Place the tool at the current grid position
         placeTool();
     } else if (currentMode === 'draw' && drawingPreview) {
-        // Place the drawing at the current grid position
         placeDrawing();
     }
 }
@@ -583,12 +565,20 @@ function handleShapeClick(shapeGroup, e) {
 function handleMouseMove(e) {
     const pos = stage.getPointerPosition();
     
-    // If mouse moves significantly and we have a potential shape to select,
-    // assume user wants to pan instead - but don't do this if we're already dragging
+    // Determine if a potential selection click should become a drag (in edit mode)
+    if (currentMode === 'edit' && isMouseDown && potentialSelectShape && selectedShape === potentialSelectShape && !isDragging && !isPanning) {
+        const movement = Math.abs(e.evt.movementX) + Math.abs(e.evt.movementY);
+        if (movement > 4) { // Threshold to start dragging
+             isDragging = true; // Now we are definitely dragging
+             potentialSelectShape = null; // Dragging overrides selection intent
+        }
+    }
+    
+    // Determine if a potential click should become a pan
     if (isMouseDown && potentialSelectShape && !isPanning && !isDragging && 
         e.evt.movementX !== 0 && e.evt.movementY !== 0) {
         const movement = Math.abs(e.evt.movementX) + Math.abs(e.evt.movementY);
-        if (movement > 4) {  // Threshold to distinguish between small movements and intentional drag
+        if (movement > 4) {  
             isPanning = true;
             stage.container().style.cursor = 'grabbing';
             potentialSelectShape = null;
@@ -605,21 +595,17 @@ function handleMouseMove(e) {
         const dx = e.evt.movementX;
         const dy = e.evt.movementY;
         
-        // Calculate new position
         const newX = stage.x() + dx;
         const newY = stage.y() + dy;
         
-        // Calculate boundaries - ensure we can pan to see the entire grid
         const maxX = 0;
         const minX = -(gridWidth * gridSize * zoomLevel - stage.width());
         const maxY = 0;
         const minY = -(gridHeight * gridSize * zoomLevel - stage.height());
         
-        // Apply position with boundaries
         stage.x(Math.min(maxX, Math.max(minX, newX)));
         stage.y(Math.min(maxY, Math.max(minY, newY)));
         
-        // Ensure the grid is properly redrawn after panning
         stage.batchDraw();
         return;
     }
@@ -630,28 +616,29 @@ function handleMouseMove(e) {
         const gridCanvas = document.getElementById('grid-canvas');
         
         if (isDragging && selectedShape) {
-            // When dragging, show grabbing cursor
             if (gridCanvas) gridCanvas.style.cursor = 'grabbing';
         } else if (shape && shape.getParent() && (shape.getParent().attrs.type === 'tool' || shape.getParent().attrs.type === 'drawing')) {
-            // When hovering over a shape, show pointer cursor
             if (gridCanvas) gridCanvas.style.cursor = 'pointer';
         } else {
-            // Otherwise show default cursor
             if (gridCanvas) gridCanvas.style.cursor = 'default';
         }
     }
     
     // Handle dragging selected shape
     if (isDragging && selectedShape) {
-        // Calculate grid-aligned position, accounting for the initial drag offset
-        const x = Math.floor((pos.x - dragOffsetX) / gridSize) * gridSize;
-        const y = Math.floor((pos.y - dragOffsetY) / gridSize) * gridSize;
+        // Calculate grid-aligned position, accounting for the initial drag offset stored in mousedown
+        // We use pos (pointer position) directly relative to stage origin, 
+        // adjust by offset, then snap to grid.
+        let targetX = pos.x / zoomLevel - dragOffsetX;
+        let targetY = pos.y / zoomLevel - dragOffsetY;
         
-        // Apply position
-        selectedShape.x(x);
-        selectedShape.y(y);
+        // Snap to grid
+        const snappedX = Math.round(targetX / gridSize) * gridSize;
+        const snappedY = Math.round(targetY / gridSize) * gridSize;
         
-        // Flag as changed
+        selectedShape.x(snappedX);
+        selectedShape.y(snappedY);
+        
         hasChanges = true;
         updateSaveButton();
         
@@ -660,22 +647,24 @@ function handleMouseMove(e) {
     
     // Update tool preview position
     if (toolPreview && currentMode === 'add-tool') {
-        // Convert screen position to stage position
         const transform = stage.getAbsoluteTransform().copy().invert();
         const stagePoint = transform.point(pos);
         
-        // Calculate grid-aligned position
         let x = Math.floor(stagePoint.x / gridSize) * gridSize;
         let y = Math.floor(stagePoint.y / gridSize) * gridSize;
         
-        // Get the width and height of the tool
         const width = toolPreview.findOne('.mainRect').width();
         const height = toolPreview.findOne('.mainRect').height();
         
-        // Center the tool on the cursor
-        x = x - Math.floor(width / 2) + gridSize;
-        y = y - Math.floor(height / 2) + gridSize;
-        
+        // Adjust position based on preview size to center it around cursor if needed, or place from corner
+        // Example: center alignment
+        // x = x - Math.floor(width / 2) + (gridSize/2);
+        // y = y - Math.floor(height / 2) + (gridSize/2);
+
+        // Example: Top-left alignment to grid intersection under cursor
+        x = Math.floor(stagePoint.x / gridSize) * gridSize;
+        y = Math.floor(stagePoint.y / gridSize) * gridSize;
+
         toolPreview.x(x);
         toolPreview.y(y);
         
@@ -684,16 +673,12 @@ function handleMouseMove(e) {
     
     // Update drawing preview position
     if (drawingPreview && currentMode === 'draw') {
-        // Convert screen position to stage position
         const transform = stage.getAbsoluteTransform().copy().invert();
         const stagePoint = transform.point(pos);
         
-        // Calculate grid-aligned position
         let x = Math.floor(stagePoint.x / gridSize) * gridSize;
         let y = Math.floor(stagePoint.y / gridSize) * gridSize;
-        
-        // Position from top right corner (no centering)
-        
+                
         drawingPreview.x(x);
         drawingPreview.y(y);
         
@@ -728,30 +713,15 @@ function handleMouseUp(e) {
         !isPanning && mouseMovement < 3 && !isDragging) {
         
         // This is a click on an already selected drawing - open edit modal
-        // Create a fresh instance of the modal each time
+        prepareEditDrawingModal(selectedShape); // Populate modal fields first
         const modalEl = document.getElementById('edit-text-modal');
-        
-        // Remove any existing modal data
-        if (modalEl) {
-            const oldInstance = bootstrap.Modal.getInstance(modalEl);
-            if (oldInstance) {
-                oldInstance.dispose();
-            }
-            
-            // Prepare and show the edit modal
-            const editModal = new bootstrap.Modal(modalEl, {
-                backdrop: 'static',
-                keyboard: false
-            });
-            
-            // Set the values before showing
-            prepareEditDrawingModal(selectedShape);
-            
-            // Force a small delay to ensure the modal is prepared
-            setTimeout(() => {
-                editModal.show();
-            }, 50);
+        let editModalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (editModalInstance) { // If an instance exists, dispose of it to reset state
+            editModalInstance.dispose();
         }
+        editModalInstance = new bootstrap.Modal(modalEl); // Create a fresh instance
+        editModalInstance.show(); // Then show
+
     }
     // Regular click handling for new selection
     else if (currentMode === 'edit' && potentialSelectShape && !isPanning && mouseMovement < 3) {
@@ -1212,36 +1182,19 @@ function showDrawModal() {
  */
 function showEditDrawingModal(shape) {
     if (shape.attrs.type !== 'drawing') return;
-    
-    // Set current values
-    document.getElementById('edit-drawing-text').value = shape.attrs.text || '';
-    
-    // Set size values - convert from pixels to grid units
-    const rect = shape.findOne('.mainRect');
-    const widthUnits = Math.round(rect.width() / gridSize);
-    const heightUnits = Math.round(rect.height() / gridSize);
-    document.getElementById('edit-drawing-width').value = widthUnits;
-    document.getElementById('edit-drawing-height').value = heightUnits;
-    
-    document.querySelectorAll('.edit-color-btn').forEach(btn => btn.classList.remove('active'));
-    const colorBtn = document.querySelector(`.edit-color-btn[data-color="${shape.attrs.color || 'black'}"]`);
-    if (colorBtn) colorBtn.classList.add('active');
-    
-    const isSolid = shape.attrs.isSolid;
-    if (isSolid) {
-        document.getElementById('edit-style-solid').checked = true;
-    } else {
-        document.getElementById('edit-style-hollow').checked = true;
+
+    // Populate modal fields with shape data
+    prepareEditDrawingModal(shape); 
+
+    const modalEl = document.getElementById('edit-text-modal');
+    let editModal = bootstrap.Modal.getInstance(modalEl);
+
+    // Dispose of any existing modal instance to ensure a fresh state
+    if (editModal) {
+        editModal.dispose();
     }
     
-    // Store the selected shape for the update button to use
-    window.currentEditingShape = shape;
-    
-    // Clear any previously created modal instance
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('edit-text-modal')).dispose();
-    
-    // Show modal
-    const editModal = new bootstrap.Modal(document.getElementById('edit-text-modal'));
+    editModal = new bootstrap.Modal(modalEl); // Create a new instance
     editModal.show();
 }
 
@@ -2255,4 +2208,60 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-}); 
+});
+
+// Function to filter the list and update grid highlights
+function applyToolFiltersAndSearch() {
+    const searchTerm = toolSearchInput.value.toLowerCase();
+    const selectedType = filterTypeSelect.value;
+    const selectedStatus = filterStatusSelect.value;
+    let visibleListCount = 0;
+    visibleToolIds.clear(); // Reset the visible tools set
+    
+    // Check if any filters are active - empty strings count as no filter
+    const hasActiveFilters = 
+        (searchTerm && searchTerm.length > 0) || 
+        (selectedType && selectedType.length > 0) || 
+        (selectedStatus && selectedStatus.length > 0);
+
+    // --- Filter HTML List --- 
+    toolItems.forEach(item => {
+        const toolType = item.dataset.type || '';
+        const toolStatus = item.dataset.status || '';
+        const toolName = item.querySelector('a')?.textContent?.toLowerCase() || '';
+        const toolSerial = item.dataset.serial?.toLowerCase() || '';
+        const toolModel = item.dataset.model?.toLowerCase() || '';
+        const toolSecondaryName = item.dataset.secondaryName?.toLowerCase() || ''; // Get secondary name
+        const toolId = item.dataset.toolId;
+        
+        const typeMatch = !selectedType || toolType === selectedType;
+        const statusMatch = !selectedStatus || toolStatus === selectedStatus;
+        const searchMatch = !searchTerm || 
+                            toolName.includes(searchTerm) || 
+                            toolSecondaryName.includes(searchTerm) || // Include secondary name in search
+                            toolSerial.includes(searchTerm) || 
+                            toolModel.includes(searchTerm);
+
+        if (typeMatch && statusMatch && searchMatch) {
+            item.style.display = 'block'; 
+            item.classList.remove('tool-hidden');
+            visibleListCount++;
+            // Only add to visible set if we have active filters
+            if (toolId && hasActiveFilters) visibleToolIds.add(toolId);
+        } else {
+            item.style.display = 'none';
+            item.classList.add('tool-hidden');
+        }
+    });
+    
+    // Show/hide the "No tools found" message in the list
+    if (noToolsMessage) {
+        noToolsMessage.style.display = visibleListCount === 0 ? 'block' : 'none';
+    }
+    
+    console.log('Visible tool IDs:', Array.from(visibleToolIds));
+    console.log('Total tools:', totalToolCount, 'Showing:', visibleToolIds.size, 'Filtered:', hasActiveFilters);
+    
+    // Update grid highlights
+    updateGridShapesHighlight();
+} 

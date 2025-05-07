@@ -190,6 +190,15 @@ public class Tool {
     @JsonIgnore
     private Tool activeTool;
 
+    /**
+     * Track and Trend entries this tool is part of
+     */
+    @ManyToMany(mappedBy = "affectedTools", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @JsonIgnore
+    private Set<TrackTrend> trackTrends = new HashSet<>();
+
     public enum ToolType {
         CHEMBLEND, SLURRY
     }

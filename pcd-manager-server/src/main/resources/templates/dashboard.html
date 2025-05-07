@@ -312,6 +312,7 @@
                                      th:data-model="${tool.model1}"
                                      th:data-status="${tool.status}"
                                      th:data-location="${tool.location != null ? tool.location.id : ''}"
+                                     th:data-secondary-name="${tool.secondaryName ?: ''}"
                                      th:data-assigned-users="${!#lists.isEmpty(tool.currentTechnicians) ? #strings.listJoin(tool.currentTechnicians.![name], ', ') : ''}">
                                     <div class="d-flex align-items-center">
                                         <a th:href="@{'/tools/' + ${tool.id}}" 
@@ -388,8 +389,34 @@
                     <div class="card full-height-card w-100">
                         <div class="card-header">
                             <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">Recent Passdowns</h5>
-                                <input id="passdown-search" type="text" class="form-control form-control-sm ms-2" placeholder="Search passdowns..." style="max-width:200px;">
+                                <div class="d-flex align-items-center">
+                                    <h5 class="mb-0">Recent Passdowns</h5>
+                                    <span class="filter-icon ms-2 passdown-filter-icon" title="Filter passdowns"><i class="bi bi-filter"></i></span>
+                                    <div id="current-passdown-filters" class="ms-2 text-muted small">
+                                        User: All Users | Tool: All Tools
+                                    </div>
+                                </div>
+                                <div>
+                                    <input id="passdown-search" type="text" class="form-control form-control-sm" placeholder="Search passdowns..." style="max-width:200px;">
+                                </div>
+                            </div>
+                            <!-- Passdown filter panel -->
+                            <div id="passdown-filter-panel" class="px-3 py-2 bg-light border-bottom" style="display:none;">
+                                <div class="row g-2">
+                                    <div class="col">
+                                        <select id="filter-passdown-user" class="form-select form-select-sm">
+                                            <option value="">All Users</option>
+                                            <option th:each="u: ${passdownUsers}" th:value="${u}" th:text="${u}"></option>
+                                        </select>
+                                    </div>
+                                    <div class="col">
+                                        <input type="text" id="filter-passdown-tool-search" class="form-control form-control-sm mb-1" placeholder="Search tools...">
+                                        <select id="filter-passdown-tool" class="form-select form-select-sm" size="6">
+                                            <option value="">All Tools</option>
+                                            <option th:each="t: ${passdownTools}" th:value="${t}" th:text="${t}"></option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="card-body">
@@ -405,10 +432,9 @@
                                         <p class="mb-1 clamp-3" th:text="${passdown.comment}">Passdown comment...</p>
                                         <div class="small text-muted d-flex align-items-center">
                                             <span>Posted by: <span th:text="${passdown.user.name}">User</span></span>
-                                            <span class="ms-3">Date: <span th:text="${#temporals.format(passdown.createdDate, 'MM/dd/yyyy HH:mm')}">Date</span></span>
+                                            <span class="ms-3">Date: <span th:text="${#temporals.format(passdown.createdDate, 'MM/dd/yyyy')}">Date</span></span>
                                             <span th:if="${passdown.tool != null}" class="ms-3">Tool: <span th:text="${passdown.tool.name}">Tool</span></span>
                                         </div>
-                                        <div class="mt-1"><a th:href="@{'/passdown/' + ${passdown.id}}" class="btn btn-sm btn-link p-0">View Details</a></div>
                                     </div>
                                 </div>
                             </div>
@@ -816,6 +842,55 @@
                     icon.addEventListener('mouseout', () => {
                         assignedUserTooltip.style.display = 'none';
                     });
+                });
+            }
+        });
+    </script>
+
+    <!-- Passdown filter script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const icon = document.querySelector('.passdown-filter-icon');
+            const panel = document.getElementById('passdown-filter-panel');
+            const items = document.querySelectorAll('.passdown-item');
+            const searchInput = document.getElementById('passdown-search');
+            const userSelect = document.getElementById('filter-passdown-user');
+            const toolSearch = document.getElementById('filter-passdown-tool-search');
+            const toolSelect = document.getElementById('filter-passdown-tool');
+
+            function applyPassdownFilters() {
+                const term = searchInput.value.trim().toLowerCase();
+                const user = userSelect.value;
+                const tool = toolSelect.value;
+                items.forEach(item => {
+                    const comment = item.dataset.comment.toLowerCase();
+                    const usr = item.dataset.user;
+                    const tl = item.dataset.tool;
+                    const okSearch = !term || comment.includes(term);
+                    const okUser = !user || usr === user;
+                    const okTool = !tool || tl === tool;
+                    item.style.display = okSearch && okUser && okTool ? '' : 'none';
+                });
+                // Update current filter display
+                const currentFilterElem = document.getElementById('current-passdown-filters');
+                if (currentFilterElem) {
+                    const displayUser = user || 'All Users';
+                    const displayTool = tool || 'All Tools';
+                    currentFilterElem.textContent = `User: ${displayUser} | Tool: ${displayTool}`;
+                }
+            }
+            searchInput.addEventListener('input', applyPassdownFilters);
+            userSelect.addEventListener('change', applyPassdownFilters);
+            toolSelect.addEventListener('change', applyPassdownFilters);
+            toolSearch.addEventListener('input', () => {
+                const val = toolSearch.value.trim().toLowerCase();
+                Array.from(toolSelect.options).forEach(opt => {
+                    opt.style.display = !val || opt.value.toLowerCase().includes(val) ? '' : 'none';
+                });
+            });
+            if (icon && panel) {
+                icon.addEventListener('click', () => {
+                    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
                 });
             }
         });
