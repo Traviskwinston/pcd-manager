@@ -35,20 +35,27 @@
                         <thead>
                             <tr>
                                 <th>Document Name</th>
+                                <th>Size (KB)</th>
+                                <th>Last Modified</th>
+                                <th>Relative Path</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr th:each="document : ${documents}">
-                                <td th:text="${document}">Document Name</td>
+                            <tr th:each="docInfo : ${documents}">
+                                <td th:text="${docInfo.name}">Document Name</td>
+                                <td th:text="${docInfo.size}">Size</td>
+                                <td th:text="${docInfo.lastModified}">Date</td>
+                                <td class="small text-muted" th:text="${docInfo.path}">path/to/doc</td>
                                 <td>
                                     <div class="btn-group">
-                                        <a th:href="@{/documents/download/{filename}(filename=${document})}" 
+                                        <a th:href="@{/documents/download/{filepath}(filepath=${docInfo.path})}" 
                                            class="btn btn-sm btn-outline-primary" title="Download">
                                             <i class="bi bi-download"></i> Download
                                         </a>
                                         <button type="button" class="btn btn-sm btn-outline-danger delete-document-btn" 
-                                                th:data-document="${document}" 
+                                                th:data-document-path="${docInfo.path}" 
+                                                th:data-document-name="${docInfo.name}"
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#deleteConfirmModal">
                                             <i class="bi bi-trash"></i> Delete
@@ -123,9 +130,10 @@
             // Delete document handling
             document.querySelectorAll('.delete-document-btn').forEach(button => {
                 button.addEventListener('click', function() {
-                    const documentName = this.getAttribute('data-document');
+                    const documentPath = this.getAttribute('data-document-path');
+                    const documentName = this.getAttribute('data-document-name');
                     document.getElementById('documentToDelete').textContent = documentName;
-                    document.getElementById('confirmDeleteBtn').href = `/documents/delete/${documentName}`;
+                    document.getElementById('confirmDeleteBtn').href = `/documents/delete/${encodeURIComponent(documentPath)}`;
                 });
             });
         });
