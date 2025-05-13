@@ -1,0 +1,4 @@
+This file is used by Spring DevTools as a trigger file.
+Touching this file will force a restart of the application.
+
+Last trigger: timestamp_${System.currentTimeMillis()} 

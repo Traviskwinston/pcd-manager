@@ -64,9 +64,6 @@ public class Rma {
     private SystemDescription systemDescription;
 
     @Column(columnDefinition = "TEXT")
-    private String description;
-
-    @Column(columnDefinition = "TEXT")
     private String rootCause;
 
     @Column(columnDefinition = "TEXT")
@@ -102,7 +99,8 @@ public class Rma {
     )
     private List<Part> parts = new ArrayList<>();
 
-    private String comments;
+    @OneToMany(mappedBy = "rma", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<RmaComment> comments = new ArrayList<>();
 
     @OneToMany(mappedBy = "rma", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<RmaDocument> documents = new ArrayList<>();
@@ -125,13 +123,23 @@ public class Rma {
     private String fieldTechEmail;
 
     // Discovery information
-    private String discoveredBy;
+    @Column(columnDefinition = "TEXT")
+    private String problemDiscoverer; // Who discovered the problem
+    
+    private LocalDate problemDiscoveryDate; // When was it discovered
 
     // Issue details
     @Column(columnDefinition = "TEXT")
-    private String whyHow;
+    private String whatHappened; // What happened
+    
     @Column(columnDefinition = "TEXT")
-    private String howContained;
+    private String whyAndHowItHappened; // Why and How did it happen
+    
+    @Column(columnDefinition = "TEXT")
+    private String howContained; // How was it Contained
+    
+    @Column(columnDefinition = "TEXT")
+    private String whoContained; // Who contained it
 
     // Additional dates
     private LocalDate shippingMemoEmailedDate;

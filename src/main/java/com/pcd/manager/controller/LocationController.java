@@ -1,14 +1,21 @@
 package com.pcd.manager.controller;
 
 import com.pcd.manager.model.Location;
+import com.pcd.manager.model.User;
 import com.pcd.manager.repository.LocationRepository;
+import com.pcd.manager.repository.UserRepository;
 import com.pcd.manager.service.LocationService;
+import com.pcd.manager.service.UserService;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.Optional;
 
@@ -18,11 +25,13 @@ public class LocationController {
 
     private final LocationRepository locationRepository;
     private final LocationService locationService;
+    private final UserService userService;
 
     @Autowired
-    public LocationController(LocationRepository locationRepository, LocationService locationService) {
+    public LocationController(LocationRepository locationRepository, LocationService locationService, UserService userService) {
         this.locationRepository = locationRepository;
         this.locationService = locationService;
+        this.userService = userService;
     }
     
     /**
@@ -33,6 +42,20 @@ public class LocationController {
     public void addDefaultLocation(Model model) {
         Optional<Location> defaultLocation = locationService.getDefaultLocation();
         defaultLocation.ifPresent(location -> model.addAttribute("defaultLocation", location));
+        
+        // Get the current user's active location if set
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated()) {
+            String username = auth.getName();
+            userService.getUserByUsername(username).ifPresent(user -> {
+                if (user.getActiveSite() != null) {
+                    model.addAttribute("currentLocation", user.getActiveSite());
+                    model.addAttribute("currentLocationExists", true);
+                } else {
+                    model.addAttribute("currentLocationExists", false);
+                }
+            });
+        }
     }
 
     @GetMapping
@@ -80,6 +103,39 @@ public class LocationController {
         Location location = locationRepository.findById(id).orElseThrow();
         location.setDefault(true);
         locationRepository.save(location);
+        return "redirect:/locations";
+    }
+    
+    @PostMapping("/switch/{id}")
+    public String switchToLocation(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        // Get the current authenticated user
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated()) {
+            String username = auth.getName();
+            Optional<User> userOpt = userService.getUserByUsername(username);
+            
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                
+                // Get the location
+                Optional<Location> locationOpt = locationRepository.findById(id);
+                if (locationOpt.isPresent()) {
+                    // Set the user's active site to this location
+                    user.setActiveSite(locationOpt.get());
+                    userService.updateUser(user);
+                    
+                    redirectAttributes.addFlashAttribute("message", 
+                        "Switched to location: " + locationOpt.get().getDisplayName());
+                } else {
+                    redirectAttributes.addFlashAttribute("error", "Location not found");
+                }
+            } else {
+                redirectAttributes.addFlashAttribute("error", "User not found");
+            }
+        } else {
+            redirectAttributes.addFlashAttribute("error", "You must be logged in to switch locations");
+        }
+        
         return "redirect:/locations";
     }
 

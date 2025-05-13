@@ -30,17 +30,16 @@
                     <table class="table table-striped table-hover">
                         <thead>
                             <tr>
-                                <th>ID</th>
                                 <th>Name</th>
                                 <th>Serial Number</th>
                                 <th>Model Number</th>
                                 <th>Location</th>
+                                <th>Technician(s)</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr th:each="tool : ${tools}">
-                                <td th:text="${tool.id}">1</td>
                                 <td>
                                     <span th:text="${tool.name}">Tool Name</span>
                                     <span class="text-secondary" th:if="${tool.secondaryName != null && !tool.secondaryName.isEmpty()}" th:text="'(' + ${tool.secondaryName} + ')'"></span>
@@ -48,6 +47,11 @@
                                 <td th:text="${tool.serialNumber1 ?: '-'} + (${tool.serialNumber2 != null && !tool.serialNumber2.isEmpty()} ? '/' + ${tool.serialNumber2} : '')">SN12345</td>
                                 <td th:text="${tool.model1 ?: '-'} + (${tool.model2 != null && !tool.model2.isEmpty()} ? '/' + ${tool.model2} : '')">M100</td>
                                 <td th:text="${tool.location != null ? tool.location.displayName : '-'}">AZ F52</td>
+                                <td>
+                                    <span th:if="${tool.currentTechnicians != null && !tool.currentTechnicians.isEmpty()}"
+                                          th:text="${#strings.listJoin(tool.currentTechnicians.?[name != null && !name.isEmpty()].![name], ', ')}"></span>
+                                    <span th:if="${tool.currentTechnicians == null || tool.currentTechnicians.isEmpty()}" class="text-muted">-</span>
+                                </td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
                                         <a th:href="@{/tools/{id}(id=${tool.id})}" class="btn btn-outline-primary">View</a>

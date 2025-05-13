@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
 </head>
@@ -16,10 +16,10 @@
                     <!-- Locations is now before Dashboard -->
                     <li class="nav-item">
                         <a class="nav-link" th:classappend="${activeTab == 'locations' ? 'active' : ''}" href="/locations">
-                            <!-- Debug info temporarily displayed -->
-                            <span th:if="${defaultLocationExists != null && defaultLocationExists}" 
-                                  th:text="${defaultLocation != null && defaultLocation.displayName != null ? defaultLocation.displayName : 'Locations'}">Locations</span>
-                            <span th:unless="${defaultLocationExists != null && defaultLocationExists}">Locations</span>
+                            <!-- Show current location if set, otherwise just show 'Locations' -->
+                            <span th:if="${currentLocationExists != null && currentLocationExists}" 
+                                  th:text="${currentLocation != null ? currentLocation.getDisplayName() : 'Locations'}">Locations</span>
+                            <span th:unless="${currentLocationExists != null && currentLocationExists}">Locations</span>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -45,13 +45,26 @@
                     <li class="nav-item">
                         <a class="nav-link" th:classappend="${activeTab == 'documents' ? 'active' : ''}" href="/documents">Documents</a>
                     </li>
-                    <li class="nav-item">
+                    <!-- Users tab - only visible to admins -->
+                    <li class="nav-item" sec:authorize="hasRole('ROLE_ADMIN')">
                         <a class="nav-link" th:classappend="${activeTab == 'users' ? 'active' : ''}" href="/users">Users</a>
                     </li>
                 </ul>
-                <form th:action="@{/logout}" method="post" class="d-flex">
-                    <button class="btn btn-outline-light" type="submit">Logout</button>
-                </form>
+                <!-- Profile dropdown -->
+                <div class="dropdown me-2">
+                    <button class="btn btn-outline-light" type="button" id="profileDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-fill"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
+                        <li><a class="dropdown-item" th:href="@{/profile}">Profile Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form th:action="@{/logout}" method="post" class="dropdown-item p-0">
+                                <button class="btn w-100 text-start px-3" type="submit">Logout</button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </nav>

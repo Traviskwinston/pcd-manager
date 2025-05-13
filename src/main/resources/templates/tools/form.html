@@ -117,11 +117,6 @@
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="notes" class="form-label">Notes</label>
-                        <textarea class="form-control" id="notes" th:field="*{notes}" rows="3"></textarea>
-                    </div>
-                    
                     <h4 class="mt-4 mb-3">Tool Checklist</h4>
                     <div class="row">
                         <div class="col-md-6">
@@ -204,20 +199,50 @@
                         </div>
                     </div>
                     
-                    <h4 class="mt-4 mb-3">File Uploads</h4>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="documentUpload" class="form-label">Upload Documents</label>
-                            <input class="form-control" type="file" id="documentUpload" name="documentFiles" multiple>
-                            <small class="text-muted">You can select multiple files. Allowed file types: PDF, DOC, DOCX, XLS, XLSX</small>
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <label for="pictureUpload" class="form-label">Upload Pictures</label>
-                            <input class="form-control" type="file" id="pictureUpload" name="pictureFiles" multiple accept="image/*">
-                            <small class="text-muted">You can select multiple files. Allowed file types: JPG, JPEG, PNG, GIF</small>
+                    <!-- New Drag-and-Drop File Upload Section for Tool Form -->
+                    <div class="mt-4 mb-3">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="bi bi-cloud-arrow-up-fill me-2"></i>Upload Files</h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Drop Zone and File Input -->
+                                <div id="toolForm-drop-area" class="rounded bg-light border border-dashed border-primary p-3 mb-3 text-center" style="cursor: pointer;">
+                                    <i class="bi bi-cloud-arrow-up-fill text-primary fs-2 mb-2"></i>
+                                    <h6>Drag files here or <label for="toolFormFileInput" class="text-primary" style="cursor: pointer; text-decoration: underline;">browse</label></h6>
+                                    <div class="small text-muted">Supports images and documents.</div>
+                                    <input type="file" id="toolFormFileInput" name="files" multiple="multiple" class="d-none">
+                                </div>
+
+                                <!-- Files Preview -->
+                                <div id="toolForm-files-preview" class="mt-2" style="display: none;">
+                                    <h6 class="small fw-bold">Selected files:</h6>
+                                    <div id="toolForm-image-preview" class="mb-2">
+                                        <div class="d-flex align-items-center small">
+                                            <i class="bi bi-images me-1"></i>
+                                            <div>Images: <span id="toolForm-image-count">0</span></div>
+                                        </div>
+                                        <ul id="toolForm-image-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
+                                    </div>
+                                    <div id="toolForm-document-preview" class="mb-2">
+                                        <div class="d-flex align-items-center small">
+                                            <i class="bi bi-file-earmark-text me-1"></i>
+                                            <div>Documents: <span id="toolForm-document-count">0</span></div>
+                                        </div>
+                                        <ul id="toolForm-document-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
+                                    </div>
+                                    <div id="toolForm-other-file-preview">
+                                        <div class="d-flex align-items-center small">
+                                            <i class="bi bi-file-earmark me-1"></i>
+                                            <div>Other Files: <span id="toolForm-other-file-count">0</span></div>
+                                        </div>
+                                        <ul id="toolForm-other-file-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                    <!-- End New Drag-and-Drop File Upload Section -->
                     
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="/tools" class="btn btn-secondary me-md-2">Cancel</a>
@@ -229,5 +254,111 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- File Upload Logic for Tool Form ---
+            const toolFormDropArea = document.getElementById('toolForm-drop-area');
+            const toolFormFileInput = document.getElementById('toolFormFileInput');
+            const toolFormFilesPreview = document.getElementById('toolForm-files-preview');
+            
+            let toolFormSelectedFiles = [];
+
+            if (toolFormDropArea && toolFormFileInput) {
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    toolFormDropArea.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); });
+                });
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    toolFormDropArea.addEventListener(eventName, () => toolFormDropArea.classList.add('highlight-upload'));
+                });
+                ['dragleave', 'drop'].forEach(eventName => {
+                    toolFormDropArea.addEventListener(eventName, () => toolFormDropArea.classList.remove('highlight-upload'));
+                });
+                toolFormDropArea.addEventListener('click', () => toolFormFileInput.click());
+                toolFormDropArea.addEventListener('drop', e => {
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        toolFormFileInput.files = e.dataTransfer.files;
+                        handleToolFormFileSelect(toolFormFileInput.files);
+                    }
+                });
+                toolFormFileInput.addEventListener('change', function() {
+                    handleToolFormFileSelect(this.files);
+                });
+            }
+
+            function handleToolFormFileSelect(files) {
+                if (!files || files.length === 0) {
+                    toolFormFilesPreview.style.display = 'none';
+                    return;
+                }
+                toolFormFilesPreview.style.display = 'block';
+
+                let imageCount = 0;
+                let documentCount = 0;
+                let otherCount = 0;
+
+                const imageList = document.getElementById('toolForm-image-list');
+                const documentList = document.getElementById('toolForm-document-list');
+                const otherList = document.getElementById('toolForm-other-file-list');
+                imageList.innerHTML = '';
+                documentList.innerHTML = '';
+                otherList.innerHTML = '';
+
+                toolFormSelectedFiles = Array.from(files);
+
+                toolFormSelectedFiles.forEach((file, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'd-flex justify-content-between align-items-center mb-1';
+                    listItem.dataset.fileIndex = index;
+
+                    const fileNameSpan = document.createElement('span');
+                    fileNameSpan.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+                    fileNameSpan.className = 'text-truncate me-2';
+                    fileNameSpan.title = file.name;
+                    listItem.appendChild(fileNameSpan);
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.type = 'button';
+                    deleteBtn.className = 'btn btn-sm btn-link text-danger p-0';
+                    deleteBtn.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
+                    deleteBtn.title = 'Remove file';
+                    deleteBtn.onclick = function() { removeToolFormFileFromSelection(index); };
+                    listItem.appendChild(deleteBtn);
+
+                    if (file.type.startsWith('image/')) {
+                        imageCount++;
+                        imageList.appendChild(listItem);
+                    } else if (['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/plain', 'text/csv'].includes(file.type)) {
+                        documentCount++;
+                        documentList.appendChild(listItem);
+                    } else {
+                        otherCount++;
+                        otherList.appendChild(listItem);
+                    }
+                });
+                document.getElementById('toolForm-image-count').textContent = imageCount;
+                document.getElementById('toolForm-document-count').textContent = documentCount;
+                document.getElementById('toolForm-other-file-count').textContent = otherCount;
+                updateToolFormFileInput();
+            }
+
+            function removeToolFormFileFromSelection(indexToRemove) {
+                toolFormSelectedFiles.splice(indexToRemove, 1);
+                updateToolFormFileInput();
+                handleToolFormFileSelect(toolFormFileInput.files);
+            }
+            
+            function updateToolFormFileInput() {
+                const dataTransfer = new DataTransfer();
+                toolFormSelectedFiles.forEach(file => dataTransfer.items.add(file));
+                toolFormFileInput.files = dataTransfer.files;
+                if (toolFormSelectedFiles.length === 0) {
+                    toolFormFilesPreview.style.display = 'none';
+                }
+            }
+            // You might need to add a definition for .highlight-upload CSS class if not globally available
+            // e.g., in a <style> tag or an external CSS file:
+            // #toolForm-drop-area.highlight-upload { border-color: #0d6efd !important; background-color: rgba(13, 110, 253, 0.1) !important; }
+        });
+    </script>
 </body>
 </html> 

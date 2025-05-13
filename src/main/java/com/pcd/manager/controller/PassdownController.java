@@ -90,6 +90,23 @@ public class PassdownController {
             passdowns = passdownService.getAllPassdowns();
         }
         
+        // Extract unique user names and tool names for filters
+        List<String> passdownUsers = passdowns.stream()
+            .filter(p -> p.getUser() != null && p.getUser().getName() != null)
+            .map(p -> p.getUser().getName())
+            .distinct()
+            .sorted()
+            .toList();
+            
+        List<String> passdownTools = passdowns.stream()
+            .filter(p -> p.getTool() != null && p.getTool().getName() != null)
+            .map(p -> p.getTool().getName())
+            .distinct()
+            .sorted()
+            .toList();
+        
+        model.addAttribute("passdownUsers", passdownUsers);
+        model.addAttribute("passdownTools", passdownTools);
         model.addAttribute("passdowns", passdowns);
         return "passdown/list";
     }

@@ -24,15 +24,15 @@
             
             <h2>Login</h2>
             
-            <form th:action="@{/login}" method="post">
+            <form th:action="@{/login}" method="post" id="loginForm">
                 <div class="mb-3">
                     <label for="username" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="username" name="username" required placeholder="Enter your email">
+                    <input type="email" class="form-control" id="username" name="username" required placeholder="Enter your email" autocomplete="username">
                 </div>
                 
                 <div class="mb-3">
                     <label for="password" class="form-label">Password</label>
-                    <input type="password" class="form-control" id="password" name="password" required placeholder="Enter your password">
+                    <input type="password" class="form-control" id="password" name="password" required placeholder="Enter your password" autocomplete="current-password">
                 </div>
                 
                 <div class="d-grid gap-2">
@@ -40,16 +40,61 @@
                 </div>
                 
                 <div class="text-center mt-3">
-                    <a href="#" class="text-decoration-none">Forgot Password?</a>
+                    <a href="#" onclick="toggleDebugForm(); return false;" class="text-decoration-none text-muted">
+                        <small>Having trouble logging in?</small>
+                    </a>
                 </div>
             </form>
             
-            <div class="text-center mt-4">
-                <p class="text-muted small">Default admin credentials: admin@pcd.com / admin123</p>
-            </div>
+            <!-- Debug Form - Hidden by default -->
+            <form th:action="@{/manual-login}" method="post" id="debugForm" style="display: none;" class="mt-4">
+                <div class="alert alert-info" role="alert">
+                    <small>This is a debug login that will check your credentials but won't log you in.</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="debug-username" class="form-label">Debug Email</label>
+                    <input type="email" class="form-control" id="debug-username" name="username" required placeholder="Enter your email">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="debug-password" class="form-label">Debug Password</label>
+                    <input type="password" class="form-control" id="debug-password" name="password" required placeholder="Enter your password">
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-outline-secondary">Check Credentials</button>
+                </div>
+                
+                <div class="text-center mt-3">
+                    <a href="#" onclick="toggleDebugForm(); return false;" class="text-decoration-none">
+                        <small>Back to regular login</small>
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function toggleDebugForm() {
+            const loginForm = document.getElementById('loginForm');
+            const debugForm = document.getElementById('debugForm');
+            
+            if (loginForm.style.display === 'none') {
+                loginForm.style.display = 'block';
+                debugForm.style.display = 'none';
+            } else {
+                loginForm.style.display = 'none';
+                debugForm.style.display = 'block';
+            }
+        }
+        
+        // Clear any existing cookies on page load to fix potential authentication issues
+        document.addEventListener('DOMContentLoaded', function() {
+            // Force clear JSESSIONID by setting it to expire in the past
+            document.cookie = "JSESSIONID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        });
+    </script>
 </body>
 </html> 

@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${trackTrend.id == null} ? 'Add New Track/Trend' : 'Edit Track/Trend'">Create Track/Trend</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .checkbox-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            padding: 10px;
+        }
+        .checkbox-item {
+            padding: 5px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .checkbox-item:last-child {
+            border-bottom: none;
+        }
+        .checkbox-item:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
 </head>
 <body>
     <div th:replace="~{fragments/navigation :: navbar('tracktrend')}"></div>
@@ -15,25 +34,64 @@
             </div>
         </div>
         <form th:action="@{/tracktrend}" th:object="${trackTrend}" method="post">
+            <input type="hidden" th:field="*{id}" />
+            
             <div class="mb-3">
                 <label for="name" class="form-label">Name</label>
                 <input type="text" th:field="*{name}" class="form-control" id="name" placeholder="Enter name" required>
             </div>
+            
             <div class="mb-3">
                 <label for="description" class="form-label">Description</label>
                 <textarea th:field="*{description}" class="form-control" id="description" rows="3" placeholder="Enter description"></textarea>
             </div>
-            <div class="mb-3">
-                <label for="toolIds" class="form-label">Affected Tools</label>
-                <select name="toolIds" id="toolIds" class="form-select" multiple size="10">
-                    <option th:each="tool : ${allTools}"
-                            th:value="${tool.id}"
-                            th:text="${tool.name}"
-                            th:selected="${trackTrend.affectedTools.contains(tool)}"></option>
-                </select>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Affected Tools</label>
+                        <div class="checkbox-container">
+                            <div class="checkbox-item" th:each="tool : ${allTools}">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="toolIds" 
+                                          th:value="${tool.id}" 
+                                          th:id="${'tool-' + tool.id}"
+                                          th:checked="${trackTrend.affectedTools.contains(tool)}">
+                                    <label class="form-check-label" th:for="${'tool-' + tool.id}" th:text="${tool.name}">
+                                        Tool name
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text">Select all tools affected by this track/trend</div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Related Track/Trends</label>
+                        <div class="checkbox-container">
+                            <div class="checkbox-item" th:each="related : ${allTrackTrends}">
+                                <div class="form-check" th:if="${trackTrend.id == null || trackTrend.id != related.id}">
+                                    <input class="form-check-input" type="checkbox" name="relatedTrackTrendIds" 
+                                          th:value="${related.id}" 
+                                          th:id="${'related-' + related.id}"
+                                          th:checked="${trackTrend.relatedTrackTrends.contains(related)}">
+                                    <label class="form-check-label" th:for="${'related-' + related.id}" th:text="${related.name}">
+                                        Related name
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text">Select related track/trends</div>
+                    </div>
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary">Save</button>
-            <a th:href="@{/tracktrend}" class="btn btn-secondary ms-2">Cancel</a>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a th:href="@{/tracktrend}" class="btn btn-secondary ms-2">Cancel</a>
+            </div>
         </form>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

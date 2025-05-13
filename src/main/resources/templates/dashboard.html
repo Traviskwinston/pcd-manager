@@ -85,12 +85,15 @@
             display: flex;
             flex-direction: column;
             height: 100%;
+            margin-bottom: 0;
         }
         .full-height-card .card-body {
             display: flex;
             flex: 1 1 auto;
             flex-direction: column;
             overflow: hidden; /* Prevent content from breaking card layout */
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
         }
         /* Clamp passdown comments */
         .clamp-3 {
@@ -102,15 +105,26 @@
         }
         /* Column widths */
         .tools-col {
-            flex: 0 0 15%;
-            max-width: 15%;
+            flex: 0 0 30%;
+            max-width: 30%;
+            padding-right: 0; /* Remove right padding */
         }
         .main-col {
-            flex: 0 0 85%;
-            max-width: 85%;
+            flex: 0 0 70%;
+            max-width: 70%;
             display: flex; /* Keep flex for inner content alignment */
             flex-direction: column;
             height: 100%; /* Ensure main col takes full height */
+            padding-left: 0; /* Remove left padding */
+        }
+        /* Tool card and filter card heights */
+        .tools-card {
+            height: 50%;
+            margin-bottom: 0;
+        }
+        .filters-card {
+            height: 50%;
+            margin-top: 0;
         }
         /* Restore grid elements */
         #grid-canvas, #grid-controls {
@@ -121,6 +135,7 @@
             flex: 1 1 50%; /* Take 50% of the main column height */
             position: relative;
             overflow: hidden;
+            margin: 0; /* Remove margin */
         }
         /* Make passdowns section take 50% of the height */
         .bottom-half {
@@ -128,6 +143,7 @@
              display: flex; 
              flex-direction: column;
              overflow: hidden;
+             margin: 0; /* Remove margin */
         }
         
         /* Grid specific styles */
@@ -255,81 +271,107 @@
     <div class="assigned-user-tooltip" id="assigned-user-tooltip"></div>
 
     <div class="container-fluid mt-4 dashboard-container h-100">
-        <div class="row h-100">
-            <!-- Left Column: Tools -->
-            <div class="d-flex h-100 tools-col">
-                <div class="card full-height-card w-100">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center">
-                            <h5 class="mb-0">Tools</h5>
-                            <span class="filter-icon ms-2" title="Filter by type">
-                                <i class="bi bi-filter"></i>
-                            </span>
+        <div class="row h-100 g-0">
+            <!-- Left Column: Tools + Filters -->
+            <div class="d-flex flex-column h-100 tools-col">
+                <!-- Tools Section -->
+                <div class="tools-card mb-0">
+                    <div class="card full-height-card w-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <h5 class="mb-0">Tools</h5>
+                            </div>
+                            <div>
+                                <input id="tool-search" type="text" class="form-control form-control-sm" placeholder="Search name, model, serial..." style="max-width:150px;">
+                            </div>
                         </div>
-                        <div>
-                            <input id="tool-search" type="text" class="form-control form-control-sm" placeholder="Search tools..." style="max-width:150px;">
+                        <div class="card-body">
+                            <div class="scrollable-list">
+                                <!-- No tools message -->
+                                <div th:if="${#lists.isEmpty(tools)}" class="text-center text-muted py-3">
+                                    No tools found. <a th:href="@{/tools/new}">Add a new tool?</a>
+                                </div>
+                                
+                                <!-- Tools list -->
+                                <div th:unless="${#lists.isEmpty(tools)}">
+                                    <!-- Debug: Total tools count -->
+                                    <div class="small text-muted mb-2" th:text="${'Total tools: ' + #lists.size(tools)}"></div>
+                                    
+                                    <!-- All tools in a single loop -->
+                                    <div th:each="toolMap : ${tools}" 
+                                         th:classappend="${!#lists.isEmpty(toolMap.tool.currentTechnicians) ? 'assigned' : ''}"
+                                         class="tool-item position-relative p-0" 
+                                         th:attr="data-tool-id=${toolMap.tool.id}" 
+                                         th:data-type="${toolMap.tool.toolType}" 
+                                         th:data-serial="${toolMap.tool.serialNumber1}"
+                                         th:data-model="${toolMap.tool.model1}"
+                                         th:data-status="${toolMap.tool.status}"
+                                         th:data-location="${toolMap.tool.location != null ? toolMap.tool.location.id : ''}"
+                                         th:data-secondary-name="${toolMap.tool.secondaryName ?: ''}"
+                                         th:data-notes="${toolMap.searchableNotes ?: ''}"
+                                         th:data-assigned-users="${!#lists.isEmpty(toolMap.tool.currentTechnicians) ? #strings.listJoin(toolMap.tool.currentTechnicians.![name], ', ') : ''}">
+                                        <div class="d-flex align-items-center">
+                                            <a th:href="@{'/tools/' + ${toolMap.tool.id}}" 
+                                               class="list-group-item-link flex-grow-1">
+                                                <span th:text="${toolMap.tool.name}">Tool Name</span>
+                                                <span th:if="${toolMap.tool.secondaryName != null && !toolMap.tool.secondaryName.isEmpty()}" 
+                                                      th:text="${' (' + toolMap.tool.secondaryName + ')'}" 
+                                                      class="text-muted small">Alt Name</span>
+                                            </a>
+                                            <span class="tool-assigned-icon" th:if="${!#lists.isEmpty(toolMap.tool.currentTechnicians)}">
+                                                <i class="bi bi-person-check"></i>
+                                            </span>
+                                        </div>
+                                        <div class="small text-muted ps-3">
+                                            <div th:if="${toolMap.tool.location != null && toolMap.tool.location.name != null}" class="pb-2">
+                                                Location: <span th:text="${toolMap.tool.location.name}">Location</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <!-- Collapsible filter panel -->
-                    <div id="tool-filter-panel" class="px-3 py-2 bg-light border-bottom" style="display:none;">
-                        <!-- Filter dropdowns remain -->
-                        <div class="row g-2">
-                            <div class="col">
+                </div>
+                
+                <!-- Filters Section -->
+                <div class="filters-card">
+                    <div class="card full-height-card w-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">Filters</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="filter-type" class="form-label">Type</label>
                                 <select id="filter-type" class="form-select form-select-sm">
                                     <option value="">All Types</option>
                                     <option th:each="type : ${T(com.pcd.manager.model.Tool.ToolType).values()}"
                                             th:value="${type}" th:text="${type}">CHEMBLEND</option>
                                 </select>
                             </div>
-                            <div class="col">
+                            
+                            <div class="mb-3">
+                                <label for="filter-status" class="form-label">Status</label>
                                 <select id="filter-status" class="form-select form-select-sm">
                                     <option value="">All Status</option>
                                     <option th:each="status : ${T(com.pcd.manager.model.Tool.ToolStatus).values()}"
-                                            th:value="${status}" th:text="${status}">Not started</option>
+                                            th:value="${status}" th:text="${status}">NOT_STARTED</option>
                                 </select>
                             </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="scrollable-list">
-                            <!-- No tools message -->
-                            <div th:if="${#lists.isEmpty(tools)}" class="text-center text-muted py-3">
-                                No tools found. <a th:href="@{/tools/new}">Add a new tool?</a>
+                            
+                            <div class="mb-3">
+                                <label for="filter-issue" class="form-label">Issue</label>
+                                <select id="filter-issue" class="form-select form-select-sm">
+                                    <option value="">All Issues</option>
+                                    <option th:each="tt : ${allTrackTrends}" 
+                                            th:value="${tt.id}" 
+                                            th:text="${tt.title}">Track/Trend Issue</option>
+                                </select>
                             </div>
                             
-                            <!-- Tools list -->
-                            <div th:unless="${#lists.isEmpty(tools)}">
-                                <!-- Debug: Total tools count -->
-                                <div class="small text-muted mb-2" th:text="${'Total tools: ' + #lists.size(tools)}"></div>
-                                
-                                <!-- All tools in a single loop -->
-                                <div th:each="tool : ${tools}" 
-                                     th:classappend="${!#lists.isEmpty(tool.currentTechnicians) ? 'assigned' : ''}"
-                                     class="tool-item position-relative p-0" 
-                                     th:attr="data-tool-id=${tool.id}" 
-                                     th:data-type="${tool.toolType}" 
-                                     th:data-serial="${tool.serialNumber1}"
-                                     th:data-model="${tool.model1}"
-                                     th:data-status="${tool.status}"
-                                     th:data-location="${tool.location != null ? tool.location.id : ''}"
-                                     th:data-secondary-name="${tool.secondaryName ?: ''}"
-                                     th:data-assigned-users="${!#lists.isEmpty(tool.currentTechnicians) ? #strings.listJoin(tool.currentTechnicians.![name], ', ') : ''}">
-                                    <div class="d-flex align-items-center">
-                                        <a th:href="@{'/tools/' + ${tool.id}}" 
-                                           class="list-group-item-link flex-grow-1"
-                                           th:text="${tool.name}">
-                                            Tool Name
-                                        </a>
-                                        <span class="tool-assigned-icon" th:if="${!#lists.isEmpty(tool.currentTechnicians)}">
-                                            <i class="bi bi-person-check"></i>
-                                        </span>
-                                    </div>
-                                    <div class="small text-muted ps-3">
-                                        <div th:if="${tool.location != null && tool.location.name != null}" class="pb-2">
-                                            Location: <span th:text="${tool.location.name}">Location</span>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="mb-3">
+                                <label for="filter-notes" class="form-label">Notes Contain:</label>
+                                <input type="text" id="filter-notes" class="form-control form-control-sm" placeholder="Search in notes...">
                             </div>
                         </div>
                     </div>
@@ -623,6 +665,30 @@
         /*<![CDATA[*/
         window.allToolsData = /*[[${allToolsData}]]*/ [];
         window.gridItems = /*[[${gridItems}]]*/ [];
+        window.allTrackTrends = /*[[${allTrackTrends}]]*/ [];
+        
+        // Create a mapping of tool IDs to issue IDs for filtering
+        window.toolIssueMap = {};
+        
+        // Initialize the tool-issue map when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // If we have track trend data with tool relationships
+            if (window.allTrackTrends) {
+                window.allTrackTrends.forEach(function(trackTrend) {
+                    if (trackTrend.affectedTools && trackTrend.affectedTools.length > 0) {
+                        trackTrend.affectedTools.forEach(function(toolId) {
+                            if (!window.toolIssueMap[toolId]) {
+                                window.toolIssueMap[toolId] = [];
+                            }
+                            if (!window.toolIssueMap[toolId].includes(trackTrend.id)) {
+                                window.toolIssueMap[toolId].push(trackTrend.id);
+                            }
+                        });
+                    }
+                });
+            }
+            console.log('Tool-Issue map created:', window.toolIssueMap);
+        });
         /*]]>*/
     </script>
 
@@ -635,9 +701,9 @@
             const toolSearchInput = document.getElementById('tool-search');
             const filterTypeSelect = document.getElementById('filter-type');
             const filterStatusSelect = document.getElementById('filter-status');
+            const filterIssueSelect = document.getElementById('filter-issue');
+            const filterNotesInput = document.getElementById('filter-notes');
             const toolItems = document.querySelectorAll('.tool-item');
-            const filterIcon = document.querySelector('.filter-icon');
-            const filterPanel = document.getElementById('tool-filter-panel');
             const noToolsMessage = document.querySelector('.scrollable-list > .text-center.text-muted'); 
             // Grid-related variables
             const visibleToolIds = new Set();
@@ -648,76 +714,69 @@
             // Function for highlighting tools on the grid based on search/filters
             function updateGridShapesHighlight() {
                 // Check if window.toolShapes exists (set by the grid.js)
-                if (window.toolShapes) {
-                    // Count total number of tools on the map
+                if (window.toolShapes && typeof window.toolShapes === 'object') {
                     totalToolCount = Object.keys(window.toolShapes).length;
-                    const isFiltered = visibleToolIds.size > 0 && visibleToolIds.size < totalToolCount;
                     
+                    // Determine if any filter or search term is active
+                    const searchTerm = toolSearchInput.value.toLowerCase();
+                    const selectedType = filterTypeSelect.value;
+                    const selectedStatus = filterStatusSelect.value;
+                    const selectedIssue = filterIssueSelect.value;
+                    const notesSearchTerm = filterNotesInput.value.trim().toLowerCase();
+                    const anyFilterOrSearchActive = 
+                        (searchTerm && searchTerm.length > 0) || 
+                        (selectedType && selectedType.length > 0) || 
+                        (selectedStatus && selectedStatus.length > 0) ||
+                        (selectedIssue && selectedIssue.length > 0) ||
+                        (notesSearchTerm && notesSearchTerm.length > 0);
+
                     // Reset all tools to normal state first
                     for (const id in window.toolShapes) {
                         const shape = window.toolShapes[id];
-                        if (shape) {
-                            // Use direct property access since we stored it there
+                        if (shape && shape.mainRect) {
                             const rect = shape.mainRect;
                             const textNode = shape.findOne('.text');
                             
-                            if (rect) {
-                                // Default style
-                                rect.stroke('#333');
-                                rect.strokeWidth(1);
-                                rect.shadowColor('black');
-                                rect.shadowBlur(5);
-                                rect.shadowOffset({ x: 2, y: 2 });
-                                rect.shadowOpacity(0.3);
-                                
-                                if (textNode) {
-                                    textNode.fill('black'); // Change all text to black
-                                    textNode.fontStyle('normal'); // Reset to normal
-                                }
-                            }
+                            rect.stroke('#333');
+                            rect.strokeWidth(1);
+                            rect.shadowColor('black');
+                            rect.shadowBlur(5);
+                            rect.shadowOffset({ x: 2, y: 2 });
+                            rect.shadowOpacity(0.3);
+                            shape.opacity(1); // Default to full opacity
                             
-                            // Always reset opacity for all shapes to full
-                            shape.opacity(1);
+                            if (textNode) {
+                                textNode.fill('black');
+                                textNode.fontStyle('normal');
+                            }
                         }
                     }
                     
-                    // Only apply highlighting if we're filtering results
-                    if (isFiltered) {
-                        // Make non-matching tools semi-transparent
+                    // Apply dimming and highlighting if any filter or search is active
+                    if (anyFilterOrSearchActive) {
                         for (const id in window.toolShapes) {
-                            if (!visibleToolIds.has(id)) {
-                                const shape = window.toolShapes[id];
-                                if (shape && shape.mainRect) {
-                                    shape.opacity(0.4); // Make non-matches transparent
-                                }
-                            }
-                        }
-                        
-                        // Add highlights to visible/matching tools
-                        for (const id of visibleToolIds) {
                             const shape = window.toolShapes[id];
-                            if (shape) {
-                                const rect = shape.mainRect;
-                                const textNode = shape.findOne('.text');
-                                
-                                if (rect) {
-                                    // Enhanced highlight effect
+                            if (shape && shape.mainRect) {
+                                if (visibleToolIds.has(String(id))) { // Tool matches all filters
+                                    const rect = shape.mainRect;
+                                    const textNode = shape.findOne('.text');
                                     rect.stroke('#007bff');
                                     rect.strokeWidth(3);
                                     rect.shadowColor('#007bff');
                                     rect.shadowBlur(15);
                                     rect.shadowOffset({ x: 0, y: 0 });
                                     rect.shadowOpacity(0.9);
-                                    
+                                    shape.opacity(1); // Ensure it's fully opaque
                                     if (textNode) {
-                                        textNode.fontStyle('bold'); // Make text bold for highlighted items
+                                        textNode.fontStyle('bold');
                                     }
+                                } else { // Tool does not match all filters
+                                    shape.opacity(0.3); // Dim non-matching tools
                                 }
                             }
                         }
                     }
                     
-                    // Force redraw to show changes
                     if (window.toolLayer) {
                         window.toolLayer.batchDraw();
                     }
@@ -729,6 +788,9 @@
                 const searchTerm = toolSearchInput.value.toLowerCase();
                 const selectedType = filterTypeSelect.value;
                 const selectedStatus = filterStatusSelect.value;
+                const selectedIssue = filterIssueSelect.value;
+                const notesSearchTerm = filterNotesInput.value.trim().toLowerCase();
+                
                 let visibleListCount = 0;
                 visibleToolIds.clear(); // Reset the visible tools set
                 
@@ -736,7 +798,9 @@
                 const hasActiveFilters = 
                     (searchTerm && searchTerm.length > 0) || 
                     (selectedType && selectedType.length > 0) || 
-                    (selectedStatus && selectedStatus.length > 0);
+                    (selectedStatus && selectedStatus.length > 0) ||
+                    (selectedIssue && selectedIssue.length > 0) ||
+                    (notesSearchTerm && notesSearchTerm.length > 0);
 
                 // --- Filter HTML List --- 
                 toolItems.forEach(item => {
@@ -745,21 +809,34 @@
                     const toolName = item.querySelector('a')?.textContent?.toLowerCase() || '';
                     const toolSerial = item.dataset.serial?.toLowerCase() || '';
                     const toolModel = item.dataset.model?.toLowerCase() || '';
+                    const toolSecondaryName = item.dataset.secondaryName?.toLowerCase() || '';
+                    const toolNotes = item.dataset.notes ? item.dataset.notes.trim().toLowerCase() : '';
                     const toolId = item.dataset.toolId;
                     
+                    // Basic filters
                     const typeMatch = !selectedType || toolType === selectedType;
                     const statusMatch = !selectedStatus || toolStatus === selectedStatus;
                     const searchMatch = !searchTerm || 
                                         toolName.includes(searchTerm) || 
                                         toolSerial.includes(searchTerm) || 
+                                        toolSecondaryName.includes(searchTerm) || 
                                         toolModel.includes(searchTerm);
-
-                    if (typeMatch && statusMatch && searchMatch) {
+                    
+                    // Note search
+                    const notesMatch = !notesSearchTerm || toolNotes.includes(notesSearchTerm);
+                    
+                    // Issue filter
+                    const issueMatch = !selectedIssue || (window.toolIssueMap && window.toolIssueMap[toolId] && 
+                                      window.toolIssueMap[toolId].includes(parseInt(selectedIssue)));
+                    
+                    if (typeMatch && statusMatch && searchMatch && notesMatch && issueMatch) {
                         item.style.display = 'block'; 
                         item.classList.remove('tool-hidden');
                         visibleListCount++;
-                        // Only add to visible set if we have active filters
-                        if (toolId && hasActiveFilters) visibleToolIds.add(toolId);
+                        // Add to visibleToolIds if it matches all criteria and has a toolId
+                        if (toolId) {
+                            visibleToolIds.add(String(toolId)); // Ensure toolId is treated as string for Set comparison if needed
+                        }
                     } else {
                         item.style.display = 'none';
                         item.classList.add('tool-hidden');
@@ -771,9 +848,6 @@
                     noToolsMessage.style.display = visibleListCount === 0 ? 'block' : 'none';
                 }
                 
-                console.log('Visible tool IDs:', Array.from(visibleToolIds));
-                console.log('Total tools:', totalToolCount, 'Showing:', visibleToolIds.size, 'Filtered:', hasActiveFilters);
-                
                 // Update grid highlights
                 updateGridShapesHighlight();
             }
@@ -782,12 +856,8 @@
             if (toolSearchInput) toolSearchInput.addEventListener('input', applyToolFiltersAndSearch);
             if (filterTypeSelect) filterTypeSelect.addEventListener('change', applyToolFiltersAndSearch);
             if (filterStatusSelect) filterStatusSelect.addEventListener('change', applyToolFiltersAndSearch);
-
-            if (filterIcon && filterPanel) {
-                filterIcon.addEventListener('click', () => {
-                    filterPanel.style.display = filterPanel.style.display === 'none' ? 'block' : 'none';
-                });
-            }
+            if (filterIssueSelect) filterIssueSelect.addEventListener('change', applyToolFiltersAndSearch);
+            if (filterNotesInput) filterNotesInput.addEventListener('input', applyToolFiltersAndSearch);
 
             // Listen for grid ready event
             document.addEventListener('gridReady', function() {

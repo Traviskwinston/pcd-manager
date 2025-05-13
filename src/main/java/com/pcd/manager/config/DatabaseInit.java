@@ -4,6 +4,7 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -14,15 +15,23 @@ public class DatabaseInit {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseInit.class);
     
     private final JdbcTemplate jdbcTemplate;
+    private final Environment env;
+    private boolean isH2Database;
     
     @Autowired
-    public DatabaseInit(JdbcTemplate jdbcTemplate) {
+    public DatabaseInit(JdbcTemplate jdbcTemplate, Environment env) {
         this.jdbcTemplate = jdbcTemplate;
+        this.env = env;
     }
     
     @PostConstruct
     public void init() {
         try {
+            // Determine database type
+            String dbUrl = env.getProperty("spring.datasource.url", "");
+            isH2Database = dbUrl.contains("h2");
+            logger.info("Database type detected: {}", isH2Database ? "H2" : "PostgreSQL");
+            
             logger.info("Running database schema update for Tool status enum");
             
             // First check if the status column exists
@@ -47,7 +56,10 @@ public class DatabaseInit {
             logger.info("Found {} tools with invalid status values, migrating...", invalidStatusCount);
             
             // Make the status column nullable temporarily
-            jdbcTemplate.execute("ALTER TABLE tools ALTER COLUMN status SET NULL");
+            String alterNullableSQL = isH2Database 
+                ? "ALTER TABLE tools ALTER COLUMN status NULL"
+                : "ALTER TABLE tools ALTER COLUMN status DROP NOT NULL";
+            jdbcTemplate.execute(alterNullableSQL);
             
             // Update the status for tools with old status values
             try {
@@ -72,7 +84,10 @@ public class DatabaseInit {
             }
             
             // Make the column required again with the default value
-            jdbcTemplate.execute("ALTER TABLE tools ALTER COLUMN status VARCHAR(255) NOT NULL DEFAULT 'NOT_STARTED'");
+            String alterRequiredSQL = isH2Database
+                ? "ALTER TABLE tools ALTER COLUMN status VARCHAR(255) NOT NULL DEFAULT 'NOT_STARTED'"
+                : "ALTER TABLE tools ALTER COLUMN status SET NOT NULL; ALTER TABLE tools ALTER COLUMN status SET DEFAULT 'NOT_STARTED'";
+            jdbcTemplate.execute(alterRequiredSQL);
             
             logger.info("Tool status enum update completed successfully");
             
@@ -85,7 +100,10 @@ public class DatabaseInit {
                 
                 if (toolTypeColumnExists) {
                     // Drop existing tool_type column constraints
-                    jdbcTemplate.execute("ALTER TABLE tools ALTER COLUMN tool_type SET NULL");
+                    String alterTypeNullableSQL = isH2Database
+                        ? "ALTER TABLE tools ALTER COLUMN tool_type NULL"
+                        : "ALTER TABLE tools ALTER COLUMN tool_type DROP NOT NULL";
+                    jdbcTemplate.execute(alterTypeNullableSQL);
                     
                     // Update any invalid tool types to a valid value
                     jdbcTemplate.execute(

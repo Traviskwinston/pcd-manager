@@ -2,6 +2,7 @@ package com.pcd.manager.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -15,14 +16,28 @@ public class DatabaseSchemaUpdater implements CommandLineRunner {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+    
+    @Autowired
+    private Environment env;
 
     @Override
     public void run(String... args) {
         try {
+            logger.info("Checking database type for schema update...");
+            String dbUrl = env.getProperty("spring.datasource.url", "");
+            boolean isH2Database = dbUrl.contains("h2");
+            
             logger.info("Updating passdown comment field to support larger text...");
             
-            // Try to modify the column to support larger text
-            jdbcTemplate.execute("ALTER TABLE passdowns ALTER COLUMN comment VARCHAR(10000)");
+            // SQL syntax depends on database type
+            String alterSql;
+            if (isH2Database) {
+                alterSql = "ALTER TABLE passdowns ALTER COLUMN comment VARCHAR(10000)";
+            } else {
+                alterSql = "ALTER TABLE passdowns ALTER COLUMN comment TYPE VARCHAR(10000)";
+            }
+            
+            jdbcTemplate.execute(alterSql);
             
             logger.info("Successfully updated passdown comment field size");
         } catch (Exception e) {

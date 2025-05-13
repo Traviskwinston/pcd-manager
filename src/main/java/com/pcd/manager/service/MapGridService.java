@@ -68,7 +68,7 @@ public class MapGridService {
         }
         
         // Find the user
-        User user = userRepository.findByEmail(userEmail)
+        User user = userRepository.findByEmailIgnoreCase(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + userEmail));
         
         // Create new grid item
@@ -92,7 +92,7 @@ public class MapGridService {
     public MapGridItem createDrawingGridItem(Integer x, Integer y, Integer width, Integer height, 
                                             String text, String color, Boolean isSolid, String userEmail) {
         // Find the user
-        User user = userRepository.findByEmail(userEmail)
+        User user = userRepository.findByEmailIgnoreCase(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + userEmail));
         
         // Create new grid item
@@ -119,7 +119,7 @@ public class MapGridService {
         MapGridItem gridItem = mapGridItemRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Grid item not found with ID: " + id));
         
-        User user = userRepository.findByEmail(userEmail)
+        User user = userRepository.findByEmailIgnoreCase(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + userEmail));
         
         gridItem.setX(x);
@@ -142,7 +142,7 @@ public class MapGridService {
             throw new IllegalArgumentException("Cannot update non-drawing grid item as drawing");
         }
         
-        User user = userRepository.findByEmail(userEmail)
+        User user = userRepository.findByEmailIgnoreCase(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + userEmail));
         
         gridItem.setX(x);
@@ -188,7 +188,7 @@ public class MapGridService {
      */
     @Transactional
     public void saveMapState(List<Map<String, Object>> gridItems, String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
+        User user = userRepository.findByEmailIgnoreCase(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + userEmail));
                 
         for (Map<String, Object> item : gridItems) {

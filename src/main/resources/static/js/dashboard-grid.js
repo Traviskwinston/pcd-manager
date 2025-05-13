@@ -1338,7 +1338,31 @@ function populateToolDropdown() {
     // Clear existing options
     toolSelect.innerHTML = '';
     
-    // Get available tools from API
+    // Check if we have already loaded the tools from window.allToolsData
+    if (window.allToolsData && Array.isArray(window.allToolsData)) {
+        // Use the data that was already loaded with the page
+        window.allToolsData.forEach(tool => {
+            const option = document.createElement('option');
+            option.value = tool.id;
+            option.text = `${tool.name} - ${tool.model || ''}`;
+            option.setAttribute('data-type', tool.type || '');
+            option.setAttribute('data-model', tool.model || '');
+            option.setAttribute('data-serial', tool.serial || '');
+            option.setAttribute('data-status', tool.status || '');
+            toolSelect.appendChild(option);
+        });
+        
+        // Set default selection if available
+        if (window.allToolsData.length > 0) {
+            selectedToolId = window.allToolsData[0].id;
+            toolSelect.value = selectedToolId;
+        }
+        
+        console.log(`Populated dropdown with ${window.allToolsData.length} tools from cached data`);
+        return;
+    }
+    
+    // If we don't have the data cached, fetch it from the API
     fetch('/api/map/available-tools')
         .then(response => response.json())
         .then(tools => {
@@ -1358,6 +1382,8 @@ function populateToolDropdown() {
                 selectedToolId = tools[0].id;
                 toolSelect.value = selectedToolId;
             }
+            
+            console.log(`Populated dropdown with ${tools.length} tools from API`);
         })
         .catch(error => {
             console.error('Error loading available tools:', error);

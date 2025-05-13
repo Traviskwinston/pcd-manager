@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import java.time.LocalDateTime;
 
@@ -29,6 +30,11 @@ public class MovingPart {
     @JoinColumn(name = "to_tool_id")
     private Tool toTool;
 
+    @ManyToOne
+    @JoinColumn(name = "rma_id", nullable = true)
+    @JsonBackReference
+    private Rma rma;
+
     @Column(nullable = false)
     private LocalDateTime moveDate;
 
@@ -39,6 +45,19 @@ public class MovingPart {
     @JoinColumn(name = "note_id")
     private Note linkedNote;
 
+    @ManyToOne
+    @JoinColumn(name = "linked_track_trend_id", nullable = true)
+    private TrackTrend linkedTrackTrend;
+
+    @ManyToOne
+    @JoinColumn(name = "additionally_linked_tool_id", nullable = true)
+    private Tool additionallyLinkedTool;
+
+    @ManyToOne
+    @JoinColumn(name = "additionally_linked_rma_id", nullable = true)
+    @JsonBackReference("additionalRmaLink")
+    private Rma additionallyLinkedRma;
+
     @Override
     public String toString() {
         return "MovingPart{" +
@@ -46,6 +65,7 @@ public class MovingPart {
                ", partName='" + partName + '\'' +
                ", fromToolId=" + (fromTool != null ? fromTool.getId() : null) +
                ", toToolId=" + (toTool != null ? toTool.getId() : null) +
+               ", rmaId=" + (rma != null ? rma.getId() : null) +
                ", moveDate=" + moveDate +
                '}';
     }

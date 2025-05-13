@@ -2,6 +2,7 @@ package com.pcd.manager.service;
 
 import com.pcd.manager.model.PartLineItem;
 import com.pcd.manager.model.Rma;
+import com.pcd.manager.model.RmaComment;
 import com.pcd.manager.model.Tool;
 import com.pcd.manager.model.User;
 import org.apache.poi.ss.usermodel.*;
@@ -16,13 +17,18 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ExcelService {
@@ -146,6 +152,11 @@ public class ExcelService {
         // Contact Phone Number in B17
         setCellValue(sheet, "B17", rma.getCustomerPhone()); // Contact Phone Number
         
+        // Location info in E14
+        if (rma.getLocation() != null) {
+            setCellValue(sheet, "E14", rma.getLocation().getDisplayName()); // Location information
+        }
+        
         // Tool Information
         Tool tool = rma.getTool();
         if (tool != null) {
@@ -188,11 +199,30 @@ public class ExcelService {
         // Instructions for exposed component in F35
         setCellValue(sheet, "F35", rma.getInstructionsForExposedComponent());
         
-        // Description in D33 (different cell to avoid overwriting the checkbox)
-        setCellValue(sheet, "D33", rma.getDescription());
+        // Problem Information fields using updated cell references
+        setCellValue(sheet, "B38", rma.getProblemDiscoverer());  // Who discovered - B38
+        if (rma.getProblemDiscoveryDate() != null) {
+            setCellValue(sheet, "B39", rma.getProblemDiscoveryDate().format(DateTimeFormatter.ofPattern("MM/dd/yyyy")));  // When discovered - B39
+        }
+        setCellValue(sheet, "B40", rma.getWhatHappened());      // What happened - B40
+        setCellValue(sheet, "B44", rma.getWhyAndHowItHappened()); // Why and how - B44
+        setCellValue(sheet, "B46", rma.getHowContained());      // How contained - B46
+        setCellValue(sheet, "B47", rma.getWhoContained());      // Who contained - B47
         
-        // Comments - moved to B36 based on Excel template structure
-        setCellValue(sheet, "B36", rma.getComments());
+        // Comments - format the list of comments as a string
+        if (rma.getComments() != null && !rma.getComments().isEmpty()) {
+            StringBuilder commentsStr = new StringBuilder();
+            for (RmaComment comment : rma.getComments()) {
+                if (commentsStr.length() > 0) {
+                    commentsStr.append("\n");
+                }
+                if (comment.getUser() != null) {
+                    commentsStr.append(comment.getUser().getName()).append(": ");
+                }
+                commentsStr.append(comment.getContent());
+            }
+            setCellValue(sheet, "B36", commentsStr.toString());
+        }
         
         // Parts (up to 4)
         if (rma.getPartLineItems() != null && !rma.getPartLineItems().isEmpty()) {
@@ -245,5 +275,373 @@ public class ExcelService {
         } catch (Exception e) {
             logger.error("Error setting cell value for {}: {}", cellReference, e.getMessage());
         }
+    }
+
+    /**
+     * Extracts RMA data from an uploaded Excel file
+     * 
+     * @param excelBytes The bytes of the uploaded Excel file
+     * @return A map containing extracted RMA data
+     */
+    public Map<String, Object> extractRmaDataFromExcel(byte[] excelBytes) {
+        Map<String, Object> extractedData = new HashMap<>();
+        
+        try (InputStream is = new ByteArrayInputStream(excelBytes);
+             Workbook workbook = new XSSFWorkbook(is)) {
+            
+            // Get the first sheet
+            Sheet sheet = workbook.getSheetAt(0);
+            
+            // Try to find a sheet named "Data"
+            Sheet dataSheet = null;
+            for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+                if ("Data".equalsIgnoreCase(workbook.getSheetName(i))) {
+                    dataSheet = workbook.getSheetAt(i);
+                    break;
+                }
+            }
+            
+            // Extract RMA Number from B4
+            extractedData.put("rmaNumber", getCellStringValue(sheet, "B4"));
+            
+            // Extract SAP Notification Number from J4
+            extractedData.put("sapNotificationNumber", getCellStringValue(sheet, "J4"));
+            
+            // Extract Service Order from J5
+            extractedData.put("serviceOrder", getCellStringValue(sheet, "J5"));
+            
+            // Extract Written Date from B6
+            String writtenDateStr = getCellStringValue(sheet, "B6");
+            if (writtenDateStr != null && !writtenDateStr.isEmpty()) {
+                try {
+                    // Try to parse the date using common formats
+                    LocalDate parsedDate = parseDate(writtenDateStr);
+                    if (parsedDate != null) {
+                        // Format as ISO date (yyyy-MM-dd) for proper conversion in the controller
+                        extractedData.put("writtenDate", parsedDate.format(DateTimeFormatter.ISO_DATE));
+                        logger.info("Extracted Written Date from B6: {} (parsed as: {})", 
+                                 writtenDateStr, parsedDate.format(DateTimeFormatter.ISO_DATE));
+                    } else {
+                        logger.warn("Could not parse Written Date from B6: {}", writtenDateStr);
+                    }
+                } catch (Exception e) {
+                    logger.warn("Error parsing Written Date from B6: {}", writtenDateStr, e);
+                }
+            }
+            
+            // Extract Customer Information Email from B9
+            String customerEmail = getCellStringValue(sheet, "B9");
+            if (customerEmail != null && !customerEmail.isEmpty()) {
+                extractedData.put("customerEmail", customerEmail);
+            }
+            
+            // Extract exposed to process gas value from A21 (Data sheet)
+            if (dataSheet != null) {
+                String exposedValue = getCellStringValue(dataSheet, "A21");
+                if (exposedValue != null) {
+                    boolean exposed = isTrueValue(exposedValue);
+                    extractedData.put("exposedToProcessGasOrChemicals", exposed);
+                    
+                    // If exposed, also extract purged value from A25
+                    if (exposed) {
+                        String purgedValue = getCellStringValue(dataSheet, "A25");
+                        if (purgedValue != null) {
+                            extractedData.put("purged", isTrueValue(purgedValue));
+                        }
+                    }
+                }
+            }
+            
+            // Extract Reason for Request from G7
+            String reasonForRequest = getCellStringValue(sheet, "G7");
+            if (reasonForRequest != null && !reasonForRequest.isEmpty()) {
+                extractedData.put("reasonForRequest", reasonForRequest);
+            }
+            
+            // Extract DSS Product Line from G9
+            String dssProductLine = getCellStringValue(sheet, "G9");
+            if (dssProductLine != null && !dssProductLine.isEmpty()) {
+                extractedData.put("dssProductLine", dssProductLine);
+            }
+            
+            // Extract System Description from G11
+            String systemDescription = getCellStringValue(sheet, "G11");
+            if (systemDescription != null && !systemDescription.isEmpty()) {
+                extractedData.put("systemDescription", systemDescription);
+            }
+            
+            // Extract Customer Information
+            extractedData.put("customerName", getCellStringValue(sheet, "B11")); // Customer Name
+            extractedData.put("companyShipToName", getCellStringValue(sheet, "B12")); // Company Ship To Name
+            extractedData.put("companyShipToAddress", getCellStringValue(sheet, "B13")); // Address
+            
+            // Extract Location information from E14
+            String locationInfo = getCellStringValue(sheet, "E14");
+            if (locationInfo != null && !locationInfo.isEmpty()) {
+                extractedData.put("locationName", locationInfo);
+                logger.info("Extracted location information: {}", locationInfo);
+            }
+            
+            // Extract City and State from B14
+            String cityState = getCellStringValue(sheet, "B14");
+            if (cityState != null && !cityState.isEmpty()) {
+                String[] parts = cityState.split(",");
+                if (parts.length > 0) {
+                    extractedData.put("city", parts[0].trim());
+                    
+                    if (parts.length > 1) {
+                        extractedData.put("state", parts[1].trim());
+                    }
+                }
+            }
+            
+            // Extract Zip Code from B15
+            extractedData.put("zipCode", getCellStringValue(sheet, "B15"));
+            
+            // Extract Attn from B16
+            extractedData.put("attn", getCellStringValue(sheet, "B16"));
+            
+            // Extract Contact Phone Number from B17
+            extractedData.put("customerPhone", getCellStringValue(sheet, "B17"));
+            
+            // Extract Equipment and Serial Number from F14
+            String equipmentInfo = getCellStringValue(sheet, "F14");
+            if (equipmentInfo != null && !equipmentInfo.isEmpty()) {
+                extractedData.put("equipmentInfo", equipmentInfo);
+            }
+            
+            // Extract Chemical/Gas Service from J18 for tool matching
+            String chemicalGasService = getCellStringValue(sheet, "J18");
+            if (chemicalGasService != null && !chemicalGasService.isEmpty()) {
+                extractedData.put("chemicalGasService", chemicalGasService);
+            }
+            
+            // Extract Downtime from J22
+            String downtimeStr = getCellStringValue(sheet, "J22");
+            if (downtimeStr != null && !downtimeStr.isEmpty()) {
+                try {
+                    Double downtime = Double.parseDouble(downtimeStr);
+                    extractedData.put("downtimeHours", downtime);
+                } catch (NumberFormatException e) {
+                    logger.warn("Could not parse downtime value: {}", downtimeStr);
+                }
+            }
+            
+            // Extract Parts (up to 4) with the new specified cell addresses
+            List<Map<String, Object>> partsList = new ArrayList<>();
+            
+            // Part 1
+            Map<String, Object> part1 = new HashMap<>();
+            part1.put("partName", ""); // Leave Part Name blank as requested
+            part1.put("partNumber", getCellStringValue(sheet, "B26"));
+            part1.put("productDescription", getCellStringValue(sheet, "B27"));
+            part1.put("quantity", parseQuantity(getCellStringValue(sheet, "B25")));
+            part1.put("replacementRequired", false); // Default
+            partsList.add(part1);
+            
+            // Part 2
+            Map<String, Object> part2 = new HashMap<>();
+            part2.put("partName", ""); // Leave Part Name blank as requested
+            part2.put("partNumber", getCellStringValue(sheet, "I26"));
+            part2.put("productDescription", getCellStringValue(sheet, "I27"));
+            part2.put("quantity", parseQuantity(getCellStringValue(sheet, "I25")));
+            part2.put("replacementRequired", false); // Default
+            partsList.add(part2);
+            
+            // Part 3
+            Map<String, Object> part3 = new HashMap<>();
+            part3.put("partName", ""); // Leave Part Name blank as requested
+            part3.put("partNumber", getCellStringValue(sheet, "B31"));
+            part3.put("productDescription", getCellStringValue(sheet, "B32"));
+            part3.put("quantity", parseQuantity(getCellStringValue(sheet, "B25")));
+            part3.put("replacementRequired", false); // Default
+            partsList.add(part3);
+            
+            // Part 4
+            Map<String, Object> part4 = new HashMap<>();
+            part4.put("partName", ""); // Leave Part Name blank as requested
+            part4.put("partNumber", getCellStringValue(sheet, "I31"));
+            part4.put("productDescription", getCellStringValue(sheet, "I32"));
+            part4.put("quantity", parseQuantity(getCellStringValue(sheet, "I25")));
+            part4.put("replacementRequired", false); // Default
+            partsList.add(part4);
+            
+            // Only include parts that have some data
+            List<Map<String, Object>> filteredPartsList = partsList.stream()
+                .filter(part -> {
+                    String partNumber = (String) part.get("partNumber");
+                    String description = (String) part.get("productDescription");
+                    return (partNumber != null && !partNumber.isEmpty()) || 
+                           (description != null && !description.isEmpty());
+                })
+                .toList();
+            
+            if (!filteredPartsList.isEmpty()) {
+                extractedData.put("parts", filteredPartsList);
+            }
+            
+            // Extract Instructions for exposed component from F35
+            extractedData.put("instructionsForExposedComponent", getCellStringValue(sheet, "F35"));
+            
+            // Extract Problem Information fields instead of Description - using updated cell references
+            extractedData.put("problemDiscoverer", getCellStringValue(sheet, "B38"));      // Who discovered - B38
+            String discoveryDate = getCellStringValue(sheet, "B39");                       // When discovered - B39
+            if (discoveryDate != null && !discoveryDate.isEmpty()) {
+                try {
+                    LocalDate parsedDate = parseDate(discoveryDate);
+                    if (parsedDate != null) {
+                        extractedData.put("problemDiscoveryDate", parsedDate.format(DateTimeFormatter.ISO_DATE));
+                    }
+                } catch (Exception e) {
+                    logger.warn("Could not parse problem discovery date: {}", discoveryDate);
+                }
+            }
+            extractedData.put("whatHappened", getCellStringValue(sheet, "B40"));           // What happened - B40
+            extractedData.put("whyAndHowItHappened", getCellStringValue(sheet, "B44"));    // Why and how - B44
+            extractedData.put("howContained", getCellStringValue(sheet, "B46"));           // How contained - B46
+            extractedData.put("whoContained", getCellStringValue(sheet, "B47"));           // Who contained - B47
+            
+            // Extract Comments from B36
+            extractedData.put("comments", getCellStringValue(sheet, "B36"));
+            
+        } catch (Exception e) {
+            logger.error("Error extracting data from Excel file", e);
+            extractedData.put("error", "Failed to extract data: " + e.getMessage());
+        }
+        
+        return extractedData;
+    }
+
+    /**
+     * Gets a string value from a cell using Excel A1 notation
+     */
+    private String getCellStringValue(Sheet sheet, String cellRef) {
+        CellReference ref = new CellReference(cellRef);
+        Row row = sheet.getRow(ref.getRow());
+        if (row == null) {
+            return null;
+        }
+        
+        Cell cell = row.getCell(ref.getCol());
+        if (cell == null) {
+            return null;
+        }
+        
+        // Handle different cell types
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue();
+            case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    return new SimpleDateFormat("MM/dd/yyyy").format(cell.getDateCellValue());
+                }
+                // Format numeric values specially to prevent scientific notation for large numbers
+                // This is particularly important for service order numbers
+                double numericValue = cell.getNumericCellValue();
+                if (numericValue == Math.floor(numericValue) && !Double.isInfinite(numericValue)) {
+                    // It's an integer value (like a service order number)
+                    return String.format("%.0f", numericValue); // Format without decimal places
+                }
+                return String.valueOf(numericValue);
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                FormulaEvaluator evaluator = sheet.getWorkbook().getCreationHelper().createFormulaEvaluator();
+                CellValue cellValue = evaluator.evaluate(cell);
+                
+                switch(cellValue.getCellType()) {
+                    case STRING:
+                        return cellValue.getStringValue();
+                    case NUMERIC:
+                        if (DateUtil.isCellDateFormatted(cell)) {
+                            return new SimpleDateFormat("MM/dd/yyyy").format(cell.getDateCellValue());
+                        }
+                        // Also handle formula results that are numeric
+                        double formulaNumericValue = cellValue.getNumberValue();
+                        if (formulaNumericValue == Math.floor(formulaNumericValue) && !Double.isInfinite(formulaNumericValue)) {
+                            // It's an integer value
+                            return String.format("%.0f", formulaNumericValue); // Format without decimal places
+                        }
+                        return String.valueOf(cellValue.getNumberValue());
+                    case BOOLEAN:
+                        return String.valueOf(cellValue.getBooleanValue());
+                    default:
+                        return "";
+                }
+            default:
+                return "";
+        }
+    }
+    
+    /**
+     * Parse a quantity value from a string, with fallback to 1
+     */
+    private Integer parseQuantity(String qtyStr) {
+        if (qtyStr != null && !qtyStr.isEmpty()) {
+            try {
+                return Integer.parseInt(qtyStr.trim());
+            } catch (NumberFormatException e) {
+                try {
+                    // Try parsing as double and converting to int
+                    return (int) Double.parseDouble(qtyStr.trim());
+                } catch (NumberFormatException ex) {
+                    logger.warn("Could not parse quantity value: {}", qtyStr);
+                    return 1; // Default to 1 if parsing fails
+                }
+            }
+        }
+        return 1; // Default quantity
+    }
+
+    /**
+     * Checks if a string value represents a true value
+     */
+    private boolean isTrueValue(String value) {
+        return "Yes".equalsIgnoreCase(value) || "True".equalsIgnoreCase(value) || "1".equals(value);
+    }
+
+    /**
+     * Parses a date string into a LocalDate object
+     * 
+     * @param dateStr The date string to parse
+     * @return The parsed LocalDate object, or null if parsing fails
+     */
+    private LocalDate parseDate(String dateStr) {
+        if (dateStr == null || dateStr.trim().isEmpty()) {
+            return null;
+        }
+        
+        // Array of common date formats to try
+        String[] formats = {
+            "MM/dd/yyyy", "M/d/yyyy", "MM-dd-yyyy", "yyyy-MM-dd",
+            "dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy",
+            "MMM d, yyyy", "MMMM d, yyyy",
+            "d MMM yyyy", "d MMMM yyyy"
+        };
+        
+        // Try each format until one works
+        for (String format : formats) {
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+                return LocalDate.parse(dateStr.trim(), formatter);
+            } catch (Exception e) {
+                // Try next format
+                continue;
+            }
+        }
+        
+        // Last-ditch effort: try Excel's numeric date format
+        try {
+            // Excel dates are stored as days since December 31, 1899
+            double numericDate = Double.parseDouble(dateStr.trim());
+            // Convert to days since January 1, 1970 (epoch)
+            long epochDays = (long) (numericDate - 25569); // 25569 is the number of days between Dec 31, 1899 and Jan 1, 1970
+            return LocalDate.ofEpochDay(epochDays);
+        } catch (Exception e) {
+            logger.debug("Could not parse date as numeric Excel date: {}", dateStr);
+        }
+        
+        // If all parsing attempts fail
+        return null;
     }
 } 

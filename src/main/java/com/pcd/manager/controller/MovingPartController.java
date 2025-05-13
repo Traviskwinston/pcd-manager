@@ -41,7 +41,7 @@ public class MovingPartController {
                              RedirectAttributes redirectAttributes) {
         
         try {
-            movingPartService.createMovingPart(partName, fromToolId, toToolId, notes, noteId);
+            movingPartService.createMovingPart(partName, fromToolId, toToolId, notes, noteId, null);
             redirectAttributes.addFlashAttribute("successMessage", "Moving part recorded successfully");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", "Error recording moving part: " + e.getMessage());
@@ -92,7 +92,7 @@ public class MovingPartController {
                                 RedirectAttributes redirectAttributes) {
         
         try {
-            Optional<MovingPart> result = movingPartService.updateMovingPart(movingPartId, partName, fromToolId, toToolId, notes);
+            Optional<MovingPart> result = movingPartService.updateMovingPart(movingPartId, partName, fromToolId, toToolId, notes, null);
             
             if (result.isPresent()) {
                 redirectAttributes.addFlashAttribute("successMessage", "Moving part updated successfully");

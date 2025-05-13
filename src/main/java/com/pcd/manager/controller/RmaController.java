@@ -1,14 +1,8 @@
 package com.pcd.manager.controller;
 
-import com.pcd.manager.model.Rma;
-import com.pcd.manager.model.RmaStatus;
-import com.pcd.manager.model.Tool;
-import com.pcd.manager.model.RmaPicture;
-import com.pcd.manager.model.RmaDocument;
-import com.pcd.manager.service.RmaService;
-import com.pcd.manager.service.LocationService;
-import com.pcd.manager.service.ToolService;
-import com.pcd.manager.service.UserService;
+import com.pcd.manager.model.*;
+import com.pcd.manager.service.*;
+import com.pcd.manager.util.UploadUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -17,7 +11,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.pcd.manager.util.UploadUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
@@ -50,6 +43,11 @@ import com.pcd.manager.service.ExcelService;
 import java.security.Principal;
 import org.springframework.util.StringUtils;
 import com.pcd.manager.model.User;
+import com.pcd.manager.model.RmaComment;
+import org.springframework.security.core.Authentication;
+import com.pcd.manager.model.MovingPart;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.pcd.manager.service.TrackTrendService;
 
 @Controller
 @RequestMapping("/rma")
@@ -65,6 +63,8 @@ public class RmaController {
     private final FileTransferService fileTransferService;
     private final PassdownService passdownService;
     private final ExcelService excelService;
+    private final MovingPartService movingPartService;
+    private final TrackTrendService trackTrendService;
 
     @Autowired
     public RmaController(RmaService rmaService,
@@ -74,7 +74,9 @@ public class RmaController {
                          UploadUtils uploadUtils,
                          FileTransferService fileTransferService,
                          PassdownService passdownService,
-                         ExcelService excelService) {
+                         ExcelService excelService,
+                         MovingPartService movingPartService,
+                         TrackTrendService trackTrendService) {
         this.rmaService = rmaService;
         this.locationService = locationService;
         this.toolService = toolService;
@@ -83,11 +85,26 @@ public class RmaController {
         this.fileTransferService = fileTransferService;
         this.passdownService = passdownService;
         this.excelService = excelService;
+        this.movingPartService = movingPartService;
+        this.trackTrendService = trackTrendService;
     }
 
     @GetMapping
     public String listRmas(Model model) {
         List<Rma> rmas = rmaService.getAllRmas();
+        
+        // Explicitly load comments for each RMA
+        for (Rma rma : rmas) {
+            try {
+                List<RmaComment> comments = rmaService.getCommentsForRma(rma.getId());
+                rma.setComments(comments);
+            } catch (Exception e) {
+                // Log the error but continue processing
+                logger.error("Error loading comments for RMA ID " + rma.getId() + ": " + e.getMessage(), e);
+                rma.setComments(new ArrayList<>());
+            }
+        }
+        
         model.addAttribute("rmas", rmas);
         return "rma/list";
     }
@@ -116,14 +133,79 @@ public class RmaController {
     public String showCreateForm(Model model, @RequestParam(required = false) Long toolId) {
         Rma rma = new Rma();
         
+        // Get the currently logged-in user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUserName = null;
+        
+        if (authentication != null && authentication.isAuthenticated() && !authentication.getName().equals("anonymousUser")) {
+            String username = authentication.getName(); // Username (email) of the logged-in user
+            logger.info("Current authenticated user: {}", username);
+            
+            Optional<User> currentUser = userService.getUserByUsername(username);
+            if (currentUser.isPresent()) {
+                User user = currentUser.get();
+                
+                // Store user name for the view
+                if (user.getName() != null && !user.getName().trim().isEmpty()) {
+                    currentUserName = user.getName().trim();
+                } else if (user.getFirstName() != null && !user.getFirstName().trim().isEmpty()) {
+                    StringBuilder nameBuilder = new StringBuilder(user.getFirstName().trim());
+                    if (user.getLastName() != null && !user.getLastName().trim().isEmpty()) {
+                        nameBuilder.append(" ").append(user.getLastName().trim());
+                    }
+                    currentUserName = nameBuilder.toString();
+                } else {
+                    currentUserName = username;
+                }
+                
+                logger.info("Found currentUserName: {}", currentUserName);
+                
+                // Set location with priority order:
+                // 1. User's active site (this is what we're adding/prioritizing)
+                // 2. User's default location 
+                // 3. User's active tool's location
+                if (user.getActiveSite() != null) {
+                    rma.setLocation(user.getActiveSite());
+                    logger.info("Set default location to user's active site: {}", user.getActiveSite().getDisplayName());
+                } else if (user.getDefaultLocation() != null) {
+                    rma.setLocation(user.getDefaultLocation());
+                    logger.info("Set default location to user's default location: {}", user.getDefaultLocation().getDisplayName());
+                } else if (user.getActiveTool() != null && user.getActiveTool().getLocation() != null) {
+                    rma.setLocation(user.getActiveTool().getLocation());
+                    logger.info("Set default location to user's active tool location: {}", user.getActiveTool().getLocation().getDisplayName());
+                } else {
+                    // If no user-specific location, try to get the system default location
+                    Optional<Location> defaultLocation = locationService.getDefaultLocation();
+                    if (defaultLocation.isPresent()) {
+                        rma.setLocation(defaultLocation.get());
+                        logger.info("Set default location to system default: {}", defaultLocation.get().getDisplayName());
+                    } else {
+                        logger.warn("No default location found for RMA form");
+                    }
+                }
+            } else {
+                logger.warn("Could not find user with username: {}", username);
+            }
+        } else {
+            logger.warn("No authenticated user found or user is anonymous");
+            
+            // Try to set a default location from the system settings
+            Optional<Location> defaultLocation = locationService.getDefaultLocation();
+            if (defaultLocation.isPresent()) {
+                rma.setLocation(defaultLocation.get());
+                logger.info("Set default location to system default for anonymous user: {}", defaultLocation.get().getDisplayName());
+            }
+        }
+        
         // If toolId is provided, fetch and set the tool
         if (toolId != null) {
             logger.info("Tool ID {} provided for new RMA", toolId);
             toolService.getToolById(toolId).ifPresent(tool -> {
                 rma.setTool(tool);
-                // Optionally pre-fill other fields based on the tool
-                if (tool.getLocation() != null) {
+                // If we have a tool, use its location only if we don't already have a location from the user
+                if (tool.getLocation() != null && rma.getLocation() == null) {
                     rma.setLocation(tool.getLocation());
+                    logger.info("Set location from provided tool: {}", tool.getLocation().getDisplayName());
                 }
                 logger.info("Pre-selected tool {} for new RMA", tool.getName());
             });
@@ -133,6 +215,10 @@ public class RmaController {
         model.addAttribute("locations", locationService.getAllLocations());
         model.addAttribute("tools", toolService.getAllTools());
         model.addAttribute("technicians", userService.getAllUsers());
+        
+        // Add current user name to the model for use in the form
+        model.addAttribute("currentUserName", currentUserName);
+        
         return "rma/form";
     }
 
@@ -152,19 +238,38 @@ public class RmaController {
             // Add recent passdowns for linking functionality
             List<Passdown> recentPassdowns = passdownService.getRecentPassdowns(20);
             model.addAttribute("recentPassdowns", recentPassdowns);
+            
+            // Add comments to the model
+            List<RmaComment> comments = rmaService.getCommentsForRma(id);
+            model.addAttribute("comments", comments);
+            
+            // Add moving parts associated with this RMA
+            List<MovingPart> movingParts = movingPartService.getMovingPartsByRmaId(id);
+            model.addAttribute("movingParts", movingParts);
+
+            // Add all TrackTrends for linking functionality
+            List<TrackTrend> allTrackTrends = trackTrendService.getAllTrackTrends();
+            model.addAttribute("allTrackTrends", allTrackTrends);
         });
         return "rma/view";
     }
 
     @GetMapping("/edit/{id}")
-    public String showEditForm(@PathVariable Long id, Model model) {
+    public String showEditForm(@PathVariable Long id, 
+                               @RequestParam(required = false, defaultValue = "false") boolean importExcel,
+                               Model model) {
         rmaService.getRmaById(id).ifPresent(rma -> model.addAttribute("rma", rma));
         model.addAttribute("locations", locationService.getAllLocations());
         model.addAttribute("tools", toolService.getAllTools());
         model.addAttribute("technicians", userService.getAllUsers());
+        model.addAttribute("importExcel", importExcel);
         
         // Add all RMAs for transfer functionality
         model.addAttribute("allRmas", rmaService.getAllRmas());
+        
+        // Add moving parts associated with this RMA
+        List<MovingPart> movingParts = movingPartService.getMovingPartsByRmaId(id);
+        model.addAttribute("movingParts", movingParts);
         
         return "rma/form";
     }
@@ -181,8 +286,15 @@ public class RmaController {
                           @RequestParam(value = "updateToolChemicalGasService", required = false) String updateToolChemicalGasService,
                           @RequestParam(value = "updateToolCommissionDate", required = false) String updateToolCommissionDate,
                           @RequestParam(value = "updateToolStartupSl03Date", required = false) String updateToolStartupSl03Date,
+                          @RequestParam(value = "movingParts[].partName", required = false) List<String> movingPartNames,
+                          @RequestParam(value = "movingParts[].fromToolId", required = false) List<Long> movingPartFromToolIds,
+                          @RequestParam(value = "movingParts[].toToolId", required = false) List<Long> movingPartToToolIds,
+                          @RequestParam(value = "movingParts[].notes", required = false) List<String> movingPartNotes,
                           RedirectAttributes redirectAttributes) {
         try {
+            // Ensure comments is not processed from form data - it should be managed separately
+            rma.setComments(new ArrayList<>());
+            
             // Log upload parameters for debugging
             logger.info("RMA ID: {}, fileUploads: {}, documentUploads: {}, imageUploads: {}", 
                 rma.getId(), 
@@ -195,6 +307,9 @@ public class RmaController {
             logger.info("transferFileIds: {}", transferFileIds);
             logger.info("transferFileTypes: {}", transferFileTypes);
             logger.info("transferTargetRmaIds: {}", transferTargetRmaIds);
+            
+            // Log moving parts parameters for debugging
+            logger.info("Moving Parts: {}", movingPartNames != null ? movingPartNames.size() : 0);
             
             // Check if we need to update tool fields
             if (rma.getTool() != null && rma.getTool().getId() != null) {
@@ -286,6 +401,33 @@ public class RmaController {
             
             // Save the RMA first
             Rma savedRma = rmaService.saveRma(rma, combinedUploads);
+            
+            // Process moving parts if provided
+            if (movingPartNames != null && !movingPartNames.isEmpty() &&
+                movingPartFromToolIds != null && !movingPartFromToolIds.isEmpty() &&
+                movingPartToToolIds != null && !movingPartToToolIds.isEmpty()) {
+                
+                int successCount = 0;
+                for (int i = 0; i < movingPartNames.size(); i++) {
+                    try {
+                        // Extract values for this moving part
+                        String partName = movingPartNames.get(i);
+                        Long fromToolId = movingPartFromToolIds.get(i);
+                        Long toToolId = movingPartToToolIds.get(i);
+                        String notes = i < movingPartNotes.size() ? movingPartNotes.get(i) : null;
+                        
+                        // Create the moving part, now passing the savedRma
+                        if (partName != null && !partName.trim().isEmpty() && fromToolId != null && toToolId != null) {
+                            movingPartService.createMovingPart(partName.trim(), fromToolId, toToolId, notes, null, savedRma);
+                            successCount++;
+                        }
+                    } catch (Exception e) {
+                        logger.error("Error creating moving part at index {}: {}", i, e.getMessage(), e);
+                    }
+                }
+                
+                logger.info("Successfully created {} out of {} moving parts", successCount, movingPartNames.size());
+            }
             
             // Process file transfers if present
             boolean hasTransferErrors = false;
@@ -399,6 +541,29 @@ public class RmaController {
                 location.put("displayName", tool.getLocation().getDisplayName());
                 result.put("location", location);
             }
+        }
+        
+        return result;
+    }
+
+    // Add API endpoint for getting all tools
+    @GetMapping("/api/tools")
+    @ResponseBody
+    public List<Map<String, Object>> getAllTools() {
+        List<Tool> tools = toolService.getAllTools();
+        List<Map<String, Object>> result = new ArrayList<>();
+        
+        for (Tool tool : tools) {
+            Map<String, Object> toolMap = new HashMap<>();
+            toolMap.put("id", tool.getId());
+            toolMap.put("name", tool.getName());
+            toolMap.put("chemicalGasService", tool.getChemicalGasService());
+            
+            if (tool.getLocation() != null) {
+                toolMap.put("location", tool.getLocation().getDisplayName());
+            }
+            
+            result.add(toolMap);
         }
         
         return result;
@@ -766,9 +931,32 @@ public class RmaController {
     @GetMapping("/{id}/excel")
     public ResponseEntity<byte[]> generateExcelRma(@PathVariable Long id, Principal principal) {
         try {
+            logger.info("===== GENERATING EXCEL RMA ID: {} =====", id);
+            
             // Get the RMA
             Rma rma = rmaService.getRmaById(id)
                     .orElseThrow(() -> new RuntimeException("RMA not found with ID: " + id));
+            
+            // Debug - print all RMA fields to help diagnose the issue
+            logger.info("RMA DETAILS - ID: {}, Number: '{}', SAP Notification: '{}', Service Order: '{}'", 
+                       id, rma.getRmaNumber(), rma.getSapNotificationNumber(), rma.getServiceOrder());
+            
+            logger.info("TOOL INFO - Tool: {}", rma.getTool() != null ? rma.getTool().getName() : "null");
+            
+            // Debug - examine part line items in detail
+            if (rma.getPartLineItems() != null) {
+                logger.info("PART LINE ITEMS COUNT: {}", rma.getPartLineItems().size());
+                for (int i = 0; i < rma.getPartLineItems().size(); i++) {
+                    PartLineItem part = rma.getPartLineItems().get(i);
+                    logger.info("PART #{} - Name: '{}', Number: '{}', Desc: '{}'", 
+                              i+1, 
+                              part.getPartName(), 
+                              part.getPartNumber(), 
+                              part.getProductDescription());
+                }
+            } else {
+                logger.info("PART LINE ITEMS: null");
+            }
             
             // Get current user
             User currentUser = null;
@@ -780,10 +968,79 @@ public class RmaController {
             // Generate the Excel file
             byte[] excelContent = excelService.populateRmaTemplate(rma, currentUser);
             
+            // Build descriptive filename
+            StringBuilder filenameBuilder = new StringBuilder();
+            logger.info("Building filename for RMA export. RMA Number: '{}', SAP Notification: '{}', ID: {}", 
+                        rma.getRmaNumber(), rma.getSapNotificationNumber(), id);
+
+            // Start with "RMA" as a prefix to always ensure context
+            filenameBuilder.append("RMA");
+            
+            // Add RMA number, SAP notification, or ID
+            if (rma.getRmaNumber() != null && !rma.getRmaNumber().trim().isEmpty()) {
+                filenameBuilder.append("_").append(rma.getRmaNumber().trim());
+                logger.info("Added RMA number to filename: '{}'", rma.getRmaNumber().trim());
+            } else if (rma.getSapNotificationNumber() != null && !rma.getSapNotificationNumber().trim().isEmpty()) {
+                filenameBuilder.append("_").append(rma.getSapNotificationNumber().trim());
+                logger.info("Added SAP notification number to filename: '{}'", rma.getSapNotificationNumber().trim());
+            } else if (rma.getServiceOrder() != null && !rma.getServiceOrder().trim().isEmpty()) {
+                filenameBuilder.append("_").append(rma.getServiceOrder().trim());
+                logger.info("Added Service Order to filename: '{}'", rma.getServiceOrder().trim());
+            } else {
+                filenameBuilder.append("_").append(id);
+                logger.info("Added ID to filename: {}", id);
+            }
+
+            // Add tool name if available
+            if (rma.getTool() != null && rma.getTool().getName() != null && !rma.getTool().getName().trim().isEmpty()) {
+                filenameBuilder.append("_").append(rma.getTool().getName().trim());
+                logger.info("Added tool name to filename: '{}'", rma.getTool().getName().trim());
+            }
+
+            // Add first part name/number if available
+            boolean partInfoAdded = false;
+            if (rma.getPartLineItems() != null && !rma.getPartLineItems().isEmpty()) {
+                logger.info("Found {} part line items to consider for filename", rma.getPartLineItems().size());
+                for (PartLineItem part : rma.getPartLineItems()) {
+                    if (part.getPartNumber() != null && !part.getPartNumber().trim().isEmpty()) {
+                        filenameBuilder.append("_").append(part.getPartNumber().trim());
+                        logger.info("Added part number to filename: '{}'", part.getPartNumber().trim());
+                        partInfoAdded = true;
+                        break;
+                    } else if (part.getPartName() != null && !part.getPartName().trim().isEmpty()) {
+                        filenameBuilder.append("_").append(part.getPartName().trim());
+                        logger.info("Added part name to filename: '{}'", part.getPartName().trim());
+                        partInfoAdded = true;
+                        break;
+                    } else if (part.getProductDescription() != null && !part.getProductDescription().trim().isEmpty()) {
+                        filenameBuilder.append("_").append(part.getProductDescription().trim());
+                        logger.info("Added product description to filename: '{}'", part.getProductDescription().trim());
+                        partInfoAdded = true;
+                        break;
+                    }
+                }
+                if (!partInfoAdded) {
+                    logger.warn("No valid part numbers or names found in the part line items");
+                }
+            } else {
+                logger.info("No part line items available to add to filename");
+            }
+
+            // Always add a timestamp for uniqueness
+            filenameBuilder.append("_").append(System.currentTimeMillis());
+            logger.info("Added timestamp to ensure unique filename");
+
+            // Clean filename and ensure it ends with .xlsx
+            String filename = filenameBuilder.toString()
+                    .replaceAll("[\\\\/:*?\"<>|]", "_") // Replace invalid filename chars
+                    .replaceAll("\\s+", "_") // Replace spaces with underscores
+                    .trim() + ".xlsx";
+
+            logger.info("Final Excel export filename: '{}'", filename);
+            
             // Set up response headers
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-            String filename = "RMA_" + (rma.getRmaNumber() != null ? rma.getRmaNumber() : id) + ".xlsx";
             headers.setContentDispositionFormData("attachment", filename);
             headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
             
@@ -792,5 +1049,202 @@ public class RmaController {
             logger.error("Error generating Excel RMA form", e);
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * Handles Excel file upload to pre-populate RMA form
+     */
+    @PostMapping("/uploadExcel")
+    @ResponseBody
+    public Map<String, Object> uploadExcelFile(@RequestParam("file") MultipartFile file) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            if (file.isEmpty()) {
+                response.put("success", false);
+                response.put("error", "Uploaded file is empty");
+                return response;
+            }
+            
+            // Check file extension 
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null || !(originalFilename.endsWith(".xlsx") || originalFilename.endsWith(".xls"))) {
+                response.put("success", false);
+                response.put("error", "Uploaded file is not an Excel file");
+                return response;
+            }
+            
+            // Extract data from Excel
+            byte[] fileBytes = file.getBytes();
+            Map<String, Object> extractedData = excelService.extractRmaDataFromExcel(fileBytes);
+            
+            // Check if extraction was successful
+            if (extractedData.containsKey("error")) {
+                response.put("success", false);
+                response.put("error", extractedData.get("error"));
+                return response;
+            }
+            
+            response.put("success", true);
+            response.put("data", extractedData);
+            
+        } catch (Exception e) {
+            logger.error("Error uploading Excel file", e);
+            response.put("success", false);
+            response.put("error", "Failed to process Excel file: " + e.getMessage());
+        }
+        
+        return response;
+    }
+
+    /**
+     * Handle export of draft (unsaved) RMA to Excel
+     */
+    @PostMapping("/export-draft")
+    public ResponseEntity<byte[]> exportDraftRma(@ModelAttribute Rma rma, Principal principal) {
+        try {
+            // Add more detailed logging for debugging
+            logger.info("===== EXPORTING DRAFT/UNSAVED RMA WITH FORM VALUES =====");
+            logger.info("Exporting data for RMA ID: {}, Number: '{}', SAP: '{}'", 
+                       rma.getId(), rma.getRmaNumber(), rma.getSapNotificationNumber());
+            
+            // Report on parts data
+            if (rma.getPartLineItems() != null) {
+                logger.info("Found {} part line items in form data", rma.getPartLineItems().size());
+                int index = 0;
+                for (PartLineItem part : rma.getPartLineItems()) {
+                    logger.info("Part #{}: Name='{}', Number='{}', Desc='{}'", 
+                               ++index, part.getPartName(), part.getPartNumber(), part.getProductDescription());
+                }
+            } else {
+                logger.info("No part line items found in form data");
+            }
+            
+            // Get current user
+            User currentUser = null;
+            if (principal != null) {
+                currentUser = userService.getUserByEmail(principal.getName())
+                        .orElse(null);
+            }
+            
+            // Generate the Excel file from the draft RMA
+            byte[] excelContent = excelService.populateRmaTemplate(rma, currentUser);
+            
+            // Build descriptive filename
+            StringBuilder filenameBuilder = new StringBuilder();
+            logger.info("Building filename for draft RMA export. RMA Number: '{}', SAP Notification: '{}'", 
+                       rma.getRmaNumber(), rma.getSapNotificationNumber());
+
+            // Start with "RMA" as a prefix to always ensure context
+            filenameBuilder.append("RMA");
+            
+            // Add RMA number, SAP notification, Service Order or Draft
+            if (rma.getRmaNumber() != null && !rma.getRmaNumber().trim().isEmpty()) {
+                filenameBuilder.append("_").append(rma.getRmaNumber().trim());
+                logger.info("Added RMA number to filename: '{}'", rma.getRmaNumber().trim());
+            } else if (rma.getSapNotificationNumber() != null && !rma.getSapNotificationNumber().trim().isEmpty()) {
+                filenameBuilder.append("_").append(rma.getSapNotificationNumber().trim());
+                logger.info("Added SAP notification number to filename: '{}'", rma.getSapNotificationNumber().trim());
+            } else if (rma.getServiceOrder() != null && !rma.getServiceOrder().trim().isEmpty()) {
+                filenameBuilder.append("_").append(rma.getServiceOrder().trim());
+                logger.info("Added Service Order to filename: '{}'", rma.getServiceOrder().trim());
+            } else {
+                filenameBuilder.append("_Draft");
+                logger.info("Added 'Draft' to filename");
+            }
+
+            // Add tool name if available
+            if (rma.getTool() != null && rma.getTool().getName() != null && !rma.getTool().getName().trim().isEmpty()) {
+                filenameBuilder.append("_").append(rma.getTool().getName().trim());
+                logger.info("Added tool name to filename: '{}'", rma.getTool().getName().trim());
+            } else {
+                logger.info("No tool name available to add to filename");
+            }
+
+            // Add first part name/number if available
+            boolean partInfoAdded = false;
+            if (rma.getPartLineItems() != null && !rma.getPartLineItems().isEmpty()) {
+                logger.info("Found {} part line items to consider for filename", rma.getPartLineItems().size());
+                for (PartLineItem part : rma.getPartLineItems()) {
+                    if (part.getPartNumber() != null && !part.getPartNumber().trim().isEmpty()) {
+                        filenameBuilder.append("_").append(part.getPartNumber().trim());
+                        logger.info("Added part number to filename: '{}'", part.getPartNumber().trim());
+                        partInfoAdded = true;
+                        break;
+                    } else if (part.getPartName() != null && !part.getPartName().trim().isEmpty()) {
+                        filenameBuilder.append("_").append(part.getPartName().trim());
+                        logger.info("Added part name to filename: '{}'", part.getPartName().trim());
+                        partInfoAdded = true;
+                        break;
+                    } else if (part.getProductDescription() != null && !part.getProductDescription().trim().isEmpty()) {
+                        filenameBuilder.append("_").append(part.getProductDescription().trim());
+                        logger.info("Added product description to filename: '{}'", part.getProductDescription().trim());
+                        partInfoAdded = true;
+                        break;
+                    }
+                }
+                if (!partInfoAdded) {
+                    logger.warn("No valid part numbers or names found in the part line items");
+                }
+            } else {
+                logger.info("No part line items available to add to filename");
+            }
+
+            // Always add a timestamp for uniqueness
+            filenameBuilder.append("_").append(System.currentTimeMillis());
+            logger.info("Added timestamp to ensure unique filename");
+
+            // Clean filename and ensure it ends with .xlsx
+            String filename = filenameBuilder.toString()
+                    .replaceAll("[\\\\/:*?\"<>|]", "_") // Replace invalid filename chars
+                    .replaceAll("\\s+", "_") // Replace spaces with underscores
+                    .trim() + ".xlsx";
+
+            logger.info("Final Excel export filename for form data: '{}'", filename);
+            
+            // Set up response headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
+            
+            return new ResponseEntity<>(excelContent, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            logger.error("Error generating Excel from form data", e);
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Handles adding a new comment to an RMA
+     */
+    @GetMapping("/{id}/post-comment")
+    public String getPostComment(@PathVariable Long id) {
+        return "redirect:/rma/" + id;
+    }
+
+    @PostMapping("/{id}/post-comment")
+    public String postComment(@PathVariable Long id, 
+                            @RequestParam("content") String content,
+                            Authentication authentication,
+                            RedirectAttributes redirectAttributes) {
+        logger.info("Adding comment to RMA ID: {}", id);
+        
+        try {
+            // Ensure user is authenticated
+            if (authentication == null) {
+                redirectAttributes.addFlashAttribute("error", "You must be logged in to add comments");
+                return "redirect:/rma/" + id;
+            }
+            
+            String userEmail = authentication.getName();
+            rmaService.addComment(id, content, userEmail);
+            redirectAttributes.addFlashAttribute("message", "Comment added successfully");
+        } catch (Exception e) {
+            logger.error("Error adding comment to RMA: {}", e.getMessage(), e);
+            redirectAttributes.addFlashAttribute("error", "Error adding comment: " + e.getMessage());
+        }
+        
+        return "redirect:/rma/" + id;
     }
 } 

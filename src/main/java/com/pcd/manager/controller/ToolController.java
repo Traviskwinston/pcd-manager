@@ -104,7 +104,19 @@ public class ToolController {
 
     @GetMapping
     public String listTools(Model model) {
-        List<Tool> tools = toolService.getAllTools();
+        List<Tool> tools = toolService.getAllToolsWithTechnicians();
+        // Sort: tools with technicians first, then alphabetically by name and secondary name
+        tools.sort((a, b) -> {
+            boolean aHasTech = a.getCurrentTechnicians() != null && !a.getCurrentTechnicians().isEmpty();
+            boolean bHasTech = b.getCurrentTechnicians() != null && !b.getCurrentTechnicians().isEmpty();
+            if (aHasTech && !bHasTech) return -1;
+            if (!aHasTech && bHasTech) return 1;
+            int cmp = a.getName().compareToIgnoreCase(b.getName());
+            if (cmp != 0) return cmp;
+            String aSec = a.getSecondaryName() == null ? "" : a.getSecondaryName();
+            String bSec = b.getSecondaryName() == null ? "" : b.getSecondaryName();
+            return aSec.compareToIgnoreCase(bSec);
+        });
         model.addAttribute("tools", tools);
         return "tools/list";
     }
@@ -182,6 +194,12 @@ public class ToolController {
         List<Passdown> recentPassdowns = passdownService.getRecentPassdowns(20);
         model.addAttribute("recentPassdowns", recentPassdowns);
         
+        // Add all TrackTrends for linking functionality (if not already covered by trackTrendsForTool)
+        // Ensure this doesn't cause issues if trackTrendsForTool is also used elsewhere in the template.
+        // For the modal, we need all possible linkable track trends.
+        List<TrackTrend> allTrackTrends = trackTrendService.getAllTrackTrends();
+        model.addAttribute("allTrackTrends", allTrackTrends);
+        
         return "tools/details";
     }
 
@@ -195,8 +213,7 @@ public class ToolController {
     @PostMapping
     public String saveTool(
             @ModelAttribute Tool tool,
-            @RequestParam(value = "documentFiles", required = false) MultipartFile[] documentFiles,
-            @RequestParam(value = "pictureFiles", required = false) MultipartFile[] pictureFiles) {
+            @RequestParam(value = "files", required = false) MultipartFile[] files) {
         
         logger.info("Starting tool save process for tool: {}", tool.getName());
         
@@ -233,46 +250,43 @@ public class ToolController {
                 });
             }
             
-            // Handle document uploads
-            logger.info("Processing document uploads");
-            if (documentFiles != null && documentFiles.length > 0) {
-                logger.info("Found {} document files to process", documentFiles.length);
-                for (MultipartFile file : documentFiles) {
+            // Handle document uploads (now part of 'files')
+            logger.info("Processing file uploads from 'files' parameter");
+            if (files != null && files.length > 0) {
+                logger.info("Found {} files to process", files.length);
+                for (MultipartFile file : files) {
                     if (!file.isEmpty()) {
-                        logger.info("Processing document file: {}", file.getOriginalFilename());
-                        String filePath = saveUploadedFile(file, "documents");
-                        if (filePath != null) {
-                            tool.getDocumentPaths().add(filePath);
-                            tool.getDocumentNames().put(filePath, file.getOriginalFilename());
-                            logger.info("Added document path: {}", filePath);
+                        String originalFilename = file.getOriginalFilename();
+                        String contentType = file.getContentType();
+                        String subdirectory;
+                        boolean isPicture = false;
+
+                        if (contentType != null && contentType.startsWith("image/")) {
+                            subdirectory = "pictures";
+                            isPicture = true;
                         } else {
-                            logger.warn("Failed to save document: {}", file.getOriginalFilename());
+                            subdirectory = "documents";
+                        }
+                        logger.info("Processing file: {}, type: {}, target subdir: {}", originalFilename, contentType, subdirectory);
+
+                        String filePath = saveUploadedFile(file, subdirectory);
+                        if (filePath != null) {
+                            if (isPicture) {
+                                tool.getPicturePaths().add(filePath);
+                                tool.getPictureNames().put(filePath, originalFilename);
+                                logger.info("Added picture path: {} for file {}", filePath, originalFilename);
+                            } else {
+                                tool.getDocumentPaths().add(filePath);
+                                tool.getDocumentNames().put(filePath, originalFilename);
+                                logger.info("Added document path: {} for file {}", filePath, originalFilename);
+                            }
+                        } else {
+                            logger.warn("Failed to save uploaded file: {}", originalFilename);
                         }
                     }
                 }
             } else {
-                logger.info("No document files to process");
-            }
-            
-            // Handle picture uploads
-            logger.info("Processing picture uploads");
-            if (pictureFiles != null && pictureFiles.length > 0) {
-                logger.info("Found {} picture files to process", pictureFiles.length);
-                for (MultipartFile file : pictureFiles) {
-                    if (!file.isEmpty()) {
-                        logger.info("Processing picture file: {}", file.getOriginalFilename());
-                        String filePath = saveUploadedFile(file, "pictures");
-                        if (filePath != null) {
-                            tool.getPicturePaths().add(filePath);
-                            tool.getPictureNames().put(filePath, file.getOriginalFilename());
-                            logger.info("Added picture path: {}", filePath);
-                        } else {
-                            logger.warn("Failed to save picture: {}", file.getOriginalFilename());
-                        }
-                    }
-                }
-            } else {
-                logger.info("No picture files to process");
+                logger.info("No files provided in 'files' parameter for upload");
             }
             
             logger.info("Calling toolService.saveTool");
@@ -815,5 +829,77 @@ public class ToolController {
         }
         
         return "redirect:/tools/" + toolId;
+    }
+
+    @PostMapping("/{id}/upload-files")
+    public String handleFileUpload(
+            @PathVariable Long id,
+            @RequestParam("files") MultipartFile[] files,
+            RedirectAttributes redirectAttributes) {
+        
+        logger.info("Attempting to upload {} files to tool ID: {}", files.length, id);
+        Optional<Tool> toolOpt = toolService.getToolById(id);
+        if (toolOpt.isEmpty()) {
+            redirectAttributes.addFlashAttribute("error", "Tool not found with ID: " + id);
+            return "redirect:/tools";
+        }
+        Tool tool = toolOpt.get();
+        int uploadedCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            if (file.isEmpty()) {
+                continue;
+            }
+            String originalFilename = file.getOriginalFilename();
+            String contentType = file.getContentType();
+            String subdirectory;
+            boolean isPicture = false;
+
+            if (contentType != null && contentType.startsWith("image/")) {
+                subdirectory = "pictures";
+                isPicture = true;
+            } else {
+                // Default to documents for other types, or could add more specific checks
+                subdirectory = "documents";
+            }
+            
+            logger.info("Processing file: {}, type: {}, target subdir: {}", originalFilename, contentType, subdirectory);
+
+            // The saveUploadedFile method already catches IOException and returns null on failure.
+            String filePath = saveUploadedFile(file, subdirectory); 
+            if (filePath != null) {
+                if (isPicture) {
+                    tool.getPicturePaths().add(filePath);
+                    tool.getPictureNames().put(filePath, originalFilename);
+                    logger.info("Added picture: {} to tool {}", filePath, tool.getId());
+                } else {
+                    tool.getDocumentPaths().add(filePath);
+                    tool.getDocumentNames().put(filePath, originalFilename);
+                    logger.info("Added document: {} to tool {}", filePath, tool.getId());
+                }
+                uploadedCount++;
+            } else {
+                logger.warn("Failed to save file: {}", originalFilename);
+                errors.add("Failed to save file: " + originalFilename);
+            }
+        }
+
+        if (uploadedCount > 0) {
+            try {
+                toolService.saveTool(tool);
+                redirectAttributes.addFlashAttribute("message", uploadedCount + " file(s) uploaded successfully.");
+            } catch (Exception e) {
+                logger.error("Error saving tool after file uploads: {}", e.getMessage(), e);
+                errors.add("Error saving tool after uploads: " + e.getMessage());
+                redirectAttributes.addFlashAttribute("error", String.join(", ", errors));
+            }
+        } else if (!errors.isEmpty()) {
+            redirectAttributes.addFlashAttribute("error", "File upload failed: " + String.join(", ", errors));
+        } else {
+            redirectAttributes.addFlashAttribute("info", "No files were selected for upload.");
+        }
+
+        return "redirect:/tools/" + id;
     }
 } 

@@ -15,4 +15,6 @@ public interface MovingPartRepository extends JpaRepository<MovingPart, Long> {
     
     @Query("SELECT mp FROM MovingPart mp WHERE mp.fromTool.id = :toolId OR mp.toTool.id = :toolId ORDER BY mp.moveDate DESC")
     List<MovingPart> findAllByToolId(Long toolId);
+    
+    List<MovingPart> findByRmaId(Long rmaId);
 } 

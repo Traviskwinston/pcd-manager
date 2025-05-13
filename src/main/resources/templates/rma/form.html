@@ -17,11 +17,11 @@
             border-style: dashed !important; 
         }
         
-        #drop-area {
+        #drop-area, #excel-drop-area {
             transition: all 0.3s ease;
         }
         
-        #drop-area.highlight {
+        #drop-area.highlight, #excel-drop-area.highlight {
             border-color: #198754 !important;
             background-color: rgba(25, 135, 84, 0.1) !important;
         }
@@ -36,6 +36,85 @@
                 <h3 th:text="${rma.id != null ? 'Update RMA' : 'Create New RMA'}">RMA Form</h3>
             </div>
             <div class="card-body">
+                <!-- Upload Sections - Side by Side -->
+                <div class="row mb-3">
+                    <!-- Left Column: Excel Upload -->
+                    <div class="col-md-3">
+                        <div class="card mb-0 h-100 border-success">
+                            <div class="card-header bg-success text-white py-1">
+                                <h6 class="mb-0"><i class="bi bi-file-earmark-excel me-1"></i>Upload RMA Excel</h6>
+                            </div>
+                            <div class="card-body py-2">
+                                <div class="row align-items-center">
+                                    <div class="col">
+                                        <!-- Excel Drop Area -->
+                                        <div id="excel-drop-area" class="rounded bg-light border border-dashed border-success p-3 mb-2 text-center" style="min-height: 80px; cursor: pointer;">
+                                            <i class="bi bi-file-spreadsheet-fill text-success fs-4"></i>
+                                            <div>Drag Excel file here or <span class="text-success fw-medium">browse</span></div>
+                                            <small class="text-muted">Click to select file or drag and drop</small>
+                                        </div>
+                                        
+                                        <!-- Hidden Excel file input -->
+                                        <input type="file" id="excelFileInput" class="d-none" accept=".xlsx,.xls">
+                                        
+                                        <div class="d-grid gap-2 w-100">
+                                            <button class="btn btn-sm btn-success" type="button" id="uploadExcelBtn">
+                                                <i class="bi bi-upload me-1"></i> Parse Excel
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-success" type="button" id="exportToExcelBtn">
+                                                <i class="bi bi-download me-1"></i> Export to Excel
+                                            </button>
+                                        </div>
+                                        <div id="excelUploadResult" class="alert alert-sm mt-1 mb-0 py-1 px-2" style="display: none; font-size: 0.8rem;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: File Upload -->
+                    <div class="col-md-9">
+                        <div class="card mb-0 h-100 border-primary">
+                            <div class="card-header bg-primary text-white py-1">
+                                <h6 class="mb-0"><i class="bi bi-file-earmark-arrow-up me-1"></i>Upload Files</h6>
+                            </div>
+                            <div class="card-body py-2">
+                                <!-- Hidden file uploads tracking input -->
+                                <input type="hidden" id="fileUploadsTracker" name="fileUploadsTracker" value="">
+                                
+                                <!-- Direct file input -->
+                                <div id="drop-area" class="rounded bg-light border border-dashed border-primary p-3 mb-2 d-flex flex-column align-items-center justify-content-center" style="min-height: 80px; cursor: pointer;">
+                                    <i class="bi bi-cloud-arrow-up-fill text-primary fs-4"></i>
+                                    <h6 class="mb-1">Drag files here or <label for="fileInput" class="text-primary" style="cursor: pointer; text-decoration: underline;">browse</label></h6>
+                                    <div class="small text-muted">Supports images (jpg, png) and documents (pdf, doc, etc.)</div>
+                                    <input type="file" id="fileInput" name="fileUploads" multiple="multiple" class="d-none">
+                                </div>
+                                
+                                <!-- Files Preview -->
+                                <div class="mt-2 border-top pt-2">
+                                    <h6 class="small fw-bold">Files to upload:</h6>
+                                    <div id="files-preview" class="small">
+                                        <div id="image-preview" class="mb-1">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-images me-1"></i>
+                                                <div>Images: <span id="image-count">0</span></div>
+                                            </div>
+                                            <ul id="image-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 80px; overflow-y: auto; font-size: 0.75rem;"></ul>
+                                        </div>
+                                        <div id="document-preview">
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-file-earmark-text me-1"></i>
+                                                <div>Documents: <span id="document-count">0</span></div>
+                                            </div>
+                                            <ul id="document-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 80px; overflow-y: auto; font-size: 0.75rem;"></ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <form th:action="@{/rma}" th:object="${rma}" method="post" enctype="multipart/form-data">
                     <input type="hidden" th:field="*{id}" />
                     
@@ -52,6 +131,19 @@
                                 </select>
                             </div>
                             <hr />
+                            
+                            <!-- Moving Parts Preview Section - will only show after saving the RMA -->
+                            <div class="mb-3" id="moving-parts-preview" style="display: none;">
+                                <h6 class="border-bottom pb-2">Moving Parts</h6>
+                                <div class="small text-muted mb-2">
+                                    <i class="bi bi-info-circle me-1"></i> 
+                                    Moving parts for this tool will be available after saving the RMA.
+                                </div>
+                                <div id="moving-parts-container" class="list-group small">
+                                    <!-- Moving part entries will be shown here when a tool is selected and the RMA has an ID -->
+                                </div>
+                            </div>
+                            
                             <!-- Tool Details -->
                             <ul class="list-unstyled" id="tool-details-list">
                                 <li><strong>Type:</strong> <span id="tool-type"></span></li>
@@ -108,8 +200,9 @@
                             <div class="row mb-2">
                                 <div class="col-md-2"><strong>Part Name:</strong></div>
                                 <div class="col-md-3"><strong>Part Number:</strong></div>
-                                <div class="col-md-5"><strong>Item Description:</strong></div>
+                                <div class="col-md-3"><strong>Item Description:</strong></div>
                                 <div class="col-md-1"><strong>Qty:</strong></div>
+                                <div class="col-md-2"><strong>Replace?</strong></div>
                                 <div class="col-md-1"></div>
                             </div>
                             <!-- Parts Items Container -->
@@ -124,30 +217,21 @@
                                             <div class="col-md-3">
                                                 <input type="text" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].partNumber}" placeholder="Part Number" />
                                             </div>
-                                            <div class="col-md-5">
-                                                <input type="text" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].productDescription}" placeholder="Item Description" />
+                                            <div class="col-md-3">
+                                                <input type="text" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].productDescription}" placeholder="Item Description" style="width: 100%; box-sizing: border-box;" />
                                             </div>
                                             <div class="col-md-1">
-                                                <input type="number" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].quantity}" placeholder="Qty" min="0" />
+                                                <input type="number" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].quantity}" placeholder="Qty" min="0" style="min-width: 60px;" />
                                             </div>
-                                            <div class="col-md-1 d-flex align-items-center justify-content-start gap-1">
-                                                <button type="button" class="btn btn-sm btn-outline-secondary add-part" title="Add Part">+</button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger remove-part" title="Remove Part">-</button>
-                                            </div>
-                                        </div>
-                                        <div class="row mb-3">
-                                            <div class="col-md-12">
-                                                <div class="d-flex align-items-center">
-                                                    <span class="me-2">Replacement Required:</span>
-                                                    <div class="form-check form-check-inline mb-0">
-                                                        <input type="radio" class="form-check-input" th:field="*{partLineItems[__${itemStat.index}__].replacementRequired}" value="true" />
-                                                        <label class="form-check-label">Yes</label>
-                                                    </div>
-                                                    <div class="form-check form-check-inline mb-0">
-                                                        <input type="radio" class="form-check-input" th:field="*{partLineItems[__${itemStat.index}__].replacementRequired}" value="false" />
-                                                        <label class="form-check-label">No</label>
-                                                    </div>
+                                            <div class="col-md-2">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" th:field="*{partLineItems[__${itemStat.index}__].replacementRequired}">
                                                 </div>
+                                            </div>
+                                            <div class="col-md-1">
+                                                <button type="button" class="btn btn-sm btn-outline-danger remove-part" title="Remove Part">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -155,24 +239,138 @@
 
                                 <!-- Template Row for Adding New Parts -->
                                 <div class="part-item template d-none" data-index="__INDEX__"></div>
-
+                                
+                                <!-- Show at least one empty row if there are no parts -->
+                                <th:block th:if="${rma.partLineItems == null || rma.partLineItems.empty}">
+                                    <div class="part-item">
+                                        <div class="row mb-2">
+                                            <div class="col-md-2">
+                                                <input type="text" class="form-control form-control-sm" name="partLineItems[0].partName" placeholder="Part Name" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <input type="text" class="form-control form-control-sm" name="partLineItems[0].partNumber" placeholder="Part Number" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <input type="text" class="form-control form-control-sm" name="partLineItems[0].productDescription" placeholder="Item Description" style="width: 100%; box-sizing: border-box;" />
+                                            </div>
+                                            <div class="col-md-1">
+                                                <input type="number" class="form-control form-control-sm" name="partLineItems[0].quantity" value="1" min="1" placeholder="Qty" style="min-width: 60px;" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" name="partLineItems[0].replacementRequired">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-1">
+                                                <button type="button" class="btn btn-sm btn-outline-danger remove-part" title="Remove Part">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </th:block>
+                                
+                                <!-- Add Part button -->
+                                <div class="text-end mt-2">
+                                    <button type="button" id="addPartBtn" class="btn btn-sm btn-primary" onclick="addNewPart()">
+                                        <i class="bi bi-plus-circle me-1"></i> Add Part
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <!-- End Main Layout Row -->
                     <hr />
-                    <!-- RMA Number -->
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label for="rmaNumber" class="form-label">RMA Number</label>
-                                <input type="text" id="rmaNumber" class="form-control" th:field="*{rmaNumber}" />
+                    
+                    <!-- Associated Moving Parts (Read-only display) -->
+                    <div class="row mb-3" th:if="${movingParts != null && !movingParts.empty}">
+                        <div class="col-md-12">
+                            <div class="card border-secondary">
+                                <div class="card-header bg-secondary text-white">
+                                    <h5 class="mb-0"><i class="bi bi-arrows-move me-2"></i>Associated Moving Parts</h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-sm mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Part Name</th>
+                                                    <th>Movement</th>
+                                                    <th>Notes</th>
+                                                    <th>Date</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr th:each="movingPart : ${movingParts}">
+                                                    <td th:text="${movingPart.partName}">Part Name</td>
+                                                    <td>
+                                                        <a th:if="${movingPart.fromTool != null}" th:href="@{/tools/{id}(id=${movingPart.fromTool.id})}" th:text="${movingPart.fromTool.name}" class="text-decoration-none"></a>
+                                                        <span th:unless="${movingPart.fromTool != null}">N/A</span>
+                                                        <i class="bi bi-arrow-right text-success mx-1"></i>
+                                                        <a th:if="${movingPart.toTool != null}" th:href="@{/tools/{id}(id=${movingPart.toTool.id})}" th:text="${movingPart.toTool.name}" class="text-decoration-none"></a>
+                                                        <span th:unless="${movingPart.toTool != null}">N/A</span>
+                                                    </td>
+                                                    <td th:text="${movingPart.notes}">Notes</td>
+                                                    <td th:text="${#temporals.format(movingPart.moveDate, 'yyyy-MM-dd HH:mm')}">Date</td>
+                                                    <td>
+                                                        <button type="button" class="btn btn-sm btn-outline-info unified-link-trigger-btn"
+                                                                data-bs-toggle="modal" data-bs-target="#unifiedLinkFileModal" 
+                                                                th:data-source-entity-id="${movingPart.id}"
+                                                                th:data-source-entity-type="'MOVING_PART'"
+                                                                th:data-file-name="${movingPart.partName + ' (Movement ID: ' + movingPart.id + ')'}"
+                                                                th:data-file-type="'MOVING_PART_RECORD'"
+                                                                title="Link this Moving Part record">
+                                                            <i class="bi bi-link-45deg"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                    </div>
+                    <!-- End Associated Moving Parts -->
+                    
+                    <!-- Moving Parts Section -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <h5>Moving Parts</h5>
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Part Name</th>
+                                            <th>From Tool</th>
+                                            <th>To Tool</th>
+                                            <th>Notes</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="moving-parts-table-body">
+                                        <!-- Moving parts will be added here by JavaScript or rendered by server -->
+                                    </tbody>
+                                </table>
+                                <div class="text-end mt-2">
+                                    <button type="button" class="btn btn-sm btn-primary" id="add-moving-part-btn" data-bs-toggle="modal" data-bs-target="#addMovingPartModal">
+                                        <i class="bi bi-plus-circle me-1"></i> Add Moving Part
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <hr />
+                    
+                    <!-- RMA Number -->
+                    <div class="row mb-3">
+                        <div class="col-md-8">
                             <div class="mb-3">
-                                <label for="sapNotificationNumber" class="form-label">SAP Notification Number</label>
-                                <input type="text" id="sapNotificationNumber" class="form-control" th:field="*{sapNotificationNumber}" />
+                                <label for="combinedRmaField" class="form-label">RMA Number/SAP Notification Number</label>
+                                <input type="text" id="combinedRmaField" class="form-control" placeholder="Enter RMA/SAP Number" />
+                                <input type="hidden" id="rmaNumber" th:field="*{rmaNumber}" />
+                                <input type="hidden" id="sapNotificationNumber" th:field="*{sapNotificationNumber}" />
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -300,153 +498,7 @@
                         </div>
                     </div>
                     <hr />
-                    <!-- Combined File Upload Section -->
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <h5>Upload Files</h5>
-                            
-                            <!-- Debug Info Panel -->
-                            <div class="alert alert-info small mb-3" style="display: none;">
-                                <p><strong>File Upload Debug Info:</strong></p>
-                                <p>Upload Directory: <span id="uploadDirDisplay">Loading...</span></p>
-                                <p>Files Selected: <span id="filesSelectedCount">0</span></p>
-                            </div>
-                            
-                            <!-- Hidden file uploads tracking input -->
-                            <input type="hidden" id="fileUploadsTracker" name="fileUploadsTracker" value="">
-                            
-                            <!-- Direct file input to avoid dialog issues -->
-                            <div class="mb-3">
-                                <div class="card border-2 border-primary-subtle p-3">
-                                    <div class="card-body text-center">
-                                        <div id="drop-area" class="py-4 px-2 rounded bg-light border border-dashed border-primary">
-                                            <i class="bi bi-cloud-arrow-up-fill text-primary" style="font-size: 2rem;"></i>
-                                            <h5 class="mt-2">Drag &amp; drop files here</h5>
-                                            <p class="text-muted mb-3">or</p>
-                                            <label for="fileInput" class="btn btn-primary">
-                                                <i class="bi bi-folder2-open me-1"></i> Browse Files
-                                            </label>
-                                            <input type="file" id="fileInput" name="fileUploads" multiple="multiple" class="d-none">
-                                            <div class="text-muted small mt-2">Supports images (jpg, png) and documents (pdf, doc, etc.)</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- File Preview Area -->
-                            <div class="mt-3">
-                                <h6>Selected Files for Upload</h6>
-                                
-                                <!-- Images Preview -->
-                                <div id="imagesPreview" class="mb-3">
-                                    <h6 class="text-muted mb-2">Images</h6>
-                                    <div class="row" id="imagePreviewContainer">
-                                        <!-- JavaScript will populate this -->
-                                        <div class="col-12 text-muted" id="noImagesMessage">No images selected yet</div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Documents Preview -->
-                                <div id="documentsPreview" class="mb-3">
-                                    <h6 class="text-muted mb-2">Documents</h6>
-                                    <ul class="list-group" id="documentPreviewContainer">
-                                        <!-- JavaScript will populate this -->
-                                        <li class="list-group-item text-muted" id="noDocsMessage">No documents selected yet</li>
-                                    </ul>
-                                </div>
-                            </div>
-                            
-                            <!-- Existing Files Preview Section (only displayed when editing) -->
-                            <div th:if="${rma.id != null}" class="mt-4">
-                                <hr>
-                                <h6>Currently Attached Files</h6>
-                                
-                                <!-- Pictures Section -->
-                                <div th:if="${rma.pictures != null and not #lists.isEmpty(rma.pictures)}" class="mb-3">
-                                    <h6 class="text-muted mb-2">Images</h6>
-                                    <div class="row">
-                                        <div class="col-md-2 mb-2" th:each="picture : ${rma.pictures}">
-                                            <div class="card h-100 shadow-sm">
-                                                <div class="card-img-top text-center p-2" style="height: 100px;">
-                                                    <img th:src="@{'/rma/files/' + ${picture.filePath}}" 
-                                                         th:alt="${picture.fileName}" 
-                                                         class="img-fluid rounded" 
-                                                         style="max-height: 100%; max-width: 100%; object-fit: contain; cursor: pointer;"
-                                                         onclick="window.open(this.src, '_blank');"
-                                                         onerror="this.onerror=null; this.src=''; this.style.display='none'; this.parentNode.innerHTML += '<div class=\'text-center text-muted\'><i class=\'bi bi-image\'></i><br>Image not found</div>'"/>
-                                                </div>
-                                                <div class="card-footer p-1 text-center bg-light">
-                                                    <small class="text-muted" th:text="${#strings.length(picture.fileName) > 15 ? #strings.substring(picture.fileName, 0, 12) + '...' : picture.fileName}">Filename</small>
-                                                    <div class="mt-1 d-flex gap-1 justify-content-center">
-                                                        <a th:href="@{'/rma/files/' + ${picture.filePath}}" 
-                                                           target="_blank" 
-                                                           class="btn btn-sm btn-outline-primary" 
-                                                           title="View/Download Image">
-                                                            <i class="bi bi-download"></i>
-                                                        </a>
-                                                        <button class="btn btn-sm btn-outline-danger delete-file-btn" 
-                                                               title="Delete Image"
-                                                               th:data-id="${picture.id}"
-                                                               data-type="picture"
-                                                               th:data-rma-id="${rma.id}">
-                                                            <i class="bi bi-trash"></i>
-                                                        </button>
-                                                        <button type="button" class="btn btn-sm btn-outline-secondary transfer-btn" 
-                                                                title="Transfer Image to Another RMA"
-                                                                th:data-id="${picture.id}"
-                                                                data-type="picture"
-                                                                data-bs-toggle="modal" 
-                                                                data-bs-target="#transferModal">
-                                                            <i class="bi bi-arrow-right-square"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Documents Section -->
-                                <div th:if="${rma.documents != null and not #lists.isEmpty(rma.documents)}" class="mb-3">
-                                    <h6 class="text-muted mb-2">Documents</h6>
-                                    <ul class="list-group">
-                                        <li class="list-group-item d-flex justify-content-between align-items-center" th:each="document : ${rma.documents}">
-                                            <span th:text="${document.fileName}">Document Name</span>
-                                            <div class="btn-group">
-                                                <a th:href="@{'/rma/files/' + ${document.filePath}}" 
-                                                   target="_blank" 
-                                                   class="btn btn-sm btn-outline-primary" 
-                                                   title="View/Download Document">
-                                                    <i class="bi bi-download me-1"></i> View
-                                                </a>
-                                                <button class="btn btn-sm btn-outline-danger delete-file-btn" 
-                                                        title="Delete Document"
-                                                        th:data-id="${document.id}"
-                                                        data-type="document"
-                                                        th:data-rma-id="${rma.id}">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1 transfer-btn" 
-                                                        title="Transfer Document to Another RMA"
-                                                        th:data-id="${document.id}"
-                                                        data-type="document"
-                                                        data-bs-toggle="modal" 
-                                                        data-bs-target="#transferModal">
-                                                    <i class="bi bi-arrow-right-square"></i>
-                                                </button>
-                                            </div>
-                                        </li>
-                                    </ul>
-                                </div>
-                                
-                                <div th:if="${(rma.pictures == null or #lists.isEmpty(rma.pictures)) and (rma.documents == null or #lists.isEmpty(rma.documents))}" class="alert alert-info">
-                                    No files are currently attached to this RMA.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <hr />
-                    <!-- Add Transfer Preview section after the "Currently Attached Files" section -->
+                    <!-- Transfer Preview section (only displayed when editing) -->
                     <div th:if="${rma.id != null}" class="mt-4" id="transferPreviewSection" style="display: none;">
                         <hr>
                         <div class="card border-info">
@@ -508,8 +560,10 @@
                                 <label for="technician" class="form-label">Technician</label>
                                 <select id="technician" class="form-select" th:field="*{technician}">
                                     <option value="">-- Unassigned --</option>
-                                    <option th:each="tech : ${technicians}" th:value="${tech}" th:text="${tech}"></option>
+                                    <option th:each="tech : ${technicians}" th:value="${tech.name}" th:text="${tech.name}"></option>
                                 </select>
+                                <!-- Hidden input with current user name -->
+                                <input type="hidden" id="currentUserName" th:value="${currentUserName}">
                             </div>
                         </div>
                     </div>
@@ -626,16 +680,51 @@
                         </div>
                     </div>
                     <hr />
-                    <!-- Description -->
+                    <!-- Replace Description with Problem Information Fields -->
                     <div class="mb-3">
-                        <label for="description" class="form-label">Description</label>
-                        <textarea id="description" class="form-control" th:field="*{description}" rows="3"></textarea>
+                        <h5>Problem Information</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="problemDiscoverer" class="form-label">1. Who Discovered the Problem:</label>
+                                    <input type="text" id="problemDiscoverer" class="form-control" th:field="*{problemDiscoverer}" />
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="problemDiscoveryDate" class="form-label">2. When Was It Discovered:</label>
+                                    <input type="date" id="problemDiscoveryDate" class="form-control" th:field="*{problemDiscoveryDate}" />
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="whatHappened" class="form-label">3. What Happened:</label>
+                                    <textarea id="whatHappened" class="form-control" th:field="*{whatHappened}" rows="3"></textarea>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="whyAndHowItHappened" class="form-label">4. Why and How Did It Happen:</label>
+                                    <textarea id="whyAndHowItHappened" class="form-control" th:field="*{whyAndHowItHappened}" rows="3"></textarea>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="howContained" class="form-label">5. How Was It Contained:</label>
+                                    <textarea id="howContained" class="form-control" th:field="*{howContained}" rows="3"></textarea>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="whoContained" class="form-label">6. Who Contained It:</label>
+                                    <input type="text" id="whoContained" class="form-control" th:field="*{whoContained}" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Comments -->
                     <div class="mb-3">
                         <label for="comments" class="form-label">Comments</label>
-                        <textarea id="comments" class="form-control" th:field="*{comments}" rows="3"></textarea>
+                        <textarea id="comments" class="form-control" rows="3"></textarea>
+                        <!-- Don't bind the text area to the RMA comments field since it's a List<RmaComment> -->
+                        <input type="hidden" name="comments" value="">
                     </div>
 
                     <!-- Form Actions -->
@@ -706,389 +795,609 @@
         </div>
     </div>
 
+    <!-- Add Moving Part Modal -->
+    <div class="modal fade" id="addMovingPartModal" tabindex="-1" aria-labelledby="addMovingPartModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addMovingPartModalLabel">Add Moving Part</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="movingPartName" class="form-label">Part Name:</label>
+                        <input type="text" class="form-control" id="movingPartName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Movement:</label>
+                        <div class="d-flex align-items-center mb-2">
+                            <strong class="me-2">From:</strong>
+                            <select class="form-select" id="fromToolId">
+                                <option value="">Select source tool...</option>
+                                <option th:each="t : ${tools}"
+                                        th:value="${t.id}" 
+                                        th:text="${t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : '')}">
+                                    Tool Name
+                                </option>
+                            </select>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <strong class="me-2">To:</strong>
+                            <select class="form-select" id="toToolId">
+                                <option value="">Select destination tool...</option>
+                                <option th:each="t : ${tools}"
+                                        th:value="${t.id}" 
+                                        th:text="${t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : '')}"
+                                        th:selected="${rma.tool != null && t.id == rma.tool.id}">
+                                    Tool Name
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="movingPartNotes" class="form-label">Notes:</label>
+                        <textarea class="form-control" id="movingPartNotes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveMovingPartBtn">Add</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/rma-excel-parser.js}"></script>
+    <script th:src="@{/js/rma-form-fix.js}"></script>
+    <!-- Inline script to ensure technician gets set -->
+    <script>
+      // Set default technician when page loads
+      document.addEventListener('DOMContentLoaded', function() {
+          const technicianSelect = document.getElementById('technician');
+          const currentUserNameField = document.getElementById('currentUserName');
+          
+          if (technicianSelect && technicianSelect.value === '') {
+              console.log('Setting default technician from inline script');
+              
+              let found = false;
+              
+              // First try to use current user name from server
+              if (currentUserNameField && currentUserNameField.value) {
+                  const currentUserName = currentUserNameField.value;
+                  console.log('Current user from server: ' + currentUserName);
+                  
+                  // Try to find a matching technician
+                  const options = technicianSelect.options;
+                  for (let i = 0; i < options.length; i++) {
+                      if (options[i].value === currentUserName || 
+                          options[i].text === currentUserName ||
+                          options[i].text.includes(currentUserName) || 
+                          currentUserName.includes(options[i].text)) {
+                          technicianSelect.selectedIndex = i;
+                          console.log('Set technician to: ' + options[i].text + ' (matched with current user)');
+                          found = true;
+                          break;
+                      }
+                  }
+              }
+              
+              // Fallback to first non-empty option if no match found
+              if (!found) {
+                  const options = technicianSelect.options;
+                  for (let i = 0; i < options.length; i++) {
+                      if (options[i].value !== '') {
+                          technicianSelect.selectedIndex = i;
+                          console.log('Set technician to: ' + options[i].text + ' (first available)');
+                          break;
+                      }
+                  }
+              }
+          }
+      });
+    </script>
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-            // Process Impact Information conditional logic
-            function setupConditionalFields() {
-                // Downtime field logic
-                const interruptionFlowRadios = document.querySelectorAll('input[name="interruptionToFlow"]');
-                const interruptionProdRadios = document.querySelectorAll('input[name="interruptionToProduction"]');
-                const downtimeContainer = document.getElementById('downtimeContainer');
-                
-                // Exposed to Process Gas fields logic
-                const exposedRadios = document.querySelectorAll('input[name="exposedToProcessGasOrChemicals"]');
-                const exposedFieldsContainer = document.getElementById('exposedFieldsContainer');
-                
-                // Function to check if downtime should be visible
-                function updateDowntimeVisibility() {
-                    const flowYes = document.getElementById('interruptionToFlowYes');
-                    const prodYes = document.getElementById('interruptionToProductionYes');
-                    
-                    if ((flowYes && flowYes.checked) || (prodYes && prodYes.checked)) {
-                        downtimeContainer.style.display = 'block';
-                        } else {
-                        downtimeContainer.style.display = 'none';
-                    }
-                }
-                
-                // Function to check if exposed fields should be visible
-                function updateExposedFieldsVisibility() {
-                    const exposedYes = document.getElementById('exposedYes');
-                    
-                    if (exposedYes && exposedYes.checked) {
-                        exposedFieldsContainer.style.display = 'block';
-                        } else {
-                        exposedFieldsContainer.style.display = 'none';
-                    }
-                }
-                
-                // Add event listeners to interruption radios
-                interruptionFlowRadios.forEach(radio => {
-                    radio.addEventListener('change', updateDowntimeVisibility);
-                });
-                
-                interruptionProdRadios.forEach(radio => {
-                    radio.addEventListener('change', updateDowntimeVisibility);
-                });
-                
-                // Add event listeners to exposed radios
-                exposedRadios.forEach(radio => {
-                    radio.addEventListener('change', updateExposedFieldsVisibility);
-                });
-                
-                // Initial setup based on current values
-                updateDowntimeVisibility();
-                updateExposedFieldsVisibility();
-            }
-            
-            // Call setup function once DOM is loaded
-            setupConditionalFields();
-            
-            // Initialize form elements after DOM is fully loaded
-            var toolSelect = document.getElementById('toolSelect');
-            var toolChemicalBtn = document.getElementById('btn-add-chemical');
-            var toolCommissionBtn = document.getElementById('btn-add-commission');
-            var toolStartupBtn = document.getElementById('btn-add-startup');
-            
-            var chemicalInput = document.getElementById('chemical-gas-service-input');
-            var commissionInput = document.getElementById('commission-date-input');
-            var startupInput = document.getElementById('startup-sl03-date-input');
-            
-            var updateChemicalInput = document.getElementById('update-tool-chemical-gas-service');
-            var updateCommissionInput = document.getElementById('update-tool-commission-date');
-            var updateStartupInput = document.getElementById('update-tool-startup-sl03-date');
-            
-            var chemicalContainer = document.getElementById('chemical-edit-container');
-            var commissionContainer = document.getElementById('commission-edit-container');
-            var startupContainer = document.getElementById('startup-edit-container');
-            
-            // Initialize event listeners for the edit buttons only if elements exist
-            if (document.getElementById('btn-cancel-chemical')) {
-                document.getElementById('btn-cancel-chemical').addEventListener('click', function() {
-                    chemicalContainer.classList.add('d-none');
-                    toolChemicalBtn.classList.remove('d-none');
-                    updateChemicalInput.value = '';
-                });
-            }
-            
-            if (document.getElementById('btn-cancel-commission')) {
-                document.getElementById('btn-cancel-commission').addEventListener('click', function() {
-                    commissionContainer.classList.add('d-none');
-                    toolCommissionBtn.classList.remove('d-none');
-                    updateCommissionInput.value = '';
-                });
-            }
-            
-            if (document.getElementById('btn-cancel-startup')) {
-                document.getElementById('btn-cancel-startup').addEventListener('click', function() {
-                    startupContainer.classList.add('d-none');
-                    toolStartupBtn.classList.remove('d-none');
-                    updateStartupInput.value = '';
-                });
-            }
-            
-            if (toolChemicalBtn) {
-                toolChemicalBtn.addEventListener('click', function() {
-                    chemicalContainer.classList.remove('d-none');
-                    toolChemicalBtn.classList.add('d-none');
-                    chemicalInput.focus();
-                });
-            }
-            
-            if (toolCommissionBtn) {
-                toolCommissionBtn.addEventListener('click', function() {
-                    commissionContainer.classList.remove('d-none');
-                    toolCommissionBtn.classList.add('d-none');
-                    commissionInput.focus();
-                });
-            }
-            
-            if (toolStartupBtn) {
-                toolStartupBtn.addEventListener('click', function() {
-                    startupContainer.classList.remove('d-none');
-                    toolStartupBtn.classList.add('d-none');
-                    startupInput.focus();
-                });
-            }
-            
-            // Event listeners for input changes
-            if (chemicalInput) {
-                chemicalInput.addEventListener('input', function() {
-                    updateChemicalInput.value = this.value;
-                });
-            }
-            
-            if (commissionInput) {
-                commissionInput.addEventListener('change', function() {
-                    updateCommissionInput.value = this.value;
-                });
-            }
-            
-            if (startupInput) {
-                startupInput.addEventListener('change', function() {
-                    updateStartupInput.value = this.value;
-                });
-            }
-            
-            // Define functions inside the DOMContentLoaded event
-            function updateToolDetails(toolId) {
-                // Reset all fields
-                if (document.getElementById('tool-type')) document.getElementById('tool-type').textContent = '';
-                if (document.getElementById('tool-location')) document.getElementById('tool-location').textContent = '';
-                if (document.getElementById('tool-serial1')) document.getElementById('tool-serial1').textContent = '';
-                if (document.getElementById('tool-serial2-display')) document.getElementById('tool-serial2-display').textContent = '';
-                if (document.getElementById('tool-model1')) document.getElementById('tool-model1').textContent = '';
-                if (document.getElementById('tool-model2-display')) document.getElementById('tool-model2-display').textContent = '';
-                if (document.getElementById('tool-chemical-gas-service')) document.getElementById('tool-chemical-gas-service').textContent = '';
-                if (document.getElementById('tool-commission-date')) document.getElementById('tool-commission-date').textContent = '';
-                if (document.getElementById('tool-startup-sl03-date')) document.getElementById('tool-startup-sl03-date').textContent = '';
-                
-                if (document.getElementById('tool-view-link')) {
-                    document.getElementById('tool-view-link').style.display = 'none';
-                }
-                
-                // Reset edit buttons and containers only if they exist
-                if (toolChemicalBtn) toolChemicalBtn.classList.add('d-none');
-                if (toolCommissionBtn) toolCommissionBtn.classList.add('d-none');
-                if (toolStartupBtn) toolStartupBtn.classList.add('d-none');
-                
-                if (chemicalContainer) chemicalContainer.classList.add('d-none');
-                if (commissionContainer) commissionContainer.classList.add('d-none');
-                if (startupContainer) startupContainer.classList.add('d-none');
-                
-                if (updateChemicalInput) updateChemicalInput.value = '';
-                if (updateCommissionInput) updateCommissionInput.value = '';
-                if (updateStartupInput) updateStartupInput.value = '';
-                
-                if (toolId === '') {
-                    if (document.getElementById('tool-details-list')) {
-                        document.getElementById('tool-details-list').style.display = 'none';
-                    }
-                    return;
-                }
-                
-                if (document.getElementById('tool-details-list')) {
-                    document.getElementById('tool-details-list').style.display = 'block';
-                }
-                
-                fetch('/rma/api/tool/' + toolId)
-                .then(response => response.json())
-                .then(data => {
-                    if (document.getElementById('tool-type')) {
-                        document.getElementById('tool-type').textContent = data.toolType || 'N/A';
-                    }
-                    
-                    if (document.getElementById('tool-location')) {
-                        if (data.location && data.location.displayName) {
-                            document.getElementById('tool-location').textContent = data.location.displayName;
-                        } else {
-                            document.getElementById('tool-location').textContent = 'N/A';
-                        }
-                    }
-                    
-                    if (document.getElementById('tool-serial1')) {
-                        document.getElementById('tool-serial1').textContent = data.serialNumber1 || 'N/A';
-                    }
-                    
-                    if (document.getElementById('tool-serial2-display') && data.serialNumber2) {
-                        document.getElementById('tool-serial2-display').textContent = ' / ' + data.serialNumber2;
-                    }
-                    
-                    if (document.getElementById('tool-model1')) {
-                        document.getElementById('tool-model1').textContent = data.model1 || 'N/A';
-                    }
-                    
-                    if (document.getElementById('tool-model2-display') && data.model2) {
-                        document.getElementById('tool-model2-display').textContent = ' / ' + data.model2;
-                    }
-                    
-                    // Set Chemical/Gas Service value or show + button if null
-                    if (document.getElementById('tool-chemical-gas-service')) {
-                        if (data.chemicalGasService) {
-                            document.getElementById('tool-chemical-gas-service').textContent = data.chemicalGasService;
-                            if (toolChemicalBtn) toolChemicalBtn.classList.add('d-none');
-                        } else {
-                            document.getElementById('tool-chemical-gas-service').textContent = 'N/A';
-                            if (toolChemicalBtn) toolChemicalBtn.classList.remove('d-none');
-                        }
-                    }
-                    
-                    // Set Commission Date value or show + button if null
-                    if (document.getElementById('tool-commission-date')) {
-                        if (data.commissionDate) {
-                            document.getElementById('tool-commission-date').textContent = formatDate(data.commissionDate);
-                            if (toolCommissionBtn) toolCommissionBtn.classList.add('d-none');
-                        } else {
-                            document.getElementById('tool-commission-date').textContent = 'N/A';
-                            if (toolCommissionBtn) toolCommissionBtn.classList.remove('d-none');
-                        }
-                    }
-                    
-                    // Set Start-Up/SL03 Date value or show + button if null
-                    if (document.getElementById('tool-startup-sl03-date')) {
-                        if (data.startUpSl03Date) {
-                            document.getElementById('tool-startup-sl03-date').textContent = formatDate(data.startUpSl03Date);
-                            if (toolStartupBtn) toolStartupBtn.classList.add('d-none');
-            } else {
-                            document.getElementById('tool-startup-sl03-date').textContent = 'N/A';
-                            if (toolStartupBtn) toolStartupBtn.classList.remove('d-none');
-                        }
-                    }
-                    
-                    // Set the "View Tool" link
-                    var viewLink = document.getElementById('tool-view-link');
-                    if (viewLink) {
-                        viewLink.href = '/tools/' + data.id;
-                        viewLink.style.display = 'inline-block';
-                    }
-                })
-                .catch(error => console.error('Error fetching tool details:', error));
-            }
-            
-            // Helper function to format dates
-            function formatDate(dateString) {
-                if (!dateString) return '';
-                const date = new Date(dateString);
-                return date.toLocaleDateString();
-            }
-
-            // If toolSelect exists, add the event listener
-            if (toolSelect) {
-                toolSelect.addEventListener('change', function() {
-                    updateToolDetails(this.value);
-                });
-                
-                // If a tool is already selected (in edit mode), load its details
-                if (toolSelect.value) {
-                    updateToolDetails(toolSelect.value);
-                }
-            }
-            
-            // Part line items handling
-            let partIndex = 0;
-            const partsContainer = document.getElementById('parts-container');
-            
-            // Find the highest index of existing part items to ensure new items have unique indices
-            if (partsContainer) {
-                const existingItems = partsContainer.querySelectorAll('.part-item:not(.template)');
-                if (existingItems.length > 0) {
-                    partIndex = existingItems.length;
-                }
-                
-                // Clone and prepare the template for use
-                const template = partsContainer.querySelector('.part-item.template');
-                
-                // Add event listeners to existing add/remove buttons
-                document.querySelectorAll('.add-part').forEach(button => {
-                    button.addEventListener('click', addPartItem);
-                });
-                
-                document.querySelectorAll('.remove-part').forEach(button => {
-                    button.addEventListener('click', removePartItem);
-                });
-                
-                // When no parts exist initially, add an empty one
-                if (existingItems.length === 0 && template) {
-                    addPartItem();
-                }
-                
-                // Add a global "Add Part" button after the parts container if it doesn't exist already
-                if (!document.querySelector('.global-add-part')) {
-                    const addButton = document.createElement('button');
-                    addButton.type = 'button';
-                    addButton.className = 'btn btn-sm btn-primary global-add-part mt-2';
-                    addButton.innerHTML = '<i class="bi bi-plus-circle"></i> Add Part';
-                    addButton.addEventListener('click', addPartItem);
-                    partsContainer.parentNode.insertBefore(addButton, partsContainer.nextSibling);
-                }
-                
-                // Function to add a new part item
-                function addPartItem() {
-                    if (!template) return;
-                    
-                    // Clone the template
-                    const newItem = template.cloneNode(true);
-                    newItem.classList.remove('template', 'd-none');
-                    
-                    // Set the HTML directly with the correct index
-                    const html = `
-                        <div class="row mb-2">
-                            <div class="col-md-2">
-                                <input type="text" class="form-control form-control-sm" name="partLineItems[${partIndex}].partName" placeholder="Part Name">
-                            </div>
-                            <div class="col-md-3">
-                                <input type="text" class="form-control form-control-sm" name="partLineItems[${partIndex}].partNumber" placeholder="Part Number">
-                            </div>
-                            <div class="col-md-3">
-                                <input type="text" class="form-control form-control-sm" name="partLineItems[${partIndex}].productDescription" placeholder="Description">
-                            </div>
-                            <div class="col-md-2">
-                                <input type="number" class="form-control form-control-sm" name="partLineItems[${partIndex}].quantity" value="1" min="1" placeholder="Quantity">
-                            </div>
-                            <div class="col-md-1">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="partLineItems[${partIndex}].replacementRequired">
-                                </div>
-                            </div>
-                            <div class="col-md-1">
-                                <button type="button" class="btn btn-sm btn-outline-danger remove-part">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                    
-                    newItem.innerHTML = html;
-                    
-                    // Add event listener to the new remove button
-                    const removeBtn = newItem.querySelector('.remove-part');
-                    if (removeBtn) {
-                        removeBtn.addEventListener('click', removePartItem);
-                    }
-                    
-                    // Add the new item to the container
-                    partsContainer.appendChild(newItem);
-                    
-                    // Focus the first input in the new item
-                    const firstInput = newItem.querySelector('input');
-                    if (firstInput) firstInput.focus();
-                    
-                    // Increment the index for the next item
-                    partIndex++;
-                }
-                
-                // Function to remove a part item
-                function removePartItem(event) {
-                    const button = event.target.closest('.remove-part');
-                    if (button) {
-                        const partItem = button.closest('.part-item');
-                        if (partItem && !partItem.classList.contains('template')) {
-                            partItem.remove();
-                        }
-                    }
-                }
-            }
+          // Excel Upload Feature
+          const excelFileInput = document.getElementById('excelFileInput');
+          const uploadExcelBtn = document.getElementById('uploadExcelBtn');
+          const excelUploadResult = document.getElementById('excelUploadResult');
+          const excelDropArea = document.getElementById('excel-drop-area');
+          const toolSelect = document.getElementById('toolSelect');
+          
+          // Regular file upload
+          const dropArea = document.getElementById('drop-area');
+          const fileInput = document.getElementById('fileInput');
+          const fileUploadsTracker = document.getElementById('fileUploadsTracker');
+          
+          // Initialize file upload tracking
+          let selectedFiles = [];
+          
+          // Setup Excel drag and drop
+          if (excelDropArea) {
+              // Prevent default drag behaviors
+              ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                  excelDropArea.addEventListener(eventName, e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                  });
+              });
+              
+              // Highlight drop area when item is dragged over it
+              ['dragenter', 'dragover'].forEach(eventName => {
+                  excelDropArea.addEventListener(eventName, () => {
+                      excelDropArea.classList.add('highlight');
+                  });
+              });
+              
+              // Remove highlight when item is dragged out or dropped
+              ['dragleave', 'drop'].forEach(eventName => {
+                  excelDropArea.addEventListener(eventName, () => {
+                      excelDropArea.classList.remove('highlight');
+                  });
+              });
+              
+              // Make drop area clickable
+              excelDropArea.addEventListener('click', () => {
+                  excelFileInput.click();
+              });
+              
+              // Handle dropped files
+              excelDropArea.addEventListener('drop', e => {
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      excelFileInput.files = e.dataTransfer.files;
+                      const fileName = e.dataTransfer.files[0].name;
+                      if (excelDropArea.querySelector('small')) {
+                          excelDropArea.querySelector('small').innerHTML = `Selected: <span class="text-success">${fileName}</span>`;
+                      }
+                  }
+              });
+              
+              // Handle file selection via file input
+              excelFileInput.addEventListener('change', () => {
+                  if (excelFileInput.files && excelFileInput.files[0]) {
+                      const fileName = excelFileInput.files[0].name;
+                      if (excelDropArea.querySelector('small')) {
+                          excelDropArea.querySelector('small').innerHTML = `Selected: <span class="text-success">${fileName}</span>`;
+                      }
+                  }
+              });
+          }
+          
+          // Setup regular file upload drag and drop
+          if (dropArea && fileInput) {
+              // Prevent default drag behaviors
+              ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                  dropArea.addEventListener(eventName, e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                  });
+              });
+              
+              // Highlight drop area when item is dragged over it
+              ['dragenter', 'dragover'].forEach(eventName => {
+                  dropArea.addEventListener(eventName, () => {
+                      dropArea.classList.add('highlight');
+                  });
+              });
+              
+              // Remove highlight when item is dragged out or dropped
+              ['dragleave', 'drop'].forEach(eventName => {
+                  dropArea.addEventListener(eventName, () => {
+                      dropArea.classList.remove('highlight');
+                  });
+              });
+              
+              // Make drop area clickable
+              dropArea.addEventListener('click', () => {
+                  fileInput.click();
+              });
+              
+              // Handle dropped files
+              dropArea.addEventListener('drop', e => {
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      fileInput.files = e.dataTransfer.files;
+                      handleFileSelect(fileInput.files);
+                  }
+              });
+              
+              // Handle file selection via file input
+              fileInput.addEventListener('change', function() {
+                  handleFileSelect(this.files);
+              });
+          }
+          
+          // Excel upload button click handler
+          if (uploadExcelBtn) {
+              uploadExcelBtn.addEventListener('click', function() {
+                  if (!excelFileInput.files || !excelFileInput.files[0]) {
+                      showExcelResult('Please select an Excel file first.', 'danger');
+                      return;
+                  }
+                  
+                  // Show loading state
+                  uploadExcelBtn.disabled = true;
+                  uploadExcelBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...';
+                  showExcelResult('Uploading and parsing Excel file...', 'info');
+                  
+                  const formData = new FormData();
+                  formData.append('file', excelFileInput.files[0]);
+                  
+                  fetch('/rma/uploadExcel', {
+                      method: 'POST',
+                      body: formData
+                  })
+                  .then(response => {
+                      return response.json();
+                  })
+                  .then(data => {
+                      // Reset button state
+                      uploadExcelBtn.disabled = false;
+                      uploadExcelBtn.innerHTML = '<i class="bi bi-upload me-1"></i> Parse Excel';
+                      
+                      if (data.success) {
+                          showExcelResult('Excel data extracted successfully! Form fields have been populated.', 'success');
+                          populateFormWithExcelData(data.data);
+                      } else {
+                          showExcelResult('Error: ' + (data.error || 'Failed to extract data from the Excel file.'), 'danger');
+                      }
+                  })
+                  .catch(error => {
+                      console.error('Error uploading Excel:', error);
+                      uploadExcelBtn.disabled = false;
+                      uploadExcelBtn.innerHTML = '<i class="bi bi-upload me-1"></i> Parse Excel';
+                      showExcelResult('Error: ' + error.message, 'danger');
+                  });
+              });
+          }
+          
+          // Function to display Excel upload result
+          function showExcelResult(message, type) {
+              if (!excelUploadResult) return;
+              
+              excelUploadResult.textContent = message;
+              excelUploadResult.style.display = 'block';
+              excelUploadResult.className = 'alert alert-' + type + ' mt-1 mb-0 py-1 px-2';
+              
+              if (type === 'success') {
+                  setTimeout(() => {
+                      excelUploadResult.style.display = 'none';
+                  }, 8000);
+              }
+          }
+          
+          // Function to handle selected files
+          function handleFileSelect(files) {
+              if (!files || files.length === 0) return;
+              
+              // Initialize counters
+              let imageCount = 0;
+              let documentCount = 0;
+              
+              // Clear previous lists
+              const imageList = document.getElementById('image-list');
+              const documentList = document.getElementById('document-list');
+              if (imageList) imageList.innerHTML = '';
+              if (documentList) documentList.innerHTML = '';
+              
+              // Store the selected files for form submission
+              selectedFiles = Array.from(files);
+              
+              // Add each file to the appropriate list with delete buttons
+              selectedFiles.forEach((file, index) => {
+                  // Check file type to categorize as image or document
+                  const isImage = file.type.startsWith('image/');
+                  
+                  // Create list item for preview with delete button
+                  const listItem = document.createElement('li');
+                  listItem.className = 'd-flex justify-content-between align-items-center mb-1';
+                  listItem.dataset.fileIndex = index;
+                  
+                  const fileNameSpan = document.createElement('span');
+                  fileNameSpan.textContent = file.name;
+                  fileNameSpan.className = 'text-truncate me-1';
+                  fileNameSpan.title = file.name;
+                  listItem.appendChild(fileNameSpan);
+                  
+                  const deleteBtn = document.createElement('button');
+                  deleteBtn.type = 'button';
+                  deleteBtn.className = 'btn btn-sm btn-link text-danger p-0';
+                  deleteBtn.innerHTML = '<i class="bi bi-x-circle"></i>';
+                  deleteBtn.title = 'Remove file';
+                  deleteBtn.style.fontSize = '0.7rem';
+                  deleteBtn.onclick = function() {
+                      removeFileFromSelection(index);
+                  };
+                  listItem.appendChild(deleteBtn);
+                  
+                  if (isImage) {
+                      imageCount++;
+                      if (imageList) imageList.appendChild(listItem);
+                  } else {
+                      documentCount++;
+                      if (documentList) documentList.appendChild(listItem);
+                  }
+              });
+              
+              // Update counters
+              const imageCountElement = document.getElementById('image-count');
+              const documentCountElement = document.getElementById('document-count');
+              if (imageCountElement) imageCountElement.textContent = imageCount;
+              if (documentCountElement) documentCountElement.textContent = documentCount;
+              
+              // Update file tracker
+              updateFileTracker();
+              
+              // Show feedback to user
+              const smallElement = dropArea.querySelector('.small');
+              if (smallElement) {
+                  smallElement.innerHTML = `${selectedFiles.length} files selected`;
+              }
+          }
+          
+          // Function to remove a file from the selection
+          function removeFileFromSelection(index) {
+              // Remove the file from the selectedFiles array
+              selectedFiles.splice(index, 1);
+              
+              // Create a new DataTransfer object
+              const dataTransfer = new DataTransfer();
+              
+              // Add remaining files to the DataTransfer object
+              selectedFiles.forEach(file => {
+                  dataTransfer.items.add(file);
+              });
+              
+              // Update the file input
+              fileInput.files = dataTransfer.files;
+              
+              // Update the UI
+              handleFileSelect(dataTransfer.files);
+          }
+          
+          // Function to update the hidden input tracker
+          function updateFileTracker() {
+              // Just set a value to indicate files have been selected
+              if (fileUploadsTracker) {
+                  fileUploadsTracker.value = 'files-selected';
+              }
+          }
+          
+          // Process Impact Information conditional logic
+          setupConditionalFields();
+          
+          function setupConditionalFields() {
+              const interruptionFlowRadios = document.querySelectorAll('input[name="interruptionToFlow"]');
+              const interruptionProdRadios = document.querySelectorAll('input[name="interruptionToProduction"]');
+              const downtimeContainer = document.getElementById('downtimeContainer');
+              
+              const exposedRadios = document.querySelectorAll('input[name="exposedToProcessGasOrChemicals"]');
+              const exposedFieldsContainer = document.getElementById('exposedFieldsContainer');
+              
+              function updateDowntimeVisibility() {
+                  const flowYes = document.getElementById('interruptionToFlowYes');
+                  const prodYes = document.getElementById('interruptionToProductionYes');
+                  
+                  if ((flowYes && flowYes.checked) || (prodYes && prodYes.checked)) {
+                      downtimeContainer.style.display = 'block';
+                  } else {
+                      downtimeContainer.style.display = 'none';
+                  }
+              }
+              
+              function updateExposedFieldsVisibility() {
+                  const exposedYes = document.getElementById('exposedYes');
+                  
+                  if (exposedYes && exposedYes.checked) {
+                      exposedFieldsContainer.style.display = 'block';
+                  } else {
+                      exposedFieldsContainer.style.display = 'none';
+                  }
+              }
+              
+              // Add event listeners to interruption radios
+              interruptionFlowRadios.forEach(radio => {
+                  radio.addEventListener('change', updateDowntimeVisibility);
+              });
+              
+              interruptionProdRadios.forEach(radio => {
+                  radio.addEventListener('change', updateDowntimeVisibility);
+              });
+              
+              // Add event listeners to exposed radios
+              exposedRadios.forEach(radio => {
+                  radio.addEventListener('change', updateExposedFieldsVisibility);
+              });
+              
+              // Initial setup based on current values
+              updateDowntimeVisibility();
+              updateExposedFieldsVisibility();
+          }
+          
+          // Function to initialize the combined RMA field
+          function initCombinedField() {
+              const rmaField = document.getElementById('rmaNumber');
+              const sapField = document.getElementById('sapNotificationNumber');
+              const combinedField = document.getElementById('combinedRmaField');
+              
+              if (!combinedField || !rmaField || !sapField) return;
+              
+              // Set up the initial value - if RMA or SAP have values, combine them
+              if (rmaField.value || sapField.value) {
+                  let combined = '';
+                  if (rmaField.value) combined += rmaField.value;
+                  if (rmaField.value && sapField.value) combined += '/';
+                  if (sapField.value) combined += sapField.value;
+                  combinedField.value = combined;
+              }
+              
+              // Add change event listener to the combined field
+              combinedField.addEventListener('change', function() {
+                  const combinedValue = this.value.trim();
+                  
+                  if (!combinedValue) {
+                      // If combined field is empty, explicitly clear both fields
+                      rmaField.value = '';
+                      sapField.value = '';
+                  } else {
+                      // If there's a value, try to parse it
+                      const parts = combinedValue.split('/');
+                      
+                      if (parts.length > 1) {
+                          // If there's a slash, split the values
+                          rmaField.value = parts[0].trim();
+                          sapField.value = parts[1].trim();
+                      } else {
+                          // If no slash, assume it's just an RMA number
+                          rmaField.value = combinedValue.trim();
+                          sapField.value = '';
+                      }
+                  }
+              });
+          }
+          
+          // Initialize combined field on page load
+          initCombinedField();
+          
+          // Add submit event listener to the form to ensure RMA/SAP fields are set correctly
+          const form = document.querySelector('form');
+          if (form) {
+              form.addEventListener('submit', function(event) {
+                  const rmaField = document.getElementById('rmaNumber');
+                  const sapField = document.getElementById('sapNotificationNumber');
+                  const combinedField = document.getElementById('combinedRmaField');
+                  
+                  // Get current combined value
+                  const combinedValue = combinedField.value.trim();
+                  
+                  // Ensure values are synchronized before submission
+                  if (!combinedValue) {
+                      // If combined field is empty, explicitly clear both fields
+                      rmaField.value = '';
+                      sapField.value = '';
+                  } else {
+                      // Otherwise parse the value properly
+                      const parts = combinedValue.split('/');
+                      
+                      if (parts.length > 1) {
+                          // If there's a slash, split the values
+                          rmaField.value = parts[0].trim();
+                          sapField.value = parts[1].trim();
+                      } else {
+                          // If no slash, it's just an RMA number - ENSURE SAP is cleared
+                          rmaField.value = combinedValue.trim();
+                          sapField.value = '';
+                      }
+                  }
+              });
+          }
+          
+          // Handle moving parts
+          const addMovingPartBtn = document.getElementById('add-moving-part-btn');
+          const saveMovingPartBtn = document.getElementById('saveMovingPartBtn');
+          const movingPartName = document.getElementById('movingPartName');
+          const fromToolId = document.getElementById('fromToolId');
+          const toToolId = document.getElementById('toToolId');
+          const movingPartNotes = document.getElementById('movingPartNotes');
+          const movingPartsTableBody = document.getElementById('moving-parts-table-body');
+          
+          // Update To Tool selection when the main tool selection changes
+          if (toolSelect && toToolId) {
+              toolSelect.addEventListener('change', function() {
+                  // Get the selected tool ID
+                  const selectedToolId = this.value;
+                  if (selectedToolId) {
+                      // Set the To Tool in moving part modal to match
+                      for (let i = 0; i < toToolId.options.length; i++) {
+                          if (toToolId.options[i].value === selectedToolId) {
+                              toToolId.selectedIndex = i;
+                              break;
+                          }
+                      }
+                  }
+              });
+          }
+          
+          // Save moving part button handler
+          if (saveMovingPartBtn) {
+              saveMovingPartBtn.addEventListener('click', function() {
+                  // Validate inputs
+                  if (!movingPartName.value.trim()) {
+                      alert('Please enter a part name');
+                      return;
+                  }
+                  
+                  if (!fromToolId.value) {
+                      alert('Please select a source tool');
+                      return;
+                  }
+                  
+                  if (!toToolId.value) {
+                      alert('Please select a destination tool');
+                      return;
+                  }
+                  
+                  // Create new row in the table
+                  const newRow = document.createElement('tr');
+                  
+                  // Get tool names for display
+                  const fromToolName = fromToolId.options[fromToolId.selectedIndex].text;
+                  const toToolName = toToolId.options[toToolId.selectedIndex].text;
+                  
+                  newRow.innerHTML = `
+                      <td>${movingPartName.value}</td>
+                      <td>${fromToolName}</td>
+                      <td>${toToolName}</td>
+                      <td>${movingPartNotes.value || ''}</td>
+                      <td>
+                          <button type="button" class="btn btn-sm btn-outline-danger remove-moving-part">
+                              <i class="bi bi-trash"></i>
+                          </button>
+                      </td>
+                      <input type="hidden" name="movingParts[].partName" value="${movingPartName.value}">
+                      <input type="hidden" name="movingParts[].fromToolId" value="${fromToolId.value}">
+                      <input type="hidden" name="movingParts[].toToolId" value="${toToolId.value}">
+                      <input type="hidden" name="movingParts[].notes" value="${movingPartNotes.value || ''}">
+                  `;
+                  
+                  // Add click handler for remove button
+                  const removeBtn = newRow.querySelector('.remove-moving-part');
+                  if (removeBtn) {
+                      removeBtn.addEventListener('click', function() {
+                          newRow.remove();
+                      });
+                  }
+                  
+                  // Add to table
+                  if (movingPartsTableBody) {
+                      movingPartsTableBody.appendChild(newRow);
+                  }
+                  
+                  // Reset form and close modal
+                  movingPartName.value = '';
+                  fromToolId.selectedIndex = 0;
+                  movingPartNotes.value = '';
+                  
+                  // Close the modal
+                  const modal = bootstrap.Modal.getInstance(document.getElementById('addMovingPartModal'));
+                  if (modal) {
+                      modal.hide();
+                  }
+              });
+          }
+          
+          // Add event listeners to existing remove buttons
+          if (movingPartsTableBody) {
+              const existingRemoveBtns = movingPartsTableBody.querySelectorAll('.remove-moving-part');
+              existingRemoveBtns.forEach(btn => {
+                  btn.addEventListener('click', function() {
+                      const row = this.closest('tr');
+                      if (row) {
+                          row.remove();
+                      }
+                  });
+              });
+          }
       });
     </script>
 </body>

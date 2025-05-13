@@ -6,13 +6,18 @@ import com.pcd.manager.model.Location;
 import com.pcd.manager.model.MapGridItem;
 import com.pcd.manager.model.Passdown;
 import com.pcd.manager.model.Tool;
+import com.pcd.manager.model.TrackTrend;
 import com.pcd.manager.model.User;
+import com.pcd.manager.model.Note;
 import com.pcd.manager.repository.LocationRepository;
 import com.pcd.manager.repository.PassdownRepository;
 import com.pcd.manager.repository.ToolRepository;
+import com.pcd.manager.repository.TrackTrendRepository;
 import com.pcd.manager.repository.UserRepository;
 import com.pcd.manager.service.MapGridService;
 import com.pcd.manager.service.ToolService;
+import com.pcd.manager.service.TrackTrendService;
+import com.pcd.manager.service.NoteService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +49,8 @@ public class DashboardController {
     private final MapGridService mapGridService;
     private final ObjectMapper objectMapper;
     private final ToolService toolService;
+    private final TrackTrendService trackTrendService;
+    private final NoteService noteService;
 
     private static final Logger logger = LoggerFactory.getLogger(DashboardController.class);
 
@@ -54,7 +61,9 @@ public class DashboardController {
                              UserRepository userRepository,
                              MapGridService mapGridService,
                              ObjectMapper objectMapper,
-                             ToolService toolService) {
+                             ToolService toolService,
+                             TrackTrendService trackTrendService,
+                             NoteService noteService) {
         this.toolRepository = toolRepository;
         this.passdownRepository = passdownRepository;
         this.locationRepository = locationRepository;
@@ -62,6 +71,8 @@ public class DashboardController {
         this.mapGridService = mapGridService;
         this.objectMapper = objectMapper;
         this.toolService = toolService;
+        this.trackTrendService = trackTrendService;
+        this.noteService = noteService;
     }
 
     @GetMapping
@@ -70,11 +81,11 @@ public class DashboardController {
              return "redirect:/login";
         }
         String userEmail = authentication.getName(); // Email is used as username
-        User user = userRepository.findByEmail(userEmail)
+        User user = userRepository.findByEmailIgnoreCase(userEmail)
             .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + userEmail));
 
-        // Fetch all tools first
-        List<Tool> allTools = toolRepository.findAll();
+        // Fetch all tools with technicians eagerly loaded
+        List<Tool> allTools = toolRepository.findAllWithTechnicians();
 
         // Sort tools: Assigned tools first, then by name
         List<Tool> sortedTools = allTools.stream()
@@ -118,8 +129,43 @@ public class DashboardController {
             return map;
         }).collect(Collectors.toList());
         
+        // Fetch track trends for the filter dropdown
+        List<TrackTrend> allTrackTrends = trackTrendService.getAllTrackTrends();
+        logger.info("Fetched {} track/trend items for filters.", allTrackTrends.size());
+        
+        // Convert TrackTrend data for JavaScript, including affected tools
+        List<Map<String, Object>> formattedTrackTrends = allTrackTrends.stream().map(tt -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", tt.getId());
+            map.put("title", tt.getName());
+            
+            // Extract affected tool IDs for issue filtering
+            List<Long> affectedToolIds = tt.getAffectedTools().stream()
+                    .map(Tool::getId)
+                    .collect(Collectors.toList());
+            map.put("affectedTools", affectedToolIds);
+            
+            return map;
+        }).collect(Collectors.toList());
+        
+        // Prepare tools for display with searchable notes
+        List<Map<String, Object>> toolDisplayList = sortedTools.stream().map(tool -> {
+            Map<String, Object> toolMap = new HashMap<>();
+            toolMap.put("tool", tool); 
+            List<Note> actualNotes = noteService.getNotesByToolId(tool.getId());
+            String concatenatedNoteContent = actualNotes.stream()
+                                                .map(Note::getContent)
+                                                .filter(Objects::nonNull)
+                                                .collect(Collectors.joining(" \n ")); // Join with space or newline
+            String toolOwnNotes = tool.getNotes() != null ? tool.getNotes() : "";
+            String searchableNotes = (toolOwnNotes + " " + concatenatedNoteContent).trim();
+            toolMap.put("searchableNotes", searchableNotes);
+            // logger.info("Tool ID: {}, Searchable Notes: {}", tool.getId(), searchableNotes.length() > 100 ? searchableNotes.substring(0,100) + "..." : searchableNotes );
+            return toolMap;
+        }).collect(Collectors.toList());
+        
         // Add data needed for the dashboard template
-        model.addAttribute("tools", sortedTools);
+        model.addAttribute("tools", toolDisplayList);
         model.addAttribute("recentPassdowns", recentPassdowns);
         model.addAttribute("passdownUsers", passdownUsers);
         model.addAttribute("passdownTools", passdownTools);
@@ -127,6 +173,7 @@ public class DashboardController {
         model.addAttribute("currentUser", user);
         model.addAttribute("gridItems", gridItems);
         model.addAttribute("allToolsData", allToolsData);
+        model.addAttribute("allTrackTrends", formattedTrackTrends);
 
         return "dashboard";
     }

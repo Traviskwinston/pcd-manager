@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.multipart.MultipartResolver;
 import org.springframework.web.multipart.support.StandardServletMultipartResolver;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,12 +36,25 @@ public class WebConfig implements WebMvcConfigurer {
         logger.info("Configured StandardServletMultipartResolver for file uploads");
         return resolver;
     }
+    
+    /**
+     * Add fallback controller mapping for paths that might be treated as resources
+     */
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        // Add any view controller mappings here if needed
+        logger.info("Configured view controllers");
+    }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Configure standard static resources
-        registry.addResourceHandler("/**")
-                .addResourceLocations("classpath:/static/")
+        // Configure standard static resources with more specific patterns
+        registry.addResourceHandler("/css/**", "/js/**", "/images/**", "/fonts/**", "/webjars/**")
+                .addResourceLocations("classpath:/static/css/", 
+                                     "classpath:/static/js/", 
+                                     "classpath:/static/images/", 
+                                     "classpath:/static/fonts/", 
+                                     "classpath:/META-INF/resources/webjars/")
                 .setCachePeriod("dev".equals(activeProfile) ? 0 : 3600);
         
         // Ensure the upload directory exists

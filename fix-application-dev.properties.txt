@@ -1,0 +1,27 @@
+# Development specific Spring Boot application properties
+
+# PostgreSQL Datasource Configuration (for local development)
+# These will be used if DB_HOST, DB_PORT, DB_NAME environment variables are not set,
+# and this dev profile is active.
+spring.datasource.url=jdbc:postgresql://localhost:5432/pcdmanagerdb
+spring.datasource.username=postgres
+spring.datasource.password=5Z2eyQfc!
+
+# JPA/Hibernate Configuration for Development
+# 'update' is convenient for dev, schema changes are applied automatically.
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+# Thymeleaf - Disable caching for easier development
+spring.thymeleaf.cache=false
+
+# Enable verbose logging for development
+logging.level.org.hibernate.SQL=DEBUG
+logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
+logging.level.org.springframework.transaction=DEBUG
+logging.level.com.pcd.manager=DEBUG
+
+# H2 Console (if you ever switch back to H2 for quick tests, uncomment these)
+# spring.h2.console.enabled=true
+# spring.h2.console.path=/h2-console 

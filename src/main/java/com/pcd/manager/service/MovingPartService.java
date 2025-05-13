@@ -3,9 +3,12 @@ package com.pcd.manager.service;
 import com.pcd.manager.model.MovingPart;
 import com.pcd.manager.model.Note;
 import com.pcd.manager.model.Tool;
+import com.pcd.manager.model.Rma;
+import com.pcd.manager.model.TrackTrend;
 import com.pcd.manager.repository.MovingPartRepository;
 import com.pcd.manager.repository.NoteRepository;
 import com.pcd.manager.repository.ToolRepository;
+import com.pcd.manager.repository.TrackTrendRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,9 @@ public class MovingPartService {
     @Autowired
     private NoteRepository noteRepository;
     
+    @Autowired
+    private TrackTrendRepository trackTrendRepository;
+    
     public List<MovingPart> getAllMovingParts() {
         return movingPartRepository.findAll();
     }
@@ -39,7 +45,7 @@ public class MovingPartService {
     }
     
     @Transactional
-    public MovingPart createMovingPart(String partName, Long fromToolId, Long toToolId, String notes, Long noteId) {
+    public MovingPart createMovingPart(String partName, Long fromToolId, Long toToolId, String notes, Long noteId, Rma rma) {
         MovingPart movingPart = new MovingPart();
         movingPart.setPartName(partName);
         movingPart.setMoveDate(LocalDateTime.now());
@@ -58,6 +64,11 @@ public class MovingPartService {
         // Link note if provided
         if (noteId != null) {
             noteRepository.findById(noteId).ifPresent(movingPart::setLinkedNote);
+        }
+
+        // Set the RMA if provided
+        if (rma != null) {
+            movingPart.setRma(rma);
         }
         
         return movingPartRepository.save(movingPart);
@@ -87,7 +98,7 @@ public class MovingPartService {
     }
     
     @Transactional
-    public Optional<MovingPart> updateMovingPart(Long id, String partName, Long fromToolId, Long toToolId, String notes) {
+    public Optional<MovingPart> updateMovingPart(Long id, String partName, Long fromToolId, Long toToolId, String notes, Rma rma) {
         Optional<MovingPart> movingPartOpt = movingPartRepository.findById(id);
         
         if (movingPartOpt.isPresent()) {
@@ -98,16 +109,42 @@ public class MovingPartService {
             // Update fromTool if provided
             if (fromToolId != null) {
                 toolRepository.findById(fromToolId).ifPresent(movingPart::setFromTool);
+            } else {
+                movingPart.setFromTool(null); // Allow unsetting
             }
             
             // Update toTool if provided
             if (toToolId != null) {
                 toolRepository.findById(toToolId).ifPresent(movingPart::setToTool);
+            } else {
+                movingPart.setToTool(null); // Allow unsetting
             }
+
+            // Update Rma if provided (could be null to unset)
+            movingPart.setRma(rma);
             
             return Optional.of(movingPartRepository.save(movingPart));
         }
         
         return Optional.empty();
+    }
+    
+    public List<MovingPart> getMovingPartsByRmaId(Long rmaId) {
+        return movingPartRepository.findByRmaId(rmaId);
+    }
+
+    @Transactional
+    public boolean linkMovingPartToTrackTrend(Long movingPartId, Long trackTrendId) {
+        Optional<MovingPart> movingPartOpt = movingPartRepository.findById(movingPartId);
+        Optional<TrackTrend> trackTrendOpt = trackTrendRepository.findById(trackTrendId);
+
+        if (movingPartOpt.isPresent() && trackTrendOpt.isPresent()) {
+            MovingPart movingPart = movingPartOpt.get();
+            TrackTrend trackTrend = trackTrendOpt.get();
+            movingPart.setLinkedTrackTrend(trackTrend);
+            movingPartRepository.save(movingPart);
+            return true;
+        }
+        return false;
     }
 } 

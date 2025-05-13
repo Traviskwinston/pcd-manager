@@ -5,10 +5,12 @@ import com.pcd.manager.model.Rma;
 import com.pcd.manager.model.RmaDocument;
 import com.pcd.manager.model.RmaPicture;
 import com.pcd.manager.model.Passdown;
+import com.pcd.manager.model.MovingPart;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.repository.RmaRepository;
 import com.pcd.manager.repository.RmaDocumentRepository;
 import com.pcd.manager.repository.RmaPictureRepository;
+import com.pcd.manager.repository.MovingPartRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,17 +31,20 @@ public class ToolService {
     private final RmaRepository rmaRepository;
     private final RmaDocumentRepository documentRepository;
     private final RmaPictureRepository pictureRepository;
+    private final MovingPartRepository movingPartRepository;
     private PassdownService passdownService; // Not final anymore, will be set by setter
 
     @Autowired
     public ToolService(ToolRepository toolRepository, 
                       RmaRepository rmaRepository,
                       RmaDocumentRepository documentRepository,
-                      RmaPictureRepository pictureRepository) {
+                      RmaPictureRepository pictureRepository,
+                      MovingPartRepository movingPartRepository) {
         this.toolRepository = toolRepository;
         this.rmaRepository = rmaRepository;
         this.documentRepository = documentRepository;
         this.pictureRepository = pictureRepository;
+        this.movingPartRepository = movingPartRepository;
         // PassdownService will be injected via setter
     }
     
@@ -51,6 +56,13 @@ public class ToolService {
 
     public List<Tool> getAllTools() {
         return toolRepository.findAll();
+    }
+
+    /**
+     * Get all tools with technicians eagerly loaded
+     */
+    public List<Tool> getAllToolsWithTechnicians() {
+        return toolRepository.findAllWithTechnicians();
     }
 
     public Optional<Tool> getToolById(Long id) {
@@ -242,5 +254,75 @@ public class ToolService {
         }
         
         return "unknown";
+    }
+
+    @Transactional
+    public boolean linkFileToTool(Long toolId, String filePath, String originalFileName, String fileType, String sourceEntityType, Long sourceEntityId) {
+        logger.info("Attempting to link file {} (type: {}) to tool ID: {}. Source: {} {}", filePath, fileType, toolId, sourceEntityType, sourceEntityId);
+
+        Optional<Tool> toolOpt = toolRepository.findById(toolId);
+        if (toolOpt.isEmpty()) {
+            logger.warn("Tool not found with ID: {}", toolId);
+            return false;
+        }
+        Tool tool = toolOpt.get();
+
+        if (filePath == null || filePath.isBlank()) {
+            logger.warn("File path is null or blank, cannot link to tool {}", toolId);
+            return false;
+        }
+
+        if ("document".equalsIgnoreCase(fileType)) {
+            if (tool.getDocumentPaths().contains(filePath)) {
+                logger.info("Document {} already linked to tool {}. Ensuring name is updated.", filePath, toolId);
+                tool.getDocumentNames().put(filePath, originalFileName); // Update name just in case
+            } else {
+                tool.getDocumentPaths().add(filePath);
+                tool.getDocumentNames().put(filePath, originalFileName);
+                logger.info("Linked document {} to tool {}", filePath, toolId);
+            }
+        } else if ("picture".equalsIgnoreCase(fileType)) {
+            if (tool.getPicturePaths().contains(filePath)) {
+                logger.info("Picture {} already linked to tool {}. Ensuring name is updated.", filePath, toolId);
+                tool.getPictureNames().put(filePath, originalFileName); // Update name just in case
+            } else {
+                tool.getPicturePaths().add(filePath);
+                tool.getPictureNames().put(filePath, originalFileName);
+                logger.info("Linked picture {} to tool {}", filePath, toolId);
+            }
+        } else {
+            logger.warn("Unsupported file type '{}' for linking to tool.", fileType);
+            return false; // Or handle as a generic document
+        }
+
+        try {
+            toolRepository.save(tool);
+            return true;
+        } catch (Exception e) {
+            logger.error("Error saving tool {} after attempting to link file {}: {}", toolId, filePath, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    @Transactional
+    public boolean linkMovingPartToTool(Long movingPartId, Long targetToolId) {
+        logger.info("Attempting to link MovingPart ID: {} to Tool ID: {}", movingPartId, targetToolId);
+        Optional<MovingPart> movingPartOpt = movingPartRepository.findById(movingPartId);
+        Optional<Tool> targetToolOpt = toolRepository.findById(targetToolId);
+
+        if (movingPartOpt.isPresent() && targetToolOpt.isPresent()) {
+            MovingPart movingPart = movingPartOpt.get();
+            Tool targetTool = targetToolOpt.get();
+
+            // Prevent linking to its own fromTool or toTool if that logic is desired
+            // For now, allow linking to any tool via this new field.
+            movingPart.setAdditionallyLinkedTool(targetTool);
+            movingPartRepository.save(movingPart);
+            logger.info("Successfully linked MovingPart {} to Tool {}", movingPartId, targetToolId);
+            return true;
+        }
+        if (movingPartOpt.isEmpty()) logger.warn("MovingPart not found with ID: {}", movingPartId);
+        if (targetToolOpt.isEmpty()) logger.warn("Target Tool not found with ID: {}", targetToolId);
+        return false;
     }
 } 

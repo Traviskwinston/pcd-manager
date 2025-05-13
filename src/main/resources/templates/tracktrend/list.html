@@ -6,10 +6,191 @@
     <title>Track/Trend List</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        /* Main container styles to prevent overflow issues */
+        .card-body {
+            overflow: visible !important;
+        }
+        
+        .table-responsive {
+            overflow: visible !important;
+        }
+        
+        /* Info icon styles */
+        .info-icon-interactive {
+            cursor: pointer;
+            transition: transform 0.2s;
+            position: relative;
+            z-index: 2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .info-icon-interactive:hover {
+            transform: scale(1.2);
+        }
+        
+        /* Active info icon */
+        .active-info {
+            color: white !important;
+            background-color: #0d6efd;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transform: scale(1.2);
+        }
+        
+        /* Custom tooltip container */
+        .custom-tooltip-container {
+            position: relative;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        
+        /* Custom tooltip styling - positioned right instead of below */
+        .custom-tooltip {
+            position: absolute;
+            top: -10px; /* Position aligned with the icon */
+            left: 25px; /* Position directly to the right of the icon */
+            min-width: 280px; /* Increased width */
+            max-width: 400px; /* Added max-width to prevent extremely wide tooltips */
+            background-color: white;
+            border: 1px solid rgba(0,0,0,.2);
+            border-radius: 0.25rem;
+            padding: 0.8rem; /* Increased padding */
+            z-index: 1070;
+            box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,.2);
+            display: none;
+            margin-left: 5px;
+            white-space: nowrap;
+        }
+        
+        /* Arrow on tooltip - now pointing left instead of up */
+        .custom-tooltip::before {
+            content: '';
+            position: absolute;
+            top: 10px; /* Fixed position */
+            left: -10px;
+            border-width: 10px 10px 10px 0;
+            border-style: solid;
+            border-color: transparent rgba(0,0,0,.2) transparent transparent;
+        }
+        
+        .custom-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 10px; /* Fixed position */
+            left: -9px;
+            border-width: 9px 9px 9px 0;
+            border-style: solid;
+            border-color: transparent white transparent transparent;
+        }
+        
+        /* Above position for tooltips */
+        .custom-tooltip.position-above {
+            top: auto;
+            bottom: -10px;
+        }
+        
+        .custom-tooltip.position-above::before,
+        .custom-tooltip.position-above::after {
+            top: auto;
+            bottom: 10px;
+        }
+        
+        /* Left position for tooltips */
+        .custom-tooltip.position-left {
+            left: auto;
+            right: 25px;
+        }
+        
+        .custom-tooltip.position-left::before {
+            left: auto;
+            right: -10px;
+            border-width: 10px 0 10px 10px;
+            border-color: transparent transparent transparent rgba(0,0,0,.2);
+        }
+        
+        .custom-tooltip.position-left::after {
+            left: auto;
+            right: -9px;
+            border-width: 9px 0 9px 9px;
+            border-color: transparent transparent transparent white;
+        }
+        
+        /* Tooltip content */
+        .pop-content {
+            width: 100%;
+        }
+        
+        /* Tool list in tooltip */
+        .tool-list {
+            /* Removed max-height and overflow */
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+        
+        .tool-list li {
+            padding: 5px 0; /* Increased padding */
+            border-bottom: 1px solid #eee;
+            white-space: normal; /* Allow text to wrap */
+            word-break: break-word; /* Break long words if needed */
+        }
+        
+        .tool-list li:last-child {
+            border-bottom: none;
+        }
+        
+        /* Tool link styling */
+        .tool-list li a {
+            display: block;
+            text-decoration: none;
+            color: #0d6efd;
+            padding: 2px 0;
+        }
+        
+        .tool-list li a:hover {
+            text-decoration: underline;
+            color: #0a58ca;
+        }
+        
+        /* Comment list styles */
+        .comment-list {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+        
+        .comment-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            white-space: normal;
+            word-break: break-word;
+        }
+        
+        .comment-item:last-child {
+            border-bottom: none;
+        }
+        
+        .comment-meta {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 3px;
+        }
+        
+        .comment-content {
+            margin-bottom: 0;
+        }
+    </style>
 </head>
 <body>
     <div th:replace="~{fragments/navigation :: navbar('tracktrend')}"></div>
-    <div class="container mt-4">
+    <div class="container-fluid mt-4">
         <div class="row mb-3">
             <div class="col"><h1>Track / Trend List</h1></div>
             <div class="col text-end">
@@ -21,15 +202,227 @@
                 <div th:if="${trackTrends.empty}" class="alert alert-info">
                     No Track/Trend entries found.
                 </div>
-                <div th:if="${!trackTrends.empty}" class="list-group">
-                    <a th:each="tt : ${trackTrends}" th:href="@{'/tracktrend/' + ${tt.id}}" 
-                       class="list-group-item list-group-item-action">
-                        <span th:text="${tt.name}">Name</span>
-                    </a>
+                <div th:if="${!trackTrends.empty}" class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Name</th>
+                                <th>Description</th>
+                                <th>Tools</th>
+                                <th>Comments</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="tt : ${trackTrends}">
+                                <td>
+                                    <a th:href="@{'/tracktrend/' + ${tt.id}}" th:text="${tt.name}" class="text-decoration-none">Name</a>
+                                </td>
+                                <td>
+                                    <span th:if="${tt.description != null}" th:text="${#strings.abbreviate(tt.description, 50)}">Description</span>
+                                    <span th:unless="${tt.description != null}" class="text-muted">No description</span>
+                                </td>
+                                <td>
+                                    <span th:text="${tt.affectedTools.size()}"></span>
+                                    <!-- Custom tooltip for affected tools -->
+                                    <span th:if="${!tt.affectedTools.empty}" class="custom-tooltip-container">
+                                        <i tabindex="0" th:id="${'info-icon-' + tt.id}" class="bi bi-info-circle text-primary ms-1 info-icon-interactive" th:data-tooltip-id="${'tooltip-' + tt.id}"></i>
+                                        <div th:id="${'tooltip-' + tt.id}" class="custom-tooltip">
+                                            <div class="text-start pop-content">
+                                                <strong>Affected Tools:</strong>
+                                                <ul class="tool-list mt-2">
+                                                    <li th:each="tool : ${tt.affectedTools}">
+                                                        <a th:href="@{'/tools/' + ${tool.id}}">
+                                                            <span th:text="${tool.name + (tool.secondaryName != null ? ' (' + tool.secondaryName + ')' : '')}">Tool Name</span>
+                                                        </a>
+                                                    </li>
+                                                    <li th:if="${tt.affectedTools.empty}" class="text-muted">No tools associated</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </span>
+                                </td>
+                                <td>
+                                    <span th:text="${tt.comments.size()}"></span>
+                                    <!-- Custom tooltip for comments -->
+                                    <span th:if="${!tt.comments.empty}" class="custom-tooltip-container">
+                                        <i tabindex="0" th:id="${'comment-icon-' + tt.id}" class="bi bi-chat-text text-primary ms-1 info-icon-interactive" th:data-tooltip-id="${'comment-tooltip-' + tt.id}"></i>
+                                        <div th:id="${'comment-tooltip-' + tt.id}" class="custom-tooltip">
+                                            <div class="text-start pop-content">
+                                                <strong>Comments:</strong>
+                                                <ul class="comment-list mt-2">
+                                                    <li th:each="comment : ${tt.comments}" class="comment-item">
+                                                        <div class="comment-meta">
+                                                            <span th:text="${comment.user != null ? comment.user.name : 'Unknown User'}">User</span> - 
+                                                            <span th:text="${#temporals.format(comment.createdDate, 'MMM d, yyyy HH:mm')}">Date</span>
+                                                        </div>
+                                                        <p class="comment-content" th:text="${#strings.abbreviate(comment.content, 100)}">Comment text</p>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </span>
+                                    <span th:if="${tt.comments.empty}" class="text-muted">No comments</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a th:href="@{'/tracktrend/' + ${tt.id}}" class="btn btn-sm btn-outline-primary" title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a th:href="@{'/tracktrend/' + ${tt.id} + '/edit'}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Track the active tooltip and state
+            let activeTooltip = null;
+            let activeIcon = null;
+            let isLocked = false;
+            
+            // Get all info icons and tooltips
+            const icons = document.querySelectorAll('.info-icon-interactive');
+            
+            // Set up event handlers for each icon
+            icons.forEach(icon => {
+                const tooltipId = icon.getAttribute('data-tooltip-id');
+                const tooltip = document.getElementById(tooltipId);
+                
+                if (!tooltip) return;
+                
+                // Show tooltip on hover
+                icon.addEventListener('mouseenter', () => {
+                    if (!isLocked) {
+                        showTooltip(tooltip, icon);
+                    }
+                });
+                
+                // Hide tooltip on mouse leave (if not locked)
+                icon.addEventListener('mouseleave', () => {
+                    if (!isLocked) {
+                        hideTooltip(tooltip);
+                    }
+                });
+                
+                // Toggle lock state on click
+                icon.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // If this tooltip is already locked, unlock it
+                    if (isLocked && activeTooltip === tooltip) {
+                        unlockTooltip();
+                    } 
+                    // If another tooltip is locked, unlock it and lock this one
+                    else if (isLocked) {
+                        unlockTooltip();
+                        lockTooltip(tooltip, icon);
+                    } 
+                    // No tooltip is locked, lock this one
+                    else {
+                        lockTooltip(tooltip, icon);
+                    }
+                });
+                
+                // Prevent tooltip from closing when clicking on links or inside the tooltip
+                tooltip.addEventListener('click', (e) => {
+                    // Don't close the tooltip if clicking inside it
+                    e.stopPropagation();
+                });
+            });
+            
+            // Handle clicks outside the tooltip to close it
+            document.addEventListener('click', (e) => {
+                if (isLocked && !e.target.closest('.custom-tooltip') && !e.target.closest('.info-icon-interactive')) {
+                    unlockTooltip();
+                }
+            });
+            
+            // Helper function to show a tooltip
+            function showTooltip(tooltip, icon) {
+                // Position it properly
+                positionTooltip(tooltip, icon);
+                // Show it
+                tooltip.style.display = 'block';
+                activeTooltip = tooltip;
+                activeIcon = icon;
+            }
+            
+            // Helper function to hide a tooltip
+            function hideTooltip(tooltip) {
+                tooltip.style.display = 'none';
+                if (activeTooltip === tooltip) {
+                    activeTooltip = null;
+                    activeIcon = null;
+                }
+            }
+            
+            // Helper function to lock a tooltip
+            function lockTooltip(tooltip, icon) {
+                showTooltip(tooltip, icon);
+                icon.classList.add('active-info');
+                isLocked = true;
+            }
+            
+            // Helper function to unlock the active tooltip
+            function unlockTooltip() {
+                if (activeIcon) {
+                    activeIcon.classList.remove('active-info');
+                }
+                if (activeTooltip) {
+                    hideTooltip(activeTooltip);
+                }
+                isLocked = false;
+            }
+            
+            // Position the tooltip relative to its trigger
+            function positionTooltip(tooltip, icon) {
+                // Reset any previous positioning classes
+                tooltip.classList.remove('position-above', 'position-left');
+                
+                // Get positions
+                const iconRect = icon.getBoundingClientRect();
+                const viewportHeight = window.innerHeight;
+                const viewportWidth = window.innerWidth;
+                
+                // Show tooltip temporarily to get its dimensions
+                tooltip.style.display = 'block';
+                tooltip.style.visibility = 'hidden';
+                const tooltipRect = tooltip.getBoundingClientRect();
+                tooltip.style.visibility = '';
+                
+                // Determine if tooltip would extend beyond viewport bottom
+                const bottomSpace = viewportHeight - iconRect.bottom;
+                const tooltipHeight = tooltipRect.height;
+                const needsAbovePosition = bottomSpace < tooltipHeight + 20;
+                
+                // Determine if tooltip would extend beyond viewport right
+                const rightSpace = viewportWidth - iconRect.right;
+                const tooltipWidth = tooltipRect.width;
+                const needsLeftPosition = rightSpace < tooltipWidth + 30;
+                
+                // Apply positioning based on available space
+                if (needsAbovePosition) {
+                    tooltip.classList.add('position-above');
+                }
+                
+                if (needsLeftPosition) {
+                    tooltip.classList.add('position-left');
+                }
+                
+                // Hide the tooltip again (it will be shown by the caller)
+                tooltip.style.display = 'none';
+            }
+        });
+    </script>
 </body>
 </html> 

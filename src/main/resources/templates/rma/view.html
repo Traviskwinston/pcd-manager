@@ -6,6 +6,31 @@
     <title>PCD Manager - RMA Details</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        /* Comment styles */
+        .comment {
+            border-bottom: 1px solid #eee;
+            padding: 15px 0;
+        }
+        .comment:last-child {
+            border-bottom: none;
+        }
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .comment-user {
+            font-weight: bold;
+        }
+        .comment-date {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .comment-content {
+            white-space: pre-wrap;
+        }
+    </style>
 </head>
 <body>
     <div th:replace="~{fragments/navigation :: navbar('rma')}"></div>
@@ -16,13 +41,17 @@
                 <h1>RMA Details</h1>
             </div>
             <div class="col text-end">
-                <a th:href="@{/rma}" class="btn btn-secondary me-2">Back to RMA Matrix</a>
-                <a th:href="@{/rma/edit/{id}(id=${rma.id})}" class="btn btn-primary me-2">Edit RMA</a>
-                <a th:href="@{/rma/{id}/excel(id=${rma.id})}" class="btn btn-success me-2">
-                    <i class="bi bi-file-excel"></i> Export to Excel
+                <a th:href="@{/rma}" class="btn btn-outline-secondary me-2" title="Back to RMA Matrix">
+                    <i class="bi bi-grid-3x3-gap-fill"></i>
                 </a>
-                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
-                    Delete RMA
+                <a th:href="@{/rma/edit/{id}(id=${rma.id})}" class="btn btn-outline-primary me-2" title="Edit RMA">
+                    <i class="bi bi-pencil-square"></i>
+                </a>
+                <a th:href="@{/rma/{id}/excel(id=${rma.id})}" class="btn btn-success me-2">
+                    <i class="bi bi-file-excel me-1"></i> Export to Excel
+                </a>
+                <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" title="Delete RMA">
+                    <i class="bi bi-trash"></i>
                 </button>
             </div>
         </div>
@@ -31,7 +60,20 @@
             <div class="card-header">
                 <div class="row">
                     <div class="col">
-                        <h4 th:text="${'RMA: ' + rma.rmaNumber}">RMA Number</h4>
+                        <h4>
+                            <span th:if="${rma.rmaNumber != null && !rma.rmaNumber.empty}">
+                                RMA: <span th:text="${rma.rmaNumber}">RMA Number</span>
+                            </span>
+                            <span th:if="${rma.rmaNumber != null && !rma.rmaNumber.empty && rma.sapNotificationNumber != null && !rma.sapNotificationNumber.empty}">
+                                / 
+                            </span>
+                            <span th:if="${rma.sapNotificationNumber != null && !rma.sapNotificationNumber.empty}">
+                                SAP: <span th:text="${rma.sapNotificationNumber}">SAP Number</span>
+                            </span>
+                            <span th:if="${(rma.rmaNumber == null || rma.rmaNumber.empty) && (rma.sapNotificationNumber == null || rma.sapNotificationNumber.empty)}">
+                                RMA Details
+                            </span>
+                        </h4>
                     </div>
                     <div class="col text-end">
                         <div class="mb-1">
@@ -222,10 +264,43 @@
                     <div class="col-md-12 mb-3">
                         <div class="card">
                             <div class="card-header">
-                                <h5 class="mb-0">Description</h5>
+                                <h5 class="mb-0">Problem Information</h5>
                             </div>
                             <div class="card-body">
-                                <p th:text="${rma.description != null ? rma.description : 'No description provided'}" class="mb-0">Description</p>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <table class="table table-bordered">
+                                            <tr>
+                                                <th style="width:40%">1. Who Discovered:</th>
+                                                <td th:text="${rma.problemDiscoverer != null ? rma.problemDiscoverer : 'N/A'}">Not provided</td>
+                                            </tr>
+                                            <tr>
+                                                <th>2. When Discovered:</th>
+                                                <td th:text="${rma.problemDiscoveryDate != null ? #temporals.format(rma.problemDiscoveryDate, 'yyyy-MM-dd') : 'N/A'}">Not provided</td>
+                                            </tr>
+                                            <tr>
+                                                <th>3. What Happened:</th>
+                                                <td th:text="${rma.whatHappened != null ? rma.whatHappened : 'N/A'}">Not provided</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <table class="table table-bordered">
+                                            <tr>
+                                                <th style="width:40%">4. Why and How:</th>
+                                                <td th:text="${rma.whyAndHowItHappened != null ? rma.whyAndHowItHappened : 'N/A'}">Not provided</td>
+                                            </tr>
+                                            <tr>
+                                                <th>5. How Contained:</th>
+                                                <td th:text="${rma.howContained != null ? rma.howContained : 'N/A'}">Not provided</td>
+                                            </tr>
+                                            <tr>
+                                                <th>6. Who Contained:</th>
+                                                <td th:text="${rma.whoContained != null ? rma.whoContained : 'N/A'}">Not provided</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -259,6 +334,52 @@
                             </div>
                             <div class="card-body">
                                 <p th:text="${rma.notes != null ? rma.notes : 'No notes available'}" class="mb-0">Notes</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Comments Section -->
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">Comments</h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Add Comment Form -->
+                                <div class="mb-4">
+                                    <form action="#" th:action="@{/rma/{id}/post-comment(id=${rma.id})}" method="post">
+                                        <div class="form-group">
+                                            <label for="commentContent" class="form-label">Add a comment:</label>
+                                            <textarea class="form-control" id="commentContent" name="content" rows="3" required placeholder="Enter your comment here..."></textarea>
+                                        </div>
+                                        <div class="mt-2 text-end">
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="bi bi-plus-circle me-1"></i> Post Comment
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                                
+                                <hr/>
+                                
+                                <!-- Comments List -->
+                                <div class="comments-list">
+                                    <div th:if="${#lists.isEmpty(comments)}" class="text-muted text-center py-3">
+                                        No comments yet. Be the first to comment!
+                                    </div>
+                                    
+                                    <div th:each="comment : ${comments}" class="comment">
+                                        <div class="comment-header">
+                                            <span class="comment-user" th:text="${comment.user != null ? comment.user.name : 'Unknown User'}">User Name</span>
+                                            <span class="comment-date" th:text="${#temporals.format(comment.createdDate, 'yyyy-MM-dd HH:mm')}">Date</span>
+                                        </div>
+                                        <div class="comment-content" th:text="${comment.content}">
+                                            Comment content goes here.
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -326,6 +447,89 @@
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Moving Parts Section - Updated for RMA Details -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Associated Moving Parts</h5>
+                                <!-- TODO: The Add Moving Part button/modal needs to be updated to correctly associate with the RMA -->
+                                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addMovingPartModal" th:if="${rma.tool != null}" title="Add part movement related to the primary tool of this RMA">
+                                    <i class="bi bi-plus-circle me-1"></i> Add Part Movement (for Tool)
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div th:if="${movingParts == null || movingParts.empty}" class="alert alert-info">
+                                    No moving parts have been recorded for this RMA.
+                                </div>
+                                <div th:if="${movingParts != null && !movingParts.empty}" class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Part Name</th>
+                                                <th>Movement</th>
+                                                <th>Notes</th>
+                                                <th>Date</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="movingPart : ${movingParts}">
+                                                <td th:text="${movingPart.partName}">Part A</td>
+                                                <td>
+                                                    <a th:if="${movingPart.fromTool != null}" th:href="@{/tools/{id}(id=${movingPart.fromTool.id})}" th:text="${movingPart.fromTool.name}" class="text-decoration-none"></a>
+                                                    <span th:unless="${movingPart.fromTool != null}">N/A</span>
+                                                    <i class="bi bi-arrow-right text-success mx-1"></i>
+                                                    <a th:if="${movingPart.toTool != null}" th:href="@{/tools/{id}(id=${movingPart.toTool.id})}" th:text="${movingPart.toTool.name}" class="text-decoration-none"></a>
+                                                    <span th:unless="${movingPart.toTool != null}">N/A</span>
+                                                </td>
+                                                <td>
+                                                    <span th:if="${movingPart.notes != null}" th:text="${movingPart.notes}">Notes</span>
+                                                    <span th:if="${movingPart.notes == null}" class="text-muted">-</span>
+                                                </td>
+                                                <td th:text="${#temporals.format(movingPart.moveDate, 'MMM dd, yyyy')}">Jan 1, 2023</td>
+                                                <td>
+                                                    <div class="btn-group">
+                                                        <!-- TODO: Edit/Delete actions need to be verified/updated for RMA context -->
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary edit-moving-part-btn"
+                                                                data-bs-toggle="modal" data-bs-target="#editMovingPartModal"
+                                                                th:if="${rma.tool != null}" 
+                                                                th:data-id="${movingPart.id}"
+                                                                th:data-part-name="${movingPart.partName}"
+                                                                th:data-from-tool-id="${movingPart.fromTool != null ? movingPart.fromTool.id : ''}"
+                                                                th:data-to-tool-id="${movingPart.toTool != null ? movingPart.toTool.id : ''}"
+                                                                th:data-notes="${movingPart.notes}"
+                                                                title="Edit part movement (related to tool)">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-outline-info unified-link-trigger-btn ms-1"
+                                                                data-bs-toggle="modal" data-bs-target="#unifiedLinkFileModal"
+                                                                th:data-source-entity-id="${movingPart.id}"
+                                                                th:data-source-entity-type="'MOVING_PART'"
+                                                                th:data-file-name="${movingPart.partName + ' (Movement ID: ' + movingPart.id + ')'}"
+                                                                th:data-file-type="'MOVING_PART_RECORD'"
+                                                                title="Link this Moving Part record">
+                                                            <i class="bi bi-link-45deg"></i>
+                                                        </button>
+                                                        <form th:if="${rma.tool != null}" th:action="@{/tools/{toolId}/moving-parts/{movingPartId}/delete(toolId=${rma.tool.id}, movingPartId=${movingPart.id})}" 
+                                                              method="post" class="ms-1">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                                    onclick="return confirm('Are you sure you want to delete this moving part record (from tool)?')"
+                                                                    title="Delete part movement (from tool)">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -404,11 +608,14 @@
                                                 <button type="button" 
                                                         class="btn btn-sm btn-outline-info link-btn"
                                                         title="Link"
-                                                        th:data-id="${document.id}"
-                                                        data-type="document"
-                                                        th:data-rma-id="${rma.id}"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#linkModal">
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#unifiedLinkFileModal" 
+                                                        th:data-file-id="${document.id}"             <!-- Using document.id as fileId -->
+                                                        th:data-file-path="${document.filePath}" 
+                                                        th:data-file-name="${document.fileName}"
+                                                        th:data-file-type="'document'"
+                                                        th:data-source-entity-type="'RMA'"
+                                                        th:data-source-entity-id="${rma.id}">
                                                     <i class="bi bi-link-45deg"></i>
                                                 </button>
                                             </div>
@@ -504,11 +711,14 @@
                                                     <button type="button" 
                                                             class="btn btn-sm btn-outline-info link-btn"
                                                             title="Link"
-                                                            th:data-id="${picture.id}"
-                                                            data-type="picture"
-                                                            th:data-rma-id="${rma.id}"
-                                                            data-bs-toggle="modal"
-                                                            data-bs-target="#linkModal">
+                                                            data-bs-toggle="modal" 
+                                                            data-bs-target="#unifiedLinkFileModal" 
+                                                            th:data-file-id="${picture.id}"             <!-- Using picture.id as fileId -->
+                                                            th:data-file-path="${picture.filePath}"
+                                                            th:data-file-name="${picture.fileName}"
+                                                            th:data-file-type="'picture'"
+                                                            th:data-source-entity-type="'RMA'"
+                                                            th:data-source-entity-id="${rma.id}">
                                                         <i class="bi bi-link-45deg"></i>
                                                     </button>
                                                 </div>
@@ -548,6 +758,9 @@
         </div>
     </div>
     
+    <!-- Hidden RMA ID for JS -->
+    <input type="hidden" id="rmaPageEntityIdForJs" th:value="${rma.id}">
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -688,127 +901,128 @@
                 });
             });
             
-            // Handle link button clicks
-            document.querySelectorAll('.link-btn').forEach(button => {
-                button.addEventListener('click', function() {
-                    // Store file data in the modal for linking
-                    const fileId = this.getAttribute('data-id');
-                    const fileType = this.getAttribute('data-type');
-                    const rmaId = this.getAttribute('data-rma-id');
+            // Moving Parts Edit button handlers
+            document.querySelectorAll('.edit-moving-part-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    const partName = this.getAttribute('data-part-name');
+                    const fromToolId = this.getAttribute('data-from-tool-id');
+                    const toToolId = this.getAttribute('data-to-tool-id');
+                    const notes = this.getAttribute('data-notes') || '';
                     
-                    document.getElementById('linkFileId').value = fileId;
-                    document.getElementById('linkFileType').value = fileType;
-                    document.getElementById('linkSourceRmaId').value = rmaId;
+                    // Update form action URL
+                    const form = document.getElementById('editMovingPartForm');
+                    form.action = form.action.replace('/0/', '/' + id + '/');
                     
-                    // Update modal title based on file type
-                    const modalTitle = document.getElementById('linkModalLabel');
-                    modalTitle.textContent = `Link ${fileType.charAt(0).toUpperCase() + fileType.slice(1)}`;
+                    // Fill form fields with existing data
+                    document.getElementById('editMovingPartId').value = id;
+                    document.getElementById('editPartName').value = partName;
+                    document.getElementById('editFromToolId').value = fromToolId;
+                    document.getElementById('editToToolId').value = toToolId;
+                    document.getElementById('editNotes').value = notes;
                 });
             });
-            
-            // Toggle sections in link modal based on target selection
-            document.getElementById('linkTarget').addEventListener('change', function() {
-                const toolSection = document.getElementById('toolLinkSection');
-                const passdownSection = document.getElementById('passdownLinkSection');
-                
-                if (this.value === 'tool') {
-                    toolSection.style.display = 'block';
-                    passdownSection.style.display = 'none';
-                } else if (this.value === 'passdown') {
-                    toolSection.style.display = 'none';
-                    passdownSection.style.display = 'block';
+
+            // --- Unified Link File Modal Logic for RMA Page ---
+            const unifiedLinkFileModalRmaPage = document.getElementById('unifiedLinkFileModal'); 
+            if (unifiedLinkFileModalRmaPage) {
+                const rmaIdElement = document.getElementById('rmaPageEntityIdForJs');
+                let rmaPageIdForJs = null;
+                if (rmaIdElement) {
+                    rmaPageIdForJs = rmaIdElement.value;
+                    console.log("Unified Link Modal (RMA Page): RMA ID for page context found:", rmaPageIdForJs);
+                } else {
+                    console.error("CRITICAL ERROR: Hidden input with id='rmaPageEntityIdForJs' not found. Linking will likely fail for sourceEntityId.");
+                    alert("Page Error: RMA ID context is missing. Please contact support or refresh.");
                 }
-            });
-            
-            // Handle confirm link action
-            document.getElementById('confirmLinkBtn').addEventListener('click', function() {
-                const form = document.getElementById('linkForm');
-                const linkTarget = document.getElementById('linkTarget').value;
+
+                const unifiedLinkTargetEntityTypeRmaPage = document.getElementById('unifiedLinkTargetEntityTypeRmaPage');
+                const unifiedLinkTargetRmaSectionRmaPage = document.getElementById('unifiedLinkTargetRmaSectionRmaPage');
+                const unifiedLinkTargetToolSectionRmaPage = document.getElementById('unifiedLinkTargetToolSectionRmaPage');
+                const unifiedLinkTargetTrackTrendSectionRmaPage = document.getElementById('unifiedLinkTargetTrackTrendSectionRmaPage');
+
+                document.querySelectorAll('.link-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        // Determine pageRmaId at the moment of click, in case it wasn't ready at page load for some reason
+                        const currentPageRmaId = rmaPageIdForJs || (document.getElementById('rmaPageEntityIdForJs') ? document.getElementById('rmaPageEntityIdForJs').value : null);
+                        console.log("Link button clicked on RMA page. Page RMA ID:", currentPageRmaId);
+                        if (!currentPageRmaId) {
+                            alert("Cannot proceed: Page RMA ID is missing. Please refresh.");
+                            return;
+                        }
+
+                        const itemFileType = this.dataset.fileType; // 'document', 'picture', or 'MOVING_PART_RECORD'
+                        const buttonSourceEntityType = this.dataset.sourceEntityType; // 'RMA' (for doc/pic) or 'MOVING_PART'
+                        const buttonSourceEntityId = this.dataset.sourceEntityId; // rma.id (for doc/pic buttons) or movingPart.id (for MP buttons)
+                        
+                        let itemIdToLink = this.dataset.fileId || ''; // For RmaDocument/RmaPicture, this is their ID
+                        let itemFilePath = this.dataset.filePath || '';
+                        let itemDisplayName = this.dataset.fileName || 'Selected Item';
+                        // The controller's sourceEntityType should be the type of the page we are on ('RMA') for redirection
+                        let controllerSourceEntityType = 'RMA';
+                        // The controller's sourceEntityId should be the ID of the page we are on (rma.id)
+                        let controllerSourceEntityId = currentPageRmaId;
+
+                        console.log("RMA Link button clicked:", this.dataset);
+                        console.log("Item File Type:", itemFileType, "Button Source Entity Type:", buttonSourceEntityType, "Button Source Entity ID:", buttonSourceEntityId);
+                        console.log("Initial itemDisplayName from data-file-name:", this.dataset.fileName);
+
+                        if (itemFileType === 'MOVING_PART_RECORD') {
+                            itemIdToLink = buttonSourceEntityId; // This IS the movingPart.id
+                            itemFilePath = ''; 
+                            // itemDisplayName is already set
+                            // controllerSourceEntityType remains 'RMA' (page context)
+                            // controllerSourceEntityId remains rma.id (page context)
+                        } else { // 'document' or 'picture' from RMA
+                            // itemIdToLink is already this.dataset.fileId (RmaDocument/Picture ID)
+                            // itemFilePath is already this.dataset.filePath
+                            // controllerSourceEntityType remains 'RMA'
+                            // controllerSourceEntityId remains rma.id
+                        }
+
+                        document.getElementById('unifiedLinkFileIdInputRmaPage').value = itemIdToLink; 
+                        document.getElementById('unifiedLinkFilePathInputRmaPage').value = itemFilePath;
+                        document.getElementById('unifiedLinkOriginalFileNameInputRmaPage').value = itemDisplayName;
+                        document.getElementById('unifiedLinkFileTypeInputRmaPage').value = itemFileType;
+                        document.getElementById('unifiedLinkSourceEntityTypeInputRmaPage').value = controllerSourceEntityType; 
+                        document.getElementById('unifiedLinkSourceEntityIdInputRmaPage').value = controllerSourceEntityId; 
+                        document.getElementById('unifiedLinkFileNameDisplayRmaPage').textContent = itemDisplayName;
+                        console.log("RMA Modal populated. FileNameDisplay:", itemDisplayName, "FileIdInput:", itemIdToLink, "SourceEntityIdInput:", controllerSourceEntityId);
+                        
+                        // Reset target selection
+                        unifiedLinkTargetEntityTypeRmaPage.value = '';
+                        unifiedLinkTargetRmaSectionRmaPage.style.display = 'none';
+                        document.getElementById('unifiedLinkTargetRmaIdRmaPage').value = '';
+                        unifiedLinkTargetToolSectionRmaPage.style.display = 'none';
+                        document.getElementById('unifiedLinkTargetToolIdRmaPage').value = '';
+                        unifiedLinkTargetTrackTrendSectionRmaPage.style.display = 'none';
+                        document.getElementById('unifiedLinkTargetTrackTrendIdRmaPage').value = '';
+                    });
+                });
+
+                unifiedLinkTargetEntityTypeRmaPage.addEventListener('change', function() {
+                    unifiedLinkTargetRmaSectionRmaPage.style.display = this.value === 'RMA' ? 'block' : 'none';
+                    unifiedLinkTargetToolSectionRmaPage.style.display = this.value === 'TOOL' ? 'block' : 'none';
+                    unifiedLinkTargetTrackTrendSectionRmaPage.style.display = this.value === 'TRACK_TREND' ? 'block' : 'none';
+                });
                 
-                // Validation based on selected target
-                let isValid = true;
-                let errorMessage = '';
-                
-                if (linkTarget === 'tool') {
-                    const toolId = document.getElementById('linkToolId').value;
-                    if (!toolId) {
-                        isValid = false;
-                        errorMessage = 'Please select a tool to link to';
-                    }
-                } else if (linkTarget === 'passdown') {
-                    const passdownId = document.getElementById('linkPassdownId').value;
-                    if (!passdownId) {
-                        isValid = false;
-                        errorMessage = 'Please select a passdown to link to';
-                    }
+                const unifiedLinkFormRmaPage = document.getElementById('unifiedLinkFormRmaPage');
+                if(unifiedLinkFormRmaPage) {
+                    unifiedLinkFormRmaPage.addEventListener('submit', function(event) {
+                        const targetType = unifiedLinkTargetEntityTypeRmaPage.value;
+                        let targetId = '';
+                        if (targetType === 'RMA') targetId = document.getElementById('unifiedLinkTargetRmaIdRmaPage').value;
+                        else if (targetType === 'TOOL') targetId = document.getElementById('unifiedLinkTargetToolIdRmaPage').value;
+                        else if (targetType === 'TRACK_TREND') targetId = document.getElementById('unifiedLinkTargetTrackTrendIdRmaPage').value;
+
+                        if (!targetType || !targetId) {
+                            alert('Please select both an entity type and a specific entity to link to.');
+                            event.preventDefault(); 
+                        }
+                    });
                 }
-                
-                if (!isValid) {
-                    alert(errorMessage);
-                    return;
-                }
-                
-                // Submit the form
-                form.submit();
-            });
-            
-            // Handle confirm transfer action
-            document.getElementById('confirmTransferBtn').addEventListener('click', function() {
-                const form = document.getElementById('transferForm');
-                
-                // Check if a target RMA is selected
-                const targetRmaId = document.getElementById('targetRmaId').value;
-                if (!targetRmaId) {
-                    alert('Please select a target RMA to transfer to');
-                    return;
-                }
-                
-                // Submit the form
-                form.submit();
-            });
-            
-            // Handle confirm delete action
-            document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
-                const fileId = document.getElementById('fileIdToDelete').value;
-                const fileType = document.getElementById('fileTypeToDelete').value;
-                const rmaId = document.getElementById('rmaIdForDelete').value;
-                const deleteOption = document.querySelector('input[name="deleteOption"]:checked').value;
-                
-                if (fileId && fileType && rmaId) {
-                    // Create and submit form for deletion
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = '/rma/file/delete';
-                    
-                    const idInput = document.createElement('input');
-                    idInput.type = 'hidden';
-                    idInput.name = 'fileId';
-                    idInput.value = fileId;
-                    
-                    const typeInput = document.createElement('input');
-                    typeInput.type = 'hidden';
-                    typeInput.name = 'fileType';
-                    typeInput.value = fileType;
-                    
-                    const rmaInput = document.createElement('input');
-                    rmaInput.type = 'hidden';
-                    rmaInput.name = 'rmaId';
-                    rmaInput.value = rmaId;
-                    
-                    const optionInput = document.createElement('input');
-                    optionInput.type = 'hidden';
-                    optionInput.name = 'deleteOption';
-                    optionInput.value = deleteOption;
-                    
-                    form.appendChild(idInput);
-                    form.appendChild(typeInput);
-                    form.appendChild(rmaInput);
-                    form.appendChild(optionInput);
-                    
-                    document.body.appendChild(form);
-                    form.submit();
-                }
-            });
+            }
+            // --- End Unified Link File Modal Logic for RMA Page ---
         });
         
         // Function to handle image loading errors
@@ -913,62 +1127,83 @@
         </div>
     </div>
 
-    <!-- Link Modal -->
-    <div class="modal fade" id="linkModal" tabindex="-1" aria-labelledby="linkModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+    <!-- Unified Link File Modal (Copied from tools/details.html, ensure allRmas, allTools, allTrackTrends are available) -->
+    <div class="modal fade" id="unifiedLinkFileModal" tabindex="-1" aria-labelledby="unifiedLinkFileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="linkModalLabel">Link File</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Select where to link this file:</p>
-                    <form id="linkForm" action="/rma/file/link" method="post">
-                        <input type="hidden" id="linkFileId" name="fileId">
-                        <input type="hidden" id="linkFileType" name="fileType">
-                        <input type="hidden" id="linkSourceRmaId" name="sourceRmaId" th:value="${rma.id}">
+                <form id="unifiedLinkFormRmaPage" th:action="@{/files/link-entity}" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="unifiedLinkFileModalLabelRmaPage">Link File</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Link <strong id="unifiedLinkFileNameDisplayRmaPage">file_name_here</strong> to:</p>
                         
+                        <input type="hidden" id="unifiedLinkFileIdInputRmaPage" name="fileId">
+                        <input type="hidden" id="unifiedLinkFilePathInputRmaPage" name="filePath">
+                        <input type="hidden" id="unifiedLinkFileTypeInputRmaPage" name="fileType">
+                        <input type="hidden" id="unifiedLinkSourceEntityTypeInputRmaPage" name="sourceEntityType">
+                        <input type="hidden" id="unifiedLinkSourceEntityIdInputRmaPage" name="sourceEntityId">
+                        <input type="hidden" id="unifiedLinkOriginalFileNameInputRmaPage" name="originalFileName">
+
                         <div class="mb-3">
-                            <label for="linkTarget" class="form-label">Link to:</label>
-                            <select id="linkTarget" name="linkTarget" class="form-select" required>
-                                <option value="tool">Tool</option>
-                                <option value="passdown">Passdown</option>
+                            <label for="unifiedLinkTargetEntityTypeRmaPage" class="form-label">Link to Entity Type:</label>
+                            <select id="unifiedLinkTargetEntityTypeRmaPage" name="targetEntityType" class="form-select" required>
+                                <option value="">-- Select Entity Type --</option>
+                                <option value="RMA">RMA</option>
+                                <option value="TOOL">Tool</option>
+                                <option value="TRACK_TREND">Track/Trend</option>
                             </select>
                         </div>
-                        
-                        <div id="toolLinkSection" class="mb-3">
-                            <label for="linkToolId" class="form-label">Select Tool:</label>
-                            <select id="linkToolId" name="linkToolId" class="form-select">
+
+                        <div id="unifiedLinkTargetRmaSectionRmaPage" class="mb-3" style="display: none;">
+                            <label for="unifiedLinkTargetRmaIdRmaPage" class="form-label">Select RMA:</label>
+                            <select id="unifiedLinkTargetRmaIdRmaPage" name="targetRmaId" class="form-select">
+                                <option value="">-- Select RMA --</option>
+                                <th:block th:if="${allRmas != null}">
+                                    <option th:each="rmaOption : ${allRmas}"
+                                            th:if="${rmaOption.id != rma.id}" 
+                                            th:value="${rmaOption.id}" 
+                                            th:text="${(rmaOption.rmaNumber ?: ('RMA-' + rmaOption.id)) + (rmaOption.customerName != null ? ' - ' + rmaOption.customerName : '')}">
+                                    </option>
+                                </th:block>
+                            </select>
+                        </div>
+
+                        <div id="unifiedLinkTargetToolSectionRmaPage" class="mb-3" style="display: none;">
+                            <label for="unifiedLinkTargetToolIdRmaPage" class="form-label">Select Tool:</label>
+                            <select id="unifiedLinkTargetToolIdRmaPage" name="targetToolId" class="form-select">
                                 <option value="">-- Select Tool --</option>
-                                <option th:each="tool : ${allTools}" 
-                                        th:value="${tool.id}" 
-                                        th:text="${tool.name + (tool.secondaryName != null ? ' (' + tool.secondaryName + ')' : '')}">
-                                    Tool Name
-                                </option>
+                                <th:block th:if="${allTools != null}">
+                                   <option th:each="toolOption : ${allTools}" 
+                                           th:value="${toolOption.id}" 
+                                           th:text="${toolOption.name + (toolOption.secondaryName != null ? ' (' + toolOption.secondaryName + ')' : '')}">
+                                   </option>
+                               </th:block>
                             </select>
                         </div>
-                        
-                        <div id="passdownLinkSection" class="mb-3" style="display: none;">
-                            <label for="linkPassdownId" class="form-label">Select Passdown:</label>
-                            <select id="linkPassdownId" name="linkPassdownId" class="form-select">
-                                <option value="">-- Select Passdown --</option>
-                                <option th:each="passdown : ${recentPassdowns}" 
-                                        th:value="${passdown.id}" 
-                                        th:text="${#temporals.format(passdown.date, 'MM/dd/yyyy') + 
-                                                 (passdown.user != null ? ' by ' + passdown.user.name : '')}">
-                                    Date - User
-                                </option>
+
+                        <div id="unifiedLinkTargetTrackTrendSectionRmaPage" class="mb-3" style="display: none;">
+                            <label for="unifiedLinkTargetTrackTrendIdRmaPage" class="form-label">Select Track/Trend:</label>
+                            <select id="unifiedLinkTargetTrackTrendIdRmaPage" name="targetTrackTrendId" class="form-select">
+                                <option value="">-- Select Track/Trend --</option>
+                                 <th:block th:if="${allTrackTrends != null}"> <!-- Ensure allTrackTrends is passed to rma/view model -->
+                                    <option th:each="tt : ${allTrackTrends}"
+                                            th:value="${tt.id}"
+                                            th:text="${tt.name + ' (' + #temporals.format(tt.startDate, 'yyyy-MM-dd') + ')'}"></option>
+                                </th:block>
                             </select>
                         </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="confirmLinkBtn">Link</button>
-                </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="confirmUnifiedLinkBtnRmaPage">Link File</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
+    <!-- End Unified Link File Modal -->
 
     <!-- Delete RMA Modal -->
     <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
@@ -981,8 +1216,15 @@
                 <div class="modal-body">
                     <p>Are you sure you want to delete this RMA?</p>
                     <p class="text-danger fw-bold">This action cannot be undone!</p>
-                    <p>RMA Number: <span class="fw-bold" th:text="${rma.rmaNumber != null ? rma.rmaNumber : 'N/A'}"></span></p>
-                    <p th:if="${rma.tool != null}">Tool: <span class="fw-bold" th:text="${rma.tool.name}"></span></p>
+                    <p th:if="${rma.rmaNumber != null && !rma.rmaNumber.empty}">
+                        <strong>RMA Number:</strong> <span th:text="${rma.rmaNumber}"></span>
+                    </p>
+                    <p th:if="${rma.sapNotificationNumber != null && !rma.sapNotificationNumber.empty}">
+                        <strong>SAP Number:</strong> <span th:text="${rma.sapNotificationNumber}"></span>
+                    </p>
+                    <p th:if="${rma.tool != null}">
+                        <strong>Tool:</strong> <span th:text="${rma.tool.name}"></span>
+                    </p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -990,6 +1232,114 @@
                         <button type="submit" class="btn btn-danger">Delete</button>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Moving Part Modal -->
+    <div class="modal fade" id="addMovingPartModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form th:action="@{/tools/{id}/moving-parts/add(id=${rma.tool.id})}" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Moving Part</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="partName" class="form-label">Part Name:</label>
+                            <input type="text" class="form-control" id="partName" name="partName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Movement:</label>
+                            <div class="d-flex align-items-center mb-2">
+                                <strong class="me-2">From:</strong>
+                                <select class="form-select" id="fromToolId" name="fromToolId" required>
+                                    <option value="">Select source tool...</option>
+                                    <option th:each="fromTool : ${allTools}"
+                                            th:value="${fromTool.id}" 
+                                            th:text="${fromTool.name + (fromTool.secondaryName != null ? ' (' + fromTool.secondaryName + ')' : '')}"
+                                            th:selected="${fromTool.id == rma.tool.id}">
+                                        Tool Name
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <strong class="me-2">To:</strong>
+                                <select class="form-select" id="toToolId" name="toToolId" required>
+                                    <option value="">Select destination tool...</option>
+                                    <option th:each="toTool : ${allTools}"
+                                            th:value="${toTool.id}" 
+                                            th:text="${toTool.name + (toTool.secondaryName != null ? ' (' + toTool.secondaryName + ')' : '')}">
+                                        Tool Name
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes:</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Moving Part Modal -->
+    <div class="modal fade" id="editMovingPartModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="editMovingPartForm" th:action="@{/tools/{id}/moving-parts/0/edit(id=${rma.tool.id})}" method="post">
+                    <input type="hidden" id="editMovingPartId" name="movingPartId" value="">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Moving Part</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="editPartName" class="form-label">Part Name:</label>
+                            <input type="text" class="form-control" id="editPartName" name="partName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Movement:</label>
+                            <div class="d-flex align-items-center mb-2">
+                                <strong class="me-2">From:</strong>
+                                <select class="form-select" id="editFromToolId" name="fromToolId" required>
+                                    <option value="">Select source tool...</option>
+                                    <option th:each="fromTool : ${allTools}"
+                                            th:value="${fromTool.id}" 
+                                            th:text="${fromTool.name + (fromTool.secondaryName != null ? ' (' + fromTool.secondaryName + ')' : '')}">
+                                        Tool Name
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <strong class="me-2">To:</strong>
+                                <select class="form-select" id="editToToolId" name="toToolId" required>
+                                    <option value="">Select destination tool...</option>
+                                    <option th:each="toTool : ${allTools}"
+                                            th:value="${toTool.id}" 
+                                            th:text="${toTool.name + (toTool.secondaryName != null ? ' (' + toTool.secondaryName + ')' : '')}">
+                                        Tool Name
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editNotes" class="form-label">Notes:</label>
+                            <textarea class="form-control" id="editNotes" name="notes" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

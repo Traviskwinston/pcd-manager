@@ -9,10 +9,16 @@ import com.pcd.manager.model.RmaDocument;
 import com.pcd.manager.model.RmaPicture;
 import com.pcd.manager.model.Passdown;
 import com.pcd.manager.model.PartLineItem;
+import com.pcd.manager.model.RmaComment;
+import com.pcd.manager.model.User;
 import com.pcd.manager.repository.RmaRepository;
 import com.pcd.manager.repository.RmaPictureRepository;
 import com.pcd.manager.repository.RmaDocumentRepository;
+import com.pcd.manager.repository.RmaCommentRepository;
+import com.pcd.manager.repository.UserRepository;
 import com.pcd.manager.util.UploadUtils;
+import com.pcd.manager.repository.MovingPartRepository;
+import com.pcd.manager.model.MovingPart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.ArrayList;
@@ -43,6 +50,9 @@ public class RmaService {
     private final UploadUtils uploadUtils;
     private final ToolService toolService;
     private final PassdownService passdownService;
+    private final RmaCommentRepository rmaCommentRepository;
+    private final UserRepository userRepository;
+    private final MovingPartRepository movingPartRepository;
 
     private static final List<String> IMAGE_TYPES = Arrays.asList(
         "image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp"
@@ -54,13 +64,19 @@ public class RmaService {
                      RmaDocumentRepository rmaDocumentRepository,
                      UploadUtils uploadUtils,
                      ToolService toolService,
-                     PassdownService passdownService) {
+                     PassdownService passdownService,
+                     RmaCommentRepository rmaCommentRepository,
+                     UserRepository userRepository,
+                     MovingPartRepository movingPartRepository) {
         this.rmaRepository = rmaRepository;
         this.rmaPictureRepository = rmaPictureRepository;
         this.rmaDocumentRepository = rmaDocumentRepository;
         this.uploadUtils = uploadUtils;
         this.toolService = toolService;
         this.passdownService = passdownService;
+        this.rmaCommentRepository = rmaCommentRepository;
+        this.userRepository = userRepository;
+        this.movingPartRepository = movingPartRepository;
     }
 
     public List<Rma> getAllRmas() {
@@ -105,19 +121,44 @@ public class RmaService {
 
         if (rmaData.getId() != null) {
             logger.info("Updating RMA ID: {}", rmaData.getId());
+            logger.info("RMA Data submitted - RMA Number: '{}', SAP Notification: '{}'", 
+                     rmaData.getRmaNumber(), rmaData.getSapNotificationNumber());
+                     
             rmaToSave = getRmaById(rmaData.getId())
                 .orElseThrow(() -> new RuntimeException("RMA not found for update: " + rmaData.getId()));
+            
+            logger.info("Existing RMA values before update - RMA Number: '{}', SAP Notification: '{}'", 
+                     rmaToSave.getRmaNumber(), rmaToSave.getSapNotificationNumber());
             
             // Store old tool ID for later comparison
             oldToolId = rmaToSave.getTool() != null ? rmaToSave.getTool().getId() : null;
             
+            // Set RMA number and clear SAP notification if only RMA was provided
             rmaToSave.setRmaNumber(rmaData.getRmaNumber());
+            rmaToSave.setSapNotificationNumber(rmaData.getSapNotificationNumber());
+            
+            // Handle inconsistent data - if we have an RMA number but no SAP notification in the original
+            // data, and we only sent an RMA, clear the existing SAP number to avoid creating a combined value
+            if (rmaData.getSapNotificationNumber() == null || rmaData.getSapNotificationNumber().trim().isEmpty()) {
+                // Explicitly clear the SAP notification number when it's not provided
+                rmaToSave.setSapNotificationNumber("");
+                logger.info("Explicitly cleared SAP notification number field");
+            }
+            
             rmaToSave.setCustomerName(rmaData.getCustomerName());
             rmaToSave.setStatus(rmaData.getStatus());
             rmaToSave.setPriority(rmaData.getPriority());
             rmaToSave.setLocation(rmaData.getLocation());
             rmaToSave.setTechnician(rmaData.getTechnician());
-            rmaToSave.setDescription(rmaData.getDescription());
+            
+            // Set problem information fields (replacing description)
+            rmaToSave.setProblemDiscoverer(rmaData.getProblemDiscoverer());
+            rmaToSave.setProblemDiscoveryDate(rmaData.getProblemDiscoveryDate());
+            rmaToSave.setWhatHappened(rmaData.getWhatHappened());
+            rmaToSave.setWhyAndHowItHappened(rmaData.getWhyAndHowItHappened());
+            rmaToSave.setHowContained(rmaData.getHowContained());
+            rmaToSave.setWhoContained(rmaData.getWhoContained());
+            
             rmaToSave.setComments(rmaData.getComments());
             rmaToSave.setTool(rmaData.getTool()); // This may change the tool
             rmaToSave.setSerialNumber(rmaData.getSerialNumber());
@@ -1478,5 +1519,168 @@ public class RmaService {
             logger.error("Error linking picture to passdown: {}", e.getMessage(), e);
             return false;
         }
+    }
+
+    /**
+     * Add a comment to an RMA
+     */
+    @Transactional
+    public RmaComment addComment(Long rmaId, String content, String userEmail) {
+        Rma rma = rmaRepository.findById(rmaId)
+            .orElseThrow(() -> new IllegalArgumentException("RMA not found: " + rmaId));
+        
+        User user = userRepository.findByEmailIgnoreCase(userEmail)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail));
+        
+        RmaComment comment = new RmaComment();
+        comment.setContent(content);
+        comment.setRma(rma);
+        comment.setUser(user);
+        comment.setCreatedDate(LocalDateTime.now());
+        
+        RmaComment savedComment = rmaCommentRepository.save(comment);
+        
+        // Add the comment to the RMA's comment list
+        rma.getComments().add(savedComment);
+        rmaRepository.save(rma);
+        
+        return savedComment;
+    }
+    
+    /**
+     * Get all comments for an RMA
+     */
+    public List<RmaComment> getCommentsForRma(Long rmaId) {
+        return rmaCommentRepository.findByRmaIdOrderByCreatedDateDesc(rmaId);
+    }
+
+    @Transactional
+    public boolean linkFileToRma(Long rmaId, String filePath, String originalFileName, 
+                               String fileType, String sourceEntityType, Long sourceEntityId) {
+        logger.info("Attempting to link file {} (type: {}) to RMA ID: {}. Original source: {} {}", 
+                    filePath, fileType, rmaId, sourceEntityType, sourceEntityId);
+
+        Optional<Rma> rmaOpt = rmaRepository.findById(rmaId);
+        if (rmaOpt.isEmpty()) {
+            logger.warn("Target RMA with ID {} not found.", rmaId);
+            return false;
+        }
+        Rma rma = rmaOpt.get();
+
+        if (filePath == null || filePath.isBlank()) {
+            logger.warn("File path is null or blank, cannot link to RMA {}", rmaId);
+            return false;
+        }
+
+        // Initialize collections if null
+        if (rma.getDocuments() == null) rma.setDocuments(new ArrayList<>());
+        if (rma.getPictures() == null) rma.setPictures(new ArrayList<>());
+
+        long fileSize = 0L;
+        try {
+            // Attempt to get file size if uploadUtils can provide the full path
+            java.nio.file.Path fullPath = java.nio.file.Paths.get(uploadUtils.getUploadDir() + java.io.File.separator + filePath);
+            if (java.nio.file.Files.exists(fullPath)) {
+                fileSize = java.nio.file.Files.size(fullPath);
+            }
+        } catch (Exception e) {
+            logger.warn("Could not determine file size for {}: {}", filePath, e.getMessage());
+        }
+        
+        String actualFileType = determineMimeTypeFromPath(filePath); // Helper to get MIME type
+
+        if ("document".equalsIgnoreCase(fileType)) {
+            boolean alreadyLinked = rma.getDocuments().stream()
+                                     .anyMatch(doc -> filePath.equals(doc.getFilePath()));
+            if (alreadyLinked) {
+                logger.info("Document {} is already linked to RMA {}.", filePath, rmaId);
+                return true; // Or false if re-linking is an error
+            }
+            RmaDocument document = new RmaDocument();
+            document.setRma(rma);
+            document.setFilePath(filePath);
+            document.setFileName(originalFileName);
+            document.setFileType(actualFileType);
+            document.setFileSize(fileSize);
+            rmaDocumentRepository.save(document);
+            rma.getDocuments().add(document); // Add to the RMA's collection
+            logger.info("Linked document {} to RMA {}", filePath, rmaId);
+        } else if ("picture".equalsIgnoreCase(fileType)) {
+            boolean alreadyLinked = rma.getPictures().stream()
+                                     .anyMatch(pic -> filePath.equals(pic.getFilePath()));
+            if (alreadyLinked) {
+                logger.info("Picture {} is already linked to RMA {}.", filePath, rmaId);
+                return true; // Or false
+            }
+            RmaPicture picture = new RmaPicture();
+            picture.setRma(rma);
+            picture.setFilePath(filePath);
+            picture.setFileName(originalFileName);
+            picture.setFileType(actualFileType);
+            picture.setFileSize(fileSize);
+            rmaPictureRepository.save(picture);
+            rma.getPictures().add(picture); // Add to the RMA's collection
+            logger.info("Linked picture {} to RMA {}", filePath, rmaId);
+        } else {
+            logger.warn("Unsupported file type '{}' for linking to RMA.", fileType);
+            return false;
+        }
+
+        try {
+            rmaRepository.save(rma); // Save RMA to persist the new document/picture in its list
+            return true;
+        } catch (Exception e) {
+            logger.error("Error saving RMA {} after linking file {}: {}", rmaId, filePath, e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    // Helper method to determine MIME type (simplified)
+    private String determineMimeTypeFromPath(String filePath) {
+        if (filePath == null || filePath.isEmpty()) {
+            return "application/octet-stream";
+        }
+        String lowerPath = filePath.toLowerCase();
+        if (lowerPath.endsWith(".pdf")) return "application/pdf";
+        if (lowerPath.endsWith(".doc")) return "application/msword";
+        if (lowerPath.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        if (lowerPath.endsWith(".xls")) return "application/vnd.ms-excel";
+        if (lowerPath.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        if (lowerPath.endsWith(".txt")) return "text/plain";
+        if (lowerPath.endsWith(".csv")) return "text/csv";
+        if (lowerPath.endsWith(".jpg") || lowerPath.endsWith(".jpeg")) return "image/jpeg";
+        if (lowerPath.endsWith(".png")) return "image/png";
+        if (lowerPath.endsWith(".gif")) return "image/gif";
+        // Add more common types as needed
+        return "application/octet-stream"; // Default
+    }
+
+    @Transactional
+    public boolean linkMovingPartToRma(Long movingPartId, Long targetRmaId) {
+        logger.info("Attempting to link MovingPart ID: {} to RMA ID: {}", movingPartId, targetRmaId);
+        Optional<MovingPart> movingPartOpt = movingPartRepository.findById(movingPartId);
+        Optional<Rma> targetRmaOpt = rmaRepository.findById(targetRmaId);
+
+        if (movingPartOpt.isPresent() && targetRmaOpt.isPresent()) {
+            MovingPart movingPart = movingPartOpt.get();
+            Rma targetRma = targetRmaOpt.get();
+
+            // Prevent linking to its own primary RMA if that logic is desired
+            if (movingPart.getRma() != null && movingPart.getRma().getId().equals(targetRmaId)) {
+                logger.info("MovingPart {} is already primarily associated with RMA {}. Not creating additional link.", movingPartId, targetRmaId);
+                // Optionally, still return true if this is considered a successful state for UI feedback
+                // Or, if an additional link is always for a *different* RMA, this could be an error or no-op.
+                // For now, let's say it's not an error but doesn't create a new link if it's the same as primary.
+                return true; 
+            }
+
+            movingPart.setAdditionallyLinkedRma(targetRma);
+            movingPartRepository.save(movingPart);
+            logger.info("Successfully linked MovingPart {} to RMA {} via additionallyLinkedRma field", movingPartId, targetRmaId);
+            return true;
+        }
+        if (movingPartOpt.isEmpty()) logger.warn("MovingPart not found with ID: {}", movingPartId);
+        if (targetRmaOpt.isEmpty()) logger.warn("Target RMA not found with ID: {}", targetRmaId);
+        return false;
     }
 } 

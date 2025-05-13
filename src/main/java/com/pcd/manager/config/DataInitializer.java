@@ -243,7 +243,7 @@ public class DataInitializer implements CommandLineRunner {
             logger.warn("Tool RR151D not found after hardcoded tool creation. Duane Smith cannot be assigned to it or have it as active tool.");
         }
 
-        Optional<User> existingUser = userRepository.findByEmail("duane.smith@emdgroup.com");
+        Optional<User> existingUser = userRepository.findByEmailIgnoreCase("duane.smith@emdgroup.com");
 
         User duaneSmithUser;
         if (existingUser.isEmpty()) {

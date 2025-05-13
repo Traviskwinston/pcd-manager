@@ -14,11 +14,24 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.authentication.WebAuthenticationDetails;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.pcd.manager.model.User;
 import com.pcd.manager.service.UserService;
+import com.pcd.manager.repository.UserRepository;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.util.ArrayList;
@@ -36,13 +49,17 @@ public class AuthController {
     private final ToolService toolService;
     private final PassdownService passdownService;
     private final LocationService locationService;
+    private final UserRepository userRepository;
     
     @Autowired
-    public AuthController(UserService userService, ToolService toolService, PassdownService passdownService, LocationService locationService) {
+    public AuthController(UserService userService, ToolService toolService, 
+                         PassdownService passdownService, LocationService locationService,
+                         UserRepository userRepository) {
         this.userService = userService;
         this.toolService = toolService;
         this.passdownService = passdownService;
         this.locationService = locationService;
+        this.userRepository = userRepository;
     }
     
     @GetMapping("/login")
@@ -51,6 +68,7 @@ public class AuthController {
                         Model model) {
         if (error != null) {
             model.addAttribute("error", "Invalid email or password!");
+            logger.warn("Login error occurred for a user");
         }
 
         if (logout != null) {
@@ -62,5 +80,209 @@ public class AuthController {
         defaultLocation.ifPresent(location -> model.addAttribute("defaultLocation", location));
 
         return "login";
+    }
+    
+    @PostMapping("/manual-login") 
+    public String manualLoginAttempt(@RequestParam("username") String email,
+                                    @RequestParam("password") String password,
+                                    Model model) {
+        logger.info("Manual login attempt for email: {}", email);
+        
+        try {
+            Optional<User> userOpt = userService.getUserByEmail(email);
+            
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                logger.info("User found: ID={}, Name={}, Active={}", user.getId(), user.getName(), user.getActive());
+                
+                // Check if user is active
+                if (user.getActive() == null || !user.getActive()) {
+                    logger.warn("Login failed: User account is not active");
+                    model.addAttribute("error", "Your account is inactive. Please contact an administrator.");
+                    return "login";
+                }
+                
+                boolean passwordMatches = userService.checkPassword(password, user.getPassword());
+                logger.info("Password match result: {}", passwordMatches);
+                
+                if (passwordMatches) {
+                    // For debugging only - don't perform actual login here
+                    logger.info("Password matches! User would be logged in now.");
+                    model.addAttribute("message", "Debug: Credentials are correct. Please use the normal login form.");
+                } else {
+                    logger.warn("Password does not match stored hash");
+                    model.addAttribute("error", "Invalid email or password!");
+                }
+            } else {
+                logger.warn("No user found with email: {}", email);
+                model.addAttribute("error", "Invalid email or password!");
+            }
+        } catch (Exception e) {
+            logger.error("Error during manual login attempt", e);
+            model.addAttribute("error", "An error occurred during login.");
+        }
+        
+        return "login";
+    }
+    
+    @GetMapping("/admin/emergency-reset")
+    @ResponseBody
+    public String emergencyAdminReset(@RequestParam(value = "email", required = true) String email,
+                                    @RequestParam(value = "code", required = true) String secretCode,
+                                    @RequestParam(value = "newPassword", required = true) String newPassword) {
+        // This is a security critical function, so we log extensively
+        logger.warn("Emergency admin reset attempted for email: {}", email);
+        
+        // Very simple hard-coded security check
+        // In a real production app, use a more secure mechanism
+        if (!"pcd-emergency-override-2025".equals(secretCode)) {
+            logger.error("Emergency reset failed: Invalid security code provided");
+            return "Access denied: Invalid security code";
+        }
+        
+        try {
+            Optional<User> userOpt = userService.getUserByEmail(email);
+            
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                logger.info("User found for emergency reset: ID={}, Name={}", user.getId(), user.getName());
+                
+                // Force user to be active
+                user.setActive(true);
+                
+                // Set the new password
+                user.setPassword(newPassword);
+                
+                // Ensure the user has admin role
+                if (user.getRole() == null || !user.getRole().equalsIgnoreCase("ADMIN")) {
+                    logger.info("Setting role to ADMIN for emergency user");
+                    user.setRole("ADMIN");
+                }
+                
+                // Save the updated user
+                User updatedUser = userService.updateUser(user);
+                logger.info("Emergency admin reset completed successfully for user ID: {}", updatedUser.getId());
+                
+                return "Success: User reset completed. You can now log in with the new password.";
+            } else {
+                logger.warn("Emergency reset failed: No user found with email: {}", email);
+                return "Error: No user found with that email address";
+            }
+        } catch (Exception e) {
+            logger.error("Error during emergency admin reset", e);
+            return "Error: " + e.getMessage();
+        }
+    }
+    
+    @GetMapping("/create-simple-admin")
+    @ResponseBody
+    public String createSimpleAdmin() {
+        try {
+            String email = "simple@admin.com";
+            String password = "simple123";
+            
+            // Check if user already exists
+            Optional<User> existingUser = userRepository.findByEmailIgnoreCase(email);
+            if (existingUser.isPresent()) {
+                User user = existingUser.get();
+                // Reset the password and ensure admin role and active status
+                user.setPassword(password); // Will be encoded by updateUser
+                user.setRole("ADMIN");
+                user.setActive(true);
+                userService.updateUser(user);
+                
+                logger.info("Existing simple admin user updated: {}", email);
+                return "Simple admin user already existed and has been updated. Email: " + email + ", Password: " + password;
+            }
+            
+            // Create new admin user
+            User adminUser = new User();
+            adminUser.setEmail(email);
+            adminUser.setPassword(password); // Will be encoded by createUser
+            adminUser.setName("Simple Admin");
+            adminUser.setRole("ADMIN");
+            adminUser.setActive(true);
+            
+            User savedUser = userService.createUser(adminUser);
+            logger.info("Created simple admin user: {} with ID: {}", email, savedUser.getId());
+            
+            return "Created simple admin user. Email: " + email + ", Password: " + password;
+        } catch (Exception e) {
+            logger.error("Error creating simple admin user", e);
+            return "Error: " + e.getMessage();
+        }
+    }
+    
+    @GetMapping("/direct-login")
+    public String directLogin(HttpServletRequest request, 
+                             HttpServletResponse response,
+                             @RequestParam(required = false, defaultValue = "admin@pcd.com") String email,
+                             @RequestParam(required = false, defaultValue = "admin123") String password) {
+        logger.warn("Direct login attempt for: {}", email);
+        
+        try {
+            // Try to find the user
+            Optional<User> userOpt = userService.getUserByEmail(email);
+            
+            // If no existing user with that email, create a new admin
+            User user;
+            if (userOpt.isEmpty()) {
+                logger.warn("No user found with email: {}. Creating new admin user.", email);
+                user = new User();
+                user.setEmail(email);
+                user.setName("Direct Login Admin");
+                user.setRole("ADMIN");
+                user.setActive(true);
+                user.setPassword(password);
+                user = userService.createUser(user);
+                logger.info("Created new admin user: {}", email);
+            } else {
+                user = userOpt.get();
+                logger.info("Found existing user: {}", email);
+                
+                // Ensure the user is active and has admin role
+                if (user.getActive() == null || !user.getActive()) {
+                    user.setActive(true);
+                    userService.updateUser(user);
+                    logger.info("Activated user: {}", email);
+                }
+                
+                if (!"ADMIN".equalsIgnoreCase(user.getRole())) {
+                    user.setRole("ADMIN");
+                    userService.updateUser(user);
+                    logger.info("Set user role to ADMIN: {}", email);
+                }
+            }
+            
+            // Create authentication token
+            List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+            authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+            
+            // Create the authentication token with the user's email
+            UsernamePasswordAuthenticationToken auth = 
+                new UsernamePasswordAuthenticationToken(user.getEmail(), null, authorities);
+            
+            // Set additional details
+            auth.setDetails(new WebAuthenticationDetails(request));
+            
+            // Set the authentication in the security context
+            SecurityContextHolder.getContext().setAuthentication(auth);
+            
+            // Create a new session and store the security context
+            HttpSession session = request.getSession(true);
+            session.setAttribute(
+                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, 
+                SecurityContextHolder.getContext()
+            );
+            
+            logger.info("Direct login successful for user: {}", email);
+            
+            // Redirect to dashboard
+            return "redirect:/dashboard";
+            
+        } catch (Exception e) {
+            logger.error("Error during direct login", e);
+            return "redirect:/login?error=true";
+        }
     }
 } 

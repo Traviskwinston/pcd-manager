@@ -12,33 +12,56 @@
 
     <div class="container mt-4">
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h3>Passdowns</h3>
-                <div class="d-flex align-items-center">
-                    <a th:href="@{/passdown/new}" class="btn btn-primary">
-                        <i class="bi bi-plus-circle"></i> New Passdown
-                    </a>
-                    <input id="passdown-page-search" type="text" class="form-control form-control-sm ms-2" placeholder="Search passdowns..." style="max-width:200px;">
+            <div class="card-header">
+                <div class="row align-items-center">
+                    <div class="col-md-2">
+                        <h3>Passdowns</h3>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-3">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Person</span>
+                                    <select id="filter-person" class="form-select form-select-sm">
+                                        <option value="">All People</option>
+                                        <option th:each="u: ${passdownUsers}" th:value="${u}" th:text="${u}">User</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Tool</span>
+                                    <select id="filter-tool" class="form-select form-select-sm">
+                                        <option value="">All Tools</option>
+                                        <option th:each="t: ${passdownTools}" th:value="${t}" th:text="${t}">Tool</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="input-group input-group-sm">
+                                    <input type="date" class="form-control form-control-sm" id="date-from" name="dateFrom" max="9999-12-31">
+                                    <span class="input-group-text">-</span>
+                                    <input type="date" class="form-control form-control-sm" id="date-to" name="dateTo" max="9999-12-31">
+                                </div>
+                            </div>
+                            <div class="col-md-1 text-end">
+                                <button id="clear-filters" class="btn btn-sm btn-outline-secondary" title="Clear all filters">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2 text-end">
+                        <div class="d-flex align-items-center justify-content-end">
+                            <a th:href="@{/passdown/new}" class="btn btn-primary btn-sm">
+                                <i class="bi bi-plus-circle"></i>
+                            </a>
+                            <input id="passdown-page-search" type="text" class="form-control form-control-sm ms-2" placeholder="Search..." style="max-width:140px;">
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="card-body">
-                <!-- Date Filter Form -->
-                <form th:action="@{/passdown}" method="get" class="mb-4">
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-4">
-                            <label for="date" class="form-label">Filter by Date</label>
-                            <input type="date" class="form-control" id="date" name="date" 
-                                   th:value="${selectedDate}" max="9999-12-31">
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-secondary w-100">Filter</button>
-                        </div>
-                        <div class="col-md-2">
-                            <a th:href="@{/passdown}" class="btn btn-outline-secondary w-100">Clear</a>
-                        </div>
-                    </div>
-                </form>
-
                 <!-- Passdowns List -->
                 <div th:if="${passdowns.isEmpty()}" class="alert alert-info">
                     No passdowns found for the selected criteria.
@@ -119,25 +142,111 @@
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Passdown page live-search script -->
+    <!-- Passdown page live-search and filter script -->
     <script>
       document.addEventListener('DOMContentLoaded', function() {
         const pageSearch = document.getElementById('passdown-page-search');
-        if (pageSearch) {
-          pageSearch.addEventListener('input', function(e) {
-            const filter = e.target.value.toLowerCase();
-            document.querySelectorAll('.passdown-item').forEach(card => {
-              const comment = (card.getAttribute('data-comment') || '').toLowerCase();
-              const user = (card.getAttribute('data-user') || '').toLowerCase();
-              const tool  = (card.getAttribute('data-tool') || '').toLowerCase();
-              if (comment.includes(filter) || user.includes(filter) || tool.includes(filter)) {
-                card.classList.remove('d-none');
-              } else {
-                card.classList.add('d-none');
+        const filterPerson = document.getElementById('filter-person');
+        const filterTool = document.getElementById('filter-tool');
+        const dateFrom = document.getElementById('date-from');
+        const dateTo = document.getElementById('date-to');
+        const passdownItems = document.querySelectorAll('.passdown-item');
+        
+        // Function to get date from passdown card (extract from "Date: MM/DD/YYYY" text)
+        function getPassdownDate(card) {
+          const dateText = card.querySelector('.text-muted span:nth-of-type(2)').textContent;
+          if (dateText) {
+            // Convert MM/DD/YYYY to YYYY-MM-DD for comparison
+            const parts = dateText.split('/');
+            if (parts.length === 3) {
+              return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+            }
+          }
+          return '';
+        }
+        
+        // Combined filter function
+        function applyFilters() {
+          const searchTerm = pageSearch ? pageSearch.value.trim().toLowerCase() : '';
+          const personFilter = filterPerson ? filterPerson.value : '';
+          const toolFilter = filterTool ? filterTool.value : '';
+          const fromDate = dateFrom ? dateFrom.value : '';
+          const toDate = dateTo ? dateTo.value : '';
+          
+          passdownItems.forEach(card => {
+            const comment = (card.getAttribute('data-comment') || '').toLowerCase();
+            const user = (card.getAttribute('data-user') || '');
+            const tool = (card.getAttribute('data-tool') || '');
+            const cardDate = getPassdownDate(card);
+            
+            // Check all filter conditions
+            const matchesSearch = !searchTerm || 
+                                 comment.includes(searchTerm) || 
+                                 user.toLowerCase().includes(searchTerm) || 
+                                 tool.toLowerCase().includes(searchTerm);
+            const matchesPerson = !personFilter || user === personFilter;
+            const matchesTool = !toolFilter || tool === toolFilter;
+            
+            // Date range check
+            const matchesDateRange = (!fromDate || cardDate >= fromDate) && 
+                                    (!toDate || cardDate <= toDate);
+            
+            // Show card if it matches all criteria
+            if (matchesSearch && matchesPerson && matchesTool && matchesDateRange) {
+              card.classList.remove('d-none');
+            } else {
+              card.classList.add('d-none');
+            }
+          });
+          
+          // Update date headers visibility
+          updateDateHeadersVisibility();
+        }
+        
+        // Hide date headers with no visible items
+        function updateDateHeadersVisibility() {
+          const dateHeaders = document.querySelectorAll('.date-header');
+          
+          dateHeaders.forEach(header => {
+            // Get all passdown items after this header and before next header
+            let nextHeader = header.nextElementSibling;
+            let hasVisibleItem = false;
+            
+            while (nextHeader && !nextHeader.classList.contains('date-header')) {
+              if (nextHeader.classList.contains('passdown-item') && 
+                  !nextHeader.classList.contains('d-none')) {
+                hasVisibleItem = true;
+                break;
               }
-            });
+              nextHeader = nextHeader.nextElementSibling;
+            }
+            
+            // Hide header if no visible items
+            if (hasVisibleItem) {
+              header.classList.remove('d-none');
+            } else {
+              header.classList.add('d-none');
+            }
           });
         }
+        
+        // Add event listeners to all filter inputs
+        if (pageSearch) pageSearch.addEventListener('input', applyFilters);
+        if (filterPerson) filterPerson.addEventListener('change', applyFilters);
+        if (filterTool) filterTool.addEventListener('change', applyFilters);
+        if (dateFrom) dateFrom.addEventListener('change', applyFilters);
+        if (dateTo) dateTo.addEventListener('change', applyFilters);
+        
+        // Add clear filter button functionality
+        const clearBtn = document.getElementById('clear-filters');
+        clearBtn.addEventListener('click', function() {
+          if (pageSearch) pageSearch.value = '';
+          if (filterPerson) filterPerson.value = '';
+          if (filterTool) filterTool.value = '';
+          if (dateFrom) dateFrom.value = '';
+          if (dateTo) dateTo.value = '';
+          applyFilters();
+        });
       });
     </script>
 </body>
