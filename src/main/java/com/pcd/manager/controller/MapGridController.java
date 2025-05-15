@@ -42,8 +42,27 @@ public class MapGridController {
      * Get all grid items
      */
     @GetMapping
-    public ResponseEntity<List<MapGridItem>> getAllGridItems() {
-        List<MapGridItem> gridItems = mapGridService.getAllGridItems();
+    public ResponseEntity<List<MapGridItem>> getAllGridItems(Authentication authentication) {
+        if (authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String userEmail = authentication.getName();
+        User currentUser = userRepository.findByEmailIgnoreCase(userEmail)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + userEmail));
+        
+        Long locationId = null;
+        if (currentUser.getActiveSite() != null) {
+            locationId = currentUser.getActiveSite().getId();
+        } else if (currentUser.getDefaultLocation() != null) {
+            locationId = currentUser.getDefaultLocation().getId();
+        }
+
+        if (locationId == null) {
+            logger.warn("User {} has no active or default location set. Cannot fetch grid items.", userEmail);
+            return ResponseEntity.ok(List.of()); // Return empty list if no location context
+        }
+
+        List<MapGridItem> gridItems = mapGridService.getGridItemsByLocationId(locationId);
         return ResponseEntity.ok(gridItems);
     }
     
@@ -78,16 +97,30 @@ public class MapGridController {
         if (authentication == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        
         String userEmail = authentication.getName();
-        
+        User currentUser = userRepository.findByEmailIgnoreCase(userEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + userEmail));
+
         Long toolId = Long.valueOf(payload.get("toolId").toString());
         Integer x = (Integer) payload.get("x");
         Integer y = (Integer) payload.get("y");
         Integer width = (Integer) payload.get("width");
         Integer height = (Integer) payload.get("height");
         
-        MapGridItem gridItem = mapGridService.createToolGridItem(toolId, x, y, width, height, userEmail);
+        // Determine locationId: from payload or user's active/default location
+        Long locationId = payload.containsKey("locationId") ? Long.valueOf(payload.get("locationId").toString()) : null;
+        if (locationId == null) {
+            if (currentUser.getActiveSite() != null) {
+                locationId = currentUser.getActiveSite().getId();
+            } else if (currentUser.getDefaultLocation() != null) {
+                locationId = currentUser.getDefaultLocation().getId();
+            } else {
+                logger.error("Cannot create tool grid item: No locationId in payload and user {} has no active/default location.", userEmail);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); // Or a proper error response
+            }
+        }
+        
+        MapGridItem gridItem = mapGridService.createToolGridItem(toolId, x, y, width, height, userEmail, locationId);
         logger.info("Created tool grid item with ID: {}", gridItem.getId());
         
         return ResponseEntity.status(HttpStatus.CREATED).body(gridItem);
@@ -104,9 +137,10 @@ public class MapGridController {
         if (authentication == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        
         String userEmail = authentication.getName();
-        
+        User currentUser = userRepository.findByEmailIgnoreCase(userEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + userEmail));
+
         Integer x = (Integer) payload.get("x");
         Integer y = (Integer) payload.get("y");
         Integer width = (Integer) payload.get("width");
@@ -115,8 +149,21 @@ public class MapGridController {
         String color = (String) payload.get("color");
         Boolean isSolid = (Boolean) payload.get("isSolid");
         
+        // Determine locationId
+        Long locationId = payload.containsKey("locationId") ? Long.valueOf(payload.get("locationId").toString()) : null;
+        if (locationId == null) {
+            if (currentUser.getActiveSite() != null) {
+                locationId = currentUser.getActiveSite().getId();
+            } else if (currentUser.getDefaultLocation() != null) {
+                locationId = currentUser.getDefaultLocation().getId();
+            } else {
+                logger.error("Cannot create drawing grid item: No locationId in payload and user {} has no active/default location.", userEmail);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            }
+        }
+
         MapGridItem gridItem = mapGridService.createDrawingGridItem(
-                x, y, width, height, text, color, isSolid, userEmail);
+                x, y, width, height, text, color, isSolid, userEmail, locationId);
         logger.info("Created drawing grid item with ID: {}", gridItem.getId());
         
         return ResponseEntity.status(HttpStatus.CREATED).body(gridItem);
@@ -203,16 +250,30 @@ public class MapGridController {
     @PostMapping("/save")
     public ResponseEntity<Void> saveMapState(
             @RequestBody List<Map<String, Object>> gridItems,
+            @RequestParam(required = false) Long locationId,
             Authentication authentication) {
         
         if (authentication == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        
         String userEmail = authentication.getName();
+        User currentUser = userRepository.findByEmailIgnoreCase(userEmail)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + userEmail));
+
+        Long effectiveLocationId = locationId;
+        if (effectiveLocationId == null) {
+            if (currentUser.getActiveSite() != null) {
+                effectiveLocationId = currentUser.getActiveSite().getId();
+            } else if (currentUser.getDefaultLocation() != null) {
+                effectiveLocationId = currentUser.getDefaultLocation().getId();
+            } else {
+                logger.error("Cannot save map state: No locationId provided and user {} has no active/default location.", userEmail);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+        }
         
         try {
-            mapGridService.saveMapState(gridItems, userEmail);
+            mapGridService.saveMapState(gridItems, userEmail, effectiveLocationId);
             logger.info("Map state saved with {} items", gridItems.size());
             return ResponseEntity.ok().build();
         } catch (Exception e) {

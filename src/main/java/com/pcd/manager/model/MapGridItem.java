@@ -43,6 +43,10 @@ public class MapGridItem {
     @JoinColumn(name = "tool_id")
     private Tool tool;
 
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "location_id", nullable = false)
+    private Location location;
+
     @Column(name = "created_date")
     private LocalDateTime createdDate;
 

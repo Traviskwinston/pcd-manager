@@ -13,13 +13,13 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <!-- Locations is now before Dashboard -->
+                    <!-- Locations tab shows current location or default -->
                     <li class="nav-item">
                         <a class="nav-link" th:classappend="${activeTab == 'locations' ? 'active' : ''}" href="/locations">
-                            <!-- Show current location if set, otherwise just show 'Locations' -->
-                            <span th:if="${currentLocationExists != null && currentLocationExists}" 
-                                  th:text="${currentLocation != null ? currentLocation.getDisplayName() : 'Locations'}">Locations</span>
-                            <span th:unless="${currentLocationExists != null && currentLocationExists}">Locations</span>
+                            <!-- Display active location name, or 'Locations' if none is set -->
+                            <span th:if="${activeLocationGlobally != null}" 
+                                  th:text="${activeLocationGlobally.getDisplayName()}">Current Location</span>
+                            <span th:unless="${activeLocationGlobally != null}">Locations</span>
                         </a>
                     </li>
                     <li class="nav-item">
