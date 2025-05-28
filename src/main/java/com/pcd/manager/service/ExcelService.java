@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import jakarta.annotation.PostConstruct;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
@@ -40,6 +41,24 @@ public class ExcelService {
 
     @Autowired
     private UserService userService;
+
+    @PostConstruct
+    public void init() {
+        // Check for template file
+        Path templatePath = Paths.get(uploadDir, "reference-documents", "BlankRMA.xlsx");
+        if (!Files.exists(templatePath)) {
+            logger.error("RMA Excel template not found at: {}. Excel export functionality will be limited.", templatePath);
+            try {
+                // Create the directory if it doesn't exist
+                Files.createDirectories(templatePath.getParent());
+                logger.info("Created directory: {}", templatePath.getParent());
+            } catch (IOException e) {
+                logger.error("Failed to create directory for Excel template: {}", e.getMessage(), e);
+            }
+        } else {
+            logger.info("RMA Excel template found at: {}", templatePath);
+        }
+    }
 
     /**
      * Populates the BlankRMA.xlsx template with data from the given RMA
@@ -284,14 +303,83 @@ public class ExcelService {
      * @return A map containing extracted RMA data
      */
     public Map<String, Object> extractRmaDataFromExcel(byte[] excelBytes) {
+        if (excelBytes == null || excelBytes.length == 0) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Excel file is empty");
+            return error;
+        }
+        
+        try (InputStream is = new ByteArrayInputStream(excelBytes)) {
+            return extractRmaDataFromExcel(is);
+        } catch (IOException e) {
+            logger.error("Error reading Excel file bytes", e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Failed to read Excel file: " + e.getMessage());
+            return error;
+        }
+    }
+
+    /**
+     * Extracts RMA data from an Excel file path
+     * 
+     * @param filePath The path to the Excel file
+     * @return A map containing extracted RMA data
+     */
+    public Map<String, Object> extractRmaDataFromExcelFile(String filePath) {
+        if (filePath == null || filePath.isEmpty()) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "File path is empty");
+            return error;
+        }
+
+        try {
+            // If it's a relative path, prepend the upload directory
+            Path fullPath;
+            if (!Paths.get(filePath).isAbsolute()) {
+                fullPath = Paths.get(uploadDir, filePath);
+            } else {
+                fullPath = Paths.get(filePath);
+            }
+
+            if (!Files.exists(fullPath)) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Excel file not found at path: " + filePath);
+                return error;
+            }
+
+            try (InputStream is = Files.newInputStream(fullPath)) {
+                return extractRmaDataFromExcel(is);
+            }
+        } catch (IOException e) {
+            logger.error("Error reading Excel file from path: {}", filePath, e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Failed to read Excel file: " + e.getMessage());
+            return error;
+        }
+    }
+
+    /**
+     * Internal method to extract RMA data from an input stream
+     * 
+     * @param inputStream The input stream of the Excel file
+     * @return A map containing extracted RMA data
+     */
+    private Map<String, Object> extractRmaDataFromExcel(InputStream inputStream) {
         Map<String, Object> extractedData = new HashMap<>();
         
-        try (InputStream is = new ByteArrayInputStream(excelBytes);
-             Workbook workbook = new XSSFWorkbook(is)) {
-            
+        try (Workbook workbook = WorkbookFactory.create(inputStream)) {
             // Get the first sheet
-            Sheet sheet = workbook.getSheetAt(0);
+            if (workbook.getNumberOfSheets() == 0) {
+                extractedData.put("error", "Excel file contains no sheets");
+                return extractedData;
+            }
             
+            Sheet sheet = workbook.getSheetAt(0);
+            if (sheet == null) {
+                extractedData.put("error", "First sheet is null");
+                return extractedData;
+            }
+
             // Try to find a sheet named "Data"
             Sheet dataSheet = null;
             for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
@@ -300,7 +388,7 @@ public class ExcelService {
                     break;
                 }
             }
-            
+
             // Extract RMA Number from B4
             extractedData.put("rmaNumber", getCellStringValue(sheet, "B4"));
             
@@ -453,7 +541,7 @@ public class ExcelService {
             part3.put("partName", ""); // Leave Part Name blank as requested
             part3.put("partNumber", getCellStringValue(sheet, "B31"));
             part3.put("productDescription", getCellStringValue(sheet, "B32"));
-            part3.put("quantity", parseQuantity(getCellStringValue(sheet, "B25")));
+            part3.put("quantity", parseQuantity(getCellStringValue(sheet, "B30")));
             part3.put("replacementRequired", false); // Default
             partsList.add(part3);
             
@@ -462,7 +550,7 @@ public class ExcelService {
             part4.put("partName", ""); // Leave Part Name blank as requested
             part4.put("partNumber", getCellStringValue(sheet, "I31"));
             part4.put("productDescription", getCellStringValue(sheet, "I32"));
-            part4.put("quantity", parseQuantity(getCellStringValue(sheet, "I25")));
+            part4.put("quantity", parseQuantity(getCellStringValue(sheet, "I30")));
             part4.put("replacementRequired", false); // Default
             partsList.add(part4);
             

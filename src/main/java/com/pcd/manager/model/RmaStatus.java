@@ -1,7 +1,7 @@
 package com.pcd.manager.model;
 
 public enum RmaStatus {
-    RMA_WRITTEN_EMAILED("RMA Written, Emailed to support"),
+    RMA_WRITTEN_EMAILED("RMA Written - Emailed"),
     NUMBER_PROVIDED("RMA Number Provided"),
     MEMO_EMAILED("Shipping Memo Emailed"),
     RECEIVED_PARTS("Received Parts"),

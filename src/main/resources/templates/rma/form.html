@@ -36,7 +36,7 @@
                 <h3 th:text="${rma.id != null ? 'Update RMA' : 'Create New RMA'}">RMA Form</h3>
             </div>
             <div class="card-body">
-                <!-- Upload Sections - Side by Side -->
+                <!-- File Upload Section -->
                 <div class="row mb-3">
                     <!-- Left Column: Excel Upload -->
                     <div class="col-md-3">
@@ -45,29 +45,12 @@
                                 <h6 class="mb-0"><i class="bi bi-file-earmark-excel me-1"></i>Upload RMA Excel</h6>
                             </div>
                             <div class="card-body py-2">
-                                <div class="row align-items-center">
-                                    <div class="col">
-                                        <!-- Excel Drop Area -->
-                                        <div id="excel-drop-area" class="rounded bg-light border border-dashed border-success p-3 mb-2 text-center" style="min-height: 80px; cursor: pointer;">
-                                            <i class="bi bi-file-spreadsheet-fill text-success fs-4"></i>
-                                            <div>Drag Excel file here or <span class="text-success fw-medium">browse</span></div>
-                                            <small class="text-muted">Click to select file or drag and drop</small>
-                                        </div>
-                                        
-                                        <!-- Hidden Excel file input -->
-                                        <input type="file" id="excelFileInput" class="d-none" accept=".xlsx,.xls">
-                                        
-                                        <div class="d-grid gap-2 w-100">
-                                            <button class="btn btn-sm btn-success" type="button" id="uploadExcelBtn">
-                                                <i class="bi bi-upload me-1"></i> Parse Excel
+                                <input type="file" id="excelFileInput" accept=".xlsx,.xls" class="d-none">
+                                <input type="hidden" id="excelFileIncluded" name="excelFileIncluded" value="false">
+                                <button type="button" id="uploadExcelBtn" class="btn btn-success btn-sm w-100">
+                                    <i class="bi bi-upload me-1"></i>Upload & Parse Excel
                                             </button>
-                                            <button class="btn btn-sm btn-outline-success" type="button" id="exportToExcelBtn">
-                                                <i class="bi bi-download me-1"></i> Export to Excel
-                                            </button>
-                                        </div>
-                                        <div id="excelUploadResult" class="alert alert-sm mt-1 mb-0 py-1 px-2" style="display: none; font-size: 0.8rem;"></div>
-                                    </div>
-                                </div>
+                                <div id="excelUploadResult" class="small mt-2"></div>
                             </div>
                         </div>
                     </div>
@@ -87,7 +70,7 @@
                                     <i class="bi bi-cloud-arrow-up-fill text-primary fs-4"></i>
                                     <h6 class="mb-1">Drag files here or <label for="fileInput" class="text-primary" style="cursor: pointer; text-decoration: underline;">browse</label></h6>
                                     <div class="small text-muted">Supports images (jpg, png) and documents (pdf, doc, etc.)</div>
-                                    <input type="file" id="fileInput" name="fileUploads" multiple="multiple" class="d-none">
+                                    <input type="file" id="fileInput" multiple="multiple" class="d-none">
                                 </div>
                                 
                                 <!-- Files Preview -->
@@ -115,7 +98,7 @@
                     </div>
                 </div>
                 
-                <form th:action="@{/rma}" th:object="${rma}" method="post" enctype="multipart/form-data">
+                <form th:action="@{/rma/save}" th:object="${rma}" method="post" enctype="multipart/form-data" id="rmaForm">
                     <input type="hidden" th:field="*{id}" />
                     
                     <!-- Main Layout Row -->
@@ -272,7 +255,7 @@
                                 
                                 <!-- Add Part button -->
                                 <div class="text-end mt-2">
-                                    <button type="button" id="addPartBtn" class="btn btn-sm btn-primary" onclick="addNewPart()">
+                                    <button type="button" id="addPartBtn" class="btn btn-sm btn-primary">
                                         <i class="bi bi-plus-circle me-1"></i> Add Part
                                     </button>
                                 </div>
@@ -295,24 +278,24 @@
                                             <thead>
                                                 <tr>
                                                     <th>Part Name</th>
-                                                    <th>Movement</th>
+                                                    <th>Serial Number</th>
+                                                    <th>Part Number</th>
+                                                    <th>Quantity</th>
+                                                    <th>From Tool</th>
+                                                    <th>To Tool</th>
                                                     <th>Notes</th>
-                                                    <th>Date</th>
                                                     <th>Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <tr th:each="movingPart : ${movingParts}">
                                                     <td th:text="${movingPart.partName}">Part Name</td>
-                                                    <td>
-                                                        <a th:if="${movingPart.fromTool != null}" th:href="@{/tools/{id}(id=${movingPart.fromTool.id})}" th:text="${movingPart.fromTool.name}" class="text-decoration-none"></a>
-                                                        <span th:unless="${movingPart.fromTool != null}">N/A</span>
-                                                        <i class="bi bi-arrow-right text-success mx-1"></i>
-                                                        <a th:if="${movingPart.toTool != null}" th:href="@{/tools/{id}(id=${movingPart.toTool.id})}" th:text="${movingPart.toTool.name}" class="text-decoration-none"></a>
-                                                        <span th:unless="${movingPart.toTool != null}">N/A</span>
-                                                    </td>
+                                                    <td th:text="${movingPart.serialNumber}">Serial Number</td>
+                                                    <td th:text="${movingPart.partNumber}">Part Number</td>
+                                                    <td th:text="${movingPart.quantity}">Quantity</td>
+                                                    <td th:text="${movingPart.fromTool != null ? movingPart.fromTool.name : 'N/A'}"></td>
+                                                    <td th:text="${movingPart.toTool != null ? movingPart.toTool.name : 'N/A'}"></td>
                                                     <td th:text="${movingPart.notes}">Notes</td>
-                                                    <td th:text="${#temporals.format(movingPart.moveDate, 'yyyy-MM-dd HH:mm')}">Date</td>
                                                     <td>
                                                         <button type="button" class="btn btn-sm btn-outline-info unified-link-trigger-btn"
                                                                 data-bs-toggle="modal" data-bs-target="#unifiedLinkFileModal" 
@@ -343,6 +326,9 @@
                                     <thead>
                                         <tr>
                                             <th>Part Name</th>
+                                            <th>Serial Number</th>
+                                            <th>Part Number</th>
+                                            <th>Quantity</th>
                                             <th>From Tool</th>
                                             <th>To Tool</th>
                                             <th>Notes</th>
@@ -719,19 +705,21 @@
                         </div>
                     </div>
 
-                    <!-- Comments -->
+                    <!-- Notes -->
                     <div class="mb-3">
-                        <label for="comments" class="form-label">Comments</label>
+                        <label for="comments" class="form-label">Notes</label>
                         <textarea id="comments" class="form-control" rows="3"></textarea>
                         <!-- Don't bind the text area to the RMA comments field since it's a List<RmaComment> -->
                         <input type="hidden" name="comments" value="">
                     </div>
 
-                    <!-- Form Actions -->
-                    <div class="d-flex justify-content-between mt-4">
-                        <a th:href="@{/rma}" class="btn btn-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-primary" 
-                                th:text="${rma.id != null ? 'Update RMA' : 'Create RMA'}">Create RMA</button>
+                    <!-- Submit buttons -->
+                    <div class="text-end mt-3">
+                        <a th:href="@{/rma}" class="btn btn-secondary me-2">Cancel</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>
+                            <span th:text="${rma.id != null ? 'Update RMA' : 'Create RMA'}">Submit</span>
+                        </button>
                     </div>
                 </form>
             </div>
@@ -809,6 +797,18 @@
                         <input type="text" class="form-control" id="movingPartName" required>
                     </div>
                     <div class="mb-3">
+                        <label for="serialNumber" class="form-label">Serial Number:</label>
+                        <input type="text" class="form-control" id="serialNumber" name="serialNumber">
+                    </div>
+                    <div class="mb-3">
+                        <label for="partNumber" class="form-label">Part Number:</label>
+                        <input type="text" class="form-control" id="partNumber" name="partNumber">
+                    </div>
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">Quantity:</label>
+                        <input type="number" class="form-control" id="quantity" name="quantity" min="1">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Movement:</label>
                         <div class="d-flex align-items-center mb-2">
                             <strong class="me-2">From:</strong>
@@ -821,17 +821,31 @@
                                 </option>
                             </select>
                         </div>
-                        <div class="d-flex align-items-center">
-                            <strong class="me-2">To:</strong>
-                            <select class="form-select" id="toToolId">
-                                <option value="">Select destination tool...</option>
-                                <option th:each="t : ${tools}"
-                                        th:value="${t.id}" 
-                                        th:text="${t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : '')}"
-                                        th:selected="${rma.tool != null && t.id == rma.tool.id}">
-                                    Tool Name
-                                </option>
-                            </select>
+                        
+                        <!-- Destination Tools Container for RMA Form -->
+                        <div id="destinationContainerForm">
+                            <div class="d-flex align-items-center mb-2 destination-row">
+                                <strong class="me-2">To:</strong>
+                                <select class="form-select destination-select" name="destinationToolIds">
+                                    <option value="">Select destination tool...</option>
+                                    <option th:each="t : ${tools}"
+                                            th:value="${t.id}" 
+                                            th:text="${t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : '')}"
+                                            th:selected="${rma.tool != null && t.id == rma.tool.id}">
+                                        Tool Name
+                                    </option>
+                                </select>
+                                <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-destination" style="display: none;">
+                                    <i class="bi bi-dash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Add Destination Button for RMA Form -->
+                        <div class="text-center mb-2">
+                            <button type="button" class="btn btn-outline-success btn-sm" id="addDestinationBtnForm">
+                                <i class="bi bi-plus"></i> Add Another Destination
+                            </button>
                         </div>
                     </div>
                     <div class="mb-3">
@@ -848,557 +862,12 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script th:src="@{/js/rma-excel-parser.js}"></script>
-    <script th:src="@{/js/rma-form-fix.js}"></script>
-    <!-- Inline script to ensure technician gets set -->
-    <script>
-      // Set default technician when page loads
-      document.addEventListener('DOMContentLoaded', function() {
-          const technicianSelect = document.getElementById('technician');
-          const currentUserNameField = document.getElementById('currentUserName');
-          
-          if (technicianSelect && technicianSelect.value === '') {
-              console.log('Setting default technician from inline script');
-              
-              let found = false;
-              
-              // First try to use current user name from server
-              if (currentUserNameField && currentUserNameField.value) {
-                  const currentUserName = currentUserNameField.value;
-                  console.log('Current user from server: ' + currentUserName);
-                  
-                  // Try to find a matching technician
-                  const options = technicianSelect.options;
-                  for (let i = 0; i < options.length; i++) {
-                      if (options[i].value === currentUserName || 
-                          options[i].text === currentUserName ||
-                          options[i].text.includes(currentUserName) || 
-                          currentUserName.includes(options[i].text)) {
-                          technicianSelect.selectedIndex = i;
-                          console.log('Set technician to: ' + options[i].text + ' (matched with current user)');
-                          found = true;
-                          break;
-                      }
-                  }
-              }
-              
-              // Fallback to first non-empty option if no match found
-              if (!found) {
-                  const options = technicianSelect.options;
-                  for (let i = 0; i < options.length; i++) {
-                      if (options[i].value !== '') {
-                          technicianSelect.selectedIndex = i;
-                          console.log('Set technician to: ' + options[i].text + ' (first available)');
-                          break;
-                      }
-                  }
-              }
-          }
-      });
-    </script>
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-          // Excel Upload Feature
-          const excelFileInput = document.getElementById('excelFileInput');
-          const uploadExcelBtn = document.getElementById('uploadExcelBtn');
-          const excelUploadResult = document.getElementById('excelUploadResult');
-          const excelDropArea = document.getElementById('excel-drop-area');
-          const toolSelect = document.getElementById('toolSelect');
-          
-          // Regular file upload
-          const dropArea = document.getElementById('drop-area');
-          const fileInput = document.getElementById('fileInput');
-          const fileUploadsTracker = document.getElementById('fileUploadsTracker');
-          
-          // Initialize file upload tracking
-          let selectedFiles = [];
-          
-          // Setup Excel drag and drop
-          if (excelDropArea) {
-              // Prevent default drag behaviors
-              ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                  excelDropArea.addEventListener(eventName, e => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                  });
-              });
-              
-              // Highlight drop area when item is dragged over it
-              ['dragenter', 'dragover'].forEach(eventName => {
-                  excelDropArea.addEventListener(eventName, () => {
-                      excelDropArea.classList.add('highlight');
-                  });
-              });
-              
-              // Remove highlight when item is dragged out or dropped
-              ['dragleave', 'drop'].forEach(eventName => {
-                  excelDropArea.addEventListener(eventName, () => {
-                      excelDropArea.classList.remove('highlight');
-                  });
-              });
-              
-              // Make drop area clickable
-              excelDropArea.addEventListener('click', () => {
-                  excelFileInput.click();
-              });
-              
-              // Handle dropped files
-              excelDropArea.addEventListener('drop', e => {
-                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      excelFileInput.files = e.dataTransfer.files;
-                      const fileName = e.dataTransfer.files[0].name;
-                      if (excelDropArea.querySelector('small')) {
-                          excelDropArea.querySelector('small').innerHTML = `Selected: <span class="text-success">${fileName}</span>`;
-                      }
-                  }
-              });
-              
-              // Handle file selection via file input
-              excelFileInput.addEventListener('change', () => {
-                  if (excelFileInput.files && excelFileInput.files[0]) {
-                      const fileName = excelFileInput.files[0].name;
-                      if (excelDropArea.querySelector('small')) {
-                          excelDropArea.querySelector('small').innerHTML = `Selected: <span class="text-success">${fileName}</span>`;
-                      }
-                  }
-              });
-          }
-          
-          // Setup regular file upload drag and drop
-          if (dropArea && fileInput) {
-              // Prevent default drag behaviors
-              ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                  dropArea.addEventListener(eventName, e => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                  });
-              });
-              
-              // Highlight drop area when item is dragged over it
-              ['dragenter', 'dragover'].forEach(eventName => {
-                  dropArea.addEventListener(eventName, () => {
-                      dropArea.classList.add('highlight');
-                  });
-              });
-              
-              // Remove highlight when item is dragged out or dropped
-              ['dragleave', 'drop'].forEach(eventName => {
-                  dropArea.addEventListener(eventName, () => {
-                      dropArea.classList.remove('highlight');
-                  });
-              });
-              
-              // Make drop area clickable
-              dropArea.addEventListener('click', () => {
-                  fileInput.click();
-              });
-              
-              // Handle dropped files
-              dropArea.addEventListener('drop', e => {
-                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      fileInput.files = e.dataTransfer.files;
-                      handleFileSelect(fileInput.files);
-                  }
-              });
-              
-              // Handle file selection via file input
-              fileInput.addEventListener('change', function() {
-                  handleFileSelect(this.files);
-              });
-          }
-          
-          // Excel upload button click handler
-          if (uploadExcelBtn) {
-              uploadExcelBtn.addEventListener('click', function() {
-                  if (!excelFileInput.files || !excelFileInput.files[0]) {
-                      showExcelResult('Please select an Excel file first.', 'danger');
-                      return;
-                  }
-                  
-                  // Show loading state
-                  uploadExcelBtn.disabled = true;
-                  uploadExcelBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...';
-                  showExcelResult('Uploading and parsing Excel file...', 'info');
-                  
-                  const formData = new FormData();
-                  formData.append('file', excelFileInput.files[0]);
-                  
-                  fetch('/rma/uploadExcel', {
-                      method: 'POST',
-                      body: formData
-                  })
-                  .then(response => {
-                      return response.json();
-                  })
-                  .then(data => {
-                      // Reset button state
-                      uploadExcelBtn.disabled = false;
-                      uploadExcelBtn.innerHTML = '<i class="bi bi-upload me-1"></i> Parse Excel';
-                      
-                      if (data.success) {
-                          showExcelResult('Excel data extracted successfully! Form fields have been populated.', 'success');
-                          populateFormWithExcelData(data.data);
-                      } else {
-                          showExcelResult('Error: ' + (data.error || 'Failed to extract data from the Excel file.'), 'danger');
-                      }
-                  })
-                  .catch(error => {
-                      console.error('Error uploading Excel:', error);
-                      uploadExcelBtn.disabled = false;
-                      uploadExcelBtn.innerHTML = '<i class="bi bi-upload me-1"></i> Parse Excel';
-                      showExcelResult('Error: ' + error.message, 'danger');
-                  });
-              });
-          }
-          
-          // Function to display Excel upload result
-          function showExcelResult(message, type) {
-              if (!excelUploadResult) return;
-              
-              excelUploadResult.textContent = message;
-              excelUploadResult.style.display = 'block';
-              excelUploadResult.className = 'alert alert-' + type + ' mt-1 mb-0 py-1 px-2';
-              
-              if (type === 'success') {
-                  setTimeout(() => {
-                      excelUploadResult.style.display = 'none';
-                  }, 8000);
-              }
-          }
-          
-          // Function to handle selected files
-          function handleFileSelect(files) {
-              if (!files || files.length === 0) return;
-              
-              // Initialize counters
-              let imageCount = 0;
-              let documentCount = 0;
-              
-              // Clear previous lists
-              const imageList = document.getElementById('image-list');
-              const documentList = document.getElementById('document-list');
-              if (imageList) imageList.innerHTML = '';
-              if (documentList) documentList.innerHTML = '';
-              
-              // Store the selected files for form submission
-              selectedFiles = Array.from(files);
-              
-              // Add each file to the appropriate list with delete buttons
-              selectedFiles.forEach((file, index) => {
-                  // Check file type to categorize as image or document
-                  const isImage = file.type.startsWith('image/');
-                  
-                  // Create list item for preview with delete button
-                  const listItem = document.createElement('li');
-                  listItem.className = 'd-flex justify-content-between align-items-center mb-1';
-                  listItem.dataset.fileIndex = index;
-                  
-                  const fileNameSpan = document.createElement('span');
-                  fileNameSpan.textContent = file.name;
-                  fileNameSpan.className = 'text-truncate me-1';
-                  fileNameSpan.title = file.name;
-                  listItem.appendChild(fileNameSpan);
-                  
-                  const deleteBtn = document.createElement('button');
-                  deleteBtn.type = 'button';
-                  deleteBtn.className = 'btn btn-sm btn-link text-danger p-0';
-                  deleteBtn.innerHTML = '<i class="bi bi-x-circle"></i>';
-                  deleteBtn.title = 'Remove file';
-                  deleteBtn.style.fontSize = '0.7rem';
-                  deleteBtn.onclick = function() {
-                      removeFileFromSelection(index);
-                  };
-                  listItem.appendChild(deleteBtn);
-                  
-                  if (isImage) {
-                      imageCount++;
-                      if (imageList) imageList.appendChild(listItem);
-                  } else {
-                      documentCount++;
-                      if (documentList) documentList.appendChild(listItem);
-                  }
-              });
-              
-              // Update counters
-              const imageCountElement = document.getElementById('image-count');
-              const documentCountElement = document.getElementById('document-count');
-              if (imageCountElement) imageCountElement.textContent = imageCount;
-              if (documentCountElement) documentCountElement.textContent = documentCount;
-              
-              // Update file tracker
-              updateFileTracker();
-              
-              // Show feedback to user
-              const smallElement = dropArea.querySelector('.small');
-              if (smallElement) {
-                  smallElement.innerHTML = `${selectedFiles.length} files selected`;
-              }
-          }
-          
-          // Function to remove a file from the selection
-          function removeFileFromSelection(index) {
-              // Remove the file from the selectedFiles array
-              selectedFiles.splice(index, 1);
-              
-              // Create a new DataTransfer object
-              const dataTransfer = new DataTransfer();
-              
-              // Add remaining files to the DataTransfer object
-              selectedFiles.forEach(file => {
-                  dataTransfer.items.add(file);
-              });
-              
-              // Update the file input
-              fileInput.files = dataTransfer.files;
-              
-              // Update the UI
-              handleFileSelect(dataTransfer.files);
-          }
-          
-          // Function to update the hidden input tracker
-          function updateFileTracker() {
-              // Just set a value to indicate files have been selected
-              if (fileUploadsTracker) {
-                  fileUploadsTracker.value = 'files-selected';
-              }
-          }
-          
-          // Process Impact Information conditional logic
-          setupConditionalFields();
-          
-          function setupConditionalFields() {
-              const interruptionFlowRadios = document.querySelectorAll('input[name="interruptionToFlow"]');
-              const interruptionProdRadios = document.querySelectorAll('input[name="interruptionToProduction"]');
-              const downtimeContainer = document.getElementById('downtimeContainer');
-              
-              const exposedRadios = document.querySelectorAll('input[name="exposedToProcessGasOrChemicals"]');
-              const exposedFieldsContainer = document.getElementById('exposedFieldsContainer');
-              
-              function updateDowntimeVisibility() {
-                  const flowYes = document.getElementById('interruptionToFlowYes');
-                  const prodYes = document.getElementById('interruptionToProductionYes');
-                  
-                  if ((flowYes && flowYes.checked) || (prodYes && prodYes.checked)) {
-                      downtimeContainer.style.display = 'block';
-                  } else {
-                      downtimeContainer.style.display = 'none';
-                  }
-              }
-              
-              function updateExposedFieldsVisibility() {
-                  const exposedYes = document.getElementById('exposedYes');
-                  
-                  if (exposedYes && exposedYes.checked) {
-                      exposedFieldsContainer.style.display = 'block';
-                  } else {
-                      exposedFieldsContainer.style.display = 'none';
-                  }
-              }
-              
-              // Add event listeners to interruption radios
-              interruptionFlowRadios.forEach(radio => {
-                  radio.addEventListener('change', updateDowntimeVisibility);
-              });
-              
-              interruptionProdRadios.forEach(radio => {
-                  radio.addEventListener('change', updateDowntimeVisibility);
-              });
-              
-              // Add event listeners to exposed radios
-              exposedRadios.forEach(radio => {
-                  radio.addEventListener('change', updateExposedFieldsVisibility);
-              });
-              
-              // Initial setup based on current values
-              updateDowntimeVisibility();
-              updateExposedFieldsVisibility();
-          }
-          
-          // Function to initialize the combined RMA field
-          function initCombinedField() {
-              const rmaField = document.getElementById('rmaNumber');
-              const sapField = document.getElementById('sapNotificationNumber');
-              const combinedField = document.getElementById('combinedRmaField');
-              
-              if (!combinedField || !rmaField || !sapField) return;
-              
-              // Set up the initial value - if RMA or SAP have values, combine them
-              if (rmaField.value || sapField.value) {
-                  let combined = '';
-                  if (rmaField.value) combined += rmaField.value;
-                  if (rmaField.value && sapField.value) combined += '/';
-                  if (sapField.value) combined += sapField.value;
-                  combinedField.value = combined;
-              }
-              
-              // Add change event listener to the combined field
-              combinedField.addEventListener('change', function() {
-                  const combinedValue = this.value.trim();
-                  
-                  if (!combinedValue) {
-                      // If combined field is empty, explicitly clear both fields
-                      rmaField.value = '';
-                      sapField.value = '';
-                  } else {
-                      // If there's a value, try to parse it
-                      const parts = combinedValue.split('/');
-                      
-                      if (parts.length > 1) {
-                          // If there's a slash, split the values
-                          rmaField.value = parts[0].trim();
-                          sapField.value = parts[1].trim();
-                      } else {
-                          // If no slash, assume it's just an RMA number
-                          rmaField.value = combinedValue.trim();
-                          sapField.value = '';
-                      }
-                  }
-              });
-          }
-          
-          // Initialize combined field on page load
-          initCombinedField();
-          
-          // Add submit event listener to the form to ensure RMA/SAP fields are set correctly
-          const form = document.querySelector('form');
-          if (form) {
-              form.addEventListener('submit', function(event) {
-                  const rmaField = document.getElementById('rmaNumber');
-                  const sapField = document.getElementById('sapNotificationNumber');
-                  const combinedField = document.getElementById('combinedRmaField');
-                  
-                  // Get current combined value
-                  const combinedValue = combinedField.value.trim();
-                  
-                  // Ensure values are synchronized before submission
-                  if (!combinedValue) {
-                      // If combined field is empty, explicitly clear both fields
-                      rmaField.value = '';
-                      sapField.value = '';
-                  } else {
-                      // Otherwise parse the value properly
-                      const parts = combinedValue.split('/');
-                      
-                      if (parts.length > 1) {
-                          // If there's a slash, split the values
-                          rmaField.value = parts[0].trim();
-                          sapField.value = parts[1].trim();
-                      } else {
-                          // If no slash, it's just an RMA number - ENSURE SAP is cleared
-                          rmaField.value = combinedValue.trim();
-                          sapField.value = '';
-                      }
-                  }
-              });
-          }
-          
-          // Handle moving parts
-          const addMovingPartBtn = document.getElementById('add-moving-part-btn');
-          const saveMovingPartBtn = document.getElementById('saveMovingPartBtn');
-          const movingPartName = document.getElementById('movingPartName');
-          const fromToolId = document.getElementById('fromToolId');
-          const toToolId = document.getElementById('toToolId');
-          const movingPartNotes = document.getElementById('movingPartNotes');
-          const movingPartsTableBody = document.getElementById('moving-parts-table-body');
-          
-          // Update To Tool selection when the main tool selection changes
-          if (toolSelect && toToolId) {
-              toolSelect.addEventListener('change', function() {
-                  // Get the selected tool ID
-                  const selectedToolId = this.value;
-                  if (selectedToolId) {
-                      // Set the To Tool in moving part modal to match
-                      for (let i = 0; i < toToolId.options.length; i++) {
-                          if (toToolId.options[i].value === selectedToolId) {
-                              toToolId.selectedIndex = i;
-                              break;
-                          }
-                      }
-                  }
-              });
-          }
-          
-          // Save moving part button handler
-          if (saveMovingPartBtn) {
-              saveMovingPartBtn.addEventListener('click', function() {
-                  // Validate inputs
-                  if (!movingPartName.value.trim()) {
-                      alert('Please enter a part name');
-                      return;
-                  }
-                  
-                  if (!fromToolId.value) {
-                      alert('Please select a source tool');
-                      return;
-                  }
-                  
-                  if (!toToolId.value) {
-                      alert('Please select a destination tool');
-                      return;
-                  }
-                  
-                  // Create new row in the table
-                  const newRow = document.createElement('tr');
-                  
-                  // Get tool names for display
-                  const fromToolName = fromToolId.options[fromToolId.selectedIndex].text;
-                  const toToolName = toToolId.options[toToolId.selectedIndex].text;
-                  
-                  newRow.innerHTML = `
-                      <td>${movingPartName.value}</td>
-                      <td>${fromToolName}</td>
-                      <td>${toToolName}</td>
-                      <td>${movingPartNotes.value || ''}</td>
-                      <td>
-                          <button type="button" class="btn btn-sm btn-outline-danger remove-moving-part">
-                              <i class="bi bi-trash"></i>
-                          </button>
-                      </td>
-                      <input type="hidden" name="movingParts[].partName" value="${movingPartName.value}">
-                      <input type="hidden" name="movingParts[].fromToolId" value="${fromToolId.value}">
-                      <input type="hidden" name="movingParts[].toToolId" value="${toToolId.value}">
-                      <input type="hidden" name="movingParts[].notes" value="${movingPartNotes.value || ''}">
-                  `;
-                  
-                  // Add click handler for remove button
-                  const removeBtn = newRow.querySelector('.remove-moving-part');
-                  if (removeBtn) {
-                      removeBtn.addEventListener('click', function() {
-                          newRow.remove();
-                      });
-                  }
-                  
-                  // Add to table
-                  if (movingPartsTableBody) {
-                      movingPartsTableBody.appendChild(newRow);
-                  }
-                  
-                  // Reset form and close modal
-                  movingPartName.value = '';
-                  fromToolId.selectedIndex = 0;
-                  movingPartNotes.value = '';
-                  
-                  // Close the modal
-                  const modal = bootstrap.Modal.getInstance(document.getElementById('addMovingPartModal'));
-                  if (modal) {
-                      modal.hide();
-                  }
-              });
-          }
-          
-          // Add event listeners to existing remove buttons
-          if (movingPartsTableBody) {
-              const existingRemoveBtns = movingPartsTableBody.querySelectorAll('.remove-moving-part');
-              existingRemoveBtns.forEach(btn => {
-                  btn.addEventListener('click', function() {
-                      const row = this.closest('tr');
-                      if (row) {
-                          row.remove();
-                      }
-                  });
-              });
-          }
-      });
+    <script th:src="@{/js/rma.js}"></script>
+    <script th:src="@{/js/rma-file-upload.js}"></script>
+    <script th:src="@{/js/rma-excel.js}"></script>
+    <script th:src="@{/js/rma-moving-parts.js}"></script>
+    <script th:inline="javascript">
+    // Legacy inline script removed; see rma.js and rma-file-upload.js modules
     </script>
 </body>
 </html> 

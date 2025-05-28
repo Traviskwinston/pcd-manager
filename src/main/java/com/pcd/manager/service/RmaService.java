@@ -27,6 +27,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.hibernate.Hibernate;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -106,225 +107,175 @@ public class RmaService {
 
     @Transactional(readOnly = true)
     public Optional<Rma> getRmaById(Long id) {
+        logger.info("Getting RMA by ID: {}", id);
         Optional<Rma> rmaOpt = rmaRepository.findById(id);
+        
         rmaOpt.ifPresent(rma -> {
-            if (rma.getDocuments() != null) rma.getDocuments().size();
-            if (rma.getPictures() != null) rma.getPictures().size();
+            // Force initialization of collections
+            if (rma.getDocuments() != null) {
+                Hibernate.initialize(rma.getDocuments());
+                logger.info("Initialized {} documents for RMA {}", rma.getDocuments().size(), id);
+                // Initialize each document's data
+                rma.getDocuments().forEach(doc -> {
+                    Hibernate.initialize(doc);
+                    logger.debug("Document: id={}, name='{}', path='{}'", 
+                        doc.getId(), doc.getFileName(), doc.getFilePath());
+                });
+            }
+            
+            if (rma.getPictures() != null) {
+                Hibernate.initialize(rma.getPictures());
+                logger.info("Initialized {} pictures for RMA {}", rma.getPictures().size(), id);
+                // Initialize each picture's data
+                rma.getPictures().forEach(pic -> {
+                    Hibernate.initialize(pic);
+                    logger.debug("Picture: id={}, name='{}', path='{}'", 
+                        pic.getId(), pic.getFileName(), pic.getFilePath());
+                });
+            }
+            
+            if (rma.getComments() != null) {
+                Hibernate.initialize(rma.getComments());
+                logger.debug("Initialized {} comments for RMA {}", rma.getComments().size(), id);
+            }
         });
+        
         return rmaOpt;
     }
 
     @Transactional
-    public Rma saveRma(Rma rmaData, MultipartFile[] fileUploads) throws IOException {
-        Rma rmaToSave;
-        Long oldToolId = null;
-
-        if (rmaData.getId() != null) {
-            logger.info("Updating RMA ID: {}", rmaData.getId());
-            logger.info("RMA Data submitted - RMA Number: '{}', SAP Notification: '{}'", 
-                     rmaData.getRmaNumber(), rmaData.getSapNotificationNumber());
-                     
-            rmaToSave = getRmaById(rmaData.getId())
-                .orElseThrow(() -> new RuntimeException("RMA not found for update: " + rmaData.getId()));
+    public Rma saveRma(Rma rmaToSave, MultipartFile[] fileUploads) {
+        try {
+            logger.info("=== SAVING RMA WITH FILES ===");
+            logger.info("RMA ID: {}, Number of files: {}", 
+                rmaToSave.getId(), 
+                fileUploads != null ? fileUploads.length : 0);
             
-            logger.info("Existing RMA values before update - RMA Number: '{}', SAP Notification: '{}'", 
-                     rmaToSave.getRmaNumber(), rmaToSave.getSapNotificationNumber());
-            
-            // Store old tool ID for later comparison
-            oldToolId = rmaToSave.getTool() != null ? rmaToSave.getTool().getId() : null;
-            
-            // Set RMA number and clear SAP notification if only RMA was provided
-            rmaToSave.setRmaNumber(rmaData.getRmaNumber());
-            rmaToSave.setSapNotificationNumber(rmaData.getSapNotificationNumber());
-            
-            // Handle inconsistent data - if we have an RMA number but no SAP notification in the original
-            // data, and we only sent an RMA, clear the existing SAP number to avoid creating a combined value
-            if (rmaData.getSapNotificationNumber() == null || rmaData.getSapNotificationNumber().trim().isEmpty()) {
-                // Explicitly clear the SAP notification number when it's not provided
-                rmaToSave.setSapNotificationNumber("");
-                logger.info("Explicitly cleared SAP notification number field");
+            // If this is an update, load the existing RMA data
+            Rma rmaData = null;
+            if (rmaToSave.getId() != null) {
+                rmaData = rmaRepository.findById(rmaToSave.getId()).orElse(null);
+                logger.info("Found existing RMA: {}", rmaData != null);
             }
-            
-            rmaToSave.setCustomerName(rmaData.getCustomerName());
-            rmaToSave.setStatus(rmaData.getStatus());
-            rmaToSave.setPriority(rmaData.getPriority());
-            rmaToSave.setLocation(rmaData.getLocation());
-            rmaToSave.setTechnician(rmaData.getTechnician());
-            
-            // Set problem information fields (replacing description)
-            rmaToSave.setProblemDiscoverer(rmaData.getProblemDiscoverer());
-            rmaToSave.setProblemDiscoveryDate(rmaData.getProblemDiscoveryDate());
-            rmaToSave.setWhatHappened(rmaData.getWhatHappened());
-            rmaToSave.setWhyAndHowItHappened(rmaData.getWhyAndHowItHappened());
-            rmaToSave.setHowContained(rmaData.getHowContained());
-            rmaToSave.setWhoContained(rmaData.getWhoContained());
-            
-            rmaToSave.setComments(rmaData.getComments());
-            rmaToSave.setTool(rmaData.getTool()); // This may change the tool
-            rmaToSave.setSerialNumber(rmaData.getSerialNumber());
-            rmaToSave.setSalesOrder(rmaData.getSalesOrder());
-            rmaToSave.setWrittenDate(rmaData.getWrittenDate());
-            rmaToSave.setRmaNumberProvidedDate(rmaData.getRmaNumberProvidedDate());
-            rmaToSave.setShippingMemoEmailedDate(rmaData.getShippingMemoEmailedDate());
-            rmaToSave.setPartsReceivedDate(rmaData.getPartsReceivedDate());
-            rmaToSave.setInstalledPartsDate(rmaData.getInstalledPartsDate());
-            rmaToSave.setFailedPartsPackedDate(rmaData.getFailedPartsPackedDate());
-            rmaToSave.setFailedPartsShippedDate(rmaData.getFailedPartsShippedDate());
-            rmaToSave.setCustomerContact(rmaData.getCustomerContact());
-            rmaToSave.setCustomerEmail(rmaData.getCustomerEmail());
-            rmaToSave.setCustomerPhone(rmaData.getCustomerPhone());
-            
-            // Set new shipping fields
-            rmaToSave.setCompanyShipToName(rmaData.getCompanyShipToName());
-            rmaToSave.setCompanyShipToAddress(rmaData.getCompanyShipToAddress());
-            rmaToSave.setCity(rmaData.getCity());
-            rmaToSave.setState(rmaData.getState());
-            rmaToSave.setZipCode(rmaData.getZipCode());
-            rmaToSave.setAttn(rmaData.getAttn());
-            
-            rmaToSave.setRootCause(rmaData.getRootCause());
-            rmaToSave.setResolution(rmaData.getResolution());
-            rmaToSave.setNotes(rmaData.getNotes());
 
-            if (rmaToSave.getPartLineItems() == null) {
-                rmaToSave.setPartLineItems(new ArrayList<>());
+            // Initialize collections if needed
+            if (rmaData == null) {
+                logger.info("Creating new RMA with empty collections");
+                if (rmaToSave.getPartLineItems() == null) rmaToSave.setPartLineItems(new ArrayList<>());
+                if (rmaToSave.getDocuments() == null) rmaToSave.setDocuments(new ArrayList<>());
+                if (rmaToSave.getPictures() == null) rmaToSave.setPictures(new ArrayList<>());
             } else {
-                rmaToSave.getPartLineItems().clear();
+                logger.info("Updating existing RMA and ensuring collections exist");
+                rmaToSave = rmaData;
+                if (rmaToSave.getPartLineItems() == null) rmaToSave.setPartLineItems(new ArrayList<>());
+                if (rmaToSave.getDocuments() == null) rmaToSave.setDocuments(new ArrayList<>());
+                if (rmaToSave.getPictures() == null) rmaToSave.setPictures(new ArrayList<>());
             }
-            if (rmaData.getPartLineItems() != null) {
-                rmaToSave.getPartLineItems().addAll(rmaData.getPartLineItems());
-            }
-            
-            if (rmaToSave.getDocuments() == null) rmaToSave.setDocuments(new ArrayList<>());
-            if (rmaToSave.getPictures() == null) rmaToSave.setPictures(new ArrayList<>());
 
-        } else {
-            logger.info("Creating new RMA");
-            rmaToSave = rmaData;
-            if (rmaToSave.getPartLineItems() == null) rmaToSave.setPartLineItems(new ArrayList<>());
-            if (rmaToSave.getDocuments() == null) rmaToSave.setDocuments(new ArrayList<>());
-            if (rmaToSave.getPictures() == null) rmaToSave.setPictures(new ArrayList<>());
-        }
-
-        // Save the RMA first to ensure it has an ID before adding files
-        // This helps prevent orphaned file records
-        Rma savedRma = rmaRepository.saveAndFlush(rmaToSave);
-        logger.info("Initial save of RMA complete, ID: {}", savedRma.getId());
-        
-        // Process file uploads after initial save
-        if (fileUploads != null && fileUploads.length > 0) {
-            logger.info("Processing {} file uploads for RMA ID: {}", fileUploads.length, savedRma.getId());
+            // Save the RMA first to get an ID
+            logger.info("Saving RMA to get ID");
+            Rma savedRma = rmaRepository.saveAndFlush(rmaToSave);
+            logger.info("RMA saved with ID: {}", savedRma.getId());
             
-            int successCount = 0;
-            int errorCount = 0;
-            
-            // Separate lists for documents and pictures to add
-            List<RmaDocument> documentsToAdd = new ArrayList<>();
-            List<RmaPicture> picturesToAdd = new ArrayList<>();
-            
-            // Ensure upload directories exist
-            uploadUtils.ensureUploadDirectoryExists();
-            
-            for (MultipartFile file : fileUploads) {
-                if (file != null && !file.isEmpty()) {
-                    String contentType = file.getContentType();
-                    String originalFilename = file.getOriginalFilename();
-                    long fileSize = file.getSize();
-                    
-                    boolean isImage = contentType != null && IMAGE_TYPES.stream().anyMatch(contentType::equalsIgnoreCase);
-                    String subdirectory = isImage ? "rma-pictures" : "rma-documents";
-                    
-                    logger.info("Processing file: {}, Size: {} bytes, Type: {}, IsImage: {}", 
-                               originalFilename, fileSize, contentType, isImage);
-                    
-                    try {
-                        // Save the file to disk
-                        String savedPath = uploadUtils.saveFile(file, subdirectory);
-                        
-                        if (savedPath != null) {
-                            // Create file entity
-                            if (isImage) {
-                                RmaPicture picture = new RmaPicture();
-                                picture.setFileName(originalFilename);
-                                picture.setFilePath(savedPath);
-                                picture.setFileType(contentType);
-                                picture.setFileSize(fileSize);
-                                picture.setRma(savedRma);
-                                
-                                picturesToAdd.add(picture);
-                                logger.info("Picture prepared for RMA: {} -> {}", originalFilename, savedPath);
-                                successCount++;
-                            } else {
-                                RmaDocument document = new RmaDocument();
-                                document.setFileName(originalFilename);
-                                document.setFilePath(savedPath);
-                                document.setFileType(contentType);
-                                document.setFileSize(fileSize);
-                                document.setRma(savedRma);
-                                
-                                documentsToAdd.add(document);
-                                logger.info("Document prepared for RMA: {} -> {}", originalFilename, savedPath);
-                                successCount++;
+            // Process file uploads if any
+            if (fileUploads != null && fileUploads.length > 0) {
+                List<RmaDocument> documentsToAdd = new ArrayList<>();
+                List<RmaPicture> picturesToAdd = new ArrayList<>();
+                int successCount = 0;
+                int errorCount = 0;
+                
+                for (MultipartFile file : fileUploads) {
+                    if (file != null && !file.isEmpty()) {
+                        try {
+                            String originalFilename = file.getOriginalFilename();
+                            String contentType = file.getContentType();
+                            
+                            if (originalFilename == null) {
+                                logger.warn("Skipping file with null filename");
+                                continue;
                             }
                             
-                            // Verify file exists on disk
-                            boolean fileExists = uploadUtils.fileExists(savedPath);
-                            logger.info("File exists on disk after save: {} - {}", savedPath, fileExists);
-                        } else {
-                            logger.warn("Failed to save file: {} - null path returned", originalFilename);
+                            logger.info("Processing file: {}, type: {}, size: {}", 
+                                originalFilename, contentType, file.getSize());
+                            
+                            // Check if it's an Excel file
+                            boolean isExcelFile = (contentType != null && 
+                                (contentType.equals("application/vnd.ms-excel") || 
+                                 contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))) ||
+                                (originalFilename.toLowerCase().endsWith(".xlsx") || 
+                                 originalFilename.toLowerCase().endsWith(".xls"));
+                                 
+                            if (isExcelFile) {
+                                logger.info("Processing Excel file: {}", originalFilename);
+                            }
+                            
+                            // Check if it's an image file
+                            if (uploadUtils.isImageFile(originalFilename)) {
+                                logger.info("Saving as picture: {}", originalFilename);
+                                RmaPicture picture = uploadUtils.saveRmaPicture(savedRma, file);
+                                if (picture != null) {
+                                    picturesToAdd.add(picture);
+                                    successCount++;
+                                    logger.info("Successfully saved picture: {}", originalFilename);
+                                }
+                            } else {
+                                logger.info("Saving as document: {}", originalFilename);
+                                RmaDocument document = uploadUtils.saveRmaDocument(savedRma, file);
+                                if (document != null) {
+                                    documentsToAdd.add(document);
+                                    successCount++;
+                                    logger.info("Successfully saved document: {}", originalFilename);
+                                }
+                            }
+                        } catch (Exception e) {
+                            logger.error("Error processing file {}: {}", file.getOriginalFilename(), e.getMessage(), e);
                             errorCount++;
                         }
-                    } catch (IOException e) {
-                        logger.error("Error saving file {}: {}", originalFilename, e.getMessage(), e);
-                        errorCount++;
                     }
-                } else {
-                    logger.warn("Skipping null or empty file in upload array");
                 }
-            }
-            
-            logger.info("File upload processing complete. Prepared: {}, Errors: {}", successCount, errorCount);
-            
-            // Save all documents and pictures in batch mode
-            if (!documentsToAdd.isEmpty()) {
-                rmaDocumentRepository.saveAllAndFlush(documentsToAdd);
-                savedRma.getDocuments().addAll(documentsToAdd);
-                logger.info("Added {} documents to RMA {}", documentsToAdd.size(), savedRma.getId());
-            }
-            
-            if (!picturesToAdd.isEmpty()) {
-                rmaPictureRepository.saveAllAndFlush(picturesToAdd);
-                savedRma.getPictures().addAll(picturesToAdd);
-                logger.info("Added {} pictures to RMA {}", picturesToAdd.size(), savedRma.getId());
-            }
-            
-            // Save RMA again only if files were added successfully
-            if (successCount > 0) {
-                savedRma = rmaRepository.saveAndFlush(savedRma);
-                logger.info("RMA saved again after adding {} files", successCount);
                 
-                // Verify file counts
-                int pictureCount = savedRma.getPictures() != null ? savedRma.getPictures().size() : 0;
-                int documentCount = savedRma.getDocuments() != null ? savedRma.getDocuments().size() : 0;
-                logger.info("RMA now has {} pictures and {} documents", pictureCount, documentCount);
+                // Add all successful uploads to the RMA
+                if (!documentsToAdd.isEmpty()) {
+                    logger.info("Adding {} documents to RMA", documentsToAdd.size());
+                    if (savedRma.getDocuments() == null) {
+                        savedRma.setDocuments(new ArrayList<>());
+                    }
+                    savedRma.getDocuments().addAll(documentsToAdd);
+                    // Save documents to the repository
+                    for (RmaDocument doc : documentsToAdd) {
+                        logger.info("Saving document to repository: {}", doc.getFileName());
+                        rmaDocumentRepository.save(doc);
+                    }
+                }
+                
+                if (!picturesToAdd.isEmpty()) {
+                    logger.info("Adding {} pictures to RMA", picturesToAdd.size());
+                    if (savedRma.getPictures() == null) {
+                        savedRma.setPictures(new ArrayList<>());
+                    }
+                    savedRma.getPictures().addAll(picturesToAdd);
+                    // Save pictures to the repository
+                    for (RmaPicture pic : picturesToAdd) {
+                        logger.info("Saving picture to repository: {}", pic.getFileName());
+                        rmaPictureRepository.save(pic);
+                    }
+                }
+                
+                // Save again if we added any files
+                if (successCount > 0) {
+                    logger.info("Saving RMA again with {} new files", successCount);
+                    savedRma = rmaRepository.save(savedRma);
+                }
+                
+                logger.info("File processing complete. Success: {}, Errors: {}", successCount, errorCount);
             }
-        } else {
-            logger.info("No files to process for RMA ID: {}", savedRma.getId());
+            
+            return savedRma;
+            
+        } catch (Exception e) {
+            logger.error("Error saving RMA: {}", e.getMessage(), e);
+            throw e;
         }
-
-        logger.info("Successfully saved RMA ID: {} (complete)", savedRma.getId());
-        
-        // Update tool associations if the tool has changed or there are files
-        Long newToolId = savedRma.getTool() != null ? savedRma.getTool().getId() : null;
-        if ((oldToolId != null || newToolId != null) && !java.util.Objects.equals(oldToolId, newToolId)) {
-            // Tool has changed - update associations
-            updateRmaToolAssociation(savedRma, oldToolId);
-        } else if (newToolId != null) {
-            // Tool hasn't changed but make sure files are linked
-            linkAllFilesToTool(savedRma);
-        }
-        
-        return savedRma;
     }
 
     @Transactional

@@ -20,4 +20,7 @@ ALTER TABLE tools ALTER COLUMN status SET NOT NULL;
 ALTER TABLE tools ALTER COLUMN status SET DEFAULT 'NOT_STARTED';
 
 -- Update tool_type column if needed
-UPDATE tools SET tool_type = 'SLURRY' WHERE tool_type NOT IN ('CHEMBLEND', 'SLURRY'); 
+UPDATE tools SET tool_type = 'SLURRY' WHERE tool_type NOT IN ('CHEMBLEND', 'SLURRY');
+
+-- Add destination_chain column to moving_parts table for multi-step movements
+ALTER TABLE moving_parts ADD COLUMN destination_chain TEXT; 

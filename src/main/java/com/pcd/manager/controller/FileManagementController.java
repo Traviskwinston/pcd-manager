@@ -361,4 +361,49 @@ public class FileManagementController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+
+    /**
+     * Download or view a file
+     * 
+     * @param fileId The ID of the file to download
+     * @param fileType The type of file (document/picture)
+     * @return The file as a response
+     */
+    @GetMapping("/download/{fileType}/{fileId}")
+    public ResponseEntity<?> downloadFile(
+            @PathVariable Long fileId,
+            @PathVariable String fileType) {
+        
+        logger.info("Download request for {} with ID: {}", fileType, fileId);
+        
+        try {
+            if ("document".equalsIgnoreCase(fileType)) {
+                Optional<RmaDocument> documentOpt = rmaService.findDocumentById(fileId);
+                if (documentOpt.isEmpty()) {
+                    logger.warn("Document with ID {} not found", fileId);
+                    return ResponseEntity.notFound().build();
+                }
+                
+                RmaDocument document = documentOpt.get();
+                return uploadUtils.serveFile(document.getFilePath(), document.getFileType());
+            } else if ("picture".equalsIgnoreCase(fileType)) {
+                Optional<RmaPicture> pictureOpt = rmaService.findPictureById(fileId);
+                if (pictureOpt.isEmpty()) {
+                    logger.warn("Picture with ID {} not found", fileId);
+                    return ResponseEntity.notFound().build();
+                }
+                
+                RmaPicture picture = pictureOpt.get();
+                return uploadUtils.serveFile(picture.getFilePath(), picture.getFileType());
+            }
+            
+            logger.warn("Invalid file type: {}", fileType);
+            return ResponseEntity.badRequest().body("Invalid file type");
+            
+        } catch (Exception e) {
+            logger.error("Error serving file: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error serving file: " + e.getMessage());
+        }
+    }
 } 

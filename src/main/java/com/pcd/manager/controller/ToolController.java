@@ -135,6 +135,10 @@ public class ToolController {
 
     @GetMapping("/{id}")
     public String showToolDetails(@PathVariable Long id, Model model, Principal principal) {
+        // Add all tools for the move document/picture dropdowns and moving parts chain display
+        List<Tool> allTools = toolService.getAllTools();
+        model.addAttribute("allTools", allTools);
+        
         toolService.getToolById(id).ifPresent(tool -> {
             model.addAttribute("tool", tool);
             
@@ -174,6 +178,26 @@ public class ToolController {
             List<MovingPart> movingParts = movingPartService.getMovingPartsByToolId(id);
             model.addAttribute("movingParts", movingParts);
             
+            // Create destination chain display data for each moving part (similar to RMA controller)
+            Map<Long, List<Tool>> movingPartDestinationChains = new HashMap<>();
+            Map<Long, Tool> toolMap = new HashMap<>();
+            for (Tool t : allTools) {
+                toolMap.put(t.getId(), t);
+            }
+            
+            for (MovingPart movingPart : movingParts) {
+                List<Tool> chainTools = new ArrayList<>();
+                List<Long> destinationIds = movingPart.getDestinationToolIds();
+                for (Long toolId : destinationIds) {
+                    Tool destTool = toolMap.get(toolId);
+                    if (destTool != null) {
+                        chainTools.add(destTool);
+                    }
+                }
+                movingPartDestinationChains.put(movingPart.getId(), chainTools);
+            }
+            model.addAttribute("movingPartDestinationChains", movingPartDestinationChains);
+            
             // Create a new Note object for the note creation form
             model.addAttribute("newNote", new Note());
             
@@ -181,10 +205,6 @@ public class ToolController {
             List<TrackTrend> trackTrendsForTool = trackTrendService.getTrackTrendsByToolId(id);
             model.addAttribute("trackTrendsForTool", trackTrendsForTool);
         });
-        
-        // Add all tools for the move document/picture dropdowns
-        List<Tool> allTools = toolService.getAllTools();
-        model.addAttribute("allTools", allTools);
         
         // Add all RMAs for link functionality
         List<Rma> allRmas = rmaService.getAllRmas();

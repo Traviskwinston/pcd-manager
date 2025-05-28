@@ -291,6 +291,9 @@
                         <thead>
                             <tr>
                                 <th>Part Name</th>
+                                <th>Serial Number</th>
+                                <th>Part Number</th>
+                                <th>Quantity</th>
                                 <th>Movement</th>
                                 <th>Notes</th>
                                 <th>Date</th>
@@ -299,26 +302,12 @@
                         </thead>
                         <tbody>
                             <tr th:each="movingPart : ${movingParts}">
-                                <td th:text="${movingPart.partName}">Part A</td>
-                                <td>
-                                    <a th:if="${movingPart.fromTool != null}" th:href="@{/tools/{id}(id=${movingPart.fromTool.id})}" th:text="${movingPart.fromTool.name}" class="text-decoration-none"></a>
-                                    <span th:unless="${movingPart.fromTool != null}">N/A</span>
-                                    <i class="bi bi-arrow-right text-success mx-1"></i>
-                                    <a th:if="${movingPart.toTool != null}" th:href="@{/tools/{id}(id=${movingPart.toTool.id})}" th:text="${movingPart.toTool.name}" class="text-decoration-none"></a>
-                                    <span th:unless="${movingPart.toTool != null}">N/A</span>
-                                </td>
-                                <td>
-                                    <!-- Display RMA Link if present -->
-                                    <div th:if="${movingPart.rma != null}">
-                                        <a th:href="@{/rma/{id}(id=${movingPart.rma.id})}" 
-                                           class="badge bg-info text-decoration-none me-1"
-                                           th:text="'RMA ' + (${movingPart.rma.rmaNumber != null && !movingPart.rma.rmaNumber.isEmpty()} ? movingPart.rma.rmaNumber : movingPart.rma.id)">
-                                            RMA XXXXXX
-                                        </a>
-                                    </div>
-                                    <span th:if="${movingPart.notes != null}" th:text="${movingPart.notes}">Notes</span>
-                                    <span th:if="${movingPart.notes == null && movingPart.rma == null}" class="text-muted">-</span>
-                                </td>
+                                <td th:text="${movingPart.partName}">Part Name</td>
+                                <td th:text="${movingPart.serialNumber}">Serial Number</td>
+                                <td th:text="${movingPart.partNumber}">Part Number</td>
+                                <td th:text="${movingPart.quantity}">Quantity</td>
+                                <td th:text="${movingPart.direction}">IN/OUT</td>
+                                <td th:text="${movingPart.notes ?: '-'}">Notes</td>
                                 <td th:text="${#temporals.format(movingPart.moveDate, 'MMM dd, yyyy')}">Jan 1, 2023</td>
                                 <td>
                                     <div class="btn-group">
@@ -326,9 +315,13 @@
                                                 data-bs-toggle="modal" data-bs-target="#editMovingPartModal"
                                                 th:data-id="${movingPart.id}"
                                                 th:data-part-name="${movingPart.partName}"
-                                                th:data-from-tool-id="${movingPart.fromTool.id}"
-                                                th:data-to-tool-id="${movingPart.toTool.id}"
-                                                th:data-notes="${movingPart.notes}">
+                                                th:data-from-tool-id="${movingPart.fromTool != null ? movingPart.fromTool.id : ''}"
+                                                th:data-to-tool-id="${movingPart.toTool != null ? movingPart.toTool.id : ''}"
+                                                th:data-destination-chain="${movingPart.destinationChain != null ? movingPart.destinationChain : ''}"
+                                                th:data-serial-number="${movingPart.serialNumber != null ? movingPart.serialNumber : ''}"
+                                                th:data-part-number="${movingPart.partNumber != null ? movingPart.partNumber : ''}"
+                                                th:data-quantity="${movingPart.quantity != null ? movingPart.quantity : ''}"
+                                                th:data-notes="${movingPart.notes != null ? movingPart.notes : ''}">
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         <button type="button" class="btn btn-sm btn-outline-info unified-link-trigger-btn"
@@ -1139,7 +1132,11 @@
                     const partName = this.getAttribute('data-part-name');
                     const fromToolId = this.getAttribute('data-from-tool-id');
                     const toToolId = this.getAttribute('data-to-tool-id');
+                    const destinationChain = this.getAttribute('data-destination-chain') || '';
                     const notes = this.getAttribute('data-notes') || '';
+                    const serialNumber = this.getAttribute('data-serial-number') || '';
+                    const partNumber = this.getAttribute('data-part-number') || '';
+                    const quantity = this.getAttribute('data-quantity') || '';
                     
                     // Update form action URL
                     const form = document.getElementById('editMovingPartForm');
@@ -1149,10 +1146,109 @@
                     document.getElementById('editMovingPartId').value = id;
                     document.getElementById('editPartName').value = partName;
                     document.getElementById('editFromToolId').value = fromToolId;
-                    document.getElementById('editToToolId').value = toToolId;
+                    document.getElementById('editSerialNumber').value = serialNumber;
+                    document.getElementById('editPartNumber').value = partNumber;
+                    document.getElementById('editQuantity').value = quantity;
                     document.getElementById('editNotes').value = notes;
+                    
+                    // Clear existing destination rows
+                    const container = document.getElementById('editDestinationContainer');
+                    container.innerHTML = '';
+                    
+                    // Parse destination chain to get all destination IDs
+                    let destinationIds = [];
+                    if (toToolId) {
+                        destinationIds.push(toToolId);
+                    }
+                    
+                    // Parse additional destinations from chain if any
+                    if (destinationChain && destinationChain !== 'null' && destinationChain !== '[]') {
+                        try {
+                            const chainIds = JSON.parse(destinationChain);
+                            if (Array.isArray(chainIds) && chainIds.length > 1) {
+                                // Skip the first one if it matches toToolId, add the rest
+                                for (let i = 1; i < chainIds.length; i++) {
+                                    destinationIds.push(chainIds[i]);
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Could not parse destination chain:', destinationChain);
+                        }
+                    }
+                    
+                    // Create destination rows
+                    destinationIds.forEach((destId, index) => {
+                        const newRow = document.createElement('div');
+                        newRow.className = 'd-flex align-items-center mb-2 edit-destination-row';
+                        newRow.innerHTML = `
+                            <strong class="me-2">To:</strong>
+                            <select class="form-select edit-destination-select" name="destinationToolIds" required>
+                                <option value="">Select destination tool...</option>
+                                ${Array.from(document.querySelector('#editFromToolId').options).map(option => 
+                                    `<option value="${option.value}" ${option.value == destId ? 'selected' : ''}>${option.text}</option>`
+                                ).join('')}
+                            </select>
+                            <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-edit-destination" style="${destinationIds.length > 1 ? 'display: inline-block;' : 'display: none;'}">
+                                <i class="bi bi-dash"></i>
+                            </button>
+                        `;
+                        container.appendChild(newRow);
+                    });
+                    
+                    // If no destinations, create one empty row
+                    if (destinationIds.length === 0) {
+                        const newRow = document.createElement('div');
+                        newRow.className = 'd-flex align-items-center mb-2 edit-destination-row';
+                        newRow.innerHTML = `
+                            <strong class="me-2">To:</strong>
+                            <select class="form-select edit-destination-select" name="destinationToolIds" required>
+                                <option value="">Select destination tool...</option>
+                                ${Array.from(document.querySelector('#editFromToolId').options).map(option => 
+                                    `<option value="${option.value}">${option.text}</option>`
+                                ).join('')}
+                            </select>
+                            <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-edit-destination" style="display: none;">
+                                <i class="bi bi-dash"></i>
+                            </button>
+                        `;
+                        container.appendChild(newRow);
+                    }
                 });
             });
+
+            // --- Add/Remove Destination Tools Logic for Edit Modal ---
+            document.getElementById('addEditDestinationBtn').addEventListener('click', function() {
+                const container = document.getElementById('editDestinationContainer');
+                const firstRow = container.querySelector('.edit-destination-row');
+                const newRow = firstRow.cloneNode(true);
+                
+                // Clear the selected value and show remove button
+                newRow.querySelector('.edit-destination-select').selectedIndex = 0;
+                newRow.querySelector('.remove-edit-destination').style.display = 'inline-block';
+                
+                container.appendChild(newRow);
+                updateEditRemoveButtons();
+            });
+
+            // Handle remove destination buttons for edit modal (event delegation)
+            document.getElementById('editDestinationContainer').addEventListener('click', function(e) {
+                if (e.target.closest('.remove-edit-destination')) {
+                    e.target.closest('.edit-destination-row').remove();
+                    updateEditRemoveButtons();
+                }
+            });
+
+            function updateEditRemoveButtons() {
+                const rows = document.querySelectorAll('.edit-destination-row');
+                rows.forEach((row, index) => {
+                    const removeBtn = row.querySelector('.remove-edit-destination');
+                    if (rows.length > 1) {
+                        removeBtn.style.display = 'inline-block';
+                    } else {
+                        removeBtn.style.display = 'none';
+                    }
+                });
+            }
 
             // --- New File Upload Logic for Tool Details Page ---
             const toolDropArea = document.getElementById('tool-drop-area');
@@ -1272,6 +1368,41 @@
                 }
             }
             // --- End New File Upload Logic ---
+
+            // --- Add/Remove Destination Tools Logic ---
+            document.getElementById('addDestinationBtn').addEventListener('click', function() {
+                const container = document.getElementById('destinationContainer');
+                const firstRow = container.querySelector('.destination-row');
+                const newRow = firstRow.cloneNode(true);
+                
+                // Clear the selected value and show remove button
+                newRow.querySelector('.destination-select').selectedIndex = 0;
+                newRow.querySelector('.remove-destination').style.display = 'inline-block';
+                
+                container.appendChild(newRow);
+                updateRemoveButtons();
+            });
+
+            // Handle remove destination buttons (event delegation)
+            document.getElementById('destinationContainer').addEventListener('click', function(e) {
+                if (e.target.closest('.remove-destination')) {
+                    e.target.closest('.destination-row').remove();
+                    updateRemoveButtons();
+                }
+            });
+
+            function updateRemoveButtons() {
+                const rows = document.querySelectorAll('.destination-row');
+                rows.forEach((row, index) => {
+                    const removeBtn = row.querySelector('.remove-destination');
+                    if (rows.length > 1) {
+                        removeBtn.style.display = 'inline-block';
+                    } else {
+                        removeBtn.style.display = 'none';
+                    }
+                });
+            }
+            // --- End Add/Remove Destination Tools Logic ---
 
             // --- Unified Link File Modal Logic ---
             const unifiedLinkFileModal = document.getElementById('unifiedLinkFileModal');
@@ -1588,6 +1719,18 @@
                             <input type="text" class="form-control" id="partName" name="partName" required>
                         </div>
                         <div class="mb-3">
+                            <label for="serialNumber" class="form-label">Serial Number:</label>
+                            <input type="text" class="form-control" id="serialNumber" name="serialNumber">
+                        </div>
+                        <div class="mb-3">
+                            <label for="partNumber" class="form-label">Part Number:</label>
+                            <input type="text" class="form-control" id="partNumber" name="partNumber">
+                        </div>
+                        <div class="mb-3">
+                            <label for="quantity" class="form-label">Quantity:</label>
+                            <input type="number" class="form-control" id="quantity" name="quantity" min="1">
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">Movement:</label>
                             <div class="d-flex align-items-center mb-2">
                                 <strong class="me-2">From:</strong>
@@ -1595,22 +1738,36 @@
                                     <option value="">Select source tool...</option>
                                     <option th:each="fromTool : ${allTools}"
                                             th:value="${fromTool.id}" 
-                                            th:text="${fromTool.name + (fromTool.secondaryName != null ? ' (' + fromTool.secondaryName + ')' : '')}"
-                                            th:selected="${fromTool.id == tool.id}">
+                                            th:text="${fromTool.name + (fromTool.secondaryName != null ? ' (' + fromTool.secondaryName + ')' : '')}">
                                         Tool Name
                                     </option>
                                 </select>
                             </div>
-                            <div class="d-flex align-items-center">
-                                <strong class="me-2">To:</strong>
-                                <select class="form-select" id="toToolId" name="toToolId" required>
-                                    <option value="">Select destination tool...</option>
-                                    <option th:each="toTool : ${allTools}"
-                                            th:value="${toTool.id}" 
-                                            th:text="${toTool.name + (toTool.secondaryName != null ? ' (' + toTool.secondaryName + ')' : '')}">
-                                        Tool Name
-                                    </option>
-                                </select>
+                            
+                            <!-- Destination Tools Container -->
+                            <div id="destinationContainer">
+                                <div class="d-flex align-items-center mb-2 destination-row">
+                                    <strong class="me-2">To:</strong>
+                                    <select class="form-select destination-select" name="destinationToolIds" required>
+                                        <option value="">Select destination tool...</option>
+                                        <option th:each="toTool : ${allTools}"
+                                                th:value="${toTool.id}" 
+                                                th:text="${toTool.name + (toTool.secondaryName != null ? ' (' + toTool.secondaryName + ')' : '')}"
+                                                th:selected="${toTool.id == tool.id}">
+                                            Tool Name
+                                        </option>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-destination" style="display: none;">
+                                        <i class="bi bi-dash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Add Destination Button -->
+                            <div class="text-center mb-2">
+                                <button type="button" class="btn btn-outline-success btn-sm" id="addDestinationBtn">
+                                    <i class="bi bi-plus"></i> Add Another Destination
+                                </button>
                             </div>
                         </div>
                         <div class="mb-3">
@@ -1697,6 +1854,18 @@
                             <input type="text" class="form-control" id="editPartName" name="partName" required>
                         </div>
                         <div class="mb-3">
+                            <label for="editSerialNumber" class="form-label">Serial Number:</label>
+                            <input type="text" class="form-control" id="editSerialNumber" name="serialNumber">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPartNumber" class="form-label">Part Number:</label>
+                            <input type="text" class="form-control" id="editPartNumber" name="partNumber">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editQuantity" class="form-label">Quantity:</label>
+                            <input type="number" class="form-control" id="editQuantity" name="quantity" min="1">
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">Movement:</label>
                             <div class="d-flex align-items-center mb-2">
                                 <strong class="me-2">From:</strong>
@@ -1709,16 +1878,30 @@
                                     </option>
                                 </select>
                             </div>
-                            <div class="d-flex align-items-center">
-                                <strong class="me-2">To:</strong>
-                                <select class="form-select" id="editToToolId" name="toToolId" required>
-                                    <option value="">Select destination tool...</option>
-                                    <option th:each="toTool : ${allTools}"
-                                            th:value="${toTool.id}" 
-                                            th:text="${toTool.name + (toTool.secondaryName != null ? ' (' + toTool.secondaryName + ')' : '')}">
-                                        Tool Name
-                                    </option>
-                                </select>
+                            
+                            <!-- Destination Tools Container for Edit -->
+                            <div id="editDestinationContainer">
+                                <div class="d-flex align-items-center mb-2 edit-destination-row">
+                                    <strong class="me-2">To:</strong>
+                                    <select class="form-select edit-destination-select" name="destinationToolIds" required>
+                                        <option value="">Select destination tool...</option>
+                                        <option th:each="toTool : ${allTools}"
+                                                th:value="${toTool.id}" 
+                                                th:text="${toTool.name + (toTool.secondaryName != null ? ' (' + toTool.secondaryName + ')' : '')}">
+                                            Tool Name
+                                        </option>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-edit-destination" style="display: none;">
+                                        <i class="bi bi-dash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Add Destination Button for Edit -->
+                            <div class="text-center mb-2">
+                                <button type="button" class="btn btn-outline-success btn-sm" id="addEditDestinationBtn">
+                                    <i class="bi bi-plus"></i> Add Another Destination
+                                </button>
                             </div>
                         </div>
                         <div class="mb-3">

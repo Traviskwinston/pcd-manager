@@ -5,8 +5,13 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.ArrayList;
 
 @Entity
 @Table(name = "moving_parts")
@@ -22,6 +27,15 @@ public class MovingPart {
     @Column(nullable = false)
     private String partName;
 
+    @Column
+    private String serialNumber;
+
+    @Column
+    private String partNumber;
+
+    @Column
+    private Integer quantity;
+
     @ManyToOne
     @JoinColumn(name = "from_tool_id")
     private Tool fromTool;
@@ -29,6 +43,9 @@ public class MovingPart {
     @ManyToOne
     @JoinColumn(name = "to_tool_id")
     private Tool toTool;
+
+    @Column(name = "destination_chain", columnDefinition = "TEXT")
+    private String destinationChain;
 
     @ManyToOne
     @JoinColumn(name = "rma_id", nullable = true)
@@ -57,6 +74,36 @@ public class MovingPart {
     @JoinColumn(name = "additionally_linked_rma_id", nullable = true)
     @JsonBackReference("additionalRmaLink")
     private Rma additionallyLinkedRma;
+
+    // Helper methods for destination chain
+    public List<Long> getDestinationToolIds() {
+        if (destinationChain == null || destinationChain.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(destinationChain, new TypeReference<List<Long>>() {});
+        } catch (JsonProcessingException e) {
+            return new ArrayList<>();
+        }
+    }
+
+    public void setDestinationToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            this.destinationChain = null;
+            return;
+        }
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            this.destinationChain = mapper.writeValueAsString(toolIds);
+        } catch (JsonProcessingException e) {
+            this.destinationChain = null;
+        }
+    }
+
+    public boolean hasDestinationChain() {
+        return destinationChain != null && !destinationChain.trim().isEmpty();
+    }
 
     @Override
     public String toString() {

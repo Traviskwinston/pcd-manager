@@ -37,7 +37,7 @@ public class MovingPartService {
     }
     
     public List<MovingPart> getMovingPartsByTool(Tool tool) {
-        return movingPartRepository.findByFromToolOrToToolOrderByMoveDateDesc(tool, tool);
+        return movingPartRepository.findAllByTool(tool);
     }
     
     public List<MovingPart> getMovingPartsByToolId(Long toolId) {
@@ -59,6 +59,41 @@ public class MovingPartService {
         // Set the to tool if provided
         if (toToolId != null) {
             toolRepository.findById(toToolId).ifPresent(movingPart::setToTool);
+        }
+        
+        // Link note if provided
+        if (noteId != null) {
+            noteRepository.findById(noteId).ifPresent(movingPart::setLinkedNote);
+        }
+
+        // Set the RMA if provided
+        if (rma != null) {
+            movingPart.setRma(rma);
+        }
+        
+        return movingPartRepository.save(movingPart);
+    }
+    
+    @Transactional
+    public MovingPart createMovingPartWithDestinations(String partName, Long fromToolId, List<Long> destinationToolIds, String notes, Long noteId, Rma rma) {
+        MovingPart movingPart = new MovingPart();
+        movingPart.setPartName(partName);
+        movingPart.setMoveDate(LocalDateTime.now());
+        movingPart.setNotes(notes);
+        
+        // Set the from tool if provided
+        if (fromToolId != null) {
+            toolRepository.findById(fromToolId).ifPresent(movingPart::setFromTool);
+        }
+        
+        // Set the primary destination (first tool) and destination chain
+        if (destinationToolIds != null && !destinationToolIds.isEmpty()) {
+            // Set the first destination as the primary toTool
+            Long primaryDestinationId = destinationToolIds.get(0);
+            toolRepository.findById(primaryDestinationId).ifPresent(movingPart::setToTool);
+            
+            // Store the full destination chain
+            movingPart.setDestinationToolIds(destinationToolIds);
         }
         
         // Link note if provided
@@ -146,5 +181,15 @@ public class MovingPartService {
             return true;
         }
         return false;
+    }
+    
+    @Transactional
+    public MovingPart save(MovingPart movingPart) {
+        return movingPartRepository.save(movingPart);
+    }
+
+    @Transactional
+    public List<MovingPart> saveAll(List<MovingPart> movingParts) {
+        return movingPartRepository.saveAll(movingParts);
     }
 } 

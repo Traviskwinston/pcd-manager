@@ -24,6 +24,10 @@ import java.util.HashMap;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Arrays;
+import com.pcd.manager.model.Rma;
+import com.pcd.manager.model.RmaPicture;
+import com.pcd.manager.model.RmaDocument;
+import org.springframework.http.ResponseEntity;
 
 @Component
 public class UploadUtils {
@@ -38,10 +42,30 @@ public class UploadUtils {
     
     // List of allowed MIME types
     private static final List<String> ALLOWED_MIME_TYPES = Arrays.asList(
-        "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+        "application/pdf", 
+        "application/msword", 
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel", 
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
         "text/plain", "text/csv",
         "image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp"
+    );
+    
+    // List of image file extensions
+    private static final List<String> IMAGE_EXTENSIONS = Arrays.asList(
+        "jpg", "jpeg", "png", "gif", "bmp", "webp"
+    );
+
+    // List of image MIME types
+    private static final List<String> IMAGE_MIME_TYPES = Arrays.asList(
+        "image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp"
+    );
+    
+    // List of Excel file extensions and MIME types
+    private static final List<String> EXCEL_EXTENSIONS = Arrays.asList("xls", "xlsx");
+    private static final List<String> EXCEL_MIME_TYPES = Arrays.asList(
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
     
     @Value("${app.upload.dir:${user.home}/uploads}")
@@ -116,15 +140,10 @@ public class UploadUtils {
             return false;
         }
         
-        // Check content type
+        // Check content type and extension
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
-            logger.warn("Invalid content type: {}", contentType);
-            return false;
-        }
-        
-        // Check file extension
         String originalFilename = file.getOriginalFilename();
+        
         if (originalFilename == null) {
             logger.warn("Original filename is null");
             return false;
@@ -136,8 +155,23 @@ public class UploadUtils {
             extension = originalFilename.substring(lastDotIndex + 1).toLowerCase();
         }
         
-        if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            logger.warn("Invalid file extension: {}", extension);
+        // Log file details for debugging
+        logger.info("Validating file: name={}, type={}, extension={}", originalFilename, contentType, extension);
+        
+        // Check if it's a valid file type
+        boolean isValidContentType = contentType != null && ALLOWED_MIME_TYPES.contains(contentType.toLowerCase());
+        boolean isValidExtension = ALLOWED_EXTENSIONS.contains(extension);
+        
+        // Special handling for Excel files
+        boolean isExcelFile = (contentType != null && EXCEL_MIME_TYPES.contains(contentType.toLowerCase())) ||
+                            EXCEL_EXTENSIONS.contains(extension);
+                            
+        if (isExcelFile) {
+            logger.info("Validating Excel file: {}", originalFilename);
+        }
+        
+        if (!isValidContentType && !isValidExtension) {
+            logger.warn("Invalid content type: {} and extension: {}", contentType, extension);
             return false;
         }
         
@@ -190,43 +224,26 @@ public class UploadUtils {
             }
         }
         
-        // Generate a unique filename to prevent overwriting
+        // Generate a unique filename
         String originalFilename = file.getOriginalFilename();
-        String fileExtension = "";
-        
-        if (originalFilename != null) {
-            int lastDotIndex = originalFilename.lastIndexOf('.');
-            if (lastDotIndex > 0) {
-                fileExtension = originalFilename.substring(lastDotIndex);
-            }
+        String extension = "";
+        if (originalFilename != null && originalFilename.contains(".")) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
+        String uniqueFilename = UUID.randomUUID().toString() + extension;
         
-        String uniqueFilename = UUID.randomUUID().toString() + fileExtension;
-        String filePath = targetDir + File.separator + uniqueFilename;
+        // Save the file
+        Path targetPath = Paths.get(targetDir, uniqueFilename);
+        logger.info("Saving file to: {}", targetPath);
         
         try {
-            Path path = Paths.get(filePath);
-            Files.write(path, file.getBytes());
-            logger.info("File saved successfully: {}", filePath);
-            
-            // Verify file exists on disk
-            if (!fileExists(filePath)) {
-                logger.error("File was supposedly saved but doesn't exist on disk: {}", filePath);
-                return null;
-            }
-            
-            // Calculate and return relative path for storage in the database
-            String relativePath = "";
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            // Return the path relative to the upload directory
+            String relativePath = datePath + File.separator + uniqueFilename;
             if (subdirectory != null && !subdirectory.isEmpty()) {
-                relativePath = subdirectory + "/" + datePath + "/" + uniqueFilename;
-            } else {
-                relativePath = datePath + "/" + uniqueFilename;
+                relativePath = subdirectory + File.separator + relativePath;
             }
-            
-            // Use forward slashes for consistent path storage
-            relativePath = relativePath.replace('\\', '/');
-            logger.info("Returning relative path for storage: {}", relativePath);
-            
+            logger.info("File saved successfully. Relative path: {}", relativePath);
             return relativePath;
         } catch (IOException e) {
             logger.error("Failed to save file: {}", e.getMessage(), e);
@@ -370,5 +387,116 @@ public class UploadUtils {
         }
         
         return status;
+    }
+
+    /**
+     * Check if a file is an image based on its name/extension
+     * 
+     * @param fileName The name of the file to check
+     * @return true if the file is an image, false otherwise
+     */
+    public boolean isImageFile(String fileName) {
+        if (fileName == null || fileName.isEmpty()) {
+            return false;
+        }
+        
+        String extension = "";
+        int lastDotIndex = fileName.lastIndexOf('.');
+        if (lastDotIndex > 0) {
+            extension = fileName.substring(lastDotIndex + 1).toLowerCase();
+        }
+        
+        return IMAGE_EXTENSIONS.contains(extension);
+    }
+
+    /**
+     * Save a picture file and create an RmaPicture entity
+     * 
+     * @param rma The RMA to associate the picture with
+     * @param file The picture file to save
+     * @return The created RmaPicture entity, or null if saving failed
+     * @throws IOException If an I/O error occurs
+     */
+    public RmaPicture saveRmaPicture(Rma rma, MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty() || rma == null) {
+            logger.warn("Cannot save picture: file or RMA is null/empty");
+            return null;
+        }
+        
+        // Save the file to disk
+        String filePath = saveFile(file, "rma-pictures");
+        if (filePath == null) {
+            logger.warn("Failed to save picture file to disk");
+            return null;
+        }
+        
+        // Create and return the RmaPicture entity
+        RmaPicture picture = new RmaPicture();
+        picture.setRma(rma);
+        picture.setFileName(file.getOriginalFilename());
+        picture.setFilePath(filePath);
+        picture.setFileType(file.getContentType());
+        picture.setFileSize(file.getSize());
+        
+        return picture;
+    }
+
+    /**
+     * Save a document file and create an RmaDocument entity
+     * 
+     * @param rma The RMA to associate the document with
+     * @param file The document file to save
+     * @return The created RmaDocument entity, or null if saving failed
+     * @throws IOException If an I/O error occurs
+     */
+    public RmaDocument saveRmaDocument(Rma rma, MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty() || rma == null) {
+            logger.warn("Cannot save document: file or RMA is null/empty");
+            return null;
+        }
+        
+        // Save the file to disk
+        String filePath = saveFile(file, "rma-documents");
+        if (filePath == null) {
+            logger.warn("Failed to save document file to disk");
+            return null;
+        }
+        
+        // Create and return the RmaDocument entity
+        RmaDocument document = new RmaDocument();
+        document.setRma(rma);
+        document.setFileName(file.getOriginalFilename());
+        document.setFilePath(filePath);
+        document.setFileType(file.getContentType());
+        document.setFileSize(file.getSize());
+        
+        return document;
+    }
+
+    /**
+     * Serves a file from the upload directory
+     * 
+     * @param filePath The path to the file relative to the upload directory
+     * @param contentType The content type of the file
+     * @return ResponseEntity containing the file
+     * @throws IOException If an I/O error occurs
+     */
+    public ResponseEntity<?> serveFile(String filePath, String contentType) throws IOException {
+        try {
+            Path file = baseUploadPath.resolve(filePath);
+            Resource resource = new UrlResource(file.toUri());
+            
+            if (resource.exists() || resource.isReadable()) {
+                return ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                    .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, 
+                           "inline; filename=\"" + resource.getFilename() + "\"")
+                    .body(resource);
+            } else {
+                throw new FileNotFoundException("Could not read file: " + filePath);
+            }
+        } catch (MalformedURLException e) {
+            throw new FileNotFoundException("Could not read file: " + filePath);
+        }
     }
 } 

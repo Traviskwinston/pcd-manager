@@ -34,14 +34,26 @@ public class MovingPartController {
     public String addMovingPart(@PathVariable("id") Long toolId,
                              @RequestParam("partName") String partName,
                              @RequestParam("fromToolId") Long fromToolId,
-                             @RequestParam("toToolId") Long toToolId,
+                             @RequestParam("destinationToolIds") List<Long> destinationToolIds,
                              @RequestParam(value = "notes", required = false) String notes,
                              @RequestParam(value = "noteId", required = false) Long noteId,
                              Principal principal,
                              RedirectAttributes redirectAttributes) {
         
         try {
-            movingPartService.createMovingPart(partName, fromToolId, toToolId, notes, noteId, null);
+            if (destinationToolIds == null || destinationToolIds.isEmpty()) {
+                redirectAttributes.addFlashAttribute("errorMessage", "At least one destination tool must be selected");
+                return "redirect:/tools/" + toolId;
+            }
+            
+            // For backward compatibility, if only one destination, use the single destination method
+            if (destinationToolIds.size() == 1) {
+                movingPartService.createMovingPart(partName, fromToolId, destinationToolIds.get(0), notes, noteId, null);
+            } else {
+                // Use the new method for multiple destinations
+                movingPartService.createMovingPartWithDestinations(partName, fromToolId, destinationToolIds, notes, noteId, null);
+            }
+            
             redirectAttributes.addFlashAttribute("successMessage", "Moving part recorded successfully");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", "Error recording moving part: " + e.getMessage());
@@ -87,18 +99,49 @@ public class MovingPartController {
                                 @PathVariable("movingPartId") Long movingPartId,
                                 @RequestParam("partName") String partName,
                                 @RequestParam("fromToolId") Long fromToolId,
-                                @RequestParam("toToolId") Long toToolId,
+                                @RequestParam("destinationToolIds") List<Long> destinationToolIds,
                                 @RequestParam(value = "notes", required = false) String notes,
                                 RedirectAttributes redirectAttributes) {
         
         try {
-            Optional<MovingPart> result = movingPartService.updateMovingPart(movingPartId, partName, fromToolId, toToolId, notes, null);
-            
-            if (result.isPresent()) {
-                redirectAttributes.addFlashAttribute("successMessage", "Moving part updated successfully");
-            } else {
+            // Get the existing moving part
+            Optional<MovingPart> movingPartOpt = movingPartService.getMovingPartById(movingPartId);
+            if (movingPartOpt.isEmpty()) {
                 redirectAttributes.addFlashAttribute("errorMessage", "Moving part not found");
+                return "redirect:/tools/" + toolId;
             }
+            
+            MovingPart movingPart = movingPartOpt.get();
+            
+            // Update the moving part fields
+            movingPart.setPartName(partName);
+            movingPart.setNotes(notes);
+            
+            // Update tools
+            if (fromToolId != null) {
+                Optional<Tool> fromTool = toolService.getToolById(fromToolId);
+                fromTool.ifPresent(movingPart::setFromTool);
+            }
+            
+            // For backward compatibility, set the first destination as toTool
+            if (destinationToolIds != null && !destinationToolIds.isEmpty()) {
+                Optional<Tool> toTool = toolService.getToolById(destinationToolIds.get(0));
+                toTool.ifPresent(movingPart::setToTool);
+                
+                // Set the destination chain if there are multiple destinations
+                if (destinationToolIds.size() > 1) {
+                    movingPart.setDestinationToolIds(destinationToolIds);
+                } else {
+                    // Clear destination chain if only one destination
+                    movingPart.setDestinationChain(null);
+                }
+            }
+            
+            // Save the updated moving part
+            movingPartService.save(movingPart);
+            
+            redirectAttributes.addFlashAttribute("successMessage", "Moving part updated successfully");
+            
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", "Error updating moving part: " + e.getMessage());
         }

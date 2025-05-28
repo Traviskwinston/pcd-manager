@@ -102,10 +102,10 @@ public class Rma {
     @OneToMany(mappedBy = "rma", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<RmaComment> comments = new ArrayList<>();
 
-    @OneToMany(mappedBy = "rma", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "rma", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<RmaDocument> documents = new ArrayList<>();
 
-    @OneToMany(mappedBy = "rma", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "rma", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<RmaPicture> pictures = new ArrayList<>();
 
     private Boolean excelFileAttached = false;
@@ -185,5 +185,20 @@ public class Rma {
         if (createdDate == null) {
             createdDate = LocalDateTime.now();
         }
+    }
+
+    // Ensure collections are never null
+    public List<RmaDocument> getDocuments() {
+        if (documents == null) {
+            documents = new ArrayList<>();
+        }
+        return documents;
+    }
+
+    public List<RmaPicture> getPictures() {
+        if (pictures == null) {
+            pictures = new ArrayList<>();
+        }
+        return pictures;
     }
 } 

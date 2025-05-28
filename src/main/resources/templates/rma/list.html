@@ -3,176 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PCD Manager - RMA Matrix</title>
+    <title>PCD Manager - RMA List</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        /* Main container styles to prevent overflow issues */
-        .card-body {
-            overflow: visible !important;
+        body {
+            font-size: 0.9rem; /* Slightly smaller base font for compactness */
         }
-        
-        .table-responsive {
-            overflow: visible !important;
+        .table-compact th, .table-compact td {
+            padding: 0.4rem 0.3rem; /* Reduced padding */
+            font-size: 0.85rem; /* Smaller font in table */
+            vertical-align: middle;
         }
-        
-        /* Simple styles for links */
-        .text-decoration-hover-underline:hover {
-            text-decoration: underline !important;
+        .table-compact th {
+            white-space: normal; /* Allow header text to wrap */
+            text-align: center;
         }
-        
-        /* Info icon styles */
+        .table-compact td {
+             white-space: nowrap; /* Keep cell content on one line initially */
+             overflow: hidden;
+             text-overflow: ellipsis; /* Add ellipsis for overflowed content */
+             max-width: 150px; /* Adjust as needed, especially for parts/comments */
+             text-align: center; /* Center align data cells by default */
+        }
+        .table-compact td.allow-wrap {
+            white-space: normal;
+            word-break: break-word;
+            text-align: left; /* Override to left-align for wrapped content */
+        }
+
         .info-icon-interactive {
             cursor: pointer;
             transition: transform 0.2s;
-            position: relative;
-            z-index: 2;
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            color: #0d6efd; /* Bootstrap primary blue */
         }
-        
         .info-icon-interactive:hover {
             transform: scale(1.2);
         }
         
-        /* Active info icon */
-        .active-info {
-            color: white !important;
-            background-color: #0d6efd;
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
+        /* Popover for Problem Description */
+        .problem-popover-icon {
+            cursor: pointer;
+            color: #17a2b8; /* Bootstrap info color */
+        }
+        .popover-header {
+            font-size: 1rem;
+            font-weight: bold;
+        }
+        .popover-body {
+            font-size: 0.85rem;
+        }
+        .popover-body strong {
+            display: inline-block;
+            width: 100px; /* Adjust as needed */
+        }
+        .action-icon {
+            font-size: 1.2rem;
+            text-decoration: none;
+        }
+        .status-badge {
+            font-size: 0.9rem !important; /* Larger than default badge font */
+        }
+        
+        /* Moving Parts icon styling */
+        .moving-parts-icon {
+            cursor: pointer;
+            transition: transform 0.2s;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            transform: scale(1.2);
-        }
-        
-        /* Custom copy button */
-        .btn-copy {
-            background: none;
-            border: none;
-            color: #0d6efd;
-            padding: 0;
-            cursor: pointer;
+            background-color: #0d6efd; /* Bootstrap primary blue */
+            color: white;
+            border-radius: 4px;
+            padding: 4px 6px;
             font-size: 0.9rem;
         }
-        
-        .btn-copy:hover {
-            color: #0a58ca;
-        }
-        
-        /* Custom tooltip container */
-        .custom-tooltip-container {
-            position: relative;
-            display: inline-block;
-            vertical-align: middle;
-        }
-        
-        /* Custom tooltip styling - positioned right instead of below */
-        .custom-tooltip {
-            position: absolute;
-            top: -10px; /* Position aligned with the icon */
-            left: 25px; /* Position directly to the right of the icon */
-            min-width: 280px; /* Increased width */
-            max-width: 400px; /* Added max-width to prevent extremely wide tooltips */
-            background-color: white;
-            border: 1px solid rgba(0,0,0,.2);
-            border-radius: 0.25rem;
-            padding: 0.8rem; /* Increased padding */
-            z-index: 1070;
-            box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,.2);
-            display: none;
-            margin-left: 5px;
-            white-space: nowrap;
-        }
-        
-        /* Arrow on tooltip - now pointing left instead of up */
-        .custom-tooltip::before {
-            content: '';
-            position: absolute;
-            top: 10px; /* Fixed position */
-            left: -10px;
-            border-width: 10px 10px 10px 0;
-            border-style: solid;
-            border-color: transparent rgba(0,0,0,.2) transparent transparent;
-        }
-        
-        .custom-tooltip::after {
-            content: '';
-            position: absolute;
-            top: 10px; /* Fixed position */
-            left: -9px;
-            border-width: 9px 9px 9px 0;
-            border-style: solid;
-            border-color: transparent white transparent transparent;
-        }
-        
-        /* Above position for tooltips */
-        .custom-tooltip.position-above {
-            top: auto;
-            bottom: -10px;
-        }
-        
-        .custom-tooltip.position-above::before,
-        .custom-tooltip.position-above::after {
-            top: auto;
-            bottom: 10px;
-        }
-        
-        /* Left position for tooltips */
-        .custom-tooltip.position-left {
-            left: auto;
-            right: 25px;
-        }
-        
-        .custom-tooltip.position-left::before {
-            left: auto;
-            right: -10px;
-            border-width: 10px 0 10px 10px;
-            border-color: transparent transparent transparent rgba(0,0,0,.2);
-        }
-        
-        .custom-tooltip.position-left::after {
-            left: auto;
-            right: -9px;
-            border-width: 9px 0 9px 9px;
-            border-color: transparent transparent transparent white;
-        }
-        
-        /* Tooltip content */
-        .pop-content {
-            max-width: 280px;
-            width: 100%;
-        }
-        
-        /* Comment list styles */
-        .comment-list {
-            padding: 0;
-            margin: 0;
-            list-style: none;
-        }
-        
-        .comment-item {
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-            white-space: normal;
-            word-break: break-word;
-        }
-        
-        .comment-item:last-child {
-            border-bottom: none;
-        }
-        
-        .comment-meta {
-            font-size: 0.85rem;
-            color: #6c757d;
-            margin-bottom: 3px;
-        }
-        
-        .comment-content {
-            margin-bottom: 0;
+        .moving-parts-icon:hover {
+            transform: scale(1.1);
+            background-color: #0b5ed7; /* Darker blue on hover */
         }
     </style>
 </head>
@@ -180,12 +91,12 @@
     <div th:replace="~{fragments/navigation :: navbar('rma')}"></div>
 
     <div class="container-fluid mt-4">
-        <div class="row mb-3">
+        <div class="row mb-3 align-items-center">
             <div class="col">
-                <h1>RMA Matrix</h1>
+                <h1 class="display-5">RMA List</h1>
             </div>
             <div class="col text-end">
-                <a th:href="@{/rma/new}" class="btn btn-primary">
+                <a th:href="@{/rma/new}" class="btn btn-primary btn-sm">
                     <i class="bi bi-plus-circle"></i> New RMA
                 </a>
             </div>
@@ -193,389 +104,200 @@
 
         <div class="card">
             <div class="card-header">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h4>Manage Return Merchandise Authorizations</h4>
-                    </div>
-                    <div class="col-md-6">
-                        <form th:action="@{/rma}" method="get" class="d-flex">
-                            <input type="text" name="search" th:value="${search}" class="form-control me-2" placeholder="Search RMA #, Customer, Part #...">
-                            <button type="submit" class="btn btn-outline-primary">Search</button>
-                        </form>
-                    </div>
-                </div>
+                <h4>Manage RMAs</h4>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead class="table-dark">
+                    <table class="table table-hover table-compact">
+                        <thead>
                             <tr>
-                                <th class="text-center">RMA #</th>
-                                <th>Tool</th>
-                                <th>Part Names</th>
-                                <th class="text-center">Status</th>
-                                <th class="text-center">Dates</th>
-                                <th class="text-center">Comments</th>
-                                <th class="text-center">Actions</th>
+                                <th style="width: 10%;">Tool</th>
+                                <th style="width: 5%;">Parts</th>
+                                <th style="width: 10%;">RMA Number</th>
+                                <th style="width: 15%;">Status</th>
+                                <th style="width: 7%;">Written</th>
+                                <th style="width: 7%;">RMA #<br>Provided</th>
+                                <th style="width: 7%;">Shipping<br>Memo</th>
+                                <th style="width: 6%;">Parts<br>Received</th>
+                                <th style="width: 6%;">Parts<br>Installed</th>
+                                <th style="width: 6%;">Failed Parts<br>Ready</th>
+                                <th style="width: 6%;">Failed Parts<br>Shipped</th>
+                                <th style="width: 7%;">Moving Parts</th>
+                                <th style="width: 7%;">Comments</th>
+                                <th style="width: 3%;"></th> <!-- View Action -->
                             </tr>
                         </thead>
                         <tbody>
-                            <tr th:if="${rmas.empty}">
-                                <td colspan="6" class="text-center">No RMAs found</td>
-                            </tr>
-                            <tr th:each="rma : ${rmas}">
+                            <tr th:each="rma : ${rmas}" th:object="${rma}">
+                                <!-- Tool -->
+                                <td>
+                                    <a th:if="*{tool != null}" th:href="@{/tools/{id}(id=*{tool.id})}" th:text="*{tool.name}" class="text-decoration-hover-underline"></a>
+                                    <span th:if="*{tool == null}">N/A</span>
+                                    <span th:if="*{tool != null}">
+                                        <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
+                                           data-bs-toggle="popover"
+                                           data-bs-placement="right"
+                                           data-bs-trigger="hover focus click"
+                                           data-bs-html="true"
+                                           th:data-bs-title="*{tool.name}"
+                                           th:data-bs-content="|*{tool.toolType ?: 'Unknown Type'}*{tool.model1 != null ? '<br>Model: ' + tool.model1 : ''}*{tool.serialNumber1 != null ? '<br>Serial: ' + tool.serialNumber1 : ''}|">
+                                        </i>
+                                    </span>
+                                </td>
+                                <!-- Parts -->
+                                <td class="allow-wrap">
+                                    <span th:if="${#lists.isEmpty(rma.partLineItems)}">N/A</span>
+                                    <ul th:unless="${#lists.isEmpty(rma.partLineItems)}" class="list-unstyled mb-0" style="font-size: 0.9em;">
+                                        <li th:each="item : *{partLineItems}" th:text="${item.partName ?: item.partNumber ?: item.productDescription}"></li>
+                                    </ul>
+                                </td>
+                                <!-- RMA Number & Problem Description Popover -->
+                                <td>
+                                    <a th:href="@{/rma/{id}(id=*{id})}"
+                                       th:text="*{rmaNumber != null and rmaNumber != '' ? rmaNumber : (sapNotificationNumber != null and sapNotificationNumber != '' ? sapNotificationNumber : 'N/A')}"
+                                       class="text-decoration-hover-underline"></a>
+                                    <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
+                                       data-bs-toggle="popover"
+                                       data-bs-placement="right"
+                                       data-bs-trigger="hover focus click"
+                                       data-bs-html="true"
+                                       th:attr="data-bs-title='Problem Details for ' + (*{rmaNumber} != null ? *{rmaNumber} : 'N/A'),
+                                                data-bs-content='<strong>Who:</strong> ' + (*{problemDiscoverer} ?: 'N/A') + '<br>' +
+                                                                '<strong>When:</strong> ' + (*{problemDiscoveryDate != null ? #temporals.format(problemDiscoveryDate, 'MM/dd/yy') : 'N/A'}) + '<br>' +
+                                                                '<strong>What:</strong> ' + (*{whatHappened} ?: 'N/A') + '<br>' +
+                                                                '<strong>Why:</strong> ' + (*{whyAndHowItHappened} ?: 'N/A') + '<br>' +
+                                                                '<strong>How:</strong> ' + (*{howContained} ?: 'N/A') + '<br>' +
+                                                                '<strong>By:</strong> ' + (*{whoContained} ?: 'N/A')"></i>
+                                </td>
+                                <!-- Status -->
                                 <td class="text-center">
-                                    <a th:href="@{/rma/{id}(id=${rma.id})}" class="text-primary text-decoration-hover-underline">
-                                        <span th:if="${rma.rmaNumber != null && !rma.rmaNumber.empty}" th:text="${rma.rmaNumber}"></span>
-                                        <span th:if="${rma.rmaNumber != null && !rma.rmaNumber.empty && rma.sapNotificationNumber != null && !rma.sapNotificationNumber.empty}"> / </span>
-                                        <span th:if="${rma.sapNotificationNumber != null && !rma.sapNotificationNumber.empty}" th:text="${rma.sapNotificationNumber}" class="text-primary-subtle"></span>
-                                        <span th:if="${(rma.rmaNumber == null || rma.rmaNumber.empty) && (rma.sapNotificationNumber == null || rma.sapNotificationNumber.empty)}" class="text-muted">N/A</span>
-                                    </a>
-                                </td>
-                                <td>
-                                    <span th:if="${rma.tool != null}">
-                                        <a th:href="@{/tools/{id}(id=${rma.tool.id})}" class="text-primary text-decoration-hover-underline">
-                                            <span th:text="${rma.tool.name}"></span>
-                                            <span th:if="${rma.tool.secondaryName != null}" th:text="${' (' + rma.tool.secondaryName + ')'}" class="text-muted small"></span>
-                                        </a>
-                                        <!-- Custom tooltip implementation (no Bootstrap popover) -->
-                                        <span class="custom-tooltip-container">
-                                            <i tabindex="0" th:id="${'info-icon-' + rma.id}" class="bi bi-info-circle text-primary ms-1 info-icon-interactive" th:data-tooltip-id="${'tooltip-' + rma.id}"></i>
-                                            <div th:id="${'tooltip-' + rma.id}" class="custom-tooltip">
-                                                <div class="text-start pop-content">
-                                                    <div class="d-flex align-items-center mb-2">
-                                                        <strong class="me-2">Model:</strong>
-                                                        <span th:id="${'model-' + rma.id}" class="me-2" th:text="${
-                                                            (rma.tool.model1 != null && !rma.tool.model1.empty ? rma.tool.model1 : '') + 
-                                                            ((rma.tool.model1 != null && !rma.tool.model1.empty && 
-                                                            rma.tool.model2 != null && !rma.tool.model2.empty) ? '/' : '') +
-                                                            (rma.tool.model2 != null && !rma.tool.model2.empty ? rma.tool.model2 : '') +
-                                                            (((rma.tool.model1 == null || rma.tool.model1.empty) && 
-                                                            (rma.tool.model2 == null || rma.tool.model2.empty)) ? 'N/A' : '')
-                                                        }"></span>
-                                                        <button type="button" class="btn-copy" th:data-copy-target="${'model-' + rma.id}">
-                                                            <i class="bi bi-clipboard"></i>
-                                                        </button>
-                                                    </div>
-                                                    <div class="d-flex align-items-center">
-                                                        <strong class="me-2">Serial:</strong>
-                                                        <span th:id="${'serial-' + rma.id}" class="me-2" th:text="${
-                                                            (rma.tool.serialNumber1 != null && !rma.tool.serialNumber1.empty ? rma.tool.serialNumber1 : '') + 
-                                                            ((rma.tool.serialNumber1 != null && !rma.tool.serialNumber1.empty && 
-                                                            rma.tool.serialNumber2 != null && !rma.tool.serialNumber2.empty) ? '/' : '') +
-                                                            (rma.tool.serialNumber2 != null && !rma.tool.serialNumber2.empty ? rma.tool.serialNumber2 : '') +
-                                                            (((rma.tool.serialNumber1 == null || rma.tool.serialNumber1.empty) && 
-                                                            (rma.tool.serialNumber2 == null || rma.tool.serialNumber2.empty)) ? 'N/A' : '')
-                                                        }"></span>
-                                                        <button type="button" class="btn-copy" th:data-copy-target="${'serial-' + rma.id}">
-                                                            <i class="bi bi-clipboard"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </span>
+                                    <span th:if="*{status != null}" th:switch="*{status.name()}">
+                                        <span th:case="'RMA_WRITTEN_EMAILED'" class="badge rounded-pill bg-primary status-badge" th:text="*{status.displayName}"></span>
+                                        <span th:case="'NUMBER_PROVIDED'" class="badge rounded-pill bg-info status-badge" th:text="*{status.displayName}"></span>
+                                        <span th:case="'MEMO_EMAILED'" class="badge rounded-pill bg-secondary status-badge" th:text="*{status.displayName}"></span>
+                                        <span th:case="'RECEIVED_PARTS'" class="badge rounded-pill bg-warning text-dark status-badge" th:text="*{status.displayName}"></span>
+                                        <span th:case="'WAITING_CUSTOMER'" class="badge rounded-pill bg-danger status-badge" th:text="*{status.displayName}"></span>
+                                        <span th:case="'WAITING_FSE'" class="badge rounded-pill bg-danger status-badge" th:text="*{status.displayName}"></span>
+                                        <span th:case="'COMPLETED'" class="badge rounded-pill bg-success status-badge" th:text="*{status.displayName}"></span>
+                                        <span th:case="*" class="badge rounded-pill bg-light text-dark status-badge" th:text="*{status.displayName}"></span>
                                     </span>
-                                    <span th:unless="${rma.tool != null}">N/A</span>
+                                    <span th:if="*{status == null}" class="badge rounded-pill bg-light text-dark status-badge">N/A</span>
                                 </td>
-                                <td>
-                                    <span th:if="${#lists.isEmpty(rma.partLineItems)}" class="text-muted">N/A</span>
-                                    <span th:unless="${#lists.isEmpty(rma.partLineItems)}">
-                                        <th:block th:each="item, itemStat : ${rma.partLineItems}">
-                                            <!-- If part name exists, display it, otherwise use product description -->
-                                            <span th:if="${item.partName != null && !item.partName.empty}" th:text="${item.partName}"></span>
-                                            <span th:if="${(item.partName == null || item.partName.empty) && item.productDescription != null && !item.productDescription.empty}" th:text="${item.productDescription}"></span>
-                                            <span th:if="${(item.partName == null || item.partName.empty) && (item.productDescription == null || item.productDescription.empty) && item.partNumber != null && !item.partNumber.empty}" th:text="${item.partNumber}"></span>
-                                            <span th:if="${(item.partName == null || item.partName.empty) && (item.productDescription == null || item.productDescription.empty) && (item.partNumber == null || item.partNumber.empty)}" class="text-muted">Unnamed Part</span>
-                                            
-                                            <span th:if="${!itemStat.last}" th:text="', '" class="text-muted"></span>
-                                        </th:block>
+                                <!-- Written Date -->
+                                <td th:text="*{writtenDate != null ? #temporals.format(writtenDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <!-- RMA # Provided Date -->
+                                <td th:text="*{rmaNumberProvidedDate != null ? #temporals.format(rmaNumberProvidedDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <!-- Shipping Memo Emailed Date -->
+                                <td th:text="*{shippingMemoEmailedDate != null ? #temporals.format(shippingMemoEmailedDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <!-- Parts Received Date -->
+                                <td th:text="*{partsReceivedDate != null ? #temporals.format(partsReceivedDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <!-- Parts Installed Date -->
+                                <td th:text="*{installedPartsDate != null ? #temporals.format(installedPartsDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <!-- Failed Parts Packed Date (as Failed Parts Ready) -->
+                                <td th:text="*{failedPartsPackedDate != null ? #temporals.format(failedPartsPackedDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <!-- Failed Parts Shipped Date -->
+                                <td th:text="*{failedPartsShippedDate != null ? #temporals.format(failedPartsShippedDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                
+                                <!-- Moving Parts -->
+                                <td class="text-center">
+                                    <span th:if="${movingPartsMap != null and movingPartsMap.containsKey(rma.id) and not #lists.isEmpty(movingPartsMap[rma.id])}">
+                                        <i class="bi bi-arrow-left-right moving-parts-icon"
+                                           data-bs-toggle="popover"
+                                           data-bs-placement="left"
+                                           data-bs-trigger="hover focus click"
+                                           data-bs-html="true"
+                                           th:attr="data-bs-title='Moving Parts (' + ${#lists.size(movingPartsMap[rma.id])} + ')'"
+                                           th:data-bs-content="${#strings.listJoin(movingPartsMap[rma.id].![
+                                               '<div><strong>' + (partName ?: 'Unknown Part') + '</strong><br>' +
+                                               (fromTool != null ? fromTool.name : 'No Tool') + ' → ' +
+                                               (hasDestinationChain() ? 
+                                                   'Multiple Destinations' :
+                                                   (toTool != null ? toTool.name : 'No Tool')
+                                               ) + '</div>'
+                                           ], '<hr style=&quot;margin: 8px 0;&quot;>')}"
+                                        ></i>
+                                    </span>
+                                    <span th:if="${movingPartsMap == null or !movingPartsMap.containsKey(rma.id) or #lists.isEmpty(movingPartsMap[rma.id])}">
+                                        <i class="bi bi-arrow-left-right text-muted"></i> <!-- Greyed out icon -->
                                     </span>
                                 </td>
-                                <td>
-                                    <span th:if="${rma.status != null}" th:class="${'badge rounded-pill ' +
-                                        (rma.status.name() == 'RMA_WRITTEN_EMAILED' ? 'bg-primary' :
-                                        (rma.status.name() == 'NUMBER_PROVIDED' ? 'bg-info' :
-                                        (rma.status.name() == 'MEMO_EMAILED' ? 'bg-secondary' :
-                                        (rma.status.name() == 'RECEIVED_PARTS' ? 'bg-warning' :
-                                        (rma.status.name() == 'WAITING_CUSTOMER' ? 'bg-danger' :
-                                        (rma.status.name() == 'WAITING_FSE' ? 'bg-danger' :
-                                        (rma.status.name() == 'COMPLETED' ? 'bg-success' : 'bg-light'))))))) }"
-                                        th:text="${rma.status?.displayName}">
-                                        Status
-                                    </span>
-                                </td>
-                                <td>
-                                    <!-- Dates column with simple tooltip -->
-                                    <span class="text-primary" style="cursor: pointer;">
-                                        <i class="bi bi-calendar"></i>
-                                        <span th:text="${rma.writtenDate != null ? #temporals.format(rma.writtenDate, 'yyyy-MM-dd') : 'View Dates'}"
-                                              th:title="${
-                                                  'Written: ' + (rma.writtenDate != null ? #temporals.format(rma.writtenDate, 'yyyy-MM-dd') : 'N/A') + '&#10;' +
-                                                  'RMA # Provided: ' + (rma.rmaNumberProvidedDate != null ? #temporals.format(rma.rmaNumberProvidedDate, 'yyyy-MM-dd') : 'N/A') + '&#10;' +
-                                                  'Memo Emailed: ' + (rma.shippingMemoEmailedDate != null ? #temporals.format(rma.shippingMemoEmailedDate, 'yyyy-MM-dd') : 'N/A') + '&#10;' +
-                                                  'Parts Received: ' + (rma.partsReceivedDate != null ? #temporals.format(rma.partsReceivedDate, 'yyyy-MM-dd') : 'N/A') + '&#10;' +
-                                                  'Parts Installed: ' + (rma.installedPartsDate != null ? #temporals.format(rma.installedPartsDate, 'yyyy-MM-dd') : 'N/A') + '&#10;' +
-                                                  'Failed Parts Packed: ' + (rma.failedPartsPackedDate != null ? #temporals.format(rma.failedPartsPackedDate, 'yyyy-MM-dd') : 'N/A') + '&#10;' +
-                                                  'Failed Parts Shipped: ' + (rma.failedPartsShippedDate != null ? #temporals.format(rma.failedPartsShippedDate, 'yyyy-MM-dd') : 'N/A')
-                                              }">
-                                        </span>
-                                    </span>
-                                </td>
-                                <td>
-                                    <span th:text="${rma.comments.size()}"></span>
-                                    <!-- Custom tooltip for comments -->
-                                    <span th:if="${!rma.comments.empty}" class="custom-tooltip-container">
-                                        <i tabindex="0" th:id="${'comment-icon-' + rma.id}" class="bi bi-chat-text text-primary ms-1 info-icon-interactive" th:data-tooltip-id="${'comment-tooltip-' + rma.id}"></i>
-                                        <div th:id="${'comment-tooltip-' + rma.id}" class="custom-tooltip">
-                                            <div class="text-start pop-content">
-                                                <strong>Comments:</strong>
-                                                <ul class="comment-list mt-2">
-                                                    <li th:each="comment : ${rma.comments}" class="comment-item">
-                                                        <div class="comment-meta">
-                                                            <span th:text="${comment.user != null ? comment.user.name : 'Unknown User'}">User</span> - 
-                                                            <span th:text="${#temporals.format(comment.createdDate, 'MMM d, yyyy HH:mm')}">Date</span>
-                                                        </div>
-                                                        <p class="comment-content" th:text="${#strings.abbreviate(comment.content, 100)}">Comment text</p>
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="btn-group">
-                                        <a th:href="@{/rma/{id}(id=${rma.id})}" class="btn btn-sm btn-outline-primary" title="View">
-                                            <i class="bi bi-eye"></i>
-                                        </a>
-                                        <a th:href="@{/rma/edit/{id}(id=${rma.id})}" class="btn btn-sm btn-outline-secondary" title="Edit">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Delete"
-                                                data-bs-toggle="modal" th:data-bs-target="${'#deleteModal-' + rma.id}">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
+
+                                <!-- Comments -->
+                                <td class="text-center">
+                                    <!-- Always show comment icon -->
+                                    <i th:class="${'bi bi-chat-dots-fill ' + (not #lists.isEmpty(rma.comments) ? 'info-icon-interactive' : 'text-muted')}"
+                                       th:if="${not #lists.isEmpty(rma.comments)}"
+                                       data-bs-toggle="popover"
+                                       data-bs-placement="left"
+                                       data-bs-trigger="hover focus click"
+                                       data-bs-html="true"
+                                       th:attr="data-bs-title='Comments (' + ${#lists.size(rma.comments)} + ')'"
+                                       th:data-bs-content="${#strings.listJoin(rma.comments.![
+                                           '<div class=&quot;mb-2&quot;><small class=&quot;text-muted&quot;>' + 
+                                           #temporals.format(createdDate, 'MM/dd/yy HH:mm') + 
+                                           (user != null ? ' by ' + (user.name ?: 'Unknown') : '') + 
+                                           '</small><br/>' + 
+                                           (content ?: 'No content') + '</div>'
+                                       ], '<hr class=&quot;my-1&quot;/>')}"
+                                    ></i>
                                     
-                                    <!-- Delete Modal -->
-                                    <div class="modal fade" th:id="${'deleteModal-' + rma.id}" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <p>Are you sure you want to delete this RMA?</p>
-                                                    <p th:if="${rma.rmaNumber != null && !rma.rmaNumber.empty}">
-                                                        <strong>RMA Number:</strong> <span th:text="${rma.rmaNumber}"></span>
-                                                    </p>
-                                                    <p th:if="${rma.sapNotificationNumber != null && !rma.sapNotificationNumber.empty}">
-                                                        <strong>SAP Number:</strong> <span th:text="${rma.sapNotificationNumber}"></span>
-                                                    </p>
-                                                    <p th:if="${rma.tool != null}">
-                                                        <strong>Tool:</strong> <span th:text="${rma.tool.name}"></span>
-                                                    </p>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                    <form th:action="@{/rma/delete/{id}(id=${rma.id})}" method="post">
-                                                        <button type="submit" class="btn btn-danger">Delete</button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <!-- Greyed out icon when no comments -->
+                                    <i th:if="${#lists.isEmpty(rma.comments)}" 
+                                       class="bi bi-chat-dots text-muted">
+                                    </i>
+                                    
+                                    <!-- Comment count -->
+                                    <span th:text="${#lists.size(rma.comments)}" class="ms-1 small"></span>
+                                </td>
+                                <!-- View Action -->
+                                <td class="text-center">
+                                    <a th:href="@{/rma/{id}(id=*{id})}" class="action-icon" title="View RMA">
+                                        <i class="bi bi-eye-fill"></i>
+                                    </a>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                
-                <!-- Pagination -->
-                <nav th:if="${totalPages > 1}">
-                    <ul class="pagination justify-content-center">
-                        <li class="page-item" th:classappend="${currentPage == 0 ? 'disabled' : ''}">
-                            <a class="page-link" th:href="@{/rma(page=${currentPage - 1}, search=${search})}" tabindex="-1">Previous</a>
-                        </li>
-                        <li class="page-item" th:each="i: ${#numbers.sequence(0, totalPages - 1)}" th:classappend="${currentPage == i ? 'active' : ''}">
-                            <a class="page-link" th:href="@{/rma(page=${i}, search=${search})}" th:text="${i + 1}"></a>
-                        </li>
-                        <li class="page-item" th:classappend="${currentPage == totalPages - 1 ? 'disabled' : ''}">
-                            <a class="page-link" th:href="@{/rma(page=${currentPage + 1}, search=${search})}">Next</a>
-                        </li>
-                    </ul>
-                </nav>
             </div>
         </div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Track the active tooltip and state
-            let activeTooltip = null;
-            let activeIcon = null;
-            let isLocked = false;
-            
-            // Get all info icons and tooltips
-            const icons = document.querySelectorAll('.info-icon-interactive');
-            
-            // Set up event handlers for each icon
-            icons.forEach(icon => {
-                const tooltipId = icon.getAttribute('data-tooltip-id');
-                const tooltip = document.getElementById(tooltipId);
-                
-                if (!tooltip) return;
-                
-                // Show tooltip on hover
-                icon.addEventListener('mouseenter', () => {
-                    if (!isLocked) {
-                        showTooltip(tooltip, icon);
-                    }
-                });
-                
-                // Hide tooltip on mouse leave (if not locked)
-                icon.addEventListener('mouseleave', () => {
-                    if (!isLocked) {
-                        hideTooltip(tooltip);
-                    }
-                });
-                
-                // Toggle lock state on click
-                icon.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    // If this tooltip is already locked, unlock it
-                    if (isLocked && activeTooltip === tooltip) {
-                        unlockTooltip();
-                    } 
-                    // If another tooltip is locked, unlock it and lock this one
-                    else if (isLocked) {
-                        unlockTooltip();
-                        lockTooltip(tooltip, icon);
-                    } 
-                    // No tooltip is locked, lock this one
-                    else {
-                        lockTooltip(tooltip, icon);
-                    }
-                });
-                
-                // Prevent tooltip from closing when clicking on links or inside the tooltip
-                tooltip.addEventListener('click', (e) => {
-                    // Don't close the tooltip if clicking inside it
-                    e.stopPropagation();
-                });
+        // Initialize Bootstrap Popovers
+        var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+        var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl, {
+                sanitize: false, // Allow HTML in content
+                fallbackPlacements: ['left', 'top', 'bottom'],
+                container: 'body' // Added to help with potential positioning/event issues
             });
+                });
+                
+        // Close popovers when clicking outside
+        document.addEventListener('click', function (event) {
+            popoverList.forEach(function (popover) {
+                var triggerElement = popover._element;
+                var popoverId = triggerElement.getAttribute('aria-describedby');
+                var popoverElement = popoverId ? document.getElementById(popoverId) : null;
+                
+                var isClickInsideTrigger = triggerElement.contains(event.target);
+                var isClickInsidePopover = popoverElement ? popoverElement.contains(event.target) : false;
             
-            // Handle clicks outside the tooltip to close it
-            document.addEventListener('click', (e) => {
-                if (isLocked && !e.target.closest('.custom-tooltip') && !e.target.closest('.info-icon-interactive')) {
-                    unlockTooltip();
+                // Hide popover if clicking outside both trigger and popover content
+                // This works for all trigger types including "hover focus click"
+                if (!isClickInsideTrigger && !isClickInsidePopover) {
+                    popover.hide();
                 }
             });
-            
-            // Handle copy buttons with event delegation
-            document.addEventListener('click', (e) => {
-                if (e.target.closest('.btn-copy')) {
-                    const btn = e.target.closest('.btn-copy');
-                    const targetId = btn.getAttribute('data-copy-target');
-                    const text = document.getElementById(targetId)?.textContent.trim();
-                    
-                    if (text) {
-                        // Copy to clipboard
-                        navigator.clipboard.writeText(text)
-                            .then(() => {
-                                // Show success feedback
-                                const icon = btn.querySelector('i');
-                                icon.className = 'bi bi-check-lg';
-                                
-                                // Reset after delay
-                                setTimeout(() => {
-                                    icon.className = 'bi bi-clipboard';
-                                }, 1000);
-                            })
-                            .catch(err => console.error('Copy failed:', err));
-                    }
-                }
-            });
-            
-            // Helper function to show a tooltip
-            function showTooltip(tooltip, icon) {
-                // Position it properly
-                positionTooltip(tooltip, icon);
-                // Show it
-                tooltip.style.display = 'block';
-                activeTooltip = tooltip;
-                activeIcon = icon;
-            }
-            
-            // Helper function to hide a tooltip
-            function hideTooltip(tooltip) {
-                tooltip.style.display = 'none';
-                if (activeTooltip === tooltip) {
-                    activeTooltip = null;
-                    activeIcon = null;
-                }
-            }
-            
-            // Helper function to lock a tooltip
-            function lockTooltip(tooltip, icon) {
-                showTooltip(tooltip, icon);
-                icon.classList.add('active-info');
-                isLocked = true;
-            }
-            
-            // Helper function to unlock the active tooltip
-            function unlockTooltip() {
-                if (activeIcon) {
-                    activeIcon.classList.remove('active-info');
-                }
-                if (activeTooltip) {
-                    hideTooltip(activeTooltip);
-                }
-                isLocked = false;
-            }
-            
-            // Position the tooltip relative to its trigger
-            function positionTooltip(tooltip, icon) {
-                // Reset any previous positioning classes
-                tooltip.classList.remove('position-above', 'position-left');
-                
-                // Get positions
-                const iconRect = icon.getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-                const viewportWidth = window.innerWidth;
-                
-                // Show tooltip temporarily to get its dimensions
-                tooltip.style.display = 'block';
-                tooltip.style.visibility = 'hidden';
-                const tooltipRect = tooltip.getBoundingClientRect();
-                tooltip.style.visibility = '';
-                
-                // Determine if tooltip would extend beyond viewport bottom
-                const bottomSpace = viewportHeight - iconRect.bottom;
-                const tooltipHeight = tooltipRect.height;
-                const needsAbovePosition = bottomSpace < tooltipHeight + 20;
-                
-                // Determine if tooltip would extend beyond viewport right
-                const rightSpace = viewportWidth - iconRect.right;
-                const tooltipWidth = tooltipRect.width;
-                const needsLeftPosition = rightSpace < tooltipWidth + 30;
-                
-                // Apply positioning based on available space
-                if (needsAbovePosition) {
-                    tooltip.classList.add('position-above');
-                }
-                
-                if (needsLeftPosition) {
-                    tooltip.classList.add('position-left');
-                }
-                
-                // Hide the tooltip again (it will be shown by the caller)
-                tooltip.style.display = 'none';
-            }
         });
+                
+        // REMOVE custom tooltip JavaScript functions as they are no longer used.
+        // function showRmaTooltip(element, id, type) { ... }
+        // function hideRmaTooltip(element) { ... }
+        // function toggleRmaTooltipPin(element, id, type) { ... }
+
     </script>
 </body>
 </html> 
