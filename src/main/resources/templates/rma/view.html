@@ -268,8 +268,8 @@
                                 <button type="button" class="btn btn-sm btn-secondary cancel-section-btn d-none" data-section="parts">
                                     <i class="bi bi-x-lg"></i> Cancel
                                 </button>
-                                    </div>
-                    </div>
+                            </div>
+                        </div>
                         
                         <!-- View Mode for Parts -->
                         <div id="parts-view-mode">
@@ -572,18 +572,27 @@
                                 <div th:if="${rma.pictures != null && !rma.pictures.empty}" class="row g-3">
                                     <div th:each="picture : ${rma.pictures}" class="col-md-3 mb-3">
                                         <div class="card h-100">
-                                            <img th:src="@{/rma/files/{path}(path=${#strings.replace(picture.filePath, '\\', '/')})}" class="card-img-top" alt="RMA Picture"
-                                                 style="height: 200px; object-fit: cover; cursor: pointer;"
+                                            <img th:with="processedPath=${#strings.replace(picture.filePath, '\\\\', '/')}"
+                                                 th:src="@{'/rma/files/' + ${processedPath}}"
+                                                 class="card-img-top" 
+                                                 alt="RMA Picture"
+                                                 style="cursor: pointer; max-height: 200px; object-fit: cover;"
                                                  th:onclick="|showPictureModal(${picture.id})|">
                                             <div class="card-body">
                                                 <p class="card-text small text-truncate" th:text="${picture.fileName}">filename.jpg</p>
                                                 <div class="btn-group btn-group-sm">
-                                                    <a th:href="@{/rma/files/{path}(path=${#strings.replace(picture.filePath, '\\', '/')})}" class="btn btn-outline-primary" target="_blank" title="View">
+                                                    <a th:with="processedPath=${#strings.replace(picture.filePath, '\\\\', '/')}"
+                                                       th:href="@{'/rma/files/' + ${processedPath}}"
+                                                       class="btn btn-outline-primary" 
+                                                       target="_blank" 
+                                                       title="View">
                                                         <i class="bi bi-eye"></i>
                                                     </a>
-                                                    <button type="button" class="btn btn-outline-danger" 
+                                                    <button type="button" 
+                                                            class="btn btn-outline-danger" 
                                                             th:data-picture-id="${picture.id}"
-                                                            onclick="deletePictureFromData(this)" title="Delete">
+                                                            onclick="deletePictureFromData(this)" 
+                                                            title="Delete">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
                                                 </div>
@@ -610,26 +619,31 @@
                                 </form>
                             </div>
                             <div class="card-body">
-                                <!-- Uploaded Documents -->
-                                <div class="mb-4">
-                                    <h6 class="mb-3">Uploaded Documents</h6>
-                                    <div th:if="${rma.documents == null || rma.documents.empty}" class="alert alert-info">
-                                        No documents have been uploaded for this RMA.
+                                <div th:if="${rma.documents == null || rma.documents.empty}" class="alert alert-info">
+                                    No documents have been uploaded for this RMA.
                                 </div>
-                                    <div th:if="${rma.documents != null && !rma.documents.empty}" class="row g-3">
-                                        <div th:each="document : ${rma.documents}" class="col-md-4">
+                                <div th:if="${rma.documents != null && !rma.documents.empty}" class="row g-3">
+                                    <div th:each="document : ${rma.documents}" class="col-md-4">
                                         <div class="card h-100">
                                             <div class="card-body">
-                                                    <p class="card-text small text-truncate" th:text="${document.fileName}">filename.pdf</p>
+                                                <p class="card-text small text-truncate" th:text="${document.fileName}">filename.pdf</p>
                                                 <div class="btn-group btn-group-sm">
-                                                        <a th:href="@{/rma/files/{path}(path=${#strings.replace(document.filePath, '\\', '/')})}" class="btn btn-outline-primary" target="_blank" title="View">
+                                                    <a th:href="@{/rma/files/{path}(path=${#strings.replace(document.filePath, '\\', '/')})}" 
+                                                       class="btn btn-outline-primary" 
+                                                       target="_blank" 
+                                                       title="View">
                                                         <i class="bi bi-eye"></i>
                                                     </a>
-                                                    <button type="button" class="btn btn-outline-danger" 
-                                                                th:data-document-id="${document.id}"
-                                                                onclick="deleteDocumentFromData(this)" title="Delete">
+                                                    <button type="button" 
+                                                            class="btn btn-outline-danger" 
+                                                            th:data-document-id="${document.id}"
+                                                            onclick="deleteDocumentFromData(this)" 
+                                                            title="Delete">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -637,12 +651,6 @@
                     </div>
                 </div>
 
-                                <!-- End Documents Section -->
-                            </div>
-                                </div>
-                            </div>
-                                </div>
-                                
                 <!-- Notes Section -->
                 <div class="row mb-4">
                     <div class="col-md-12">
@@ -664,73 +672,65 @@
                                 </div>
                             </div>
                             <div class="card-body">
-                                <!-- View Mode for Notes -->
                                 <div id="notes-view-mode">
                                     <p th:text="${rma.notes != null ? rma.notes : 'No notes available'}" class="mb-0">Notes</p>
                                 </div>
-                                
-                                <!-- Edit Mode for Notes -->
                                 <div id="notes-edit-mode" class="d-none">
                                     <form id="notes-edit-form">
                                         <textarea class="form-control" name="notes" rows="5" th:text="${rma.notes}" placeholder="Enter notes..."></textarea>
                                     </form>
-                                            </div>
-                                            </div>
-                                                </div>
-                                            </div>
-                                        </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
-                <!-- 7. Comments Section (with existing comments displayed first) -->
+                <!-- Comments Section -->
                 <div class="row mt-4">
                     <div class="col-md-12">
                         <div class="card">
                             <div class="card-header bg-light">
                                 <h5 class="mb-0">Comments</h5>
-                                    </div>
+                            </div>
                             <div class="card-body">
-                                <!-- Comments List (now first) -->
                                 <div class="comments-list mb-4">
                                     <div th:if="${#lists.isEmpty(comments)}" class="text-muted text-center py-3">
                                         No comments yet. Be the first to comment!
-                                </div>
-                                    
+                                    </div>
                                     <div th:each="comment : ${comments}" class="comment">
                                         <div class="comment-header">
                                             <span class="comment-user" th:text="${comment.user != null ? comment.user.name : 'Unknown User'}">User Name</span>
                                             <span class="comment-date" th:text="${#temporals.format(comment.createdDate, 'MM/dd/yy HH:mm')}">Date</span>
-                            </div>
+                                        </div>
                                         <div class="comment-content" th:text="${comment.content}">
                                             Comment content goes here.
-                        </div>
-                    </div>
-                </div>
+                                        </div>
+                                    </div>
+                                </div>
 
                                 <hr th:if="${not #lists.isEmpty(comments)}"/>
 
-                                <!-- Add Comment Form (now after comments) -->
                                 <div>
                                     <form action="#" th:action="@{/rma/{id}/post-comment(id=${rma.id})}" method="post">
                                         <div class="form-group">
                                             <label for="commentContent" class="form-label">Add a comment:</label>
                                             <textarea class="form-control" id="commentContent" name="content" rows="3" required placeholder="Enter your comment here..."></textarea>
-                            </div>
+                                        </div>
                                         <div class="mt-2 text-end">
                                             <button type="submit" class="btn btn-primary">
                                                 <i class="bi bi-plus-circle me-1"></i> Post Comment
                                             </button>
-                            </div>
+                                        </div>
                                     </form>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                </div>
-            </div>
-            <div class="card-footer text-end">
             </div>
         </div>
     </div>
-    
+
     <!-- Hidden RMA ID for JS -->
     <input type="hidden" id="rmaPageEntityIdForJs" th:value="${rma.id}">
 
@@ -761,17 +761,11 @@
         function showPictureModal(pictureId) {
             try {
                 const modalImg = document.getElementById('modalPictureImg');
-                // Get the picture element to extract the path
                 const imgElement = document.querySelector(`img[onclick*="${pictureId}"]`);
                 if (imgElement) {
                     modalImg.src = imgElement.src;
-                }
-                const modalElement = document.getElementById('pictureModal');
-                if (modalElement) {
-                    const modal = new bootstrap.Modal(modalElement);
+                    const modal = new bootstrap.Modal(document.getElementById('pictureModal'));
                     modal.show();
-                } else {
-                    console.error('Picture modal element not found');
                 }
             } catch (error) {
                 console.error('Error showing picture modal:', error);
@@ -780,10 +774,6 @@
 
         function deletePictureFromData(element) {
             const pictureId = element.getAttribute('data-picture-id');
-            deletePicture(pictureId);
-        }
-
-        function deletePicture(pictureId) {
             if (confirm('Are you sure you want to delete this picture?')) {
                 fetch(`/rma/${rmaPageId}/pictures/${pictureId}/delete`, {
                     method: 'POST'
@@ -791,7 +781,7 @@
                 .then(response => {
                     if (response.ok) {
                         window.location.reload();
-                } else {
+                    } else {
                         alert('Failed to delete picture');
                     }
                 })
@@ -853,34 +843,29 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    window.location.reload(); // Reload the page to show the new picture
+                    window.location.reload(); // Reload the page to show the new pictures
                 } else {
-                    alert('Failed to upload picture: ' + (data.message || 'Unknown error'));
+                    alert('Failed to upload pictures: ' + (data.message || 'Unknown error'));
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Failed to upload picture: ' + error.message);
+                alert('Failed to upload pictures');
             })
             .finally(() => {
-                // Restore button state
+                // Reset button state
                 uploadButton.innerHTML = originalButtonHtml;
                 uploadButton.disabled = false;
             });
         });
 
-        // Add change handler to trigger form submit when file is selected
+        // Handle file input change
         document.getElementById('pictureFile').addEventListener('change', function() {
             if (this.files.length > 0) {
-                document.getElementById('uploadPictureForm').dispatchEvent(new Event('submit'));
+                document.getElementById('uploadPictureForm').submit();
             }
         });
 

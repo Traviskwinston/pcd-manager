@@ -368,15 +368,9 @@ public class ExcelService {
         Map<String, Object> extractedData = new HashMap<>();
         
         try (Workbook workbook = WorkbookFactory.create(inputStream)) {
-            // Get the first sheet
-            if (workbook.getNumberOfSheets() == 0) {
-                extractedData.put("error", "Excel file contains no sheets");
-                return extractedData;
-            }
-            
             Sheet sheet = workbook.getSheetAt(0);
             if (sheet == null) {
-                extractedData.put("error", "First sheet is null");
+                extractedData.put("error", "First sheet is null or workbook is empty");
                 return extractedData;
             }
 
@@ -389,11 +383,17 @@ public class ExcelService {
                 }
             }
 
-            // Extract RMA Number from B4
-            extractedData.put("rmaNumber", getCellStringValue(sheet, "B4"));
-            
-            // Extract SAP Notification Number from J4
-            extractedData.put("sapNotificationNumber", getCellStringValue(sheet, "J4"));
+            // Extract RMA Number from B4 or SAP Notification Number from J4
+            // Priority is given to B4 if both exist, but J4 will be used if B4 is empty.
+            // Internally, this is always stored and referred to as 'rmaNumber'.
+            String rmaNumFromB4 = getCellStringValue(sheet, "B4");
+            String sapNumFromJ4 = getCellStringValue(sheet, "J4");
+
+            if (rmaNumFromB4 != null && !rmaNumFromB4.isEmpty()) {
+                extractedData.put("rmaNumber", rmaNumFromB4);
+            } else if (sapNumFromJ4 != null && !sapNumFromJ4.isEmpty()) {
+                extractedData.put("rmaNumber", sapNumFromJ4); // Use J4 if B4 is empty
+            }
             
             // Extract Service Order from J5
             extractedData.put("serviceOrder", getCellStringValue(sheet, "J5"));
@@ -515,7 +515,7 @@ public class ExcelService {
                 }
             }
             
-            // Extract Parts (up to 4) with the new specified cell addresses
+            // Extract Parts (up to 4) using original cell addresses
             List<Map<String, Object>> partsList = new ArrayList<>();
             
             // Part 1
@@ -529,40 +529,39 @@ public class ExcelService {
             
             // Part 2
             Map<String, Object> part2 = new HashMap<>();
-            part2.put("partName", ""); // Leave Part Name blank as requested
+            part2.put("partName", ""); 
             part2.put("partNumber", getCellStringValue(sheet, "I26"));
             part2.put("productDescription", getCellStringValue(sheet, "I27"));
             part2.put("quantity", parseQuantity(getCellStringValue(sheet, "I25")));
-            part2.put("replacementRequired", false); // Default
+            part2.put("replacementRequired", false); 
             partsList.add(part2);
             
             // Part 3
             Map<String, Object> part3 = new HashMap<>();
-            part3.put("partName", ""); // Leave Part Name blank as requested
+            part3.put("partName", ""); 
             part3.put("partNumber", getCellStringValue(sheet, "B31"));
             part3.put("productDescription", getCellStringValue(sheet, "B32"));
             part3.put("quantity", parseQuantity(getCellStringValue(sheet, "B30")));
-            part3.put("replacementRequired", false); // Default
+            part3.put("replacementRequired", false); 
             partsList.add(part3);
             
             // Part 4
             Map<String, Object> part4 = new HashMap<>();
-            part4.put("partName", ""); // Leave Part Name blank as requested
+            part4.put("partName", ""); 
             part4.put("partNumber", getCellStringValue(sheet, "I31"));
             part4.put("productDescription", getCellStringValue(sheet, "I32"));
             part4.put("quantity", parseQuantity(getCellStringValue(sheet, "I30")));
-            part4.put("replacementRequired", false); // Default
+            part4.put("replacementRequired", false); 
             partsList.add(part4);
             
             // Only include parts that have some data
             List<Map<String, Object>> filteredPartsList = partsList.stream()
                 .filter(part -> {
-                    String partNumber = (String) part.get("partNumber");
-                    String description = (String) part.get("productDescription");
-                    return (partNumber != null && !partNumber.isEmpty()) || 
-                           (description != null && !description.isEmpty());
+                    String pn = (String) part.get("partNumber");
+                    String desc = (String) part.get("productDescription");
+                    return (pn != null && !pn.isEmpty()) || (desc != null && !desc.isEmpty());
                 })
-                .toList();
+                .toList(); 
             
             if (!filteredPartsList.isEmpty()) {
                 extractedData.put("parts", filteredPartsList);

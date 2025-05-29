@@ -185,45 +185,43 @@ RMA.fileUpload = {
                         small.innerHTML = `Selected: <span class="text-success">${fileName}</span>`;
                     }
                 }
+                
+                // Automatically start upload when file is selected
+                const formData = new FormData();
+                formData.append('file', input.files[0]);
+
+                // Show loading state
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...';
+
+                fetch('/rma/parse-excel', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-upload me-1"></i> Upload & Parse Excel';
+
+                    if (!data.error) {
+                        RMA.ui.showMessage('Excel data extracted successfully! Form fields have been populated.', 'success');
+                        RMA.excel.populateForm(data.data || data);
+                    } else {
+                        throw new Error(data.error || 'Failed to extract data from the Excel file.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error uploading Excel:', error);
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-upload me-1"></i> Upload & Parse Excel';
+                    RMA.ui.showMessage(error.message, 'error');
+                });
             }
         });
 
-        // Handle Excel upload
+        // Make button click trigger file input
         button.addEventListener('click', () => {
-            if (!input.files || !input.files[0]) {
-                RMA.ui.showMessage('Please select an Excel file first.', 'warning');
-                return;
-            }
-
-            // Show loading state
-            button.disabled = true;
-            button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...';
-
-            const formData = new FormData();
-            formData.append('file', input.files[0]);
-
-            fetch('/rma/parse-excel', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                button.disabled = false;
-                button.innerHTML = '<i class="bi bi-upload me-1"></i> Upload & Parse Excel';
-
-                if (!data.error) {
-                    RMA.ui.showMessage('Excel data extracted successfully! Form fields have been populated.', 'success');
-                    RMA.excel.populateForm(data.data || data);
-                } else {
-                    throw new Error(data.error || 'Failed to extract data from the Excel file.');
-                }
-            })
-            .catch(error => {
-                console.error('Error uploading Excel:', error);
-                button.disabled = false;
-                button.innerHTML = '<i class="bi bi-upload me-1"></i> Upload & Parse Excel';
-                RMA.ui.showMessage(error.message, 'error');
-            });
+            input.click();
         });
     },
 

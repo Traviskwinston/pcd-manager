@@ -192,4 +192,21 @@ public class MovingPartService {
     public List<MovingPart> saveAll(List<MovingPart> movingParts) {
         return movingPartRepository.saveAll(movingParts);
     }
+    
+    /**
+     * Get the destination chain for a moving part
+     * @param movingPartId The ID of the moving part
+     * @return List of tools in the destination chain, or empty list if none
+     */
+    public List<Tool> getDestinationChainForMovingPart(Long movingPartId) {
+        Optional<MovingPart> movingPartOpt = movingPartRepository.findById(movingPartId);
+        if (movingPartOpt.isPresent()) {
+            MovingPart movingPart = movingPartOpt.get();
+            List<Long> destinationIds = movingPart.getDestinationToolIds();
+            if (destinationIds != null && !destinationIds.isEmpty()) {
+                return toolRepository.findAllById(destinationIds);
+            }
+        }
+        return List.of();
+    }
 } 

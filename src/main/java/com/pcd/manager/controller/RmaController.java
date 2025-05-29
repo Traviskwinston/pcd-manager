@@ -277,7 +277,26 @@ public class RmaController {
             logger.info("RMA {} has no pictures collection", id);
         }
         
+        // Add all necessary model attributes
         model.addAttribute("rma", rma);
+        model.addAttribute("allRmas", rmaService.getAllRmas());
+        model.addAttribute("allTools", toolService.getAllTools());
+        model.addAttribute("locations", locationService.getAllLocations());
+        model.addAttribute("technicians", userService.getAllUsers());
+        model.addAttribute("comments", rma.getComments());
+        
+        // Add moving parts and their destination chains
+        List<MovingPart> movingParts = movingPartService.getMovingPartsByRmaId(id);
+        model.addAttribute("movingParts", movingParts);
+        
+        // Create a map of moving part IDs to their destination chains
+        Map<Long, List<Tool>> movingPartDestinationChains = new HashMap<>();
+        for (MovingPart part : movingParts) {
+            List<Tool> chain = movingPartService.getDestinationChainForMovingPart(part.getId());
+            movingPartDestinationChains.put(part.getId(), chain);
+        }
+        model.addAttribute("movingPartDestinationChains", movingPartDestinationChains);
+        
         return "rma/view";
     }
 
