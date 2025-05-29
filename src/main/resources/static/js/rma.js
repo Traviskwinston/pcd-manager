@@ -62,9 +62,6 @@ const RMA = {
             const form = document.querySelector('form');
             if (!form) return;
 
-            // Let the form submit naturally - no JavaScript intervention
-            // form.addEventListener('submit', (e) => RMA.form.handleSubmit(e));
-
             // Initialize conditional fields
             this.setupConditionalFields();
 
@@ -78,9 +75,10 @@ const RMA = {
             const partsContainer = document.getElementById('parts-container');
             if (partsContainer) {
                 partsContainer.addEventListener('click', (e) => {
-                    if (e.target.closest('.remove-part')) {
-                        e.preventDefault();
-                        RMA.form.removePartLineItem(e.target.closest('.remove-part'));
+                    const removeBtn = e.target.closest('.remove-part');
+                    if (removeBtn) {
+                        // Don't prevent form submission
+                        RMA.form.removePartLineItem(removeBtn);
                     }
                 });
             }

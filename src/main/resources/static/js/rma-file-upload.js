@@ -11,6 +11,13 @@ RMA.fileUpload = {
         // this.selectedFiles = [];
         // this.initializeDropAreas();
         // this.initializeFileInputs();
+        
+        // Only initialize Excel upload
+        const excelInput = document.getElementById('excelFileInput');
+        const uploadExcelBtn = document.getElementById('uploadExcelBtn');
+        if (excelInput && uploadExcelBtn) {
+            this.initializeExcelUpload(excelInput, uploadExcelBtn);
+        }
     },
 
     /**
