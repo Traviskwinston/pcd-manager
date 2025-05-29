@@ -45,7 +45,7 @@
                                 <h6 class="mb-0"><i class="bi bi-file-earmark-excel me-1"></i>Upload RMA Excel</h6>
                             </div>
                             <div class="card-body py-2">
-                                <input type="file" id="excelFileInput" accept=".xlsx,.xls" class="d-none">
+                                <input type="file" id="excelFileInput" name="documentUploads" accept=".xlsx,.xls" class="d-none">
                                 <input type="hidden" id="excelFileIncluded" name="excelFileIncluded" value="false">
                                 <button type="button" id="uploadExcelBtn" class="btn btn-success btn-sm w-100">
                                     <i class="bi bi-upload me-1"></i>Upload & Parse Excel
@@ -62,36 +62,23 @@
                                 <h6 class="mb-0"><i class="bi bi-file-earmark-arrow-up me-1"></i>Upload Files</h6>
                             </div>
                             <div class="card-body py-2">
-                                <!-- Hidden file uploads tracking input -->
-                                <input type="hidden" id="fileUploadsTracker" name="fileUploadsTracker" value="">
-                                
-                                <!-- Direct file input -->
-                                <div id="drop-area" class="rounded bg-light border border-dashed border-primary p-3 mb-2 d-flex flex-column align-items-center justify-content-center" style="min-height: 80px; cursor: pointer;">
-                                    <i class="bi bi-cloud-arrow-up-fill text-primary fs-4"></i>
-                                    <h6 class="mb-1">Drag files here or <label for="fileInput" class="text-primary" style="cursor: pointer; text-decoration: underline;">browse</label></h6>
-                                    <div class="small text-muted">Supports images (jpg, png) and documents (pdf, doc, etc.)</div>
-                                    <input type="file" id="fileInput" multiple="multiple" class="d-none">
+                                <!-- Simple file inputs that actually work -->
+                                <div class="mb-2">
+                                    <label for="imageUploads" class="form-label small">Images (jpg, png):</label>
+                                    <input type="file" id="imageUploads" name="imageUploads" multiple="multiple" 
+                                           class="form-control form-control-sm" 
+                                           accept=".jpg,.jpeg,.png,.gif,.bmp">
                                 </div>
                                 
-                                <!-- Files Preview -->
-                                <div class="mt-2 border-top pt-2">
-                                    <h6 class="small fw-bold">Files to upload:</h6>
-                                    <div id="files-preview" class="small">
-                                        <div id="image-preview" class="mb-1">
-                                            <div class="d-flex align-items-center">
-                                                <i class="bi bi-images me-1"></i>
-                                                <div>Images: <span id="image-count">0</span></div>
-                                            </div>
-                                            <ul id="image-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 80px; overflow-y: auto; font-size: 0.75rem;"></ul>
-                                        </div>
-                                        <div id="document-preview">
-                                            <div class="d-flex align-items-center">
-                                                <i class="bi bi-file-earmark-text me-1"></i>
-                                                <div>Documents: <span id="document-count">0</span></div>
-                                            </div>
-                                            <ul id="document-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 80px; overflow-y: auto; font-size: 0.75rem;"></ul>
-                                        </div>
-                                    </div>
+                                <div class="mb-2">
+                                    <label for="documentUploads" class="form-label small">Documents (pdf, doc, xls):</label>
+                                    <input type="file" id="documentUploads" name="documentUploads" multiple="multiple" 
+                                           class="form-control form-control-sm" 
+                                           accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv">
+                                </div>
+                                
+                                <div class="small text-muted">
+                                    <i class="bi bi-info-circle"></i> Files will be uploaded when you save the RMA
                                 </div>
                             </div>
                         </div>
@@ -866,8 +853,13 @@
     <script th:src="@{/js/rma-file-upload.js}"></script>
     <script th:src="@{/js/rma-excel.js}"></script>
     <script th:src="@{/js/rma-moving-parts.js}"></script>
-    <script th:inline="javascript">
-    // Legacy inline script removed; see rma.js and rma-file-upload.js modules
+    <script>
+        // Ensure RMA module is initialized when document is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof RMA !== 'undefined') {
+                RMA.init();
+            }
+        });
     </script>
 </body>
 </html> 

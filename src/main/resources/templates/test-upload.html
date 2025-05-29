@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Upload Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>File Upload Test</h1>
+        
+        <!-- Test 1: Direct form upload -->
+        <div class="card mb-4">
+            <div class="card-header">Test 1: Direct Form Upload</div>
+            <div class="card-body">
+                <form action="/rma/save" method="post" enctype="multipart/form-data">
+                    <input type="hidden" name="id" value="1">
+                    <input type="hidden" name="rmaNumber" value="TEST-001">
+                    <div class="mb-3">
+                        <label>Image Upload:</label>
+                        <input type="file" name="imageUploads" class="form-control" accept="image/*" multiple>
+                    </div>
+                    <div class="mb-3">
+                        <label>Document Upload:</label>
+                        <input type="file" name="documentUploads" class="form-control" accept=".pdf,.doc,.docx" multiple>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit Form</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Test 2: JavaScript FormData -->
+        <div class="card">
+            <div class="card-header">Test 2: JavaScript Upload</div>
+            <div class="card-body">
+                <input type="file" id="testFile" class="form-control mb-3" accept="image/*">
+                <button onclick="testUpload()" class="btn btn-success">Test JS Upload</button>
+                <div id="result" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function testUpload() {
+            const fileInput = document.getElementById('testFile');
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files.length) {
+                resultDiv.innerHTML = '<div class="alert alert-warning">Please select a file</div>';
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('id', '1');
+            formData.append('rmaNumber', 'TEST-JS-001');
+            formData.append('imageUploads', fileInput.files[0], fileInput.files[0].name);
+            
+            // Log FormData contents
+            console.log('=== FormData Contents ===');
+            for (let pair of formData.entries()) {
+                if (pair[1] instanceof File) {
+                    console.log(`${pair[0]}: File - ${pair[1].name} (${pair[1].size} bytes)`);
+                } else {
+                    console.log(`${pair[0]}: ${pair[1]}`);
+                }
+            }
+            
+            fetch('/rma/save', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response URL:', response.url);
+                if (response.redirected) {
+                    resultDiv.innerHTML = '<div class="alert alert-success">Success! Redirected to: ' + response.url + '</div>';
+                } else {
+                    return response.text();
+                }
+            })
+            .then(text => {
+                if (text) {
+                    console.log('Response text:', text);
+                    resultDiv.innerHTML = '<div class="alert alert-info">Response: ' + text.substring(0, 200) + '...</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resultDiv.innerHTML = '<div class="alert alert-danger">Error: ' + error.message + '</div>';
+            });
+        }
+    </script>
+</body>
+</html> 

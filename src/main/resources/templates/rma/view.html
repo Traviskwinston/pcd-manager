@@ -477,16 +477,16 @@
                                 <thead>
                                     <tr>
                                         <th>Written</th>
-                                        <th>RMA # Provided</th>
+                                <th>RMA # Provided</th>
                                         <th>Shipping Memo</th>
-                                        <th>Parts Received</th>
-                                        <th>Parts Installed</th>
-                                        <th>Failed Packed</th>
+                                <th>Parts Received</th>
+                                <th>Parts Installed</th>
+                                <th>Failed Packed</th>
                                         <th>Failed Shipped</th>
-                                    </tr>
+                            </tr>
                                 </thead>
                                 <tbody>
-                                    <tr>
+                            <tr>
                                         <td th:text="${rma.writtenDate != null ? #temporals.format(rma.writtenDate, 'MM/dd/yy') : 'N/A'}">MM/DD/YY</td>
                                         <td th:text="${rma.rmaNumberProvidedDate != null ? #temporals.format(rma.rmaNumberProvidedDate, 'MM/dd/yy') : 'N/A'}">MM/DD/YY</td>
                                         <td th:text="${rma.shippingMemoEmailedDate != null ? #temporals.format(rma.shippingMemoEmailedDate, 'MM/dd/yy') : 'N/A'}">MM/DD/YY</td>
@@ -494,17 +494,17 @@
                                         <td th:text="${rma.installedPartsDate != null ? #temporals.format(rma.installedPartsDate, 'MM/dd/yy') : 'N/A'}">MM/DD/YY</td>
                                         <td th:text="${rma.failedPartsPackedDate != null ? #temporals.format(rma.failedPartsPackedDate, 'MM/dd/yy') : 'N/A'}">MM/DD/YY</td>
                                         <td th:text="${rma.failedPartsShippedDate != null ? #temporals.format(rma.failedPartsShippedDate, 'MM/dd/yy') : 'N/A'}">MM/DD/YY</td>
-                                    </tr>
+                            </tr>
                                 </tbody>
-                            </table>
-                        </div>
+                        </table>
+                    </div>
                         
                         <!-- Edit Mode for Dates -->
                         <div id="dates-edit-mode" class="d-none">
                             <form id="dates-edit-form">
                                 <table class="table table-bordered table-sm date-table">
                                     <thead>
-                                        <tr>
+                            <tr>
                                             <th>Written</th>
                                             <th>RMA # Provided</th>
                                             <th>Shipping Memo</th>
@@ -512,10 +512,10 @@
                                             <th>Parts Installed</th>
                                             <th>Failed Packed</th>
                                             <th>Failed Shipped</th>
-                                        </tr>
+                            </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
+                            <tr>
                                             <td>
                                                 <input type="date" class="form-control form-control-sm" name="writtenDate" 
                                                        th:value="${rma.writtenDate != null ? #temporals.format(rma.writtenDate, 'yyyy-MM-dd') : ''}">
@@ -543,15 +543,15 @@
                                             <td>
                                                 <input type="date" class="form-control form-control-sm" name="failedPartsShippedDate" 
                                                        th:value="${rma.failedPartsShippedDate != null ? #temporals.format(rma.failedPartsShippedDate, 'yyyy-MM-dd') : ''}">
-                                            </td>
-                                        </tr>
+                                </td>
+                            </tr>
                                     </tbody>
-                                </table>
+                        </table>
                             </form>
                         </div>
                     </div>
                 </div>
-
+                
                 <!-- Pictures Display Section -->
                 <div class="row mb-4">
                     <div class="col-md-12">
@@ -570,17 +570,15 @@
                                     No pictures have been uploaded for this RMA.
                                 </div>
                                 <div th:if="${rma.pictures != null && !rma.pictures.empty}" class="row g-3">
-                                    <div th:each="picture : ${rma.pictures}" class="col-md-3">
+                                    <div th:each="picture : ${rma.pictures}" class="col-md-3 mb-3">
                                         <div class="card h-100">
-                                            <img th:src="@{/api/files/download/picture/{id}(id=${picture.id})}" class="card-img-top" alt="RMA Picture"
+                                            <img th:src="@{/rma/files/{path}(path=${#strings.replace(picture.filePath, '\\', '/')})}" class="card-img-top" alt="RMA Picture"
                                                  style="height: 200px; object-fit: cover; cursor: pointer;"
-                                                 th:data-picture-id="${picture.id}"
-                                                 th:data-file-name="${picture.fileName}"
-                                                 onclick="showPictureModalFromData(this)">
+                                                 th:onclick="|showPictureModal(${picture.id})|">
                                             <div class="card-body">
                                                 <p class="card-text small text-truncate" th:text="${picture.fileName}">filename.jpg</p>
                                                 <div class="btn-group btn-group-sm">
-                                                    <a th:href="@{/api/files/download/picture/{id}(id=${picture.id})}" class="btn btn-outline-primary" target="_blank" title="View">
+                                                    <a th:href="@{/rma/files/{path}(path=${#strings.replace(picture.filePath, '\\', '/')})}" class="btn btn-outline-primary" target="_blank" title="View">
                                                         <i class="bi bi-eye"></i>
                                                     </a>
                                                     <button type="button" class="btn btn-outline-danger" 
@@ -617,34 +615,34 @@
                                     <h6 class="mb-3">Uploaded Documents</h6>
                                     <div th:if="${rma.documents == null || rma.documents.empty}" class="alert alert-info">
                                         No documents have been uploaded for this RMA.
-                                    </div>
+                                </div>
                                     <div th:if="${rma.documents != null && !rma.documents.empty}" class="row g-3">
                                         <div th:each="document : ${rma.documents}" class="col-md-4">
-                                            <div class="card h-100">
-                                                <div class="card-body">
+                                        <div class="card h-100">
+                                            <div class="card-body">
                                                     <p class="card-text small text-truncate" th:text="${document.fileName}">filename.pdf</p>
-                                                    <div class="btn-group btn-group-sm">
-                                                        <a th:href="@{/api/files/download/document/{id}(id=${document.id})}" class="btn btn-outline-primary" target="_blank" title="View">
-                                                            <i class="bi bi-eye"></i>
-                                                        </a>
-                                                        <button type="button" class="btn btn-outline-danger" 
+                                                <div class="btn-group btn-group-sm">
+                                                        <a th:href="@{/rma/files/{path}(path=${#strings.replace(document.filePath, '\\', '/')})}" class="btn btn-outline-primary" target="_blank" title="View">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                    <button type="button" class="btn btn-outline-danger" 
                                                                 th:data-document-id="${document.id}"
                                                                 onclick="deleteDocumentFromData(this)" title="Delete">
-                                                            <i class="bi bi-trash"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
                                     </div>
                                 </div>
-
-                                <!-- End Documents Section -->
                             </div>
                         </div>
                     </div>
                 </div>
 
+                                <!-- End Documents Section -->
+                            </div>
+                                </div>
+                            </div>
+                                </div>
+                                
                 <!-- Notes Section -->
                 <div class="row mb-4">
                     <div class="col-md-12">
@@ -676,12 +674,12 @@
                                     <form id="notes-edit-form">
                                         <textarea class="form-control" name="notes" rows="5" th:text="${rma.notes}" placeholder="Enter notes..."></textarea>
                                     </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+                                            </div>
+                                            </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                
                 <!-- 7. Comments Section (with existing comments displayed first) -->
                 <div class="row mt-4">
                     <div class="col-md-12">
@@ -760,27 +758,29 @@
             }
         }
 
-        function showPictureModalFromData(element) {
-            const pictureId = element.getAttribute('data-picture-id');
-            const fileName = element.getAttribute('data-file-name');
-            showPictureModal(pictureId, fileName);
+        function showPictureModal(pictureId) {
+            try {
+                const modalImg = document.getElementById('modalPictureImg');
+                // Get the picture element to extract the path
+                const imgElement = document.querySelector(`img[onclick*="${pictureId}"]`);
+                if (imgElement) {
+                    modalImg.src = imgElement.src;
+                }
+                const modalElement = document.getElementById('pictureModal');
+                if (modalElement) {
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                } else {
+                    console.error('Picture modal element not found');
+                }
+            } catch (error) {
+                console.error('Error showing picture modal:', error);
+            }
         }
 
         function deletePictureFromData(element) {
             const pictureId = element.getAttribute('data-picture-id');
             deletePicture(pictureId);
-        }
-
-        function showPictureModal(pictureId, fileName) {
-            const modal = document.getElementById('viewPictureModal');
-            const modalImg = modal.querySelector('#modalPictureImg');
-            const modalTitle = modal.querySelector('#viewPictureModalTitle');
-            
-            modalImg.src = `/api/files/download/picture/${pictureId}`;
-            modalTitle.textContent = fileName;
-            
-            const bsModal = new bootstrap.Modal(modal);
-            bsModal.show();
         }
 
         function deletePicture(pictureId) {
@@ -1253,11 +1253,11 @@
     </div>
 
     <!-- Picture View Modal -->
-    <div class="modal fade" id="viewPictureModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="pictureModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="viewPictureModalTitle">View Picture</h5>
+                    <h5 class="modal-title">View Picture</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-center">

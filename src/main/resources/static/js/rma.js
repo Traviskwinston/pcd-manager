@@ -11,7 +11,6 @@ const RMA = {
         this.fileUpload.init();
         this.tools.init();
         this.initializeTechnician();
-        console.log('RMA module initialized');
     },
 
     /**
@@ -22,14 +21,11 @@ const RMA = {
         const currentUserNameField = document.getElementById('currentUserName');
         
         if (technicianSelect && technicianSelect.value === '') {
-            console.log('Setting default technician');
-            
             let found = false;
             
             // First try to use current user name from server
             if (currentUserNameField && currentUserNameField.value) {
                 const currentUserName = currentUserNameField.value;
-                console.log('Current user from server: ' + currentUserName);
                 
                 // Try to find a matching technician
                 const options = technicianSelect.options;
@@ -39,7 +35,6 @@ const RMA = {
                         options[i].text.includes(currentUserName) || 
                         currentUserName.includes(options[i].text)) {
                         technicianSelect.selectedIndex = i;
-                        console.log('Set technician to: ' + options[i].text + ' (matched with current user)');
                         found = true;
                         break;
                     }
@@ -52,7 +47,6 @@ const RMA = {
                 for (let i = 0; i < options.length; i++) {
                     if (options[i].value !== '') {
                         technicianSelect.selectedIndex = i;
-                        console.log('Set technician to: ' + options[i].text + ' (first available)');
                         break;
                     }
                 }
@@ -68,50 +62,28 @@ const RMA = {
             const form = document.querySelector('form');
             if (!form) return;
 
-            // Initialize form submission
-            form.addEventListener('submit', (e) => RMA.form.handleSubmit(e));
+            // Let the form submit naturally - no JavaScript intervention
+            // form.addEventListener('submit', (e) => RMA.form.handleSubmit(e));
 
             // Initialize conditional fields
             this.setupConditionalFields();
-            console.log('RMA form initialized');
 
             // Initialize Add Part button
             const addPartBtn = document.getElementById('addPartBtn');
             if (addPartBtn) {
                 addPartBtn.addEventListener('click', () => RMA.form.addPartLineItem());
             }
-        },
-
-        /**
-         * Handle form submission
-         * @param {Event} e - Form submit event
-         */
-        handleSubmit(e) {
-            e.preventDefault();
-            const form = e.target;
-            const formData = new FormData(form);
-
-            // Add files to form data
-            RMA.fileUpload.appendFilesToFormData(formData);
-
-            // Submit the form
-            fetch(form.action, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (response.redirected) {
-                    window.location.href = response.url;
-                } else {
-                    return response.text().then(html => {
-                        document.documentElement.innerHTML = html;
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                RMA.ui.showMessage('An error occurred while saving the RMA. Please try again.', 'error');
-            });
+            
+            // Initialize remove part buttons (using event delegation)
+            const partsContainer = document.getElementById('parts-container');
+            if (partsContainer) {
+                partsContainer.addEventListener('click', (e) => {
+                    if (e.target.closest('.remove-part')) {
+                        e.preventDefault();
+                        RMA.form.removePartLineItem(e.target.closest('.remove-part'));
+                    }
+                });
+            }
         },
 
         /**
@@ -211,7 +183,7 @@ const RMA = {
                             </div>
                         </div>
                         <div class="col-md-1">
-                            <button type="button" class="btn btn-sm btn-outline-danger remove-part" title="Remove Part" onclick="RMA.form.removePartLineItem(this)">
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-part" title="Remove Part">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -264,8 +236,6 @@ const RMA = {
             if (toolSelect.value) {
                 this.handleToolSelection();
             }
-
-            console.log('Tool selection initialized');
         },
 
         /**
@@ -387,7 +357,4 @@ const RMA = {
             }
         }
     }
-};
-
-// Initialize when document is ready
-document.addEventListener('DOMContentLoaded', () => RMA.init()); 
+}; 

@@ -7,9 +7,10 @@ RMA.fileUpload = {
      * Initialize file upload functionality
      */
     init() {
-        this.initializeDropAreas();
-        this.initializeFileInputs();
-        console.log('File upload initialized');
+        // Disabled - using simple file inputs instead
+        // this.selectedFiles = [];
+        // this.initializeDropAreas();
+        // this.initializeFileInputs();
     },
 
     /**
@@ -36,7 +37,9 @@ RMA.fileUpload = {
         // Regular file input
         const fileInput = document.getElementById('fileInput');
         if (fileInput) {
-            fileInput.addEventListener('change', (e) => this.handleFileSelect(e.target.files));
+            fileInput.addEventListener('change', (e) => {
+                this.handleFileSelect(e.target.files);
+            });
         }
 
         // Excel file input
@@ -159,27 +162,6 @@ RMA.fileUpload = {
     },
 
     /**
-     * Update file tracker UI
-     */
-    updateFileTracker() {
-        const tracker = document.getElementById('fileUploadsTracker');
-        if (!tracker || !this.selectedFiles) return;
-
-        tracker.innerHTML = '';
-        this.selectedFiles.forEach((file, index) => {
-            const fileDiv = document.createElement('div');
-            fileDiv.className = 'selected-file d-flex align-items-center mb-2';
-            fileDiv.innerHTML = `
-                <span class="me-2">${file.name}</span>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="RMA.fileUpload.removeFile(${index})">
-                    <i class="bi bi-x"></i>
-                </button>
-            `;
-            tracker.appendChild(fileDiv);
-        });
-    },
-
-    /**
      * Initialize Excel file upload
      * @param {HTMLElement} input - Excel file input element
      * @param {HTMLElement} button - Upload button element
@@ -247,9 +229,9 @@ RMA.fileUpload = {
         if (this.selectedFiles) {
             this.selectedFiles.forEach(file => {
                 if (file.type.startsWith('image/')) {
-                    formData.append('imageUploads', file);
+                    formData.append('imageUploads', file, file.name);
                 } else {
-                    formData.append('documentUploads', file);
+                    formData.append('documentUploads', file, file.name);
                 }
             });
         }
@@ -257,7 +239,7 @@ RMA.fileUpload = {
         // Add Excel file if present
         const excelInput = document.getElementById('excelFileInput');
         if (excelInput?.files[0]) {
-            formData.append('documentUploads', excelInput.files[0]);
+            formData.append('documentUploads', excelInput.files[0], excelInput.files[0].name);
         }
     }
 }; 

@@ -123,6 +123,11 @@ public class RmaController {
         return "rma/list";
     }
 
+    @GetMapping("/test-upload")
+    public String testUpload() {
+        return "test-upload";
+    }
+
     @GetMapping("/matrix")
     public String showRmaMatrix(Model model) {
         List<Rma> allRmas = rmaService.getAllRmas();
@@ -370,6 +375,36 @@ public class RmaController {
                          HttpServletRequest request,
                          RedirectAttributes redirectAttributes) {
         try {
+            // Debug logging
+            logger.info("=== RMA SAVE REQUEST DEBUG ===");
+            logger.info("Request Method: {}", request.getMethod());
+            logger.info("Content Type: {}", request.getContentType());
+            logger.info("documentUploads param exists: {}", documentUploads != null);
+            logger.info("imageUploads param exists: {}", imageUploads != null);
+            if (documentUploads != null) {
+                logger.info("documentUploads length: {}", documentUploads.length);
+                for (int i = 0; i < documentUploads.length; i++) {
+                    MultipartFile f = documentUploads[i];
+                    logger.info("documentUploads[{}]: empty={}, name={}, size={}", 
+                        i, f.isEmpty(), f.getOriginalFilename(), f.getSize());
+                }
+            }
+            if (imageUploads != null) {
+                logger.info("imageUploads length: {}", imageUploads.length);
+                for (int i = 0; i < imageUploads.length; i++) {
+                    MultipartFile f = imageUploads[i];
+                    logger.info("imageUploads[{}]: empty={}, name={}, size={}", 
+                        i, f.isEmpty(), f.getOriginalFilename(), f.getSize());
+                }
+            }
+            
+            // Log all request parameters
+            logger.info("All request parameter names:");
+            request.getParameterNames().asIterator().forEachRemaining(name -> {
+                logger.info("  {} = {}", name, request.getParameter(name));
+            });
+            logger.info("=== END DEBUG ===");
+            
             logger.info("=== SAVING RMA ===");
             // Combine all file uploads into one list
             List<MultipartFile> allFiles = new ArrayList<>();
@@ -1823,5 +1858,94 @@ public class RmaController {
         response.put("allParams", allParams);
         
         return response;
+    }
+
+    /**
+     * Diagnostic endpoint to check file upload configuration and paths
+     */
+    @GetMapping("/api/upload-diagnostic/{id}")
+    @ResponseBody
+    public Map<String, Object> uploadDiagnostic(@PathVariable Long id) {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // Get upload directory info
+            result.put("uploadDir", uploadUtils.getUploadDir());
+            result.put("uploadDirAbsolute", new File(uploadUtils.getUploadDir()).getAbsolutePath());
+            result.put("uploadDirExists", new File(uploadUtils.getUploadDir()).exists());
+            
+            // Check RMA and its files
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (rmaOpt.isPresent()) {
+                Rma rma = rmaOpt.get();
+                result.put("rmaId", rma.getId());
+                result.put("rmaNumber", rma.getRmaNumber());
+                
+                // Check documents
+                List<Map<String, Object>> docInfo = new ArrayList<>();
+                if (rma.getDocuments() != null) {
+                    for (RmaDocument doc : rma.getDocuments()) {
+                        Map<String, Object> info = new HashMap<>();
+                        info.put("id", doc.getId());
+                        info.put("fileName", doc.getFileName());
+                        info.put("storedPath", doc.getFilePath());
+                        
+                        // Check different path resolutions
+                        File f1 = new File(doc.getFilePath());
+                        info.put("absolutePathExists", f1.exists());
+                        info.put("absolutePath", f1.getAbsolutePath());
+                        
+                        File f2 = new File(uploadUtils.getUploadDir(), doc.getFilePath());
+                        info.put("relativePathExists", f2.exists());
+                        info.put("relativePath", f2.getAbsolutePath());
+                        
+                        docInfo.add(info);
+                    }
+                }
+                result.put("documents", docInfo);
+                result.put("documentCount", docInfo.size());
+                
+                // Check pictures
+                List<Map<String, Object>> picInfo = new ArrayList<>();
+                if (rma.getPictures() != null) {
+                    for (RmaPicture pic : rma.getPictures()) {
+                        Map<String, Object> info = new HashMap<>();
+                        info.put("id", pic.getId());
+                        info.put("fileName", pic.getFileName());
+                        info.put("storedPath", pic.getFilePath());
+                        
+                        File f1 = new File(pic.getFilePath());
+                        info.put("absolutePathExists", f1.exists());
+                        info.put("absolutePath", f1.getAbsolutePath());
+                        
+                        File f2 = new File(uploadUtils.getUploadDir(), pic.getFilePath());
+                        info.put("relativePathExists", f2.exists());
+                        info.put("relativePath", f2.getAbsolutePath());
+                        
+                        picInfo.add(info);
+                    }
+                }
+                result.put("pictures", picInfo);
+                result.put("pictureCount", picInfo.size());
+            }
+            
+            // Check subdirectories
+            String[] subdirs = {"rma-pictures", "rma-documents"};
+            Map<String, Object> subdirInfo = new HashMap<>();
+            for (String subdir : subdirs) {
+                File dir = new File(uploadUtils.getUploadDir(), subdir);
+                subdirInfo.put(subdir + "_exists", dir.exists());
+                subdirInfo.put(subdir + "_path", dir.getAbsolutePath());
+            }
+            result.put("subdirectories", subdirInfo);
+            
+            result.put("success", true);
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            logger.error("Upload diagnostic error: ", e);
+        }
+        
+        return result;
     }
 } 

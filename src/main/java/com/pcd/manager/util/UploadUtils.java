@@ -214,7 +214,7 @@ public class UploadUtils {
         // Create year/month based directory structure
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM");
         String datePath = dateFormat.format(new Date());
-        targetDir = targetDir + File.separator + datePath;
+        targetDir = targetDir + File.separator + datePath.replace('/', File.separatorChar);
         
         File dateDir = new File(targetDir);
         if (!dateDir.exists()) {
@@ -239,10 +239,12 @@ public class UploadUtils {
         try {
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
             // Return the path relative to the upload directory
-            String relativePath = datePath + File.separator + uniqueFilename;
+            String relativePath = datePath + "/" + uniqueFilename;
             if (subdirectory != null && !subdirectory.isEmpty()) {
-                relativePath = subdirectory + File.separator + relativePath;
+                relativePath = subdirectory + "/" + relativePath;
             }
+            // Ensure forward slashes for web compatibility
+            relativePath = relativePath.replace('\\', '/');
             logger.info("File saved successfully. Relative path: {}", relativePath);
             return relativePath;
         } catch (IOException e) {
