@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface ToolRepository extends JpaRepository<Tool, Long> {
     Optional<Tool> findByName(String name);
     Optional<Tool> findBySerialNumber1(String serialNumber);
+    Optional<Tool> findBySerialNumber2(String serialNumber2);
     List<Tool> findByLocationId(Long locationId);
     
     @Query("SELECT t FROM Tool t JOIN t.location l WHERE l.fab = :fab AND l.state = :state")

@@ -184,38 +184,17 @@ RMA.fileUpload = {
                     if (small) {
                         small.innerHTML = `Selected: <span class="text-success">${fileName}</span>`;
                     }
-                }
-                
-                // Automatically start upload when file is selected
-                const formData = new FormData();
-                formData.append('file', input.files[0]);
-
-                // Show loading state
-                button.disabled = true;
-                button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...';
-
-                fetch('/rma/parse-excel', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    button.disabled = false;
-                    button.innerHTML = '<i class="bi bi-upload me-1"></i> Upload & Parse Excel';
-
-                    if (!data.error) {
-                        RMA.ui.showMessage('Excel data extracted successfully! Form fields have been populated.', 'success');
-                        RMA.excel.populateForm(data.data || data);
-                    } else {
-                        throw new Error(data.error || 'Failed to extract data from the Excel file.');
+                } else {
+                    // Fallback if no specific drop area, maybe update button text or a generic status area
+                    const resultDiv = document.getElementById('excelUploadResult'); // Assuming this is where messages go
+                    if (resultDiv) {
+                        resultDiv.innerHTML = `Selected: <span class="text-success">${fileName}</span>`;
+                        resultDiv.className = 'small mt-1 text-muted'; 
+                        resultDiv.style.display = 'block'; // Ensure it's visible
                     }
-                })
-                .catch(error => {
-                    console.error('Error uploading Excel:', error);
-                    button.disabled = false;
-                    button.innerHTML = '<i class="bi bi-upload me-1"></i> Upload & Parse Excel';
-                    RMA.ui.showMessage(error.message, 'error');
-                });
+                }
+                // NO LONGER DOING FETCH AND POPULATEFORM HERE
+                // The event listener in RMA.excel.init() will handle the processing.
             }
         });
 

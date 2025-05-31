@@ -592,24 +592,65 @@
                         </div>
                     </div>
                     <hr />
+                    <!-- Technician Information -->
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <h5 class="border-bottom pb-1 mb-3">Technician Information</h5>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="fieldTechName" class="form-label">Technician Name</label>
+                            <input type="text" id="fieldTechName" class="form-control" th:field="*{fieldTechName}" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="fieldTechPhone" class="form-label">Technician Phone</label>
+                            <input type="text" id="fieldTechPhone" class="form-control" th:field="*{fieldTechPhone}" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="fieldTechEmail" class="form-label">Technician Email</label>
+                            <input type="email" id="fieldTechEmail" class="form-control" th:field="*{fieldTechEmail}" />
+                        </div>
+                    </div>
+
                     <!-- Customer Information -->
-                    <div class="row">
+                    <div class="row mt-3">
                         <div class="col-md-12">
                             <h5>Customer Information</h5>
                             <div class="row">
+                                <!-- First Row: Customer and Company Ship To Name -->
                                 <div class="col-md-6">
-                            <div class="mb-3">
+                                    <div class="mb-3">
                                         <label for="customerName" class="form-label">Customer</label>
-                                <input type="text" id="customerName" class="form-control" th:field="*{customerName}">
-                            </div>
-                            <div class="mb-3">
+                                        <input type="text" id="customerName" class="form-control" th:field="*{customerName}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
                                         <label for="companyShipToName" class="form-label">Company Ship To Name:</label>
                                         <input type="text" id="companyShipToName" class="form-control" th:field="*{companyShipToName}" />
                                     </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <!-- Second Row: Attn and Company Ship To Address -->
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="attn" class="form-label">Attn:</label>
+                                        <input type="text" id="attn" class="form-control" th:field="*{attn}" />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="companyShipToAddress" class="form-label">Company Ship To Address:</label>
                                         <input type="text" id="companyShipToAddress" class="form-control" th:field="*{companyShipToAddress}" />
                                     </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <!-- Third Row: City, State, Zip Code (aligned under Address side) -->
+                                <div class="col-md-6">
+                                    <!-- Intentionally empty to align City/State/Zip under the address block -->
+                                </div>
+                                <div class="col-md-6">
                                     <div class="row">
                                         <div class="col-md-4">
                                             <div class="mb-3">
@@ -629,24 +670,6 @@
                                                 <input type="text" id="zipCode" class="form-control" th:field="*{zipCode}" />
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="attn" class="form-label">Attn:</label>
-                                        <input type="text" id="attn" class="form-control" th:field="*{attn}" />
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="customerContact" class="form-label">Contact:</label>
-                                <input type="text" id="customerContact" class="form-control" th:field="*{customerContact}" />
-                            </div>
-                                    <div class="mb-3">
-                                        <label for="customerPhone" class="form-label">Contact Phone Number:</label>
-                                        <input type="text" id="customerPhone" class="form-control" th:field="*{customerPhone}" />
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="customerEmail" class="form-label">Email:</label>
-                                        <input type="email" id="customerEmail" class="form-control" th:field="*{customerEmail}" />
                                     </div>
                                 </div>
                             </div>

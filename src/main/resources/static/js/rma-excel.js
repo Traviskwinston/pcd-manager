@@ -7,15 +7,9 @@ RMA.excel = {
      * Initialize Excel upload functionality
      */
     init() {
-        const uploadExcelBtn = document.getElementById('uploadExcelBtn');
         const excelFileInput = document.getElementById('excelFileInput');
         
-        if (uploadExcelBtn && excelFileInput) {
-            // Just open file dialog, nothing else
-            uploadExcelBtn.addEventListener('click', () => {
-                excelFileInput.click();
-            });
-            
+        if (excelFileInput) {
             // Only handle after file is selected
             excelFileInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
@@ -95,12 +89,12 @@ RMA.excel = {
         // Populate dates
         this.populateDates(data);
 
-        // Populate tool information
-        if (data.toolInfo) {
-            this.populateToolInfo(data.toolInfo);
+        // Populate tool information - using matchedToolId or fallback to toolInfo
+        if (data.matchedToolId || data.toolInfo) { 
+            this.populateToolInfo(data); // Pass the whole data object
         }
 
-        console.log('Form populated with Excel data');
+        // console.log('Form populated with Excel data 2'); // Consider removing or making log more specific
     },
 
     /**
@@ -112,12 +106,10 @@ RMA.excel = {
             'rmaNumber': data.rmaNumber,
             'serviceOrder': data.serviceOrder,
             'customerName': data.customerName,
-            'customerEmail': data.customerEmail,
-            'customerPhone': data.customerPhone,
             'reasonForRequest': data.reasonForRequest,
             'dssProductLine': data.dssProductLine,
             'systemDescription': data.systemDescription,
-            'notes': data.comments,
+            'comments': (data.comments && data.comments.toUpperCase() === 'N/A') ? '' : data.comments,
             'whatHappened': data.whatHappened,
             'whyAndHowItHappened': data.whyAndHowItHappened,
             'howContained': data.howContained,
@@ -129,11 +121,26 @@ RMA.excel = {
             'city': data.city,
             'state': data.state,
             'zipCode': data.zipCode,
-            'instructionsForExposedComponent': data.instructionsForExposedComponent,
-            'equipmentInfo': data.equipmentInfo
+            'instructionsForExposedComponent': data.instructionsForExposedComponent
         };
 
-        Object.entries(fields).forEach(([id, value]) => {
+        if (data.rmaNumber) {
+            // console.log(`Populating RMA Number: ${data.rmaNumber}`); // This line is removed/commented out
+            const combinedRmaElement = document.getElementById('combinedRmaField');
+            if (combinedRmaElement) combinedRmaElement.value = data.rmaNumber;
+            const hiddenRmaElement = document.getElementById('rmaNumber');
+            if (hiddenRmaElement) hiddenRmaElement.value = data.rmaNumber;
+        }
+
+        const technicianFields = {
+            'fieldTechName': data.fieldTechName,
+            'fieldTechPhone': data.fieldTechPhone,
+            'fieldTechEmail': data.fieldTechEmail 
+        };
+
+        const allFields = { ...fields, ...technicianFields }; 
+
+        Object.entries(allFields).forEach(([id, value]) => {
             if (value !== undefined && value !== null) {
                 const element = document.getElementById(id);
                 if (element) {
@@ -213,7 +220,7 @@ RMA.excel = {
                         </div>
                         <div class="col-md-3">
                             <input type="text" class="form-control form-control-sm" name="partLineItems[${index}].productDescription" 
-                                   value="${part.description || ''}" placeholder="Description">
+                                   value="${part.productDescription || ''}" placeholder="Description">
                         </div>
                         <div class="col-md-1">
                             <input type="number" class="form-control form-control-sm" name="partLineItems[${index}].quantity" 
@@ -292,25 +299,60 @@ RMA.excel = {
 
     /**
      * Populate tool information
-     * @param {Object} toolInfo - Tool information from Excel
+     * @param {Object} data - Excel data containing tool information
      */
-    populateToolInfo(toolInfo) {
+    populateToolInfo(data) { // Expects the whole data object from parse-excel response
         const toolSelect = document.getElementById('toolSelect');
-        if (!toolSelect) return;
+        if (!toolSelect) {
+            console.warn("toolSelect element not found for populateToolInfo.");
+            return;
+        }
 
-        // Try to find matching tool
-        const options = Array.from(toolSelect.options);
-        const matchingOption = options.find(option => {
-            const optionText = option.text.toLowerCase();
-            return (
-                (toolInfo.name && optionText.includes(toolInfo.name.toLowerCase())) ||
-                (toolInfo.serialNumber && optionText.includes(toolInfo.serialNumber.toLowerCase()))
-            );
-        });
+        let toolIdToSelect = null;
 
-        if (matchingOption) {
-            toolSelect.value = matchingOption.value;
-            toolSelect.dispatchEvent(new Event('change'));
+        // Priority 1: Use matchedToolId if provided by the backend
+        if (data.matchedToolId) {
+            toolIdToSelect = data.matchedToolId.toString();
+            console.log(`Attempting to select tool by matchedToolId: ${toolIdToSelect}`);
+        }
+        // Priority 2: Fallback to existing logic if no matchedToolId (e.g., data.toolInfo from old structure)
+        else if (data.toolInfo && (data.toolInfo.name || data.toolInfo.serialNumber)) {
+            console.log("matchedToolId not found, attempting fallback to data.toolInfo");
+            const toolInfo = data.toolInfo;
+            const options = Array.from(toolSelect.options);
+            const matchingOption = options.find(option => {
+                const optionText = option.text.toLowerCase();
+                let match = false;
+                if (toolInfo.name) {
+                    match = match || optionText.includes(toolInfo.name.toLowerCase());
+                }
+                if (toolInfo.serialNumber) {
+                    match = match || optionText.includes(toolInfo.serialNumber.toLowerCase());
+                }
+                return match;
+            });
+            if (matchingOption) {
+                toolIdToSelect = matchingOption.value;
+                console.log(`Found matching option by toolInfo: ${toolIdToSelect}`);
+            }
+        }
+
+        if (toolIdToSelect) {
+            if (toolSelect.value !== toolIdToSelect) {
+                console.log(`Setting toolSelect.value to: ${toolIdToSelect}`);
+                toolSelect.value = toolIdToSelect;
+                // Dispatch change event to trigger other UI updates (like tool details display)
+                const event = new Event('change', { bubbles: true });
+                toolSelect.dispatchEvent(event);
+                console.log('Dispatched change event on toolSelect.');
+            } else {
+                console.log(`Tool ${toolIdToSelect} already selected.`);
+                 // Even if already selected, ensure details are displayed if they aren't.
+                // This might require checking if RMA.tools.displayToolDetails needs to be called explicitly.
+                // For now, relying on the change event or existing selection to handle it.
+            }
+        } else {
+            console.warn('No toolIdToSelect determined by populateToolInfo.');
         }
     }
 }; 

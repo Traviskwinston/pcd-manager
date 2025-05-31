@@ -323,7 +323,7 @@ public class RmaController {
     @PostMapping("/parse-excel")
     @ResponseBody
     public Map<String, Object> parseExcelFile(@RequestParam("file") MultipartFile file) {
-        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<>(); // Initialize response here
         
         try {
             logger.info("=== EXCEL FILE PARSING STARTED ===");
@@ -340,7 +340,6 @@ public class RmaController {
             Rma tempRma = new Rma();
             tempRma.setDocuments(new ArrayList<>());
             
-            // Save the Excel file as a document first
             logger.info("Saving Excel file as temporary document...");
             RmaDocument excelDoc = uploadUtils.saveRmaDocument(tempRma, file);
             
@@ -356,29 +355,57 @@ public class RmaController {
             logger.info("  - File Type: {}", excelDoc.getFileType());
             logger.info("  - File Size: {} bytes", excelDoc.getFileSize());
 
-            // Now parse the saved file using its path
             logger.info("Parsing Excel file from path: {}", excelDoc.getFilePath());
             Map<String, Object> extractedData = excelService.extractRmaDataFromExcelFile(excelDoc.getFilePath());
             
             if (extractedData.containsKey("error")) {
                 logger.error("Failed to parse Excel file: {}", extractedData.get("error"));
-                // Clean up the temporary file since parsing failed
                 uploadUtils.deleteFile(excelDoc.getFilePath());
-                response.put("error", extractedData.get("error"));
+                response.putAll(extractedData); // Put the error message in the response
                 return response;
             }
 
-            // Add the document info to the response
-            extractedData.put("document", Map.of(
+            // Initialize response with all successfully extracted data
+            response.putAll(extractedData);
+
+            // Attempt to find a matching tool using parsed serial numbers
+            String parsedSerial1 = (String) extractedData.get("parsedSerial1");
+            String parsedSerial2 = (String) extractedData.get("parsedSerial2");
+            logger.info("Extracted from Excel -> parsedSerial1: '{}', parsedSerial2: '{}'", parsedSerial1, parsedSerial2);
+            Long matchedToolId = null;
+
+            if (parsedSerial1 != null && !parsedSerial1.isEmpty()) {
+                logger.info("Attempting to find tool by parsedSerial1: {}", parsedSerial1);
+                // Assuming toolService uses toolRepository.findBySerialNumber1()
+                Optional<Tool> toolOpt = toolService.findToolBySerialNumber(parsedSerial1); 
+                if (toolOpt.isPresent()) {
+                    matchedToolId = toolOpt.get().getId();
+                    logger.info("Found matching tool by serial number1: ID={}, Name={}", matchedToolId, toolOpt.get().getName());
+                }
+            }
+
+            if (matchedToolId == null && parsedSerial2 != null && !parsedSerial2.isEmpty()) {
+                logger.info("Attempting to find tool by parsedSerial2: {}", parsedSerial2);
+                Optional<Tool> toolOpt = toolService.findToolBySerialNumber2(parsedSerial2); // Changed to findToolBySerialNumber2
+                if (toolOpt.isPresent()) {
+                    matchedToolId = toolOpt.get().getId();
+                    logger.info("Found matching tool by serial number2: ID={}, Name={}", matchedToolId, toolOpt.get().getName());
+                }
+            }
+
+            if (matchedToolId != null) {
+                response.put("matchedToolId", matchedToolId);
+            }
+
+            // Add the document info to the response AFTER potential matchedToolId
+            response.put("document", Map.of(
                 "fileName", excelDoc.getFileName(),
                 "filePath", excelDoc.getFilePath(),
                 "fileType", excelDoc.getFileType(),
                 "fileSize", excelDoc.getFileSize()
             ));
 
-            logger.info("Excel file parsed successfully");
-            response.putAll(extractedData);
-            
+            logger.info("Excel file parsed successfully, response prepared.");
             return response;
         } catch (Exception e) {
             logger.error("Error processing Excel file: {}", e.getMessage(), e);

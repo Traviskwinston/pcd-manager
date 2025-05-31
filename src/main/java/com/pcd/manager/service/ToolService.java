@@ -76,7 +76,20 @@ public class ToolService {
     public void deleteTool(Long id) {
         toolRepository.deleteById(id);
     }
-    
+
+    public Optional<Tool> findToolBySerialNumber(String serialNumber) {
+        if (serialNumber == null || serialNumber.isEmpty()) {
+            return Optional.empty();
+        }
+        // This method will try to find a tool by its serialNumber1 field.
+        // The RmaController can call this for both parsedSerial1 and parsedSerial2 if needed.
+        return toolRepository.findBySerialNumber1(serialNumber);
+    }
+
+    public Optional<Tool> findToolBySerialNumber2(String serialNumber2) {
+        return toolRepository.findBySerialNumber2(serialNumber2);
+    }
+
     /**
      * Link a document from a tool to an RMA
      *
