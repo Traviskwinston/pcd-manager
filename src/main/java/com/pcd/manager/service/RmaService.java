@@ -1634,4 +1634,22 @@ public class RmaService {
         if (targetRmaOpt.isEmpty()) logger.warn("Target RMA not found with ID: {}", targetRmaId);
         return false;
     }
+
+    @Transactional
+    public void updateRmaStatus(Long rmaId, RmaStatus newStatus) {
+        Rma rma = rmaRepository.findById(rmaId)
+            .orElseThrow(() -> new IllegalArgumentException("RMA not found with ID: " + rmaId));
+        rma.setStatus(newStatus);
+        rmaRepository.save(rma);
+        logger.info("Updated status for RMA ID {} to {}", rmaId, newStatus);
+    }
+    
+    @Transactional
+    public void updateRmaPriority(Long rmaId, RmaPriority newPriority) {
+        Rma rma = rmaRepository.findById(rmaId)
+            .orElseThrow(() -> new IllegalArgumentException("RMA not found with ID: " + rmaId));
+        rma.setPriority(newPriority);
+        rmaRepository.save(rma);
+        logger.info("Updated priority for RMA ID {} to {}", rmaId, newPriority);
+    }
 } 

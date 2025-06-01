@@ -1358,6 +1358,40 @@ public class RmaController {
         return response;
     }
     
+    @PostMapping("/{id}/update-priority")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updatePriority(@PathVariable Long id, HttpServletRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        String priorityValue = request.getParameter("newPriority");
+        logger.info("Received request to update priority for RMA ID {} to {}", id, priorityValue);
+
+        if (!StringUtils.hasText(priorityValue)) {
+            response.put("success", false);
+            response.put("message", "New priority value cannot be empty.");
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        try {
+            RmaPriority newPriority = RmaPriority.valueOf(priorityValue);
+            rmaService.updateRmaPriority(id, newPriority);
+            response.put("success", true);
+            logger.info("Updated priority for RMA ID {} to {}. Display: {}", id, newPriority, newPriority.getDisplayName());
+            response.put("newPriorityDisplay", newPriority.getDisplayName());
+            response.put("newPriority", newPriority.name()); // Send enum name for JS to map to badge class
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid priority value received: {}", priorityValue, e);
+            response.put("success", false);
+            response.put("message", "Invalid priority value.");
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            logger.error("Error updating priority for RMA ID {}", id, e);
+            response.put("success", false);
+            response.put("message", "Error updating priority: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+        return ResponseEntity.ok(response);
+    }
+    
     private String getStatusBadgeClass(RmaStatus status) {
         return switch (status) {
             case RMA_WRITTEN_EMAILED -> "badge rounded-pill fs-6 bg-primary";
@@ -1519,7 +1553,9 @@ public class RmaController {
             String rmaNumber = request.getParameter("rmaNumber");
             String sapNotificationNumber = request.getParameter("sapNotificationNumber");
             String toolIdStr = request.getParameter("toolId");
-            
+            String locationIdStr = request.getParameter("locationId"); 
+            String technicianName = request.getParameter("technician"); 
+
             // Update RMA number
             if (rmaNumber != null) {
                 rma.setRmaNumber(rmaNumber.trim().isEmpty() ? null : rmaNumber.trim());
@@ -1552,15 +1588,71 @@ public class RmaController {
                 rma.setTool(null);
             }
             
+            // Update Location
+            if (locationIdStr != null && !locationIdStr.trim().isEmpty()) {
+                try {
+                    Long locationId = Long.parseLong(locationIdStr);
+                    Optional<Location> locationOpt = locationService.getLocationById(locationId);
+                    if (locationOpt.isPresent()) {
+                        rma.setLocation(locationOpt.get());
+                    } else {
+                        response.put("success", false);
+                        response.put("message", "Selected location not found");
+                        return response;
+                    }
+                } catch (NumberFormatException e) {
+                    response.put("success", false);
+                    response.put("message", "Invalid location ID format");
+                    return response;
+                }
+            } else {
+                rma.setLocation(null); 
+            }
+
+            // Update Technician
+            if (technicianName != null) {
+                rma.setTechnician(technicianName.trim().isEmpty() ? null : technicianName.trim());
+            }
+
             // Save the updated RMA
             rmaService.saveRma(rma, null);
             
             response.put("success", true);
             response.put("message", "Header information updated successfully");
+            response.put("rmaNumber", rma.getRmaNumber()); 
+            response.put("sapNotificationNumber", rma.getSapNotificationNumber()); 
             
-            logger.info("Updated header for RMA ID {}: RMA Number: {}, SAP Number: {}, Tool: {}", 
+            if (rma.getTool() != null) {
+                Tool tool = rma.getTool();
+                response.put("toolId", tool.getId());
+                response.put("toolName", tool.getName());
+                response.put("toolSecondaryName", tool.getSecondaryName());
+                response.put("toolTypeDisplay", tool.getToolType() != null ? tool.getToolType().getDisplayName() : "N/A");
+                response.put("toolModel1", tool.getModel1());
+                response.put("toolModel2", tool.getModel2());
+                response.put("toolSerialNumber1", tool.getSerialNumber1());
+                response.put("toolSerialNumber2", tool.getSerialNumber2());
+                response.put("toolChemicalGasService", tool.getChemicalGasService());
+            } else {
+                response.put("toolId", "");
+                response.put("toolName", "No Tool selected");
+                response.put("toolSecondaryName", null);
+                response.put("toolTypeDisplay", "N/A");
+                response.put("toolModel1", null);
+                response.put("toolModel2", null);
+                response.put("toolSerialNumber1", null);
+                response.put("toolSerialNumber2", null);
+                response.put("toolChemicalGasService", null);
+            }
+            
+            response.put("locationName", rma.getLocation() != null ? rma.getLocation().getDisplayName() : "N/A"); 
+            response.put("technicianName", rma.getTechnician() != null ? rma.getTechnician() : "Not assigned"); 
+            
+            logger.info("Updated header for RMA ID {}: RMA Number: {}, SAP Number: {}, Tool: {}, Location: {}, Technician: {}", 
                        id, rma.getRmaNumber(), rma.getSapNotificationNumber(), 
-                       rma.getTool() != null ? rma.getTool().getName() : "None");
+                       rma.getTool() != null ? rma.getTool().getName() : "None",
+                       rma.getLocation() != null ? rma.getLocation().getDisplayName() : "None", 
+                       rma.getTechnician() != null ? rma.getTechnician() : "None"); 
             
         } catch (Exception e) {
             logger.error("Error updating header for RMA ID " + id, e);
