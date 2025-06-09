@@ -38,6 +38,9 @@ public class TrackTrendController {
     public String listTrackTrends(Model model) {
         List<TrackTrend> trackTrends = trackTrendService.getAllTrackTrends();
         
+        // Create a map to store related RMAs for each track trend
+        java.util.Map<Long, List<com.pcd.manager.model.Rma>> relatedRmasMap = new java.util.HashMap<>();
+        
         // Explicitly load collections for each track trend
         for (TrackTrend tt : trackTrends) {
             try {
@@ -47,14 +50,21 @@ public class TrackTrendController {
                 
                 // Explicitly initialize affected tools collection to prevent LazyInitializationException
                 tt.getAffectedTools().size(); // This forces initialization
+                
+                // Load related RMAs for this Track/Trend
+                List<com.pcd.manager.model.Rma> relatedRmas = trackTrendService.getRelatedRmas(tt.getId());
+                relatedRmasMap.put(tt.getId(), relatedRmas);
+                
             } catch (Exception e) {
                 // Log the error but continue processing
                 System.err.println("Error loading data for TrackTrend ID " + tt.getId() + ": " + e.getMessage());
                 tt.setComments(new ArrayList<>());
+                relatedRmasMap.put(tt.getId(), new ArrayList<>());
             }
         }
         
         model.addAttribute("trackTrends", trackTrends);
+        model.addAttribute("relatedRmasMap", relatedRmasMap);
         return "tracktrend/list";
     }
 
@@ -67,6 +77,14 @@ public class TrackTrendController {
         // Add comments to the model
         List<TrackTrendComment> comments = trackTrendService.getCommentsForTrackTrend(id);
         model.addAttribute("comments", comments);
+        
+        // Add related RMAs instead of related Track/Trends
+        try {
+            List<com.pcd.manager.model.Rma> relatedRmas = trackTrendService.getRelatedRmas(id);
+            model.addAttribute("relatedRmas", relatedRmas);
+        } catch (Exception e) {
+            model.addAttribute("relatedRmas", new ArrayList<>());
+        }
         
         return "tracktrend/details";
     }

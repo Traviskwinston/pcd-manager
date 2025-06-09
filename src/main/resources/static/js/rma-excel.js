@@ -77,6 +77,14 @@ RMA.excel = {
         // Store Excel document info for form submission
         window.lastParsedExcelDocument = data;
         document.getElementById('excelFileIncluded')?.setAttribute('value', 'true');
+        
+        // Store parsed Excel document info in hidden form fields for submission
+        if (data.document) {
+            this.createHiddenInput('parsedExcelFileName', data.document.fileName);
+            this.createHiddenInput('parsedExcelFilePath', data.document.filePath);
+            this.createHiddenInput('parsedExcelFileType', data.document.fileType);
+            this.createHiddenInput('parsedExcelFileSize', data.document.fileSize);
+        }
 
         // Populate basic fields
         this.populateBasicFields(data);
@@ -353,6 +361,28 @@ RMA.excel = {
             }
         } else {
             console.warn('No toolIdToSelect determined by populateToolInfo.');
+        }
+    },
+
+    /**
+     * Create hidden input field for form submission
+     * @param {string} name - Input name
+     * @param {string} value - Input value
+     */
+    createHiddenInput(name, value) {
+        const form = document.getElementById('rmaForm');
+        if (form && value) {
+            // Remove existing input with same name if exists
+            const existing = form.querySelector(`input[name="${name}"]`);
+            if (existing && existing.type === 'hidden') {
+                existing.remove();
+            }
+            
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
         }
     }
 }; 

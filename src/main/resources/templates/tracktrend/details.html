@@ -64,12 +64,28 @@
             
             <div class="col-md-6">
                 <div class="mb-4">
-                    <h5>Related Track/Trends</h5>
+                    <h5>Related RMAs</h5>
                     <ul class="list-group">
-                        <li th:each="related : ${trackTrend.relatedTrackTrends}" class="list-group-item">
-                            <a th:href="@{'/tracktrend/' + ${related.id}}" th:text="${related.name}">Related Track/Trend</a>
+                        <li th:each="rma : ${relatedRmas}" class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <a th:href="@{'/rma/' + ${rma.id}}" 
+                                   th:text="${(rma.rmaNumber != null and rma.rmaNumber != '') ? rma.rmaNumber : (rma.sapNotificationNumber != null and rma.sapNotificationNumber != '') ? rma.sapNotificationNumber : 'RMA #' + rma.id}">RMA Number</a>
+                                <small th:if="${rma.tool != null}" class="text-muted d-block" th:text="'Tool: ' + ${rma.tool.name}">Tool Name</small>
+                            </div>
+                            <div>
+                                <span th:if="${rma.status != null}" th:switch="${rma.status.name()}" class="badge rounded-pill">
+                                    <span th:case="'RMA_WRITTEN_EMAILED'" class="badge rounded-pill bg-primary" th:text="${rma.status.displayName}"></span>
+                                    <span th:case="'NUMBER_PROVIDED'" class="badge rounded-pill bg-info" th:text="${rma.status.displayName}"></span>
+                                    <span th:case="'MEMO_EMAILED'" class="badge rounded-pill bg-secondary" th:text="${rma.status.displayName}"></span>
+                                    <span th:case="'RECEIVED_PARTS'" class="badge rounded-pill bg-warning text-dark" th:text="${rma.status.displayName}"></span>
+                                    <span th:case="'WAITING_CUSTOMER'" class="badge rounded-pill bg-danger" th:text="${rma.status.displayName}"></span>
+                                    <span th:case="'WAITING_FSE'" class="badge rounded-pill bg-danger" th:text="${rma.status.displayName}"></span>
+                                    <span th:case="'COMPLETED'" class="badge rounded-pill bg-success" th:text="${rma.status.displayName}"></span>
+                                    <span th:case="*" class="badge rounded-pill bg-light text-dark" th:text="${rma.status.displayName}"></span>
+                                </span>
+                            </div>
                         </li>
-                        <li th:if="${#lists.isEmpty(trackTrend.relatedTrackTrends)}" class="list-group-item text-muted">No related track/trends.</li>
+                        <li th:if="${#lists.isEmpty(relatedRmas)}" class="list-group-item text-muted">No related RMAs for the associated tools.</li>
                     </ul>
                 </div>
             </div>

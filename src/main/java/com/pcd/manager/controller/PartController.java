@@ -32,7 +32,12 @@ public class PartController {
 
     @GetMapping("/new")
     public String showCreateForm(Model model) {
-        model.addAttribute("part", new Part());
+        Part part = new Part();
+        
+        // Set default location if available
+        locationService.getDefaultLocation().ifPresent(part::setLocation);
+        
+        model.addAttribute("part", part);
         model.addAttribute("locations", locationService.getAllLocations());
         return "parts/form";
     }

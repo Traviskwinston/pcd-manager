@@ -1,0 +1,386 @@
+# PCD Manager Application - Comprehensive Documentation for React Rebuild
+
+## Executive Summary
+
+PCD Manager is a comprehensive Return Merchandise Authorization (RMA) management system built with Spring Boot backend and Thymeleaf templates for a manufacturing environment. The application manages tool tracking, facility mapping, RMA processing, parts management, and document/picture attachments across multiple locations.
+
+## Core Architecture
+
+### Backend Technology Stack
+- **Framework**: Spring Boot 3.3.1 with Java 17
+- **Database**: PostgreSQL (configurable for MySQL/H2)
+- **ORM**: JPA/Hibernate with automatic DDL updates
+- **Security**: Spring Security with custom user management
+- **File Processing**: Apache POI for Excel import/export
+- **Template Engine**: Thymeleaf (to be replaced with React)
+
+### Database Configuration
+- Primary: PostgreSQL with environment variable configuration
+- Development: H2 file-based database support
+- Production: MySQL support available
+- File uploads: Configurable upload directory (./uploads default)
+- Migration support: Path fixing and orphaned file cleanup
+
+## Core Data Models
+
+### 1. RMA (Return Merchandise Authorization)
+**Primary Entity**: Central to the application
+**Key Fields**:
+- RMA Number, SAP Notification Number, Service Order
+- Customer information (name, contact, shipping address)
+- Tool association (Many-to-One relationship)
+- Location assignment
+- Status tracking (enum: RMA_WRITTEN_EMAILED, NUMBER_PROVIDED, MEMO_EMAILED, RECEIVED_PARTS, WAITING_CUSTOMER, WAITING_FSE, COMPLETED)
+- Priority levels (enum: LOW, MEDIUM, HIGH, URGENT)
+- Reason for request, DSS Product Line, System Description (all enums)
+- Process impact tracking (interruption flags, downtime hours, exposure tracking)
+- Date tracking (written, provided, shipped, received, installed dates)
+- Problem discovery information (who, when, what, why, how contained)
+- Field technician contact information
+- Parts line items (up to 4, embedded collection)
+- File attachments (documents and pictures)
+- Comments system
+- Movement entries tracking
+
+### 2. Tool Management
+**Complex Entity**: Sophisticated tool tracking system
+**Key Fields**:
+- Primary and secondary names
+- Tool type (enum: CHEMBLEND, SLURRY)
+- Serial numbers (dual tracking: serialNumber1, serialNumber2)
+- Models (dual tracking: model1, model2)
+- Chemical/Gas service information
+- Location assignment
+- Status tracking (enum: NOT_STARTED, IN_PROGRESS, COMPLETED)
+- Comprehensive checklist with completion dates:
+  - Commission, Pre-SL1, SL1, SL2, Electrical Operation
+  - Hazardous Energy Checklist, Mechanical Pre/Post SL1
+  - Specific Input Functionality, Modes of Operation
+  - Specific SOOS tests, Field Service Report
+  - Certificate of Approval, Customer Turnover, StartUp SL03
+- File management (documents and pictures with path/name mapping)
+- Technician assignments (Many-to-Many relationship)
+- Parts movement tracking
+- Tag system for categorization
+
+### 3. Location Management
+**Hierarchical System**: Multi-level location tracking
+**Key Fields**:
+- Display name and description
+- Type classification (enum: FAB, OFFICE, WAREHOUSE, FIELD)
+- Geographic information (latitude, longitude for mapping)
+- Default location designation
+- Active status tracking
+- Parent-child relationships for hierarchy
+
+### 4. User Management
+**Authentication System**: Role-based access control
+**Key Fields**:
+- Basic user information (name, first/last name, email)
+- Password management with BCrypt encoding
+- Role assignment (ADMIN, USER, MANAGER)
+- Location associations (default location, active site)
+- Tool assignments (active tool tracking)
+- Account status (active/inactive)
+
+### 5. Supporting Entities
+- **Parts**: Catalog management with categories
+- **Moving Parts**: Inter-tool part movement tracking with destination chains
+- **Passdowns**: Communication system between shifts
+- **Track & Trend**: Issue tracking and trending analysis
+- **Projects**: Project management integration
+- **Comments**: Unified commenting system across entities
+- **File Management**: Document and picture attachment system
+
+## Core Application Features
+
+### 1. Dashboard & Facility Management
+**Interactive Grid System**: 
+- Konva.js-based facility mapping (120x120 grid)
+- Real-time tool placement and visualization
+- Multiple modes: select, edit, place tools, draw shapes
+- Zoom controls (5 levels: 0.7x to 1.3x)
+- Tool filtering and search with grid highlighting
+- Drag-and-drop tool positioning
+- Shape drawing for facility layout
+- Touch support for mobile devices
+
+**Tool Status Overview**:
+- Real-time status tracking across all tools
+- Filter by type, status, issues, notes
+- Quick navigation to tool details
+- Technician assignment visualization
+
+### 2. RMA Management System
+**Comprehensive RMA Lifecycle**:
+
+**Creation Process**:
+- Excel file import with cell mapping to RMA fields
+- Auto-tool matching via serial number lookup
+- Pre-populated forms based on user context (location, active tool)
+- Manual form creation with guided workflows
+
+**RMA Workflow**:
+- Status progression tracking through defined states
+- Priority management with visual indicators
+- Document and picture attachment system
+- Comment tracking for collaboration
+- Parts management with line item details
+- Process impact assessment (flow interruption, production impact, exposure tracking)
+- Problem discovery and containment documentation
+- Date tracking for all workflow milestones
+
+**File Management**:
+- Multiple file upload (documents and pictures)
+- Excel preview functionality
+- File transfer between RMAs
+- File linking to tools and other entities
+- Automatic file path processing and validation
+
+**Excel Integration**:
+- Template-based Excel export with RMA data population
+- Excel import with sophisticated cell mapping
+- Part information extraction
+- Tool matching via serial numbers
+- Error handling and validation
+
+### 3. Tool Management
+**Comprehensive Tool Tracking**:
+
+**Tool Lifecycle**:
+- Creation with detailed specifications
+- Checklist-driven completion tracking
+- Status progression monitoring
+- Technician assignment management
+- Location tracking and movement history
+
+**Tool Features**:
+- Dual serial number tracking
+- Chemical/Gas service documentation
+- Comprehensive date tracking for all milestones
+- File attachment system (documents and pictures)
+- Tag-based categorization
+- Grid-based facility placement
+
+**Integration Points**:
+- RMA association and history
+- Moving parts tracking
+- Passdown integration
+- Track & Trend connectivity
+
+### 4. File Management System
+**Centralized File Handling**:
+- Upload directory configuration
+- Multi-format support (images, documents, Excel)
+- File existence validation
+- Path normalization and processing
+- Transfer capabilities between entities
+- Orphaned file cleanup
+- File linking across multiple entity types
+
+### 5. Moving Parts System
+**Inter-Tool Part Tracking**:
+- Source and destination tool tracking
+- Multi-destination chain support
+- Part identification (name, serial, part number)
+- Quantity tracking
+- Notes and documentation
+- Integration with RMA workflow
+
+### 6. Communication Systems
+**Multiple Communication Channels**:
+- Comments system across all entities
+- Passdown management for shift communication
+- Track & Trend issue reporting
+- Email integration for notifications
+
+## API Endpoints Structure
+
+### RMA Controller (/rma)
+- GET /rma - List all RMAs with filtering
+- GET /rma/new - Create new RMA form
+- GET /rma/{id} - View specific RMA
+- GET /rma/edit/{id} - Edit RMA form
+- POST /rma/save - Save RMA with file uploads
+- POST /rma/parse-excel - Parse Excel file for import
+- GET /rma/{id}/excel - Export RMA to Excel
+- POST /rma/export-draft - Export unsaved RMA data
+- POST /rma/{id}/update-* - Multiple AJAX endpoints for section updates
+- File management endpoints for upload, delete, transfer
+
+### Tool Controller (/tools)
+- CRUD operations for tools
+- Grid positioning endpoints
+- File management integration
+- Checklist update endpoints
+- Technician assignment management
+
+### Dashboard Controller (/)
+- Grid data management
+- Tool filtering and search
+- Facility map configuration
+- Real-time status updates
+
+### Supporting Controllers
+- Location management (/locations)
+- User management (/users)
+- Part management (/parts)
+- Moving parts (/moving-parts)
+- File operations (/api/files)
+- Authentication (/auth)
+
+## Frontend Architecture (Current Thymeleaf Implementation)
+
+### Template Structure
+- **Fragments**: Reusable navigation and common elements
+- **Layout Pattern**: Consistent header/navigation across pages
+- **Form Handling**: Multi-section editable forms with AJAX updates
+- **File Upload**: Drag-and-drop with preview functionality
+- **Modal Systems**: Complex modal workflows for file management
+
+### JavaScript Functionality
+- **Dashboard Grid**: Konva.js-based interactive facility mapping
+- **Form Management**: Section-based editing with save/cancel
+- **File Operations**: Upload, preview, transfer, delete
+- **Real-time Updates**: AJAX-based partial page updates
+- **Excel Integration**: Client-side Excel parsing and preview
+- **Search/Filtering**: Real-time filtering with grid highlighting
+
+### CSS/Styling
+- **Bootstrap 5**: Primary UI framework
+- **Bootstrap Icons**: Comprehensive icon system
+- **Custom Styling**: Grid system, form layouts, status indicators
+- **Responsive Design**: Mobile-friendly layouts
+
+## Key Business Logic
+
+### RMA Processing
+1. **Creation**: Excel import or manual creation with context awareness
+2. **Validation**: Required field validation and business rule enforcement
+3. **Workflow**: Status-driven progression with milestone tracking
+4. **Documentation**: Comprehensive file and comment management
+5. **Reporting**: Excel export with template population
+
+### Tool Management
+1. **Lifecycle Tracking**: Creation through completion with detailed checklists
+2. **Location Management**: Physical and logical location tracking
+3. **Assignment**: Technician assignment with active tool tracking
+4. **Integration**: Deep integration with RMA and parts systems
+
+### File Management
+1. **Upload Processing**: Multi-format file handling with validation
+2. **Storage**: Organized directory structure with path management
+3. **Integration**: Cross-entity file linking and transfer
+4. **Cleanup**: Automatic orphaned file detection and removal
+
+## Security Implementation
+- **Spring Security**: Authentication and authorization
+- **Password Encryption**: BCrypt password hashing
+- **Session Management**: Standard Spring Security session handling
+- **Role-Based Access**: Admin, User, Manager role differentiation
+- **CSRF Protection**: Built-in CSRF token management
+
+## Configuration Management
+- **Environment Variables**: Database connection configuration
+- **Profile-Based**: Development, testing, production profiles
+- **File Upload**: Configurable upload directories and limits
+- **Database**: Multi-database support with automatic schema updates
+- **Logging**: Comprehensive logging configuration for debugging
+
+## Data Relationships
+
+### Primary Relationships
+- **RMA → Tool**: Many-to-One (RMA can have one primary tool)
+- **RMA → Location**: Many-to-One (RMA assigned to location)
+- **RMA → User**: Many-to-One (created by user)
+- **RMA → Parts**: One-to-Many (part line items)
+- **RMA → Files**: One-to-Many (documents and pictures)
+- **RMA → Comments**: One-to-Many (comment history)
+
+### Tool Relationships
+- **Tool → Location**: Many-to-One (tool physical location)
+- **Tool → Users**: Many-to-Many (technician assignments)
+- **Tool → MovingParts**: One-to-Many (source and destination)
+- **Tool → Files**: Complex file path management system
+
+### Cross-Entity Relationships
+- **File Linking**: Files can be linked across RMAs, Tools, Passdowns
+- **Moving Parts**: Creates relationships between tools via part movement
+- **Comments**: Unified comment system across multiple entities
+
+## Recommended React Architecture
+
+### State Management
+- **Redux Toolkit** or **Zustand**: Global state management
+- **React Query/TanStack Query**: Server state management
+- **Context API**: Authentication and theme management
+
+### Component Structure
+```
+src/
+  components/
+    common/           # Reusable UI components
+    rma/             # RMA-specific components
+    tools/           # Tool management components
+    dashboard/       # Dashboard and grid components
+    file-management/ # File upload and management
+    forms/           # Form components and validation
+  pages/             # Page-level components
+  services/          # API service layer
+  hooks/             # Custom React hooks
+  utils/             # Utility functions
+  types/             # TypeScript type definitions
+```
+
+### Key React Components Needed
+1. **Dashboard Grid**: Interactive facility map with tool placement
+2. **RMA Forms**: Multi-section forms with real-time validation
+3. **File Upload**: Drag-and-drop with preview and management
+4. **Search/Filter**: Real-time filtering with highlighting
+5. **Modal Systems**: Complex workflows for file operations
+6. **Data Tables**: Sortable, filterable data display
+7. **Status Indicators**: Visual status and priority displays
+8. **Comment Systems**: Threaded comments with user attribution
+
+### Recommended Libraries
+- **React Router**: Navigation and routing
+- **React Hook Form**: Form management and validation
+- **Konva.js/React-Konva**: Interactive canvas for facility grid
+- **React Query**: Server state management
+- **Axios**: HTTP client
+- **React Dropzone**: File upload handling
+- **React Modal**: Modal management
+- **Date-fns**: Date manipulation
+- **React-Select**: Enhanced select components
+- **React-Table**: Advanced table functionality
+
+## Migration Considerations
+
+### API Compatibility
+- Current Spring Boot backend can serve as REST API
+- Remove Thymeleaf dependencies
+- Convert controller endpoints to @RestController
+- Implement proper CORS configuration
+- Add API versioning strategy
+
+### Data Migration
+- No database changes needed
+- File upload system compatible
+- Excel import/export functionality preserved
+- Authentication system adaptable
+
+### Feature Parity
+- Maintain all existing functionality
+- Improve user experience with React's interactivity
+- Enhanced real-time updates
+- Better mobile responsiveness
+- Improved performance with client-side state management
+
+### Code Cleanup Opportunities
+- Remove debug logging and temporary code
+- Consolidate duplicate validation logic
+- Streamline file processing workflows
+- Optimize database queries
+- Remove unused endpoints and dependencies
+
+This documentation provides a complete overview of the PCD Manager application's architecture, functionality, and implementation details necessary for a successful React rebuild while maintaining all current capabilities and improving the user experience. 

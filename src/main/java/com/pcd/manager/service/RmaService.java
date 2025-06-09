@@ -265,6 +265,13 @@ public class RmaService {
                 if (successCount > 0) {
                     logger.info("Saving RMA again with {} new files", successCount);
                     savedRma = rmaRepository.save(savedRma);
+                    
+                    // If this RMA is associated with a tool, automatically link the new files to the tool
+                    if (savedRma.getTool() != null) {
+                        logger.info("RMA {} is associated with Tool {}, linking new files automatically", 
+                            savedRma.getId(), savedRma.getTool().getId());
+                        linkAllFilesToTool(savedRma);
+                    }
                 }
                 
                 logger.info("File processing complete. Success: {}, Errors: {}", successCount, errorCount);

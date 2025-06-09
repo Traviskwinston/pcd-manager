@@ -531,9 +531,6 @@
                                         <thead>
                                             <tr>
                                                 <th>Part Name</th>
-                                                <th>Serial Number</th>
-                                                <th>Part Number</th>
-                                                <th>Quantity</th>
                                                 <th>Movement</th>
                                                 <th>Notes</th>
                                                 <th>Date</th>
@@ -543,9 +540,6 @@
                                         <tbody>
                                             <tr th:each="movingPart : ${movingParts}">
                                                 <td th:text="${movingPart.partName}">Part A</td>
-                                                <td th:text="${movingPart.serialNumber}">Serial Number</td>
-                                                <td th:text="${movingPart.partNumber}">Part Number</td>
-                                                <td th:text="${movingPart.quantity}">Quantity</td>
                                                 <td>
                                                     <!-- Enhanced movement display with full destination chain -->
                                                     <div>
@@ -596,9 +590,6 @@
                                                                 th:data-from-tool-id="${movingPart.fromTool != null ? movingPart.fromTool.id : ''}"
                                                                 th:data-to-tool-id="${movingPart.toTool != null ? movingPart.toTool.id : ''}"
                                                                 th:data-destination-chain="${movingPart.destinationChain != null ? movingPart.destinationChain : ''}"
-                                                                th:data-serial-number="${movingPart.serialNumber != null ? movingPart.serialNumber : ''}"
-                                                                th:data-part-number="${movingPart.partNumber != null ? movingPart.partNumber : ''}"
-                                                                th:data-quantity="${movingPart.quantity != null ? movingPart.quantity : ''}"
                                                                 th:data-notes="${movingPart.notes != null ? movingPart.notes : ''}"
                                                                 th:data-move-date="${#temporals.format(movingPart.moveDate, 'yyyy-MM-dd')}">
                                                             <i class="bi bi-pencil"></i>
@@ -790,7 +781,7 @@
                                 </div>
                                 <ul th:if="${rma.documents != null && !rma.documents.empty}" class="list-group list-group-flush">
                                     <li th:each="document : ${rma.documents}" class="list-group-item d-flex justify-content-between align-items-center">
-                                        <th:block th:with="processedPath=${#strings.replace(document.filePath, '\\\\\\\\', '/')}, isExcel=${#strings.endsWith(document.fileName, '.xlsx') || #strings.endsWith(document.fileName, '.xls')}">
+                                        <th:block th:with="processedPath=${#strings.replace(document.filePath, '\\\\', '/')}, isExcel=${#strings.endsWith(document.fileName, '.xlsx') || #strings.endsWith(document.fileName, '.xls')}">
                                             <a th:if="${isExcel}" href="#" th:data-file-url="@{'/rma/files/' + ${processedPath}}" th:text="${document.fileName}" th:title="${'Preview ' + document.fileName}" style="word-break: break-all;" onclick="previewExcelDocument(event)">Document Name</a>
                                             <a th:unless="${isExcel}" th:href="@{'/rma/files/' + ${processedPath}}" th:text="${document.fileName}" target="_blank" th:title="${'View ' + document.fileName}" style="word-break: break-all;">Document Name</a>
                                             <div class="btn-group btn-group-sm ms-2 flex-shrink-0">
@@ -1233,18 +1224,12 @@
                 const fromToolId = this.getAttribute('data-from-tool-id');
                 const toToolId = this.getAttribute('data-to-tool-id');
                 const destinationChain = this.getAttribute('data-destination-chain') || '';
-                const serialNumber = this.getAttribute('data-serial-number') || '';
-                const partNumber = this.getAttribute('data-part-number') || '';
-                const quantity = this.getAttribute('data-quantity') || '';
                 const notes = this.getAttribute('data-notes') || '';
                 
                 // Fill form fields with existing data
                 document.getElementById('editMovingPartId').value = id;
                 document.getElementById('editPartName').value = partName;
                 document.getElementById('editFromToolId').value = fromToolId;
-                document.getElementById('editSerialNumber').value = serialNumber;
-                document.getElementById('editPartNumber').value = partNumber;
-                document.getElementById('editQuantity').value = quantity;
                 document.getElementById('editNotes').value = notes;
             });
         });

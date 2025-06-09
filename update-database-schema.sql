@@ -23,4 +23,20 @@ ALTER TABLE tools ALTER COLUMN status SET DEFAULT 'NOT_STARTED';
 UPDATE tools SET tool_type = 'SLURRY' WHERE tool_type NOT IN ('CHEMBLEND', 'SLURRY');
 
 -- Add destination_chain column to moving_parts table for multi-step movements
-ALTER TABLE moving_parts ADD COLUMN destination_chain TEXT; 
+ALTER TABLE moving_parts ADD COLUMN destination_chain TEXT;
+
+-- Add location_id column to projects table if it doesn't exist
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS location_id BIGINT;
+
+-- Add foreign key constraint for projects.location_id if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'fk_projects_location' 
+        AND table_name = 'projects'
+    ) THEN
+        ALTER TABLE projects ADD CONSTRAINT fk_projects_location 
+        FOREIGN KEY (location_id) REFERENCES locations(id);
+    END IF;
+END $$; 
