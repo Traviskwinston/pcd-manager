@@ -18,6 +18,7 @@ import com.pcd.manager.service.MapGridService;
 import com.pcd.manager.service.ToolService;
 import com.pcd.manager.service.TrackTrendService;
 import com.pcd.manager.service.NoteService;
+import com.pcd.manager.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.Objects;
+import java.util.Optional;
 
 @Controller
 @RequestMapping("/dashboard")
@@ -51,6 +53,7 @@ public class DashboardController {
     private final ToolService toolService;
     private final TrackTrendService trackTrendService;
     private final NoteService noteService;
+    private final UserService userService;
 
     private static final Logger logger = LoggerFactory.getLogger(DashboardController.class);
 
@@ -63,7 +66,8 @@ public class DashboardController {
                              ObjectMapper objectMapper,
                              ToolService toolService,
                              TrackTrendService trackTrendService,
-                             NoteService noteService) {
+                             NoteService noteService,
+                             UserService userService) {
         this.toolRepository = toolRepository;
         this.passdownRepository = passdownRepository;
         this.locationRepository = locationRepository;
@@ -73,6 +77,7 @@ public class DashboardController {
         this.toolService = toolService;
         this.trackTrendService = trackTrendService;
         this.noteService = noteService;
+        this.userService = userService;
     }
 
     @GetMapping
@@ -83,6 +88,39 @@ public class DashboardController {
         String userEmail = authentication.getName(); // Email is used as username
         User user = userRepository.findByEmailIgnoreCase(userEmail)
             .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + userEmail));
+
+        // Ensure user has an active site, set to system default if not
+        Location effectiveUserLocation = null;
+        if (user.getActiveSite() != null) {
+            effectiveUserLocation = user.getActiveSite();
+        } else {
+            Optional<Location> defaultLocationOpt = locationRepository.findByDefaultLocationIsTrue();
+            if (defaultLocationOpt.isPresent()) {
+                effectiveUserLocation = defaultLocationOpt.get();
+                user.setActiveSite(effectiveUserLocation);
+                try {
+                    userService.updateUser(user); // Save the user with the updated active site
+                    logger.info("User {} had no active site, set to system default and saved: {}", userEmail, effectiveUserLocation.getDisplayName());
+                } catch (Exception e) {
+                    logger.error("Failed to save user {} after setting active site: {}", userEmail, e.getMessage());
+                    // Continue without saving if there's an issue, but log it.
+                }
+            } else {
+                logger.warn("User {} has no active site, and no system default location is configured! Grid items may be incorrect.", userEmail);
+            }
+        }
+
+        // Determine the location for which to fetch grid items
+        Long currentLocationId = null;
+        if (effectiveUserLocation != null) {
+            currentLocationId = effectiveUserLocation.getId();
+            logger.info("Using location ID {} for grid items for user {}.", currentLocationId, userEmail);
+        } else {
+            logger.warn("No effective location determined for user {}. Grid items will likely be empty.", userEmail);
+        }
+
+        List<MapGridItem> gridItems = mapGridService.getGridItemsByLocationId(currentLocationId);
+        logger.info("Fetched {} grid items for facility map for location ID: {}", gridItems.size(), currentLocationId);
 
         // Fetch all tools with technicians eagerly loaded
         List<Tool> allTools = toolRepository.findAllWithTechnicians();
@@ -111,9 +149,6 @@ public class DashboardController {
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
-
-        List<MapGridItem> gridItems = mapGridService.getAllGridItems();
-        logger.info("Fetched {} grid items for facility map.", gridItems.size());
 
         // Prepare tool data for the grid (using the original unsorted list for mapping)
         List<Map<String, Object>> allToolsData = allTools.stream().map(tool -> {

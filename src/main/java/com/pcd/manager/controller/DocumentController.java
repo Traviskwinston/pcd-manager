@@ -25,6 +25,9 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Comparator;
 
 @Controller
 @RequestMapping("/documents")
@@ -46,19 +49,32 @@ public class DocumentController {
     @GetMapping
     public String listDocuments(Model model) {
         try {
-            // Ensure the directory exists
-            Path documentsPath = Paths.get(uploadDir, DOCUMENT_SUBDIR);
-            if (!Files.exists(documentsPath)) {
-                Files.createDirectories(documentsPath);
-                logger.info("Created reference documents directory: {}", documentsPath);
+            Path documentsRootPath = Paths.get(uploadDir, DOCUMENT_SUBDIR);
+            if (!Files.exists(documentsRootPath)) {
+                Files.createDirectories(documentsRootPath);
+                logger.info("Created reference documents directory: {}", documentsRootPath);
             }
 
-            // Get all files in the directory
-            List<String> documents = new ArrayList<>();
-            if (Files.exists(documentsPath)) {
-                documents = Files.list(documentsPath)
+            List<Map<String, String>> documents = new ArrayList<>();
+            if (Files.exists(documentsRootPath) && Files.isDirectory(documentsRootPath)) {
+                documents = Files.walk(documentsRootPath)
                         .filter(Files::isRegularFile)
-                        .map(path -> path.getFileName().toString())
+                        .map(path -> {
+                            Map<String, String> docInfo = new HashMap<>();
+                            String relativePath = documentsRootPath.relativize(path).toString().replace("\\", "/");
+                            docInfo.put("name", path.getFileName().toString());
+                            docInfo.put("path", relativePath); 
+                            try {
+                                docInfo.put("size", String.valueOf(Files.size(path) / 1024)); // Size in KB
+                                docInfo.put("lastModified", Files.getLastModifiedTime(path).toString());
+                            } catch (IOException e) {
+                                logger.warn("Could not read metadata for file: {}", path, e);
+                                docInfo.put("size", "N/A");
+                                docInfo.put("lastModified", "N/A");
+                            }
+                            return docInfo;
+                        })
+                        .sorted(Comparator.comparing(docMap -> docMap.get("name").toLowerCase()))
                         .collect(Collectors.toList());
             }
 
@@ -104,20 +120,20 @@ public class DocumentController {
     /**
      * Download a document
      */
-    @GetMapping("/download/{filename:.+}")
+    @GetMapping("/download/{*filepath}")
     @ResponseBody
-    public ResponseEntity<Resource> downloadDocument(@PathVariable String filename) {
+    public ResponseEntity<Resource> downloadDocument(@PathVariable String filepath) {
         try {
-            Path filePath = Paths.get(uploadDir, DOCUMENT_SUBDIR, filename);
-            Resource resource = new UrlResource(filePath.toUri());
+            Path fileFullPath = Paths.get(uploadDir, DOCUMENT_SUBDIR, filepath);
+            Resource resource = new UrlResource(fileFullPath.toUri());
 
-            if (resource.exists()) {
+            if (resource.exists() && resource.isReadable()) {
                 return ResponseEntity.ok()
                         .contentType(MediaType.APPLICATION_OCTET_STREAM)
                         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
                         .body(resource);
             } else {
-                logger.error("Document not found: {}", filename);
+                logger.error("Document not found: {}", filepath);
                 return ResponseEntity.notFound().build();
             }
         } catch (MalformedURLException e) {
@@ -129,19 +145,21 @@ public class DocumentController {
     /**
      * Delete a document
      */
-    @GetMapping("/delete/{filename:.+}")
-    public String deleteDocument(@PathVariable String filename, RedirectAttributes redirectAttributes) {
+    @GetMapping("/delete/{*filepath}")
+    public String deleteDocument(@PathVariable String filepath, RedirectAttributes redirectAttributes) {
         try {
-            Path filePath = Paths.get(uploadDir, DOCUMENT_SUBDIR, filename);
-            boolean deleted = Files.deleteIfExists(filePath);
+            Path fileFullPath = Paths.get(uploadDir, DOCUMENT_SUBDIR, filepath);
+            String filenameForMessage = Paths.get(filepath).getFileName().toString();
+
+            boolean deleted = Files.deleteIfExists(fileFullPath);
 
             if (deleted) {
-                redirectAttributes.addFlashAttribute("message", "Document deleted successfully: " + filename);
+                redirectAttributes.addFlashAttribute("message", "Document deleted successfully: " + filenameForMessage);
             } else {
-                redirectAttributes.addFlashAttribute("error", "Document not found: " + filename);
+                redirectAttributes.addFlashAttribute("error", "Document not found or could not be deleted: " + filenameForMessage);
             }
         } catch (IOException e) {
-            logger.error("Error deleting document", e);
+            logger.error("Error deleting document '{}': {}", filepath, e.getMessage(), e);
             redirectAttributes.addFlashAttribute("error", "Failed to delete document: " + e.getMessage());
         }
 
