@@ -8,6 +8,8 @@ import com.pcd.manager.repository.TrackTrendRepository;
 import com.pcd.manager.repository.TrackTrendCommentRepository;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.repository.UserRepository;
+import com.pcd.manager.repository.RmaRepository;
+import com.pcd.manager.model.Rma;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,17 +33,20 @@ public class TrackTrendService {
     private final TrackTrendCommentRepository trackTrendCommentRepository;
     private final ToolRepository toolRepository;
     private final UserRepository userRepository;
+    private final RmaRepository rmaRepository;
     private static final Logger logger = LoggerFactory.getLogger(TrackTrendService.class);
 
     @Autowired
     public TrackTrendService(TrackTrendRepository trackTrendRepository, 
                             TrackTrendCommentRepository trackTrendCommentRepository,
                             ToolRepository toolRepository,
-                            UserRepository userRepository) {
+                            UserRepository userRepository,
+                            RmaRepository rmaRepository) {
         this.trackTrendRepository = trackTrendRepository;
         this.trackTrendCommentRepository = trackTrendCommentRepository;
         this.toolRepository = toolRepository;
         this.userRepository = userRepository;
+        this.rmaRepository = rmaRepository;
     }
 
     public List<TrackTrend> getAllTrackTrends() {
@@ -139,6 +144,28 @@ public class TrackTrendService {
      */
     public List<TrackTrendComment> getCommentsForTrackTrend(Long trackTrendId) {
         return trackTrendCommentRepository.findByTrackTrendIdOrderByCreatedDateDesc(trackTrendId);
+    }
+    
+    /**
+     * Get all RMAs related to the tools in this TrackTrend
+     */
+    public List<Rma> getRelatedRmas(Long trackTrendId) {
+        TrackTrend trackTrend = trackTrendRepository.findById(trackTrendId)
+            .orElseThrow(() -> new IllegalArgumentException("TrackTrend not found: " + trackTrendId));
+        
+        Set<Tool> affectedTools = trackTrend.getAffectedTools();
+        if (affectedTools.isEmpty()) {
+            return List.of(); // Return empty list if no tools
+        }
+        
+        // Get all RMAs for the affected tools
+        List<Long> toolIds = affectedTools.stream()
+            .map(Tool::getId)
+            .collect(Collectors.toList());
+        
+        return rmaRepository.findByToolIdIn(toolIds).stream()
+            .sorted(Comparator.comparing(Rma::getId).reversed()) // Most recent first
+            .collect(Collectors.toList());
     }
 
     @Transactional

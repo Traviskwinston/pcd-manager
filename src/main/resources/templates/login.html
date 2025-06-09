@@ -5,9 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PCD Manager - Login</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" th:href="@{/login.css}">
+    <link rel="stylesheet" th:href="@{/dark-mode.css}">
 </head>
 <body>
+    <!-- Theme toggle button for login page -->
+    <div class="position-fixed top-0 end-0 m-3" style="z-index: 1000;">
+        <button type="button" class="theme-toggle btn btn-outline-secondary" id="loginThemeToggle" title="Toggle dark mode">
+            <i class="bi bi-moon-fill" id="loginMoonIcon"></i>
+            <i class="bi bi-sun-fill" id="loginSunIcon" style="display: none;"></i>
+        </button>
+    </div>
+    
     <div class="container">
         <div class="login-form">
             <div class="login-logo">
@@ -94,7 +104,64 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Force clear JSESSIONID by setting it to expire in the past
             document.cookie = "JSESSIONID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            
+            // Initialize theme for login page
+            initLoginTheme();
         });
+        
+        // Login page theme management
+        function initLoginTheme() {
+            const STORAGE_KEY = 'pcd-manager-theme';
+            const toggleButton = document.getElementById('loginThemeToggle');
+            const sunIcon = document.getElementById('loginSunIcon');
+            const moonIcon = document.getElementById('loginMoonIcon');
+            
+            // Load saved theme or default to system preference
+            function getPreferredTheme() {
+                const savedTheme = localStorage.getItem(STORAGE_KEY);
+                if (savedTheme) return savedTheme;
+                
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    return 'dark';
+                }
+                return 'light';
+            }
+            
+            // Set theme
+            function setTheme(theme) {
+                document.documentElement.setAttribute('data-bs-theme', theme);
+                updateToggleButton(theme);
+                localStorage.setItem(STORAGE_KEY, theme);
+            }
+            
+            // Update toggle button appearance
+            function updateToggleButton(theme) {
+                if (theme === 'dark') {
+                    sunIcon.style.display = 'inline-block';
+                    moonIcon.style.display = 'none';
+                    toggleButton.setAttribute('title', 'Switch to light mode');
+                } else {
+                    sunIcon.style.display = 'none';
+                    moonIcon.style.display = 'inline-block';
+                    toggleButton.setAttribute('title', 'Switch to dark mode');
+                }
+            }
+            
+            // Toggle theme
+            function toggleTheme() {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                setTheme(newTheme);
+            }
+            
+            // Initialize
+            setTheme(getPreferredTheme());
+            
+            // Add click listener
+            if (toggleButton) {
+                toggleButton.addEventListener('click', toggleTheme);
+            }
+        }
     </script>
 </body>
 </html> 

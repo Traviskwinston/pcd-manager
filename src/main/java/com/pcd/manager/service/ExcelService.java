@@ -368,47 +368,36 @@ public class ExcelService {
         Map<String, Object> extractedData = new HashMap<>();
         
         try (Workbook workbook = WorkbookFactory.create(inputStream)) {
-            Sheet sheet = workbook.getSheetAt(0);
+            Sheet sheet = workbook.getSheetAt(0); // Assuming data is on the first sheet
             if (sheet == null) {
                 extractedData.put("error", "First sheet is null or workbook is empty");
                 return extractedData;
             }
 
-            // Try to find a sheet named "Data"
-            Sheet dataSheet = null;
-            for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
-                if ("Data".equalsIgnoreCase(workbook.getSheetName(i))) {
-                    dataSheet = workbook.getSheetAt(i);
-                    break;
-                }
-            }
+            // Try to find a sheet named "Data" for specific boolean fields if they exist
+            Sheet dataSheet = workbook.getSheet("Data");
+            // If not found by name "Data", it might be at a fixed index or not used for all fields.
+            // For now, proceed with `sheet` for main data and use `dataSheet` only if explicitly needed and found.
 
-            // Extract RMA Number from B4 or SAP Notification Number from J4
-            // Priority is given to B4 if both exist, but J4 will be used if B4 is empty.
-            // Internally, this is always stored and referred to as 'rmaNumber'.
-            String rmaNumFromB4 = getCellStringValue(sheet, "B4");
-            String sapNumFromJ4 = getCellStringValue(sheet, "J4");
-
-            if (rmaNumFromB4 != null && !rmaNumFromB4.isEmpty()) {
-                extractedData.put("rmaNumber", rmaNumFromB4);
-            } else if (sapNumFromJ4 != null && !sapNumFromJ4.isEmpty()) {
-                extractedData.put("rmaNumber", sapNumFromJ4); // Use J4 if B4 is empty
+            // RMA Number from J4
+            String rmaNumber = getCellStringValue(sheet, "J4");
+            if (rmaNumber != null && !rmaNumber.isEmpty()) {
+                extractedData.put("rmaNumber", rmaNumber);
+                logger.info("Extracted RMA Number from J4: {}", rmaNumber);
+            } else {
+                logger.warn("RMA Number (J4) is empty or not found.");
             }
             
-            // Extract Service Order from J5
+            // Service Order from J5
             extractedData.put("serviceOrder", getCellStringValue(sheet, "J5"));
             
-            // Extract Written Date from B6
+            // Written Date from B6
             String writtenDateStr = getCellStringValue(sheet, "B6");
             if (writtenDateStr != null && !writtenDateStr.isEmpty()) {
                 try {
-                    // Try to parse the date using common formats
                     LocalDate parsedDate = parseDate(writtenDateStr);
                     if (parsedDate != null) {
-                        // Format as ISO date (yyyy-MM-dd) for proper conversion in the controller
                         extractedData.put("writtenDate", parsedDate.format(DateTimeFormatter.ISO_DATE));
-                        logger.info("Extracted Written Date from B6: {} (parsed as: {})", 
-                                 writtenDateStr, parsedDate.format(DateTimeFormatter.ISO_DATE));
                     } else {
                         logger.warn("Could not parse Written Date from B6: {}", writtenDateStr);
                     }
@@ -416,187 +405,189 @@ public class ExcelService {
                     logger.warn("Error parsing Written Date from B6: {}", writtenDateStr, e);
                 }
             }
+
+            // Technician Information
+            extractedData.put("fieldTechName", getCellStringValue(sheet, "B7")); // Field Tech Name
+            extractedData.put("fieldTechPhone", getCellStringValue(sheet, "B8")); // Field Tech Phone
+            extractedData.put("fieldTechEmail", getCellStringValue(sheet, "B9")); // Technician Email (was customerEmail)
             
-            // Extract Customer Information Email from B9
-            String customerEmail = getCellStringValue(sheet, "B9");
-            if (customerEmail != null && !customerEmail.isEmpty()) {
-                extractedData.put("customerEmail", customerEmail);
-            }
-            
-            // Extract exposed to process gas value from A21 (Data sheet)
-            if (dataSheet != null) {
-                String exposedValue = getCellStringValue(dataSheet, "A21");
-                if (exposedValue != null) {
-                    boolean exposed = isTrueValue(exposedValue);
-                    extractedData.put("exposedToProcessGasOrChemicals", exposed);
-                    
-                    // If exposed, also extract purged value from A25
-                    if (exposed) {
-                        String purgedValue = getCellStringValue(dataSheet, "A25");
-                        if (purgedValue != null) {
-                            extractedData.put("purged", isTrueValue(purgedValue));
-                        }
-                    }
-                }
-            }
-            
-            // Extract Reason for Request from G7
-            String reasonForRequest = getCellStringValue(sheet, "G7");
-            if (reasonForRequest != null && !reasonForRequest.isEmpty()) {
-                extractedData.put("reasonForRequest", reasonForRequest);
-            }
-            
-            // Extract DSS Product Line from G9
-            String dssProductLine = getCellStringValue(sheet, "G9");
-            if (dssProductLine != null && !dssProductLine.isEmpty()) {
-                extractedData.put("dssProductLine", dssProductLine);
-            }
-            
-            // Extract System Description from G11
-            String systemDescription = getCellStringValue(sheet, "G11");
-            if (systemDescription != null && !systemDescription.isEmpty()) {
-                extractedData.put("systemDescription", systemDescription);
-            }
-            
-            // Extract Customer Information
+            // Customer Information
             extractedData.put("customerName", getCellStringValue(sheet, "B11")); // Customer Name
             extractedData.put("companyShipToName", getCellStringValue(sheet, "B12")); // Company Ship To Name
             extractedData.put("companyShipToAddress", getCellStringValue(sheet, "B13")); // Address
             
-            // Extract Location information from E14
-            String locationInfo = getCellStringValue(sheet, "E14");
-            if (locationInfo != null && !locationInfo.isEmpty()) {
-                extractedData.put("locationName", locationInfo);
-                logger.info("Extracted location information: {}", locationInfo);
-            }
-            
-            // Extract City and State from B14
-            String cityState = getCellStringValue(sheet, "B14");
+            String cityState = getCellStringValue(sheet, "B14"); // City, State
             if (cityState != null && !cityState.isEmpty()) {
                 String[] parts = cityState.split(",");
-                if (parts.length > 0) {
-                    extractedData.put("city", parts[0].trim());
-                    
+                if (parts.length > 0) extractedData.put("city", parts[0].trim());
+                if (parts.length > 1) extractedData.put("state", parts[1].trim());
+            }
+            extractedData.put("zipCode", getCellStringValue(sheet, "B15")); // Zip Code
+            extractedData.put("attn", getCellStringValue(sheet, "B16")); // Attn
+            // Customer Phone B17 is no longer mapped as per technician info changes
+
+            // Location from E14 (used for display, not direct RMA field mapping usually)
+            extractedData.put("locationName", getCellStringValue(sheet, "E14"));
+            
+            // Reason For Request from G7
+            extractedData.put("reasonForRequest", getCellStringValue(sheet, "G7"));
+            // DSS Product Line from G9
+            extractedData.put("dssProductLine", getCellStringValue(sheet, "G9"));
+            // System Description from G11
+            extractedData.put("systemDescription", getCellStringValue(sheet, "G11"));
+            
+            // Equipment Info (F14) - primarily for serial number parsing
+            String toolInfoRaw = getCellStringValue(sheet, "F14"); // Equipment Number + Serial Number(s)
+            logger.info("Raw string from F14 (Tool Info): '{}'", toolInfoRaw); // Log the raw F14 value
+
+            String parsedSerial1 = null;
+            String parsedSerial2 = null;
+
+            // Try to parse serial numbers from F14
+            // Current logic seems to be:
+            // If F14 contains a slash, take part before as SN1, part after as SN2
+            // If F14 contains a space, take part after space as SN1
+            // If F14 contains neither, take whole string as SN1
+            // This needs to be confirmed and potentially revised based on actual F14 format.
+
+            if (toolInfoRaw != null && !toolInfoRaw.isEmpty()) {
+                if (toolInfoRaw.contains("/")) {
+                    String[] parts = toolInfoRaw.split("/", 2);
+                    parsedSerial1 = parts[0].trim();
                     if (parts.length > 1) {
-                        extractedData.put("state", parts[1].trim());
+                        parsedSerial2 = parts[1].trim();
                     }
+                } else if (toolInfoRaw.contains(" ")) {
+                    // This logic might be problematic if model numbers also contain spaces
+                    // Assuming serial number is the last "word" if a space is present
+                    int lastSpaceIndex = toolInfoRaw.lastIndexOf(" ");
+                    if (lastSpaceIndex != -1 && lastSpaceIndex < toolInfoRaw.length() - 1) {
+                         parsedSerial1 = toolInfoRaw.substring(lastSpaceIndex + 1).trim();
+                    } else {
+                        parsedSerial1 = toolInfoRaw.trim(); // Fallback to whole string
+                    }
+                } else {
+                    parsedSerial1 = toolInfoRaw.trim();
                 }
             }
             
-            // Extract Zip Code from B15
-            extractedData.put("zipCode", getCellStringValue(sheet, "B15"));
-            
-            // Extract Attn from B16
-            extractedData.put("attn", getCellStringValue(sheet, "B16"));
-            
-            // Extract Contact Phone Number from B17
-            extractedData.put("customerPhone", getCellStringValue(sheet, "B17"));
-            
-            // Extract Equipment and Serial Number from F14
-            String equipmentInfo = getCellStringValue(sheet, "F14");
-            if (equipmentInfo != null && !equipmentInfo.isEmpty()) {
-                extractedData.put("equipmentInfo", equipmentInfo);
-            }
-            
-            // Extract Chemical/Gas Service from J18 for tool matching
-            String chemicalGasService = getCellStringValue(sheet, "J18");
-            if (chemicalGasService != null && !chemicalGasService.isEmpty()) {
-                extractedData.put("chemicalGasService", chemicalGasService);
-            }
-            
-            // Extract Downtime from J22
+            // Example: If F14 is "MODELXYZ 12345/67890"
+            // parsedSerial1 should be "12345" (or "MODELXYZ 12345" depending on exact parsing)
+            // parsedSerial2 should be "67890"
+
+            // The actual parsing logic needs to be fixed once we know the F14 format.
+            // String serialNumberRaw = getCellStringValue(sheet, "F14"); // Equipment Number + Serial Number
+            // Splitting logic based on "/" and then " " (Placeholder - likely needs refinement)
+            // -- The following placeholder logic is being removed --
+            // if (toolInfoRaw != null && !toolInfoRaw.isEmpty()) {
+            //     String[] serials = toolInfoRaw.split("/");
+            //     if (serials.length > 0) {
+            //         String firstPart = serials[0].trim();
+            //         // If firstPart contains space, take the last segment as serial1
+            //         if (firstPart.contains(" ")) {
+            //             parsedSerial1 = firstPart.substring(firstPart.lastIndexOf(" ") + 1);
+            //         } else {
+            //             parsedSerial1 = firstPart;
+            //         }
+            //     }
+            //     if (serials.length > 1) {
+            //         parsedSerial2 = serials[1].trim();
+            //     }
+            // }
+            // 
+            // // THIS IS A VERY SIMPLISTIC WAY TO GET "1" and "2" TO MATCH OBSERVED LOGS
+            // // AND WILL LIKELY BE WRONG FOR ACTUAL DATA.
+            // // THE LOG ADDED ABOVE FOR 'toolInfoRaw' IS KEY.
+            // // We will replace this once we confirm the actual format of F14.
+            // if (toolInfoRaw != null) {
+            //     if (toolInfoRaw.contains("1")) parsedSerial1 = "1"; // Simplified, placeholder
+            //     if (toolInfoRaw.contains("2")) parsedSerial2 = "2"; // Simplified, placeholder
+            // }
+
+            extractedData.put("parsedSerial1", parsedSerial1);
+            extractedData.put("parsedSerial2", parsedSerial2);
+
+            // Model Number (Parent Commodity Code) from J16
+            extractedData.put("parentCommodityCode", getCellStringValue(sheet, "J16"));
+            // Chemical/Gas Service from J18
+            extractedData.put("chemicalGasService", getCellStringValue(sheet, "J18"));
+            // Downtime (hrs) from J22
             String downtimeStr = getCellStringValue(sheet, "J22");
             if (downtimeStr != null && !downtimeStr.isEmpty()) {
                 try {
-                    Double downtime = Double.parseDouble(downtimeStr);
-                    extractedData.put("downtimeHours", downtime);
+                    extractedData.put("downtimeHours", Integer.parseInt(downtimeStr.replaceAll("[^0-9]", "")));
                 } catch (NumberFormatException e) {
                     logger.warn("Could not parse downtime value: {}", downtimeStr);
                 }
             }
-            
-            // Extract Parts (up to 4) using original cell addresses
+
+            // Parts Data
             List<Map<String, Object>> partsList = new ArrayList<>();
-            
-            // Part 1
-            Map<String, Object> part1 = new HashMap<>();
-            part1.put("partName", ""); // Leave Part Name blank as requested
-            part1.put("partNumber", getCellStringValue(sheet, "B26"));
-            part1.put("productDescription", getCellStringValue(sheet, "B27"));
-            part1.put("quantity", parseQuantity(getCellStringValue(sheet, "B25")));
-            part1.put("replacementRequired", false); // Default
-            partsList.add(part1);
-            
-            // Part 2
-            Map<String, Object> part2 = new HashMap<>();
-            part2.put("partName", ""); 
-            part2.put("partNumber", getCellStringValue(sheet, "I26"));
-            part2.put("productDescription", getCellStringValue(sheet, "I27"));
-            part2.put("quantity", parseQuantity(getCellStringValue(sheet, "I25")));
-            part2.put("replacementRequired", false); 
-            partsList.add(part2);
-            
-            // Part 3
-            Map<String, Object> part3 = new HashMap<>();
-            part3.put("partName", ""); 
-            part3.put("partNumber", getCellStringValue(sheet, "B31"));
-            part3.put("productDescription", getCellStringValue(sheet, "B32"));
-            part3.put("quantity", parseQuantity(getCellStringValue(sheet, "B30")));
-            part3.put("replacementRequired", false); 
-            partsList.add(part3);
-            
-            // Part 4
-            Map<String, Object> part4 = new HashMap<>();
-            part4.put("partName", ""); 
-            part4.put("partNumber", getCellStringValue(sheet, "I31"));
-            part4.put("productDescription", getCellStringValue(sheet, "I32"));
-            part4.put("quantity", parseQuantity(getCellStringValue(sheet, "I30")));
-            part4.put("replacementRequired", false); 
-            partsList.add(part4);
-            
-            // Only include parts that have some data
-            List<Map<String, Object>> filteredPartsList = partsList.stream()
-                .filter(part -> {
-                    String pn = (String) part.get("partNumber");
-                    String desc = (String) part.get("productDescription");
-                    return (pn != null && !pn.isEmpty()) || (desc != null && !desc.isEmpty());
-                })
-                .toList(); 
-            
-            if (!filteredPartsList.isEmpty()) {
-                extractedData.put("parts", filteredPartsList);
+            // Part 1: PN (B26), Desc (B27), Qty (B25)
+            addPartIfPresent(partsList, sheet, "B26", "B27", "B25");
+            // Part 2: PN (I26), Desc (I27), Qty (I25)
+            addPartIfPresent(partsList, sheet, "I26", "I27", "I25");
+            // Part 3: PN (B31), Desc (B32), Qty (B30)
+            addPartIfPresent(partsList, sheet, "B31", "B32", "B30");
+            // Part 4: PN (I31), Desc (I32), Qty (I30)
+            addPartIfPresent(partsList, sheet, "I31", "I32", "I30");
+            if (!partsList.isEmpty()) {
+                extractedData.put("parts", partsList);
             }
             
-            // Extract Instructions for exposed component from F35
+            // Instructions for exposed component from F35
             extractedData.put("instructionsForExposedComponent", getCellStringValue(sheet, "F35"));
-            
-            // Extract Problem Information fields instead of Description - using updated cell references
-            extractedData.put("problemDiscoverer", getCellStringValue(sheet, "B38"));      // Who discovered - B38
-            String discoveryDate = getCellStringValue(sheet, "B39");                       // When discovered - B39
-            if (discoveryDate != null && !discoveryDate.isEmpty()) {
-                try {
-                    LocalDate parsedDate = parseDate(discoveryDate);
+
+            // Comments from B36
+            extractedData.put("comments", getCellStringValue(sheet, "B36"));
+
+            // Problem Information
+            extractedData.put("problemDiscoverer", getCellStringValue(sheet, "B38")); // Who discovered
+            String discoveryDateStr = getCellStringValue(sheet, "B39"); // When discovered
+            if (discoveryDateStr != null && !discoveryDateStr.isEmpty()) {
+                 try {
+                    LocalDate parsedDate = parseDate(discoveryDateStr);
                     if (parsedDate != null) {
                         extractedData.put("problemDiscoveryDate", parsedDate.format(DateTimeFormatter.ISO_DATE));
+                    } else {
+                        logger.warn("Could not parse Problem Discovery Date from B39: {}", discoveryDateStr);
                     }
                 } catch (Exception e) {
-                    logger.warn("Could not parse problem discovery date: {}", discoveryDate);
+                    logger.warn("Error parsing Problem Discovery Date from B39: {}", discoveryDateStr, e);
                 }
             }
-            extractedData.put("whatHappened", getCellStringValue(sheet, "B40"));           // What happened - B40
-            extractedData.put("whyAndHowItHappened", getCellStringValue(sheet, "B44"));    // Why and how - B44
-            extractedData.put("howContained", getCellStringValue(sheet, "B46"));           // How contained - B46
-            extractedData.put("whoContained", getCellStringValue(sheet, "B47"));           // Who contained - B47
+            extractedData.put("whatHappened", getCellStringValue(sheet, "B40"));      // What happened
+            extractedData.put("whyAndHowItHappened", getCellStringValue(sheet, "B44")); // Why and how
+            extractedData.put("howContained", getCellStringValue(sheet, "B46"));      // How contained
+            extractedData.put("whoContained", getCellStringValue(sheet, "B47"));      // Who contained
             
-            // Extract Comments from B36
-            extractedData.put("comments", getCellStringValue(sheet, "B36"));
-            
-        } catch (Exception e) {
-            logger.error("Error extracting data from Excel file", e);
-            extractedData.put("error", "Failed to extract data: " + e.getMessage());
+            // Boolean flags (exposedToProcessGasOrChemicals, purged) - these were removed as per user request
+            // as they should not be extracted from Excel.
+
+            logger.info("Final extracted data: {}", extractedData);
+
+        } catch (IOException e) {
+            logger.error("Error parsing Excel file", e);
+            extractedData.put("error", "Failed to parse Excel file: " + e.getMessage());
         }
-        
         return extractedData;
+    }
+
+    private void addPartIfPresent(List<Map<String, Object>> partsList, Sheet sheet, String pnCell, String descCell, String qtyCell) {
+        String partNumber = getCellStringValue(sheet, pnCell);
+        String productDescription = getCellStringValue(sheet, descCell);
+        String qtyStr = getCellStringValue(sheet, qtyCell);
+        
+        // Only add part if at least part number or description is present
+        if ((partNumber != null && !partNumber.isEmpty()) || (productDescription != null && !productDescription.isEmpty())) {
+            Map<String, Object> partData = new HashMap<>();
+            partData.put("partNumber", partNumber);
+            partData.put("productDescription", productDescription); // ensure key matches frontend expectation
+            partData.put("quantity", parseQuantity(qtyStr)); // Default to 1 if parsing fails or empty
+            partData.put("partName", ""); // Part Name is not in this Excel structure
+            partData.put("replacementRequired", false); // Default, not in Excel
+            partsList.add(partData);
+        }
     }
 
     /**

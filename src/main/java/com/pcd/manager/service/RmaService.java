@@ -265,6 +265,13 @@ public class RmaService {
                 if (successCount > 0) {
                     logger.info("Saving RMA again with {} new files", successCount);
                     savedRma = rmaRepository.save(savedRma);
+                    
+                    // If this RMA is associated with a tool, automatically link the new files to the tool
+                    if (savedRma.getTool() != null) {
+                        logger.info("RMA {} is associated with Tool {}, linking new files automatically", 
+                            savedRma.getId(), savedRma.getTool().getId());
+                        linkAllFilesToTool(savedRma);
+                    }
                 }
                 
                 logger.info("File processing complete. Success: {}, Errors: {}", successCount, errorCount);
@@ -1633,5 +1640,23 @@ public class RmaService {
         if (movingPartOpt.isEmpty()) logger.warn("MovingPart not found with ID: {}", movingPartId);
         if (targetRmaOpt.isEmpty()) logger.warn("Target RMA not found with ID: {}", targetRmaId);
         return false;
+    }
+
+    @Transactional
+    public void updateRmaStatus(Long rmaId, RmaStatus newStatus) {
+        Rma rma = rmaRepository.findById(rmaId)
+            .orElseThrow(() -> new IllegalArgumentException("RMA not found with ID: " + rmaId));
+        rma.setStatus(newStatus);
+        rmaRepository.save(rma);
+        logger.info("Updated status for RMA ID {} to {}", rmaId, newStatus);
+    }
+    
+    @Transactional
+    public void updateRmaPriority(Long rmaId, RmaPriority newPriority) {
+        Rma rma = rmaRepository.findById(rmaId)
+            .orElseThrow(() -> new IllegalArgumentException("RMA not found with ID: " + rmaId));
+        rma.setPriority(newPriority);
+        rmaRepository.save(rma);
+        logger.info("Updated priority for RMA ID {} to {}", rmaId, newPriority);
     }
 } 

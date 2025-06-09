@@ -35,4 +35,12 @@ public interface RmaRepository extends JpaRepository<Rma, Long> {
      * @return list of RMAs associated with the tool
      */
     List<Rma> findByToolId(Long toolId);
+    
+    /**
+     * Find all RMAs associated with any of the specified tool IDs
+     * 
+     * @param toolIds the IDs of the tools
+     * @return list of RMAs associated with any of the tools
+     */
+    List<Rma> findByToolIdIn(List<Long> toolIds);
 } 

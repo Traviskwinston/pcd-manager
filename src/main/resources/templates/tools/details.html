@@ -291,9 +291,6 @@
                         <thead>
                             <tr>
                                 <th>Part Name</th>
-                                <th>Serial Number</th>
-                                <th>Part Number</th>
-                                <th>Quantity</th>
                                 <th>Movement</th>
                                 <th>Notes</th>
                                 <th>Date</th>
@@ -303,10 +300,20 @@
                         <tbody>
                             <tr th:each="movingPart : ${movingParts}">
                                 <td th:text="${movingPart.partName}">Part Name</td>
-                                <td th:text="${movingPart.serialNumber}">Serial Number</td>
-                                <td th:text="${movingPart.partNumber}">Part Number</td>
-                                <td th:text="${movingPart.quantity}">Quantity</td>
-                                <td th:text="${movingPart.direction}">IN/OUT</td>
+                                <td>
+                                    <!-- Show movement direction: From Tool -> To Tool with clickable links -->
+                                    <a th:if="${movingPart.fromTool != null}" 
+                                       th:href="@{/tools/{id}(id=${movingPart.fromTool.id})}" 
+                                       th:text="${movingPart.fromTool.name}" 
+                                       class="text-decoration-none">From Tool</a>
+                                    <span th:if="${movingPart.fromTool == null}" class="text-muted">-</span>
+                                    <i class="bi bi-arrow-right mx-2"></i>
+                                    <a th:if="${movingPart.toTool != null}" 
+                                       th:href="@{/tools/{id}(id=${movingPart.toTool.id})}" 
+                                       th:text="${movingPart.toTool.name}" 
+                                       class="text-decoration-none">To Tool</a>
+                                    <span th:if="${movingPart.toTool == null}" class="text-muted">-</span>
+                                </td>
                                 <td th:text="${movingPart.notes ?: '-'}">Notes</td>
                                 <td th:text="${#temporals.format(movingPart.moveDate, 'MMM dd, yyyy')}">Jan 1, 2023</td>
                                 <td>
@@ -318,9 +325,6 @@
                                                 th:data-from-tool-id="${movingPart.fromTool != null ? movingPart.fromTool.id : ''}"
                                                 th:data-to-tool-id="${movingPart.toTool != null ? movingPart.toTool.id : ''}"
                                                 th:data-destination-chain="${movingPart.destinationChain != null ? movingPart.destinationChain : ''}"
-                                                th:data-serial-number="${movingPart.serialNumber != null ? movingPart.serialNumber : ''}"
-                                                th:data-part-number="${movingPart.partNumber != null ? movingPart.partNumber : ''}"
-                                                th:data-quantity="${movingPart.quantity != null ? movingPart.quantity : ''}"
                                                 th:data-notes="${movingPart.notes != null ? movingPart.notes : ''}">
                                             <i class="bi bi-pencil"></i>
                                         </button>
@@ -528,72 +532,61 @@
         </div>
 
         <!-- Documents Section -->
-        <div class="row mt-2" th:if="${!#sets.isEmpty(tool.documentPaths)}">
-            <div class="col-12">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Documents</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="list-group">
-                            <div class="list-group-item d-flex align-items-center" th:each="docPath : ${tool.documentPaths}">
-                                <!-- Process document name to extract RMA tag if present -->
-                                <th:block th:with="docName=${tool.documentNames != null && tool.documentNames.containsKey(docPath) ? 
-                                        tool.documentNames.get(docPath) : 
-                                        (docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath)},
-                                    isRmaDocument=${tool.documentNames != null && tool.documentNames.containsKey(docPath) && 
-                                        tool.documentNames.get(docPath).startsWith('RMA')}">
-                                    
-                                    <!-- Document Name -->
-                                    <div class="flex-grow-1" style="width: 40%">
-                                        <i class="bi bi-file-earmark-text me-2"></i>
-                                        <span th:text="${isRmaDocument && #strings.contains(docName, ':') ? 
-                                            #strings.substringAfter(docName, ':').trim() : docName}">document.pdf</span>
-                                    </div>
-                                    
-                                    <!-- Tags -->
-                                    <div style="width: 40%">
-                                        <span th:if="${isRmaDocument}" class="badge bg-primary me-1" 
-                                              th:text="${#strings.contains(docName, ':') ? 
-                                                      #strings.substringBefore(docName, ':') : docName}">RMA Tag</span>
-                                    </div>
-                                    
-                                    <!-- Action Buttons -->
-                                    <div class="ms-auto">
-                                        <div class="btn-group">
-                                            <a th:href="@{'/uploads/' + ${docPath}}" class="btn btn-sm btn-outline-primary" target="_blank" title="View">
-                                                <i class="bi bi-eye-fill"></i>
-                                            </a>
-                                            <a th:href="@{'/uploads/' + ${docPath}}" class="btn btn-sm btn-outline-secondary" download title="Download">
-                                                <i class="bi bi-download"></i>
-                                            </a>
-                                            <button type="button" class="btn btn-sm btn-outline-danger delete-file-btn" 
-                                                   data-bs-toggle="modal" data-bs-target="#deleteDocConfirmModal"
-                                                   th:data-document-path="${docPath}"
-                                                   th:data-document-name="${docName}"
-                                                   title="Delete">
-                                                <i class="bi bi-trash-fill"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-warning move-document-btn" 
-                                                    data-bs-toggle="modal" data-bs-target="#moveDocumentModal"
-                                                    th:data-document-path="${docPath}"
-                                                    th:data-document-name="${docName}"
-                                                    title="Move to another tool">
-                                                <i class="bi bi-arrow-right-square-fill"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-info link-document-btn" 
-                                                    data-bs-toggle="modal" data-bs-target="#unifiedLinkFileModal"
-                                                    th:data-file-path="${docPath}"
-                                                    th:data-file-name="${docName}"
-                                                    th:data-file-type="'document'"
-                                                    th:data-source-entity-type="'TOOL'"
-                                                    th:data-source-entity-id="${tool.id}"
-                                                    title="Link">
-                                                <i class="bi bi-link-45deg"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </th:block>
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Documents</h5>
+            </div>
+            <div class="card-body">
+                <!-- Show message if no documents -->
+                <div th:if="${#sets.isEmpty(tool.documentPaths)}" class="alert alert-info text-center">
+                    <i class="bi bi-file-earmark-text fs-2"></i>
+                    <p class="mb-0 mt-2">No documents uploaded yet. Click "Upload Document" to add files.</p>
+                </div>
+                
+                <!-- Documents list -->
+                <div th:if="${!#sets.isEmpty(tool.documentPaths)}" class="list-group">
+                    <div class="list-group-item d-flex align-items-center" th:each="docPath : ${tool.documentPaths}">
+                        <!-- Document Name -->
+                        <div class="flex-grow-1" style="width: 40%">
+                            <i class="bi bi-file-earmark-text me-2"></i>
+                            <span th:text="${docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath}">document.pdf</span>
+                        </div>
+                        
+                        <!-- Tags -->
+                        <div style="width: 40%">
+                            <!-- Tags will be displayed if needed -->
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="ms-auto">
+                            <div class="btn-group">
+                                <a th:href="@{'/uploads/' + ${docPath}}" class="btn btn-sm btn-outline-primary" target="_blank" title="View">
+                                    <i class="bi bi-eye-fill"></i>
+                                </a>
+                                <a th:href="@{'/uploads/' + ${docPath}}" class="btn btn-sm btn-outline-secondary" download title="Download">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger delete-file-btn" 
+                                       data-bs-toggle="modal" data-bs-target="#deleteDocConfirmModal"
+                                       th:data-document-path="${docPath}"
+                                       title="Delete">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-warning move-document-btn" 
+                                        data-bs-toggle="modal" data-bs-target="#moveDocumentModal"
+                                        th:data-document-path="${docPath}"
+                                        title="Move to another tool">
+                                    <i class="bi bi-arrow-right-square-fill"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-info link-document-btn" 
+                                        data-bs-toggle="modal" data-bs-target="#unifiedLinkFileModal"
+                                        th:data-file-path="${docPath}"
+                                        data-file-type="document"
+                                        data-source-entity-type="TOOL"
+                                        th:data-source-entity-id="${tool.id}"
+                                        title="Link">
+                                    <i class="bi bi-link-45deg"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -602,85 +595,63 @@
         </div>
 
         <!-- Pictures Section -->
-        <div class="row" th:if="${!#sets.isEmpty(tool.picturePaths)}">
-            <div class="col-12">
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Pictures</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-3 mb-3" th:each="picPath : ${tool.picturePaths}">
-                                <div class="picture-item card h-100 shadow-sm">
-                                    <!-- Process picture name to extract RMA tag if present -->
-                                    <th:block th:with="picName=${tool.pictureNames != null && tool.pictureNames.containsKey(picPath) ? 
-                                            tool.pictureNames.get(picPath) : 
-                                            (picPath.contains('/') ? picPath.substring(picPath.lastIndexOf('/') + 1) : picPath)},
-                                        isRmaPicture=${tool.pictureNames != null && tool.pictureNames.containsKey(picPath) && 
-                                            tool.pictureNames.get(picPath).startsWith('RMA')}">
-                                        
-                                        <div class="card-header p-2">
-                                            <!-- Display RMA Tag if it exists -->
-                                            <span th:if="${isRmaPicture}" class="badge bg-primary" 
-                                                  th:text="${#strings.contains(picName, ':') ? 
-                                                           #strings.substringBefore(picName, ':') : picName}">RMA Tag</span>
-                                            
-                                            <!-- Add Passdown Photo Tag if applicable -->
-                                            <span th:if="${tool.pictureNames != null && tool.pictureNames.containsKey(picPath) && 
-                                                      tool.pictureNames.get(picPath).startsWith('Passdown: ')}" 
-                                                 class="badge bg-info" 
-                                                 th:with="passdownInfo=${tool.pictureNames.get(picPath)}"
-                                                 th:text="${#strings.contains(passdownInfo, ':') ? 
-                                                         ('Passdown ' + #strings.substringAfter(passdownInfo, ':').trim()) : 
-                                                         'Passdown'}">Passdown User MM/DD/YYYY</span>
-                                        </div>
-                                        
-                                        <div class="card-body text-center p-2">
-                                            <img th:src="@{'/uploads/' + ${picPath}}" class="img-fluid rounded" 
-                                                 style="max-height: 150px; object-fit: contain;"
-                                                 th:alt="${picName}">
-                                             
-                                            <!-- Show filename -->
-                                            <div class="mt-2 small text-muted" th:text="${isRmaPicture ? 
-                                                (#strings.contains(picName, ':') ? #strings.substringAfter(picName, ':').trim() : picName) : 
-                                                picName}">filename.jpg</div>
-                                        </div>
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Pictures</h5>
+            </div>
+            <div class="card-body">
+                <!-- Show message if no pictures -->
+                <div th:if="${#sets.isEmpty(tool.picturePaths)}" class="alert alert-info text-center">
+                    <i class="bi bi-image fs-2"></i>
+                    <p class="mb-0 mt-2">No pictures uploaded yet. Click "Upload Picture" to add images.</p>
+                </div>
+                
+                <!-- Pictures grid -->
+                <div th:if="${!#sets.isEmpty(tool.picturePaths)}" class="row">
+                    <div class="col-md-3 mb-3" th:each="picPath : ${tool.picturePaths}">
+                        <div class="picture-item card h-100 shadow-sm">
+                            <div class="card-header p-2">
+                                <!-- Tags will be displayed if needed -->
+                            </div>
+                            
+                            <div class="card-body text-center p-2">
+                                <img th:src="@{'/uploads/' + ${picPath}}" class="img-fluid rounded" 
+                                     style="max-height: 150px; object-fit: contain;"
+                                     th:alt="${picPath}">
+                                 
+                                <!-- Show filename -->
+                                <div class="mt-2 small text-muted" th:text="${picPath.contains('/') ? picPath.substring(picPath.lastIndexOf('/') + 1) : picPath}">filename.jpg</div>
+                            </div>
 
-                                        <div class="card-footer p-2">
-                                            <div class="d-flex gap-1 justify-content-center">
-                                                <a th:href="@{'/uploads/' + ${picPath}}" class="btn btn-sm btn-outline-primary" target="_blank" title="View">
-                                                    <i class="bi bi-eye-fill"></i>
-                                                </a>
-                                                <a th:href="@{'/uploads/' + ${picPath}}" class="btn btn-sm btn-outline-secondary" download title="Download">
-                                                    <i class="bi bi-download"></i>
-                                                </a>
-                                                <button type="button" class="btn btn-sm btn-outline-danger delete-picture-btn" 
-                                                       data-bs-toggle="modal" data-bs-target="#deletePicConfirmModal"
-                                                       th:data-picture-path="${picPath}"
-                                                       th:data-picture-name="${picName}"
-                                                       title="Delete">
-                                                    <i class="bi bi-trash-fill"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-warning move-picture-btn" 
-                                                        data-bs-toggle="modal" data-bs-target="#movePictureModal"
-                                                        th:data-picture-path="${picPath}"
-                                                        th:data-picture-name="${picName}"
-                                                        title="Move to another tool">
-                                                    <i class="bi bi-arrow-right-square-fill"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-info link-picture-btn" 
-                                                        data-bs-toggle="modal" data-bs-target="#unifiedLinkFileModal"
-                                                        th:data-file-path="${picPath}"
-                                                        th:data-file-name="${picName}"
-                                                        th:data-file-type="'picture'"
-                                                        th:data-source-entity-type="'TOOL'"
-                                                        th:data-source-entity-id="${tool.id}"
-                                                        title="Link">
-                                                    <i class="bi bi-link-45deg"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </th:block>
+                            <div class="card-footer p-2">
+                                <div class="d-flex gap-1 justify-content-center">
+                                    <a th:href="@{'/uploads/' + ${picPath}}" class="btn btn-sm btn-outline-primary" target="_blank" title="View">
+                                        <i class="bi bi-eye-fill"></i>
+                                    </a>
+                                    <a th:href="@{'/uploads/' + ${picPath}}" class="btn btn-sm btn-outline-secondary" download title="Download">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-picture-btn" 
+                                           data-bs-toggle="modal" data-bs-target="#deletePicConfirmModal"
+                                           th:data-picture-path="${picPath}"
+                                           title="Delete">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-warning move-picture-btn" 
+                                            data-bs-toggle="modal" data-bs-target="#movePictureModal"
+                                            th:data-picture-path="${picPath}"
+                                            title="Move to another tool">
+                                        <i class="bi bi-arrow-right-square-fill"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-info link-picture-btn" 
+                                            data-bs-toggle="modal" data-bs-target="#unifiedLinkFileModal"
+                                            th:data-file-path="${picPath}"
+                                            data-file-type="picture"
+                                            data-source-entity-type="TOOL"
+                                            th:data-source-entity-id="${tool.id}"
+                                            title="Link">
+                                        <i class="bi bi-link-45deg"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -776,8 +747,6 @@
     </div>
     <!-- End New Drag-and-Drop File Upload Section -->
     
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
     <!-- Move Document Modal -->
     <div class="modal fade" id="moveDocumentModal" tabindex="-1" aria-labelledby="moveDocumentModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -859,7 +828,7 @@
             document.querySelectorAll('.move-document-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const docPath = this.getAttribute('data-document-path');
-                    const docName = this.getAttribute('data-document-name');
+                    const docName = docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath;
                     document.getElementById('documentPathInput').value = docPath;
                     document.getElementById('documentNameDisplay').textContent = docName;
                 });
@@ -869,7 +838,7 @@
             document.querySelectorAll('.move-picture-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const picPath = this.getAttribute('data-picture-path');
-                    const picName = this.getAttribute('data-picture-name');
+                    const picName = picPath.contains('/') ? picPath.substring(picPath.lastIndexOf('/') + 1) : picPath;
                     document.getElementById('picturePathInput').value = picPath;
                     document.getElementById('pictureNameDisplay').textContent = picName;
                 });
@@ -879,7 +848,7 @@
             document.querySelectorAll('.delete-file-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const docPath = this.getAttribute('data-document-path');
-                    const docName = this.getAttribute('data-document-name');
+                    const docName = docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath;
                     document.getElementById('docPathToDelete').value = docPath;
                     document.getElementById('docNameToDelete').textContent = docName;
                 });
@@ -889,7 +858,7 @@
             document.querySelectorAll('.delete-picture-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const picPath = this.getAttribute('data-picture-path');
-                    const picName = this.getAttribute('data-picture-name');
+                    const picName = picPath.contains('/') ? picPath.substring(picPath.lastIndexOf('/') + 1) : picPath;
                     document.getElementById('picPathToDelete').value = picPath;
                     document.getElementById('picNameToDelete').textContent = picName;
                 });
@@ -898,8 +867,8 @@
             // Link document button handlers
             document.querySelectorAll('.link-document-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    const docPath = this.getAttribute('data-document-path');
-                    const docName = this.getAttribute('data-document-name');
+                    const docPath = this.getAttribute('data-file-path');
+                    const docName = docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath;
                     document.getElementById('docPathToLink').value = docPath;
                     document.getElementById('docNameToLink').textContent = docName;
                 });
@@ -908,8 +877,8 @@
             // Link picture button handlers
             document.querySelectorAll('.link-picture-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    const picPath = this.getAttribute('data-picture-path');
-                    const picName = this.getAttribute('data-picture-name');
+                    const picPath = this.getAttribute('data-file-path');
+                    const picName = picPath.contains('/') ? picPath.substring(picPath.lastIndexOf('/') + 1) : picPath;
                     document.getElementById('picPathToLink').value = picPath;
                     document.getElementById('picNameToLink').textContent = picName;
                 });
@@ -1134,9 +1103,6 @@
                     const toToolId = this.getAttribute('data-to-tool-id');
                     const destinationChain = this.getAttribute('data-destination-chain') || '';
                     const notes = this.getAttribute('data-notes') || '';
-                    const serialNumber = this.getAttribute('data-serial-number') || '';
-                    const partNumber = this.getAttribute('data-part-number') || '';
-                    const quantity = this.getAttribute('data-quantity') || '';
                     
                     // Update form action URL
                     const form = document.getElementById('editMovingPartForm');
@@ -1146,9 +1112,6 @@
                     document.getElementById('editMovingPartId').value = id;
                     document.getElementById('editPartName').value = partName;
                     document.getElementById('editFromToolId').value = fromToolId;
-                    document.getElementById('editSerialNumber').value = serialNumber;
-                    document.getElementById('editPartNumber').value = partNumber;
-                    document.getElementById('editQuantity').value = quantity;
                     document.getElementById('editNotes').value = notes;
                     
                     // Clear existing destination rows
@@ -1719,18 +1682,6 @@
                             <input type="text" class="form-control" id="partName" name="partName" required>
                         </div>
                         <div class="mb-3">
-                            <label for="serialNumber" class="form-label">Serial Number:</label>
-                            <input type="text" class="form-control" id="serialNumber" name="serialNumber">
-                        </div>
-                        <div class="mb-3">
-                            <label for="partNumber" class="form-label">Part Number:</label>
-                            <input type="text" class="form-control" id="partNumber" name="partNumber">
-                        </div>
-                        <div class="mb-3">
-                            <label for="quantity" class="form-label">Quantity:</label>
-                            <input type="number" class="form-control" id="quantity" name="quantity" min="1">
-                        </div>
-                        <div class="mb-3">
                             <label class="form-label">Movement:</label>
                             <div class="d-flex align-items-center mb-2">
                                 <strong class="me-2">From:</strong>
@@ -1852,18 +1803,6 @@
                         <div class="mb-3">
                             <label for="editPartName" class="form-label">Part Name:</label>
                             <input type="text" class="form-control" id="editPartName" name="partName" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="editSerialNumber" class="form-label">Serial Number:</label>
-                            <input type="text" class="form-control" id="editSerialNumber" name="serialNumber">
-                        </div>
-                        <div class="mb-3">
-                            <label for="editPartNumber" class="form-label">Part Number:</label>
-                            <input type="text" class="form-control" id="editPartNumber" name="partNumber">
-                        </div>
-                        <div class="mb-3">
-                            <label for="editQuantity" class="form-label">Quantity:</label>
-                            <input type="number" class="form-control" id="editQuantity" name="quantity" min="1">
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Movement:</label>
@@ -1994,5 +1933,113 @@
         </div>
     </div>
     <!-- End Unified Link File Modal -->
+
+    <!-- Upload Document Modal -->
+    <div class="modal fade" id="uploadDocumentModal" tabindex="-1" aria-labelledby="uploadDocumentModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form th:action="@{/tools/{id}/upload-documents(id=${tool.id})}" method="post" enctype="multipart/form-data">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="uploadDocumentModalLabel">Upload Documents</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="documentFiles" class="form-label">Select Documents</label>
+                            <input type="file" class="form-control" id="documentFiles" name="files" multiple 
+                                   accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv">
+                            <div class="form-text">Supported formats: PDF, DOC, DOCX, XLS, XLSX, TXT, CSV</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-upload me-1"></i> Upload Documents
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Picture Modal -->
+    <div class="modal fade" id="uploadPictureModal" tabindex="-1" aria-labelledby="uploadPictureModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form th:action="@{/tools/{id}/upload-pictures(id=${tool.id})}" method="post" enctype="multipart/form-data">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="uploadPictureModalLabel">Upload Pictures</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="pictureFiles" class="form-label">Select Pictures</label>
+                            <input type="file" class="form-control" id="pictureFiles" name="files" multiple 
+                                   accept="image/*">
+                            <div class="form-text">Supported formats: JPG, PNG, GIF, BMP, WEBP</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-upload me-1"></i> Upload Pictures
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Debug modal functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Tool details page loaded successfully');
+            
+            // Debug upload button clicks
+            const uploadDocBtn = document.querySelector('[data-bs-target="#uploadDocumentModal"]');
+            const uploadPicBtn = document.querySelector('[data-bs-target="#uploadPictureModal"]');
+            
+            if (uploadDocBtn) {
+                uploadDocBtn.addEventListener('click', function(e) {
+                    console.log('Upload Document button clicked!', e);
+                    console.log('Button attributes:', {
+                        toggle: this.getAttribute('data-bs-toggle'),
+                        target: this.getAttribute('data-bs-target')
+                    });
+                });
+                console.log('Upload Document button found and listener added');
+            } else {
+                console.error('Upload Document button NOT found!');
+            }
+            
+            if (uploadPicBtn) {
+                uploadPicBtn.addEventListener('click', function(e) {
+                    console.log('Upload Picture button clicked!', e);
+                    console.log('Button attributes:', {
+                        toggle: this.getAttribute('data-bs-toggle'),
+                        target: this.getAttribute('data-bs-target')
+                    });
+                });
+                console.log('Upload Picture button found and listener added');
+            } else {
+                console.error('Upload Picture button NOT found!');
+            }
+            
+            // Check if modals exist
+            const docModal = document.getElementById('uploadDocumentModal');
+            const picModal = document.getElementById('uploadPictureModal');
+            
+            console.log('Modal elements:', {
+                documentModal: docModal ? 'found' : 'NOT FOUND',
+                pictureModal: picModal ? 'found' : 'NOT FOUND'
+            });
+            
+            // Check if Bootstrap is loaded
+            console.log('Bootstrap available:', typeof bootstrap !== 'undefined');
+        });
+    </script>
 </body>
 </html> 

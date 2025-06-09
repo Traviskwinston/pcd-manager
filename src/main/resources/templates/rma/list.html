@@ -7,7 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body {
+        .content-area {
             font-size: 0.9rem; /* Slightly smaller base font for compactness */
         }
         .table-compact th, .table-compact td {
@@ -85,15 +85,96 @@
             transform: scale(1.1);
             background-color: #0b5ed7; /* Darker blue on hover */
         }
+        
+        /* Sorting arrows styling */
+        .sortable-header {
+            cursor: pointer;
+            position: relative;
+            user-select: none;
+        }
+        .sort-arrows {
+            margin-left: 5px;
+            display: inline-flex;
+            flex-direction: column;
+            line-height: 0.7;
+        }
+        .sort-up, .sort-down {
+            font-size: 0.8rem;
+            color: #6c757d;
+            transition: color 0.2s;
+        }
+        .sortable-header:hover .sort-up,
+        .sortable-header:hover .sort-down {
+            color: #0d6efd;
+        }
+        .sortable-header.sort-asc .sort-up,
+        .sortable-header.sort-desc .sort-down {
+            color: #0d6efd;
+            font-weight: bold;
+        }
+        
+        /* Status filter dropdown styling */
+        .status-filter-header .dropdown-toggle {
+            border: none;
+            padding: 2px 6px;
+        }
+        .status-filter-header .dropdown-toggle:focus {
+            box-shadow: none;
+        }
+        
+        /* Search highlighting */
+        .search-highlight {
+            background-color: yellow;
+            font-weight: bold;
+        }
+        
+        /* Fixed square status count badges */
+        .status-count-square {
+            width: 28px;
+            height: 20px;
+            min-width: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        
+        /* Status filter item layout */
+        .status-filter-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            min-height: 32px;
+            padding: 4px 0;
+        }
+        
+        .status-filter-left {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+        
+        /* Ensure minimum height for RMA list to prevent cutoff */
+        .rma-table-container {
+            min-height: 600px;
+        }
+        
+        .card-body {
+            min-height: 500px;
+        }
     </style>
 </head>
 <body>
     <div th:replace="~{fragments/navigation :: navbar('rma')}"></div>
 
-    <div class="container-fluid mt-4">
+    <div class="container mt-4 content-area">
         <div class="row mb-3 align-items-center">
             <div class="col">
-                <h1 class="display-5">RMA List</h1>
+                <h1>RMA List</h1>
             </div>
             <div class="col text-end">
                 <a th:href="@{/rma/new}" class="btn btn-primary btn-sm">
@@ -103,32 +184,186 @@
         </div>
 
         <div class="card">
-            <div class="card-header">
-                <h4>Manage RMAs</h4>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">Manage RMAs</h4>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="input-group" style="width: 300px;">
+                        <span class="input-group-text">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" id="rmaSearchInput" class="form-control" placeholder="Search by Tool, Parts, or Part Number...">
+                        <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="card-body">
-                <div class="table-responsive">
+                <div class="table-responsive rma-table-container">
                     <table class="table table-hover table-compact">
                         <thead>
                             <tr>
-                                <th style="width: 10%;">Tool</th>
+                                <th style="width: 10%;" class="sortable-header" data-sort="tool">
+                                    Tool
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </th>
                                 <th style="width: 5%;">Parts</th>
-                                <th style="width: 10%;">RMA Number</th>
-                                <th style="width: 15%;">Status</th>
-                                <th style="width: 7%;">Written</th>
-                                <th style="width: 7%;">RMA #<br>Provided</th>
-                                <th style="width: 7%;">Shipping<br>Memo</th>
-                                <th style="width: 6%;">Parts<br>Received</th>
-                                <th style="width: 6%;">Parts<br>Installed</th>
-                                <th style="width: 6%;">Failed Parts<br>Ready</th>
-                                <th style="width: 6%;">Failed Parts<br>Shipped</th>
+                                <th style="width: 10%;" class="sortable-header" data-sort="rma-number">
+                                    RMA Number
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </th>
+                                <th style="width: 15%;" class="status-filter-header">
+                                    Status
+                                    <div class="dropdown d-inline-block ms-1">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-funnel"></i>
+                                        </button>
+                                        <ul class="dropdown-menu p-2" aria-labelledby="statusFilterDropdown" style="min-width: 280px;">
+                                            <li class="dropdown-item-text">
+                                                <small class="text-muted">Filter by Status:</small>
+                                                <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="showAllStatuses">Show All</button>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li class="dropdown-item-text">
+                                                <div class="status-filter-item">
+                                                    <div class="status-filter-left">
+                                                        <span class="badge bg-primary status-count-square status-count" data-status="RMA_WRITTEN_EMAILED">0</span>
+                                                        <span>RMA Written - Emailed</span>
+                                                    </div>
+                                                    <input class="form-check-input status-filter" type="checkbox" value="RMA_WRITTEN_EMAILED" id="status-RMA_WRITTEN_EMAILED" checked>
+                                                </div>
+                                            </li>
+                                            <li class="dropdown-item-text">
+                                                <div class="status-filter-item">
+                                                    <div class="status-filter-left">
+                                                        <span class="badge bg-info status-count-square status-count" data-status="NUMBER_PROVIDED">0</span>
+                                                        <span>RMA Number Provided</span>
+                                                    </div>
+                                                    <input class="form-check-input status-filter" type="checkbox" value="NUMBER_PROVIDED" id="status-NUMBER_PROVIDED" checked>
+                                                </div>
+                                            </li>
+                                            <li class="dropdown-item-text">
+                                                <div class="status-filter-item">
+                                                    <div class="status-filter-left">
+                                                        <span class="badge bg-secondary status-count-square status-count" data-status="MEMO_EMAILED">0</span>
+                                                        <span>Shipping Memo Emailed</span>
+                                                    </div>
+                                                    <input class="form-check-input status-filter" type="checkbox" value="MEMO_EMAILED" id="status-MEMO_EMAILED" checked>
+                                                </div>
+                                            </li>
+                                            <li class="dropdown-item-text">
+                                                <div class="status-filter-item">
+                                                    <div class="status-filter-left">
+                                                        <span class="badge bg-warning text-dark status-count-square status-count" data-status="RECEIVED_PARTS">0</span>
+                                                        <span>Received Parts</span>
+                                                    </div>
+                                                    <input class="form-check-input status-filter" type="checkbox" value="RECEIVED_PARTS" id="status-RECEIVED_PARTS" checked>
+                                                </div>
+                                            </li>
+                                            <li class="dropdown-item-text">
+                                                <div class="status-filter-item">
+                                                    <div class="status-filter-left">
+                                                        <span class="badge bg-danger status-count-square status-count" data-status="WAITING_CUSTOMER">0</span>
+                                                        <span>Waiting on Customer</span>
+                                                    </div>
+                                                    <input class="form-check-input status-filter" type="checkbox" value="WAITING_CUSTOMER" id="status-WAITING_CUSTOMER" checked>
+                                                </div>
+                                            </li>
+                                            <li class="dropdown-item-text">
+                                                <div class="status-filter-item">
+                                                    <div class="status-filter-left">
+                                                        <span class="badge bg-danger status-count-square status-count" data-status="WAITING_FSE">0</span>
+                                                        <span>Waiting on FSE</span>
+                                                    </div>
+                                                    <input class="form-check-input status-filter" type="checkbox" value="WAITING_FSE" id="status-WAITING_FSE" checked>
+                                                </div>
+                                            </li>
+                                            <li class="dropdown-item-text">
+                                                <div class="status-filter-item">
+                                                    <div class="status-filter-left">
+                                                        <span class="badge bg-success status-count-square status-count" data-status="COMPLETED">0</span>
+                                                        <span>Completed</span>
+                                                    </div>
+                                                    <input class="form-check-input status-filter" type="checkbox" value="COMPLETED" id="status-COMPLETED" checked>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </th>
+                                <th style="width: 7%;" class="sortable-header" data-sort="written-date">
+                                    Written
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </th>
+                                <th style="width: 7%;" class="sortable-header" data-sort="rma-provided-date">
+                                    RMA #<br>Provided
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </th>
+                                <th style="width: 7%;" class="sortable-header" data-sort="shipping-memo-date">
+                                    Shipping<br>Memo
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </th>
+                                <th style="width: 6%;" class="sortable-header" data-sort="parts-received-date">
+                                    Parts<br>Received
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </th>
+                                <th style="width: 6%;" class="sortable-header" data-sort="parts-installed-date">
+                                    Parts<br>Installed
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </th>
+                                <th style="width: 6%;" class="sortable-header" data-sort="failed-parts-ready-date">
+                                    Failed Parts<br>Ready
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </th>
+                                <th style="width: 6%;" class="sortable-header" data-sort="failed-parts-shipped-date">
+                                    Failed Parts<br>Shipped
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </th>
                                 <th style="width: 7%;">Moving Parts</th>
                                 <th style="width: 7%;">Comments</th>
                                 <th style="width: 3%;"></th> <!-- View Action -->
                             </tr>
                         </thead>
                         <tbody>
-                            <tr th:each="rma : ${rmas}" th:object="${rma}">
+                            <tr th:each="rma : ${rmas}" th:object="${rma}" class="rma-row"
+                                th:attr="data-tool=*{tool != null ? tool.name : ''},
+                                         data-parts=${#strings.listJoin(rma.partLineItems.![partName ?: partNumber ?: productDescription], ' ')},
+                                         data-part-numbers=${#strings.listJoin(rma.partLineItems.![partNumber], ' ')},
+                                         data-rma-number=*{rmaNumber ?: sapNotificationNumber ?: ''},
+                                         data-status=*{status != null ? status.name() : ''},
+                                         data-written-date=*{writtenDate != null ? #temporals.format(writtenDate, 'yyyy-MM-dd') : ''},
+                                         data-rma-provided-date=*{rmaNumberProvidedDate != null ? #temporals.format(rmaNumberProvidedDate, 'yyyy-MM-dd') : ''},
+                                         data-shipping-memo-date=*{shippingMemoEmailedDate != null ? #temporals.format(shippingMemoEmailedDate, 'yyyy-MM-dd') : ''},
+                                         data-parts-received-date=*{partsReceivedDate != null ? #temporals.format(partsReceivedDate, 'yyyy-MM-dd') : ''},
+                                         data-parts-installed-date=*{installedPartsDate != null ? #temporals.format(installedPartsDate, 'yyyy-MM-dd') : ''},
+                                         data-failed-parts-ready-date=*{failedPartsPackedDate != null ? #temporals.format(failedPartsPackedDate, 'yyyy-MM-dd') : ''},
+                                         data-failed-parts-shipped-date=*{failedPartsShippedDate != null ? #temporals.format(failedPartsShippedDate, 'yyyy-MM-dd') : ''}">
                                 <!-- Tool -->
                                 <td>
                                     <a th:if="*{tool != null}" th:href="@{/tools/{id}(id=*{tool.id})}" th:text="*{tool.name}" class="text-decoration-hover-underline"></a>
@@ -161,13 +396,13 @@
                                        data-bs-placement="right"
                                        data-bs-trigger="hover focus click"
                                        data-bs-html="true"
-                                       th:attr="data-bs-title='Problem Details for ' + (*{rmaNumber} != null ? *{rmaNumber} : 'N/A'),
-                                                data-bs-content='<strong>Who:</strong> ' + (*{problemDiscoverer} ?: 'N/A') + '<br>' +
-                                                                '<strong>When:</strong> ' + (*{problemDiscoveryDate != null ? #temporals.format(problemDiscoveryDate, 'MM/dd/yy') : 'N/A'}) + '<br>' +
-                                                                '<strong>What:</strong> ' + (*{whatHappened} ?: 'N/A') + '<br>' +
-                                                                '<strong>Why:</strong> ' + (*{whyAndHowItHappened} ?: 'N/A') + '<br>' +
-                                                                '<strong>How:</strong> ' + (*{howContained} ?: 'N/A') + '<br>' +
-                                                                '<strong>By:</strong> ' + (*{whoContained} ?: 'N/A')"></i>
+                                       th:attr="data-bs-title='Problem Details for ' + (*{rmaNumber} != null ? *{rmaNumber} : '-'),
+                                                data-bs-content='<strong>Who:</strong> ' + (*{problemDiscoverer} ?: '-') + '<br>' +
+                                                                '<strong>When:</strong> ' + (*{problemDiscoveryDate != null ? #temporals.format(problemDiscoveryDate, 'MM/dd/yy') : '-'}) + '<br>' +
+                                                                '<strong>What:</strong> ' + (*{whatHappened} ?: '-') + '<br>' +
+                                                                '<strong>Why:</strong> ' + (*{whyAndHowItHappened} ?: '-') + '<br>' +
+                                                                '<strong>How:</strong> ' + (*{howContained} ?: '-') + '<br>' +
+                                                                '<strong>By:</strong> ' + (*{whoContained} ?: '-')"></i>
                                 </td>
                                 <!-- Status -->
                                 <td class="text-center">
@@ -184,19 +419,19 @@
                                     <span th:if="*{status == null}" class="badge rounded-pill bg-light text-dark status-badge">N/A</span>
                                 </td>
                                 <!-- Written Date -->
-                                <td th:text="*{writtenDate != null ? #temporals.format(writtenDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <td th:text="*{writtenDate != null ? #temporals.format(writtenDate, 'MM/dd/yy') : '-'}"></td>
                                 <!-- RMA # Provided Date -->
-                                <td th:text="*{rmaNumberProvidedDate != null ? #temporals.format(rmaNumberProvidedDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <td th:text="*{rmaNumberProvidedDate != null ? #temporals.format(rmaNumberProvidedDate, 'MM/dd/yy') : '-'}"></td>
                                 <!-- Shipping Memo Emailed Date -->
-                                <td th:text="*{shippingMemoEmailedDate != null ? #temporals.format(shippingMemoEmailedDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <td th:text="*{shippingMemoEmailedDate != null ? #temporals.format(shippingMemoEmailedDate, 'MM/dd/yy') : '-'}"></td>
                                 <!-- Parts Received Date -->
-                                <td th:text="*{partsReceivedDate != null ? #temporals.format(partsReceivedDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <td th:text="*{partsReceivedDate != null ? #temporals.format(partsReceivedDate, 'MM/dd/yy') : '-'}"></td>
                                 <!-- Parts Installed Date -->
-                                <td th:text="*{installedPartsDate != null ? #temporals.format(installedPartsDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <td th:text="*{installedPartsDate != null ? #temporals.format(installedPartsDate, 'MM/dd/yy') : '-'}"></td>
                                 <!-- Failed Parts Packed Date (as Failed Parts Ready) -->
-                                <td th:text="*{failedPartsPackedDate != null ? #temporals.format(failedPartsPackedDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <td th:text="*{failedPartsPackedDate != null ? #temporals.format(failedPartsPackedDate, 'MM/dd/yy') : '-'}"></td>
                                 <!-- Failed Parts Shipped Date -->
-                                <td th:text="*{failedPartsShippedDate != null ? #temporals.format(failedPartsShippedDate, 'MM/dd/yy') : 'N/A'}"></td>
+                                <td th:text="*{failedPartsShippedDate != null ? #temporals.format(failedPartsShippedDate, 'MM/dd/yy') : '-'}"></td>
                                 
                                 <!-- Moving Parts -->
                                 <td class="text-center">
@@ -273,7 +508,7 @@
                 fallbackPlacements: ['left', 'top', 'bottom'],
                 container: 'body' // Added to help with potential positioning/event issues
             });
-                });
+        });
                 
         // Close popovers when clicking outside
         document.addEventListener('click', function (event) {
@@ -286,18 +521,201 @@
                 var isClickInsidePopover = popoverElement ? popoverElement.contains(event.target) : false;
             
                 // Hide popover if clicking outside both trigger and popover content
-                // This works for all trigger types including "hover focus click"
                 if (!isClickInsideTrigger && !isClickInsidePopover) {
                     popover.hide();
                 }
             });
         });
-                
-        // REMOVE custom tooltip JavaScript functions as they are no longer used.
-        // function showRmaTooltip(element, id, type) { ... }
-        // function hideRmaTooltip(element) { ... }
-        // function toggleRmaTooltipPin(element, id, type) { ... }
 
+        // RMA Management functionality
+        class RMAManager {
+            constructor() {
+                this.currentSort = null;
+                this.sortDirection = 'asc';
+                this.currentSearch = '';
+                this.visibleStatuses = new Set(['RMA_WRITTEN_EMAILED', 'NUMBER_PROVIDED', 'MEMO_EMAILED', 'RECEIVED_PARTS', 'WAITING_CUSTOMER', 'WAITING_FSE', 'COMPLETED']);
+                this.totalStatusCounts = {}; // Track total counts across all RMAs
+                
+                this.init();
+                this.calculateTotalStatusCounts();
+                this.updateStatusCounts();
+            }
+
+            init() {
+                // Search functionality
+                const searchInput = document.getElementById('rmaSearchInput');
+                const clearSearchButton = document.getElementById('clearSearch');
+                
+                searchInput.addEventListener('input', (e) => {
+                    this.currentSearch = e.target.value.toLowerCase();
+                    this.filterTable();
+                });
+                
+                clearSearchButton.addEventListener('click', () => {
+                    searchInput.value = '';
+                    this.currentSearch = '';
+                    this.filterTable();
+                });
+
+                // Sorting functionality
+                document.querySelectorAll('.sortable-header').forEach(header => {
+                    header.addEventListener('click', () => {
+                        const sortType = header.getAttribute('data-sort');
+                        this.handleSort(sortType, header);
+                    });
+                });
+
+                // Status filtering
+                document.querySelectorAll('.status-filter').forEach(checkbox => {
+                    checkbox.addEventListener('change', (e) => {
+                        const status = e.target.value;
+                        if (e.target.checked) {
+                            this.visibleStatuses.add(status);
+                        } else {
+                            // Prevent unchecking all statuses (keep at least one visible)
+                            if (this.visibleStatuses.size === 1) {
+                                e.preventDefault();
+                                e.target.checked = true;
+                                return;
+                            }
+                            this.visibleStatuses.delete(status);
+                        }
+                        this.filterTable();
+                    });
+                });
+
+                // Show All button
+                const showAllButton = document.getElementById('showAllStatuses');
+                if (showAllButton) {
+                    showAllButton.addEventListener('click', () => {
+                        // Check all checkboxes
+                        document.querySelectorAll('.status-filter').forEach(checkbox => {
+                            checkbox.checked = true;
+                            this.visibleStatuses.add(checkbox.value);
+                        });
+                        this.filterTable();
+                    });
+                }
+            }
+
+            handleSort(sortType, header) {
+                // Remove sort classes from all headers
+                document.querySelectorAll('.sortable-header').forEach(h => {
+                    h.classList.remove('sort-asc', 'sort-desc');
+                });
+
+                // Determine sort direction
+                if (this.currentSort === sortType) {
+                    this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.sortDirection = 'asc';
+                }
+                
+                this.currentSort = sortType;
+                header.classList.add(this.sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+
+                this.sortTable(sortType, this.sortDirection);
+            }
+
+            sortTable(sortType, direction) {
+                const tbody = document.querySelector('tbody');
+                const rows = Array.from(document.querySelectorAll('.rma-row'));
+
+                rows.sort((a, b) => {
+                    let aVal, bVal;
+
+                    switch (sortType) {
+                        case 'tool':
+                            aVal = a.getAttribute('data-tool') || '';
+                            bVal = b.getAttribute('data-tool') || '';
+                            break;
+                        case 'rma-number':
+                            aVal = a.getAttribute('data-rma-number') || '';
+                            bVal = b.getAttribute('data-rma-number') || '';
+                            break;
+                        case 'written-date':
+                        case 'rma-provided-date':
+                        case 'shipping-memo-date':
+                        case 'parts-received-date':
+                        case 'parts-installed-date':
+                        case 'failed-parts-ready-date':
+                        case 'failed-parts-shipped-date':
+                            aVal = a.getAttribute(`data-${sortType}`) || '';
+                            bVal = b.getAttribute(`data-${sortType}`) || '';
+                            // Convert to date for comparison, empty dates go to end
+                            aVal = aVal ? new Date(aVal) : new Date('9999-12-31');
+                            bVal = bVal ? new Date(bVal) : new Date('9999-12-31');
+                            break;
+                        default:
+                            return 0;
+                    }
+
+                    if (typeof aVal === 'string' && typeof bVal === 'string') {
+                        return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                    } else {
+                        return direction === 'asc' ? aVal - bVal : bVal - aVal;
+                    }
+                });
+
+                // Clear and re-append sorted rows
+                tbody.innerHTML = '';
+                rows.forEach(row => tbody.appendChild(row));
+            }
+
+            filterTable() {
+                const rows = document.querySelectorAll('.rma-row');
+                
+                rows.forEach(row => {
+                    const tool = row.getAttribute('data-tool').toLowerCase();
+                    const parts = row.getAttribute('data-parts').toLowerCase();
+                    const partNumbers = row.getAttribute('data-part-numbers').toLowerCase();
+                    const rmaNumber = row.getAttribute('data-rma-number').toLowerCase();
+                    const status = row.getAttribute('data-status');
+
+                    // Check search criteria
+                    const matchesSearch = !this.currentSearch || 
+                        tool.includes(this.currentSearch) || 
+                        parts.includes(this.currentSearch) || 
+                        partNumbers.includes(this.currentSearch) ||
+                        rmaNumber.includes(this.currentSearch);
+
+                    // Check status filter
+                    const matchesStatus = this.visibleStatuses.has(status);
+
+                    if (matchesSearch && matchesStatus) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                this.updateStatusCounts();
+            }
+
+            calculateTotalStatusCounts() {
+                // Count all RMAs by status (regardless of filters)
+                document.querySelectorAll('.rma-row').forEach(row => {
+                    const status = row.getAttribute('data-status');
+                    if (status) {
+                        this.totalStatusCounts[status] = (this.totalStatusCounts[status] || 0) + 1;
+                    }
+                });
+            }
+
+            updateStatusCounts() {
+                // Always show total counts, not filtered counts
+                // This ensures counts don't disappear when everything is unchecked
+                document.querySelectorAll('.status-count').forEach(badge => {
+                    const status = badge.getAttribute('data-status');
+                    badge.textContent = this.totalStatusCounts[status] || 0;
+                });
+            }
+        }
+
+        // Initialize RMA Manager when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            new RMAManager();
+        });
     </script>
 </body>
 </html> 

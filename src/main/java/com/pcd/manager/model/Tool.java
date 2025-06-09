@@ -200,7 +200,18 @@ public class Tool {
     private Set<TrackTrend> trackTrends = new HashSet<>();
 
     public enum ToolType {
-        CHEMBLEND, SLURRY
+        CHEMBLEND("ChemBlend"),
+        SLURRY("Slurry");
+        
+        private final String displayName;
+        
+        ToolType(String displayName) {
+            this.displayName = displayName;
+        }
+        
+        public String getDisplayName() {
+            return displayName;
+        }
     }
     
     public enum ToolStatus {

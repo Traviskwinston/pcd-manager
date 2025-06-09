@@ -6,6 +6,7 @@
     <title>PCD Manager - RMA Details</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         /* Comment styles */
         .comment {
@@ -56,6 +57,49 @@
         .cursor-pointer {
             cursor: pointer;
         }
+        /* Styles for Excel Preview Modal Table */
+        #excelPreviewContent table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem; /* Smaller font for more content visibility */
+            margin-bottom: 1rem; /* Add some space below the table */
+        }
+        #excelPreviewContent th,
+        #excelPreviewContent td {
+            border: 1px solid #ccc; /* Slightly lighter border */
+            padding: 0.5rem 0.6rem; /* Slightly increased padding */
+            text-align: left;
+            vertical-align: top;
+            word-wrap: break-word; /* Ensure long words don't break layout */
+        }
+        /* Header Row Styling (for thead th or first row td) */
+        #excelPreviewContent thead th,
+        #excelPreviewContent tbody tr:first-child td {
+            background-color: #4a708b; /* A slate blue color */
+            color: white;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        /* First column styling - for label-like cells */
+        #excelPreviewContent tbody td:first-child {
+            background-color: #f8f9fa; /* Light grey, similar to bootstrap's table-light */
+            font-weight: 500; /* Slightly bolder for labels */
+        }
+        /* Zebra striping - ensure it doesn't override first column if first col is also even */
+        #excelPreviewContent tbody tr:nth-child(even) td {
+            background-color: #f9f9f9;
+        }
+        #excelPreviewContent tbody tr:nth-child(even) td:first-child {
+            background-color: #f0f2f4; /* A slightly different shade for even row, first column */
+        }
+        /* Override for first row if it's styled as header, to avoid first-child td conflict */
+        #excelPreviewContent tbody tr:first-child td:first-child {
+            background-color: #4a708b; /* Match header color */
+            color: white;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -86,172 +130,294 @@
             <div class="card-header">
                 <div class="row">
                     <div class="col-md-12">
-                        <!-- View Mode for Header -->
-                        <div id="header-view-mode">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h4 class="mb-0">
-                                    <span>RMA/SAP #: </span>
-                                    <span th:if="${rma.rmaNumber != null && !rma.rmaNumber.empty}" th:text="${rma.rmaNumber}">RMA Number</span>
-                                    <span th:if="${rma.rmaNumber != null && !rma.rmaNumber.empty && rma.sapNotificationNumber != null && !rma.sapNotificationNumber.empty}">
-                                        / 
-                                    </span>
-                                    <span th:if="${rma.sapNotificationNumber != null && !rma.sapNotificationNumber.empty}" th:text="${rma.sapNotificationNumber}">SAP Number</span>
-                                    <span th:if="${(rma.rmaNumber == null || rma.rmaNumber.empty) && (rma.sapNotificationNumber == null || rma.sapNotificationNumber.empty)}">
-                                        N/A
-                                    </span>
-                                    
-                                    <!-- Tool information next to RMA number -->
-                                    <span class="ms-3" th:if="${rma.tool != null}">
-                                        <i class="bi bi-tools me-1"></i>
-                                        <a th:href="@{/tools/{id}(id=${rma.tool?.id})}" class="text-decoration-none">
-                                            <span th:text="${rma.tool?.name}" class="text-primary"></span>
-                                            <span th:if="${rma.tool?.secondaryName != null}" th:text="${' (' + rma.tool.secondaryName + ')'}" class="text-muted small"></span>
-                                            <span class="ms-1 badge bg-secondary" th:text="${rma.tool?.toolType}">Tool Type</span>
-                                        </a>
-                                    </span>
-                                    <span class="ms-3 text-muted" th:unless="${rma.tool != null}">
-                                        <i class="bi bi-tools me-1"></i> No Tool selected
-                                    </span>
-                                </h4>
-                                
-                                <!-- Header Edit Buttons -->
-                                <div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary edit-section-btn me-2" data-section="header">
-                                        <i class="bi bi-pencil"></i> Edit
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-success save-section-btn d-none me-2" data-section="header">
-                                        <i class="bi bi-check-lg"></i> Save
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-secondary cancel-section-btn d-none me-2" data-section="header">
-                                        <i class="bi bi-x-lg"></i> Cancel
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Status and Priority in view mode -->
-                            <div class="d-flex align-items-center flex-wrap">
-                                <!-- Status moved next to Tool with bigger display -->
-                                <span class="me-4">
-                                    <!-- View Mode for Status -->
-                                    <span id="status-view-mode" th:if="${rma.status != null}" th:class="${'badge rounded-pill fs-6 cursor-pointer ' + 
-                                    (rma.status.name() == 'RMA_WRITTEN_EMAILED' ? 'bg-primary' : 
-                                    (rma.status.name() == 'NUMBER_PROVIDED' ? 'bg-info' : 
-                                    (rma.status.name() == 'MEMO_EMAILED' ? 'bg-secondary' :
-                                    (rma.status.name() == 'RECEIVED_PARTS' ? 'bg-warning' : 
-                                    (rma.status.name() == 'WAITING_CUSTOMER' ? 'bg-danger' : 
-                                    (rma.status.name() == 'WAITING_FSE' ? 'bg-danger' : 
-                                    (rma.status.name() == 'COMPLETED' ? 'bg-success' : 'bg-light')))))))}"
-                                    onclick="enterStatusEditMode()"
-                                    title="Click to change status">
-                                    <span th:text="${rma.status?.displayName}">Status</span>
-                                    <i class="bi bi-chevron-down ms-1"></i>
-                                </span>
-                                
-                                <!-- Edit Mode for Status -->
-                                <span id="status-edit-mode" class="d-none">
-                                    <select id="status-select" class="form-select form-select-sm d-inline-block" style="width: auto;">
-                                        <option th:each="statusOption : ${T(com.pcd.manager.model.RmaStatus).values()}"
-                                                th:value="${statusOption}"
-                                                th:text="${statusOption.displayName}"
-                                                th:selected="${statusOption == rma.status}"></option>
-                                    </select>
-                                    <button type="button" class="btn btn-sm btn-success ms-1" onclick="saveStatus()">
-                                        <i class="bi bi-check-lg"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-secondary ms-1" onclick="cancelStatusEdit()">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                </span>
-                                </span>
-                                
-                                <span th:if="${rma.priority != null}" th:class="${'badge rounded-pill fs-6 ' + 
-                                (rma.priority == 'LOW' ? 'bg-info' : 
-                                (rma.priority == 'MEDIUM' ? 'bg-warning' : 
-                                (rma.priority == 'HIGH' ? 'bg-danger' : 
-                                (rma.priority == 'URGENT' ? 'bg-danger text-uppercase' : 'bg-light'))))}"
-                                th:text="${rma.priority}">
-                                Priority
-                            </span>
-                            </div>
-                        </div>
-                        
-                        <!-- Edit Mode for Header -->
-                        <div id="header-edit-mode" class="d-none">
-                            <form id="header-edit-form">
-                                <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <div class="flex-grow-1 me-3">
-                                        <div class="row mb-3">
-                                            <div class="col-md-3">
-                                                <label class="form-label fw-bold">RMA Number:</label>
-                                                <input type="text" class="form-control" name="rmaNumber" th:value="${rma.rmaNumber}" placeholder="Enter RMA number">
+                        <div class="d-flex justify-content-between align-items-start"> <!-- Outer flex -->
+                            <div class="flex-grow-1 me-3"> <!-- Content block -->
+                                <!-- View Mode for Header -->
+                                <div id="header-view-mode">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <!-- Left Side: RMA/SAP Info -->
+                                        <div>
+                                            <h4 class="mb-0">
+                                                <span>RMA/SAP #: </span>
+                                                <span id="viewRmaNumber" th:if="${rma.rmaNumber != null && !rma.rmaNumber.empty}" th:text="${rma.rmaNumber}">RMA Number</span>
+                                                <span id="viewRmaSapSeparator" th:if="${rma.rmaNumber != null && !rma.rmaNumber.empty && rma.sapNotificationNumber != null && !rma.sapNotificationNumber.empty}"> / </span>
+                                                <span id="viewSapNumber" th:if="${rma.sapNotificationNumber != null && !rma.sapNotificationNumber.empty}" th:text="${rma.sapNotificationNumber}">SAP Number</span>
+                                                <span id="viewRmaSapNa" th:if="${(rma.rmaNumber == null || rma.rmaNumber.empty) && (rma.sapNotificationNumber == null || rma.sapNotificationNumber.empty)}">N/A</span>
+                                            </h4>
+                                            <!-- Service Order Display -->
+                                            <div th:if="${rma.serviceOrder != null && !rma.serviceOrder.empty}" class="small text-muted">
+                                                Service Order #: <span id="viewServiceOrder" th:text="${rma.serviceOrder}"></span>
                                             </div>
-                                            <div class="col-md-3">
-                                                <label class="form-label fw-bold">SAP Number:</label>
-                                                <input type="text" class="form-control" name="sapNotificationNumber" th:value="${rma.sapNotificationNumber}" placeholder="Enter SAP number">
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-bold">Tool:</label>
-                                                <select class="form-select" name="toolId">
-                                                    <option value="">-- Select Tool --</option>
-                                                    <option th:each="toolOption : ${allTools}"
-                                                            th:value="${toolOption.id}" 
-                                                            th:text="${toolOption.name + (toolOption.secondaryName != null ? ' (' + toolOption.secondaryName + ')' : '') + ' - ' + toolOption.toolType}"
-                                                            th:selected="${toolOption != null && rma.tool != null && toolOption.id == rma.tool.id}">
-                                                        Tool Name
-                                                    </option>
-                                                </select>
+                                            <!-- Additional Info Display -->
+                                            <div class="small text-muted mt-1" 
+                                                 th:if="${rma.reasonForRequest != null || rma.dssProductLine != null || rma.systemDescription != null}">
+                                                <span th:if="${rma.reasonForRequest != null}">
+                                                    <span id="viewReasonForRequest" th:text="${rma.reasonForRequest.displayName ?: rma.reasonForRequest}"></span>
+                                                </span>
+                                                <span class="viewReasonDssSeparator" th:if="${rma.reasonForRequest != null && (rma.dssProductLine != null || rma.systemDescription != null)}"> | </span>
+                                                <span th:if="${rma.dssProductLine != null}">
+                                                    <span id="viewDssProductLine" th:text="${rma.dssProductLine.displayName ?: rma.dssProductLine}"></span>
+                                                </span>
+                                                <span class="viewDssSystemSeparator" th:if="${rma.dssProductLine != null && rma.systemDescription != null}"> | </span>
+                                                <span th:if="${rma.systemDescription != null}">
+                                                    <span id="viewSystemDescription" th:text="${rma.systemDescription.displayName ?: rma.systemDescription}"></span>
+                                                </span>
                                             </div>
                                         </div>
+
+                                        <!-- Status and Priority (Moved Here) -->
+                                        <div class="align-self-start"> <!-- To align with other items if content height varies -->
+                                            <div class="d-flex align-items-center flex-wrap">
+                                                <!-- Status -->
+                                                <span class="me-4">
+                                                    <!-- View Mode for Status -->
+                                                    <span id="status-view-mode" th:if="${rma.status != null}" th:class="${'badge rounded-pill fs-6 cursor-pointer ' + 
+                                                    (rma.status.name() == 'RMA_WRITTEN_EMAILED' ? 'bg-primary' : 
+                                                    (rma.status.name() == 'NUMBER_PROVIDED' ? 'bg-info' : 
+                                                    (rma.status.name() == 'MEMO_EMAILED' ? 'bg-secondary' :
+                                                    (rma.status.name() == 'RECEIVED_PARTS' ? 'bg-warning' : 
+                                                    (rma.status.name() == 'WAITING_CUSTOMER' ? 'bg-danger' : 
+                                                    (rma.status.name() == 'WAITING_FSE' ? 'bg-danger' : 
+                                                    (rma.status.name() == 'COMPLETED' ? 'bg-success' : 'bg-light')))))))}"
+                                                    onclick="enterStatusEditMode()"
+                                                    title="Click to change status">
+                                                    <span th:text="${rma.status?.displayName}">Status</span>
+                                                    <i class="bi bi-chevron-down ms-1"></i>
+                                                </span>
+                                                
+                                                <!-- Edit Mode for Status -->
+                                                <span id="status-edit-mode" class="d-none">
+                                                    <select id="status-select" class="form-select form-select-sm d-inline-block" style="width: auto;">
+                                                        <option th:each="statusOption : ${T(com.pcd.manager.model.RmaStatus).values()}"
+                                                                th:value="${statusOption}"
+                                                                th:text="${statusOption.displayName}"
+                                                                th:selected="${statusOption == rma.status}"></option>
+                                                    </select>
+                                                    <button type="button" class="btn btn-sm btn-success ms-1" onclick="saveStatus()">
+                                                        <i class="bi bi-check-lg"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-secondary ms-1" onclick="cancelStatusEdit()">
+                                                        <i class="bi bi-x-lg"></i>
+                                                    </button>
+                                                </span>
+                                                </span>
+                                                
+                                                <!-- Priority -->
+                                                <span id="priority-view-mode-container" class="cursor-pointer" onclick="enterPriorityEditMode()" title="Click to change priority">
+                                                    <span th:if="${rma.priority != null}" 
+                                                          th:class="${'badge rounded-pill fs-6 border border-secondary-subtle ' + 
+                                                                (rma.priority.name() == 'LOW' ? 'bg-info' : 
+                                                                (rma.priority.name() == 'MEDIUM' ? 'bg-warning text-dark' : 
+                                                                (rma.priority.name() == 'HIGH' ? 'bg-danger' : 
+                                                                (rma.priority.name() == 'URGENT' ? 'bg-danger text-uppercase' : 'bg-light text-dark'))))}"
+                                                          th:text="${rma.priority.displayName ?: rma.priority}">
+                                                        Priority
+                                                    </span>
+                                                    <i class="bi bi-chevron-down ms-1 small"></i>
+                                                </span>
+
+                                                <span id="priority-edit-mode-container" class="d-none">
+                                                    <select id="priority-select" class="form-select form-select-sm d-inline-block" style="width: auto;">
+                                                        <option th:each="priorityOption : ${T(com.pcd.manager.model.RmaPriority).values()}"
+                                                                th:value="${priorityOption}"
+                                                                th:text="${priorityOption.displayName ?: priorityOption}"
+                                                                th:selected="${priorityOption == rma.priority}"></option>
+                                                    </select>
+                                                    <button type="button" class="btn btn-sm btn-success ms-1" onclick="savePriority()">
+                                                        <i class="bi bi-check-lg"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-secondary ms-1" onclick="cancelPriorityEdit()">
+                                                        <i class="bi bi-x-lg"></i>
+                                                    </button>
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Middle-Right: Tool information -->
+                                        <div class="text-center align-self-start">
+                                            <div id="viewToolInfoContainer" th:if="${rma.tool != null}">
+                                                <div> <!-- Main tool line -->
+                                                    <i class="bi bi-tools me-1"></i>
+                                                    <a id="viewToolLink" th:href="@{/tools/{id}(id=${rma.tool?.id})}" class="text-decoration-none">
+                                                        <span id="viewToolName" th:text="${rma.tool?.name}" class="text-primary"></span>
+                                                        <span id="viewToolSecondaryName" th:if="${rma.tool?.secondaryName != null}" th:text="${' (' + rma.tool.secondaryName + ')'}" class="text-muted small"></span>
+                                                        <span id="viewToolTypeBadge" class="ms-1 badge bg-secondary" th:text="${rma.tool?.toolType?.displayName ?: rma.tool?.toolType}">Tool Type</span>
+                                                    </a>
+                                                </div>
+                                                <!-- Additional Tool Details -->
+                                                <div id="viewToolDetails" class="small text-muted" style="font-size: 0.8em; margin-top: 0px; line-height: 1.4;">
+                                                    <span id="viewToolModelContainer" th:if="${rma.tool?.model1}" class="me-2">
+                                                        Model: <strong id="viewToolModel1" th:text="${rma.tool.model1}"></strong>
+                                                        <span id="viewToolModel2Separator" th:if="${rma.tool?.model2}"> / </span>
+                                                        <strong id="viewToolModel2" th:if="${rma.tool?.model2}" th:text="${rma.tool.model2}"></strong>
+                                                    </span>
+                                                    <span id="viewToolSerialContainer" th:if="${rma.tool?.serialNumber1}" class="me-2">
+                                                        <span id="viewToolSerialPipeSeparator" th:if="${rma.tool?.model1}">| </span>Serial: <strong id="viewToolSerialNumber1" th:text="${rma.tool.serialNumber1}"></strong>
+                                                        <span id="viewToolSerial2Separator" th:if="${rma.tool?.serialNumber2}"> / </span>
+                                                        <strong id="viewToolSerialNumber2" th:if="${rma.tool?.serialNumber2}" th:text="${rma.tool.serialNumber2}"></strong>
+                                                    </span>
+                                                    <span id="viewToolServiceContainer" th:if="${rma.tool?.chemicalGasService}">
+                                                        <span id="viewToolServicePipeSeparator" th:if="${rma.tool?.model1 != null || rma.tool?.serialNumber1 != null}">| </span>Service: <strong id="viewToolChemicalGasService" th:text="${rma.tool.chemicalGasService}"></strong>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div id="viewNoToolSelected" th:unless="${rma.tool != null}" class="mt-1">
+                                                <i class="bi bi-tools me-1 text-muted"></i> <span class="text-muted">No Tool selected</span>
+                                            </div>
+                                        </div>
+                                        <!-- Original Right Side: Header Edit Buttons REMOVED from here -->
                                     </div>
                                     
-                                    <!-- Header Edit Buttons -->
-                                    <div class="flex-shrink-0">
-                                        <button type="button" class="btn btn-sm btn-success save-section-btn me-2" data-section="header">
-                                            <i class="bi bi-check-lg"></i> Save
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-secondary cancel-section-btn me-2" data-section="header">
-                                            <i class="bi bi-x-lg"></i> Cancel
-                                        </button>
-                                    </div>
+                                    <!-- Location and Technician REMOVED FROM HERE -->
+                                    
+                                </div> <!-- End header-view-mode -->
+
+                                <!-- Edit Mode for Header -->
+                                <div id="header-edit-mode" class="d-none">
+                                    <form id="header-edit-form">
+                                        <div class="mb-3"> 
+                                            <div class="row mb-2"> 
+                                                <div class="col-md-3">
+                                                    <label class="form-label fw-bold">RMA Number:</label>
+                                                    <input type="text" class="form-control form-control-sm" name="rmaNumber" th:value="${rma.rmaNumber}" placeholder="Enter RMA number">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label fw-bold">SAP Number:</label>
+                                                    <input type="text" class="form-control form-control-sm" name="sapNotificationNumber" th:value="${rma.sapNotificationNumber}" placeholder="Enter SAP number">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label fw-bold">Tool:</label>
+                                                    <select class="form-select form-select-sm" name="toolId">
+                                                        <option value="">-- Select Tool --</option>
+                                                        <option th:each="toolOption : ${allTools}"
+                                                                th:value="${toolOption.id}"
+                                                                th:text="${toolOption.name + (toolOption.secondaryName != null ? ' (' + toolOption.secondaryName + ')' : '') + ' - ' + toolOption.toolType}"
+                                                                th:selected="${rma.tool != null && toolOption.id == rma.tool.id}">
+                                                            Tool Name
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="row"> 
+                                                <div class="col-md-6">
+                                                    <label class="form-label fw-bold">Location:</label>
+                                                    <select class="form-select form-select-sm" name="locationId">
+                                                         <option value="">-- Select Location --</option>
+                                                         <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.displayName}" th:selected="${rma.location != null && loc.id == rma.location.id}"></option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label fw-bold">Technician:</label>
+                                                    <select class="form-select form-select-sm" name="technician">
+                                                        <option value="">-- Unassigned --</option>
+                                                        <option th:each="tech : ${technicians}" th:value="${tech.name}" th:text="${tech.name}" th:selected="${rma.technician != null && tech.name == rma.technician}"></option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="d-flex align-items-center flex-wrap">
+                                            <span class="me-4">
+                                                <span th:if="${rma.status != null}" th:class="${'badge rounded-pill fs-6 ' +
+                                                (rma.status.name() == 'RMA_WRITTEN_EMAILED' ? 'bg-primary' : 
+                                                (rma.status.name() == 'NUMBER_PROVIDED' ? 'bg-info' : 
+                                                (rma.status.name() == 'MEMO_EMAILED' ? 'bg-secondary' :
+                                                (rma.status.name() == 'RECEIVED_PARTS' ? 'bg-warning' : 
+                                                (rma.status.name() == 'WAITING_CUSTOMER' ? 'bg-danger' : 
+                                                (rma.status.name() == 'WAITING_FSE' ? 'bg-danger' : 
+                                                (rma.status.name() == 'COMPLETED' ? 'bg-success' : 'bg-light')))))))}"
+                                                th:text="${rma.status?.displayName}">
+                                                Status
+                                            </span>
+                                            </span>
+                                            
+                                            <span th:if="${rma.priority != null}" th:class="${'badge rounded-pill fs-6 border border-secondary-subtle ' + 
+                                            (rma.priority.name() == 'LOW' ? 'bg-info' : 
+                                            (rma.priority.name() == 'MEDIUM' ? 'bg-warning text-dark' : 
+                                            (rma.priority.name() == 'HIGH' ? 'bg-danger' : 
+                                            (rma.priority.name() == 'URGENT' ? 'bg-danger text-uppercase' : 'bg-light text-dark'))))}"
+                                            th:text="${rma.priority.displayName ?: rma.priority}">
+                                            Priority
+                                        </span>
+                                        </div>
+                                    </form>
                                 </div>
                                 
-                                <!-- Status and Priority in edit mode (read-only display) -->
-                                <div class="d-flex align-items-center flex-wrap">
-                                    <span class="me-4">
-                                        <span th:if="${rma.status != null}" th:class="${'badge rounded-pill fs-6 ' + 
-                                        (rma.status.name() == 'RMA_WRITTEN_EMAILED' ? 'bg-primary' : 
-                                        (rma.status.name() == 'NUMBER_PROVIDED' ? 'bg-info' : 
-                                        (rma.status.name() == 'MEMO_EMAILED' ? 'bg-secondary' :
-                                        (rma.status.name() == 'RECEIVED_PARTS' ? 'bg-warning' : 
-                                        (rma.status.name() == 'WAITING_CUSTOMER' ? 'bg-danger' : 
-                                        (rma.status.name() == 'WAITING_FSE' ? 'bg-danger' : 
-                                        (rma.status.name() == 'COMPLETED' ? 'bg-success' : 'bg-light')))))))}"
-                                        th:text="${rma.status?.displayName}">
-                                        Status
-                                    </span>
-                                    </span>
-                                    
-                                    <span th:if="${rma.priority != null}" th:class="${'badge rounded-pill fs-6 ' + 
-                                    (rma.priority == 'LOW' ? 'bg-info' : 
-                                    (rma.priority == 'MEDIUM' ? 'bg-warning' : 
-                                    (rma.priority == 'HIGH' ? 'bg-danger' : 
-                                    (rma.priority == 'URGENT' ? 'bg-danger text-uppercase' : 'bg-light'))))}"
-                                    th:text="${rma.priority}">
-                                    Priority
-                                </span>
+                                <!-- Location and Technician moved to a separate line (always visible part of content block) -->
+                                <div class="small text-muted mt-2">
+                                    <span>Location: <span id="viewLocationName" th:text="${rma.location != null ? rma.location.displayName : 'N/A'}"></span></span>
+                                    <span class="ms-3">Technician: <span id="viewTechnicianName" th:text="${rma.technician != null ? rma.technician : 'Not assigned'}"></span></span>
                                 </div>
-                            </form>
-                        </div>
-                        
-                        <!-- Location and Technician moved to a separate line -->
-                        <div class="small text-muted mt-2">
-                            <span>Location: <span th:text="${rma.location != null ? rma.location.displayName : 'N/A'}"></span></span>
-                            <span class="ms-3">Technician: <span th:text="${rma.technician != null ? rma.technician : 'Not assigned'}"></span></span>
-                        </div>
+                            </div> <!-- End Content block -->
+
+                            <!-- Buttons block -->
+                            <div class="ms-0"> 
+                                <button type="button" class="btn btn-sm btn-outline-primary edit-section-btn me-2" data-section="header" onclick="enterHeaderEditMode()">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                                <button type="button" class="btn btn-sm btn-success save-section-btn d-none me-2" data-section="header" onclick="saveHeaderChanges()">
+                                    <i class="bi bi-check-lg"></i> Save
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary cancel-section-btn d-none me-2" data-section="header" onclick="cancelHeaderEditMode()">
+                                    <i class="bi bi-x-lg"></i> Cancel
+                                </button>
+                            </div> <!-- End Buttons block -->
+                        </div> <!-- End Outer flex -->
                     </div>
                 </div>
             </div>
             <div class="card-body">
+                <!-- Process Impact Section -->
+                <div class="row mb-4" id="process-impact-section-container">
+                    <div class="col-md-12">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5>Process Impact</h5>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-primary edit-section-btn" data-section="process-impact">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                                <button type="button" class="btn btn-sm btn-success save-section-btn d-none" data-section="process-impact">
+                                    <i class="bi bi-check-lg"></i> Save
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary cancel-section-btn d-none" data-section="process-impact">
+                                    <i class="bi bi-x-lg"></i> Cancel
+                                </button>
+                            </div>
+                        </div>
+                        <!-- View Mode for Process Impact -->
+                        <div id="process-impact-view-mode">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <strong>Interruption to Flow:</strong> 
+                                    <span th:text="${rma.interruptionToFlow ? 'Yes' : 'No'}" th:class="${rma.interruptionToFlow ? 'text-danger fw-bold' : ''}"></span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Interruption to Production:</strong> 
+                                    <span th:text="${rma.interruptionToProduction ? 'Yes' : 'No'}" th:class="${rma.interruptionToProduction ? 'text-danger fw-bold' : ''}"></span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Exposed to Gas/Chemicals:</strong> 
+                                    <span th:text="${rma.exposedToProcessGasOrChemicals ? 'Yes' : 'No'}" th:class="${rma.exposedToProcessGasOrChemicals ? 'text-danger fw-bold' : ''}"></span>
+                                </div>
+                            </div>
+                            <div th:if="${rma.exposedToProcessGasOrChemicals}" class="row mt-2">
+                                <div class="col-md-4">
+                                    <strong>Purged:</strong> 
+                                    <span th:text="${rma.purged ? 'Yes' : 'No'}" th:class="${rma.purged ? 'text-success fw-bold' : 'text-warning fw-bold'}"></span>
+                                </div>
+                                <div class="col-md-8">
+                                    <strong>Instructions for Exposed Component:</strong>
+                                    <p class="mb-0" th:text="${rma.instructionsForExposedComponent ?: 'N/A'}" style="white-space: pre-wrap;"></p>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Edit Mode for Process Impact (To be added later) -->
+                        <div id="process-impact-edit-mode" class="d-none">
+                            <p class="text-muted">(Edit mode for Process Impact will be here)</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 1. Parts Information First -->
                 <!-- SECTION RE-ADDED START -->
                 <div class="row mb-4" id="parts-section-container">
@@ -365,9 +531,6 @@
                                         <thead>
                                             <tr>
                                                 <th>Part Name</th>
-                                                <th>Serial Number</th>
-                                                <th>Part Number</th>
-                                                <th>Quantity</th>
                                                 <th>Movement</th>
                                                 <th>Notes</th>
                                                 <th>Date</th>
@@ -377,9 +540,6 @@
                                         <tbody>
                                             <tr th:each="movingPart : ${movingParts}">
                                                 <td th:text="${movingPart.partName}">Part A</td>
-                                                <td th:text="${movingPart.serialNumber}">Serial Number</td>
-                                                <td th:text="${movingPart.partNumber}">Part Number</td>
-                                                <td th:text="${movingPart.quantity}">Quantity</td>
                                                 <td>
                                                     <!-- Enhanced movement display with full destination chain -->
                                                     <div>
@@ -430,9 +590,6 @@
                                                                 th:data-from-tool-id="${movingPart.fromTool != null ? movingPart.fromTool.id : ''}"
                                                                 th:data-to-tool-id="${movingPart.toTool != null ? movingPart.toTool.id : ''}"
                                                                 th:data-destination-chain="${movingPart.destinationChain != null ? movingPart.destinationChain : ''}"
-                                                                th:data-serial-number="${movingPart.serialNumber != null ? movingPart.serialNumber : ''}"
-                                                                th:data-part-number="${movingPart.partNumber != null ? movingPart.partNumber : ''}"
-                                                                th:data-quantity="${movingPart.quantity != null ? movingPart.quantity : ''}"
                                                                 th:data-notes="${movingPart.notes != null ? movingPart.notes : ''}"
                                                                 th:data-move-date="${#temporals.format(movingPart.moveDate, 'yyyy-MM-dd')}">
                                                             <i class="bi bi-pencil"></i>
@@ -619,33 +776,38 @@
                                 </form>
                             </div>
                             <div class="card-body">
-                                <div th:if="${rma.documents == null || rma.documents.empty}" class="alert alert-info">
+                                <div th:if="${rma.documents == null || rma.documents.empty}" class="alert alert-info mb-0">
                                     No documents have been uploaded for this RMA.
                                 </div>
-                                <div th:if="${rma.documents != null && !rma.documents.empty}" class="row g-3">
-                                    <div th:each="document : ${rma.documents}" class="col-md-4">
-                                        <div class="card h-100">
-                                            <div class="card-body">
-                                                <p class="card-text small text-truncate" th:text="${document.fileName}">filename.pdf</p>
-                                                <div class="btn-group btn-group-sm">
-                                                    <a th:href="@{/rma/files/{path}(path=${#strings.replace(document.filePath, '\\', '/')})}" 
-                                                       class="btn btn-outline-primary" 
-                                                       target="_blank" 
-                                                       title="View">
-                                                        <i class="bi bi-eye"></i>
-                                                    </a>
-                                                    <button type="button" 
-                                                            class="btn btn-outline-danger" 
-                                                            th:data-document-id="${document.id}"
-                                                            onclick="deleteDocumentFromData(this)" 
-                                                            title="Delete">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </div>
+                                <ul th:if="${rma.documents != null && !rma.documents.empty}" class="list-group list-group-flush">
+                                    <li th:each="document : ${rma.documents}" class="list-group-item d-flex justify-content-between align-items-center">
+                                        <th:block th:with="processedPath=${#strings.replace(document.filePath, '\\\\', '/')}, isExcel=${#strings.endsWith(document.fileName, '.xlsx') || #strings.endsWith(document.fileName, '.xls')}">
+                                            <a th:if="${isExcel}" href="#" th:data-file-url="@{'/rma/files/' + ${processedPath}}" th:text="${document.fileName}" th:title="${'Preview ' + document.fileName}" style="word-break: break-all;" onclick="previewExcelDocument(event)">Document Name</a>
+                                            <a th:unless="${isExcel}" th:href="@{'/rma/files/' + ${processedPath}}" th:text="${document.fileName}" target="_blank" th:title="${'View ' + document.fileName}" style="word-break: break-all;">Document Name</a>
+                                            <div class="btn-group btn-group-sm ms-2 flex-shrink-0">
+                                                <a th:href="@{'/rma/files/' + ${processedPath}}" class="btn btn-outline-secondary" target="_blank" th:download="${document.fileName}" title="Download">
+                                                    <i class="bi bi-download"></i>
+                                                </a>
+                                                <button type="button" class="btn btn-outline-info unifiedLinkFileModalTriggerRmaPage"
+                                                        th:data-file-id="${document.id}"
+                                                        th:data-file-path="${document.filePath}"
+                                                        th:data-file-type="'DOCUMENT'"
+                                                        th:data-source-entity-type="'RMA'"
+                                                        th:data-source-entity-id="${rma.id}"
+                                                        th:data-original-file-name="${document.fileName}"
+                                                        title="Link to another entity">
+                                                    <i class="bi bi-link-45deg"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger"
+                                                        th:data-document-id="${document.id}"
+                                                        onclick="deleteDocumentFromData(this)"
+                                                        title="Delete from this RMA">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
                                             </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                        </th:block>
+                                    </li>
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -738,6 +900,192 @@
     <script th:inline="javascript">
         const rmaPageId = document.getElementById('rmaPageEntityIdForJs').value;
         
+        // START: Generic Edit/Save/Cancel Logic (Modified for Header)
+        function enterHeaderEditMode() {
+            document.getElementById('header-view-mode').classList.add('d-none');
+            document.getElementById('header-edit-mode').classList.remove('d-none');
+            
+            // Show save/cancel, hide edit for header section
+            document.querySelector('.edit-section-btn[data-section="header"]').classList.add('d-none');
+            document.querySelector('.save-section-btn[data-section="header"]').classList.remove('d-none');
+            document.querySelector('.cancel-section-btn[data-section="header"]').classList.remove('d-none');
+
+            // Populate form fields from view mode (if needed, but th:value should handle initial load)
+            // For example, if you needed to fetch fresh data or ensure consistency:
+            document.querySelector('#header-edit-form [name="rmaNumber"]').value = document.getElementById('viewRmaNumber')?.textContent || '';
+            document.querySelector('#header-edit-form [name="sapNotificationNumber"]').value = document.getElementById('viewSapNumber')?.textContent || '';
+            // Tool, Location, Technician are selects, th:selected handles them.
+            // You might need to find the selected tool's ID and set it if not already done by th:selected
+             const currentToolId = /*[[${rma.tool?.id}]]*/ null;
+             if (currentToolId) {
+                 document.querySelector('#header-edit-form [name="toolId"]').value = currentToolId;
+             }
+             const currentLocationId = /*[[${rma.location?.id}]]*/ null;
+             if (currentLocationId) {
+                 document.querySelector('#header-edit-form [name="locationId"]').value = currentLocationId;
+             }
+             const currentTechnician = /*[[${rma.technician}]]*/ null;
+             if (currentTechnician) {
+                 document.querySelector('#header-edit-form [name="technician"]').value = currentTechnician;
+             }
+        }
+
+        function cancelHeaderEditMode() {
+            document.getElementById('header-edit-mode').classList.add('d-none');
+            document.getElementById('header-view-mode').classList.remove('d-none');
+
+            // Show edit, hide save/cancel for header section
+            document.querySelector('.edit-section-btn[data-section="header"]').classList.remove('d-none');
+            document.querySelector('.save-section-btn[data-section="header"]').classList.add('d-none');
+            document.querySelector('.cancel-section-btn[data-section="header"]').classList.add('d-none');
+        }
+
+        function saveHeaderChanges() {
+            const form = document.getElementById('header-edit-form');
+            const formData = new FormData(form);
+            
+            // For select elements, FormData might not pick up the selected value directly if not submitted traditionally.
+            // It's safer to explicitly get values.
+            const rmaNumber = form.elements['rmaNumber'].value;
+            const sapNotificationNumber = form.elements['sapNotificationNumber'].value;
+            const toolId = form.elements['toolId'].value;
+            const locationId = form.elements['locationId'].value;
+            const technician = form.elements['technician'].value;
+
+            const payload = new URLSearchParams();
+            payload.append('rmaNumber', rmaNumber);
+            payload.append('sapNotificationNumber', sapNotificationNumber);
+            payload.append('toolId', toolId);
+            payload.append('locationId', locationId);
+            payload.append('technician', technician);
+
+            fetch(`/rma/${rmaPageId}/update-header`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: payload.toString()
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text || 'Failed to update header') });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Update view mode elements with new data
+                    const viewRmaNumber = document.getElementById('viewRmaNumber');
+                    const viewSapNumber = document.getElementById('viewSapNumber');
+                    const viewRmaSapSeparator = document.getElementById('viewRmaSapSeparator');
+                    const viewRmaSapNa = document.getElementById('viewRmaSapNa');
+
+                    if (data.rmaNumber) {
+                        viewRmaNumber.textContent = data.rmaNumber;
+                        viewRmaNumber.style.display = '';
+                    } else {
+                        viewRmaNumber.style.display = 'none';
+                    }
+                    if (data.sapNotificationNumber) {
+                        viewSapNumber.textContent = data.sapNotificationNumber;
+                        viewSapNumber.style.display = '';
+                    } else {
+                        viewSapNumber.style.display = 'none';
+                    }
+
+                    if (data.rmaNumber && data.sapNotificationNumber) {
+                        viewRmaSapSeparator.style.display = '';
+                    } else {
+                        viewRmaSapSeparator.style.display = 'none';
+                    }
+                    
+                    if (!data.rmaNumber && !data.sapNotificationNumber) {
+                        viewRmaSapNa.style.display = '';
+                    } else {
+                        viewRmaSapNa.style.display = 'none';
+                    }
+
+                    // Update Tool Information
+                    const toolInfoContainer = document.getElementById('viewToolInfoContainer');
+                    const noToolSelected = document.getElementById('viewNoToolSelected');
+
+                    if (data.toolId) {
+                        toolInfoContainer.style.display = '';
+                        noToolSelected.style.display = 'none';
+
+                        document.getElementById('viewToolLink').href = `/tools/${data.toolId}`;
+                        document.getElementById('viewToolName').textContent = data.toolName || '';
+                        
+                        const viewToolSecondaryName = document.getElementById('viewToolSecondaryName');
+                        if (data.toolSecondaryName) {
+                            viewToolSecondaryName.textContent = ` (${data.toolSecondaryName})`;
+                            viewToolSecondaryName.style.display = '';
+                        } else {
+                            viewToolSecondaryName.style.display = 'none';
+                        }
+                        document.getElementById('viewToolTypeBadge').textContent = data.toolTypeDisplay || 'N/A';
+
+                        // Additional Details
+                        const viewToolDetails = document.getElementById('viewToolDetails');
+                        const modelContainer = document.getElementById('viewToolModelContainer');
+                        const serialContainer = document.getElementById('viewToolSerialContainer');
+                        const serviceContainer = document.getElementById('viewToolServiceContainer');
+
+                        if (data.toolModel1) {
+                            modelContainer.style.display = '';
+                            document.getElementById('viewToolModel1').textContent = data.toolModel1;
+                            document.getElementById('viewToolModel2Separator').style.display = data.toolModel2 ? '' : 'none';
+                            document.getElementById('viewToolModel2').textContent = data.toolModel2 || '';
+                             document.getElementById('viewToolModel2').style.display = data.toolModel2 ? '' : 'none';
+                        } else {
+                            modelContainer.style.display = 'none';
+                        }
+
+                        if (data.toolSerialNumber1) {
+                            serialContainer.style.display = '';
+                            document.getElementById('viewToolSerialPipeSeparator').style.display = data.toolModel1 ? '' : 'none';
+                            document.getElementById('viewToolSerialNumber1').textContent = data.toolSerialNumber1;
+                            document.getElementById('viewToolSerial2Separator').style.display = data.toolSerialNumber2 ? '' : 'none';
+                            document.getElementById('viewToolSerialNumber2').textContent = data.toolSerialNumber2 || '';
+                            document.getElementById('viewToolSerialNumber2').style.display = data.toolSerialNumber2 ? '' : 'none';
+                        } else {
+                            serialContainer.style.display = 'none';
+                        }
+                        
+                        if (data.toolChemicalGasService) {
+                            serviceContainer.style.display = '';
+                            document.getElementById('viewToolServicePipeSeparator').style.display = (data.toolModel1 || data.toolSerialNumber1) ? '' : 'none';
+                            document.getElementById('viewToolChemicalGasService').textContent = data.toolChemicalGasService;
+                        } else {
+                            serviceContainer.style.display = 'none';
+                        }
+                        
+                         if (!data.toolModel1 && !data.toolSerialNumber1 && !data.toolChemicalGasService) {
+                            viewToolDetails.style.display = 'none';
+                        } else {
+                            viewToolDetails.style.display = '';
+                        }
+
+                    } else {
+                        toolInfoContainer.style.display = 'none';
+                        noToolSelected.style.display = '';
+                    }
+
+                    document.getElementById('viewLocationName').textContent = data.locationName || 'N/A';
+                    document.getElementById('viewTechnicianName').textContent = data.technicianName || 'Not assigned';
+
+                    cancelHeaderEditMode(); // Switch back to view mode
+                } else {
+                    alert('Error updating header: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error saving header changes:', error);
+                alert('Failed to save header changes: ' + error.message);
+            });
+        }
+        // END: Generic Edit/Save/Cancel Logic
+
         function deleteDocumentFromData(element) {
             const documentId = element.getAttribute('data-document-id');
             if (confirm('Are you sure you want to delete this document?')) {
@@ -876,21 +1224,228 @@
                 const fromToolId = this.getAttribute('data-from-tool-id');
                 const toToolId = this.getAttribute('data-to-tool-id');
                 const destinationChain = this.getAttribute('data-destination-chain') || '';
-                const serialNumber = this.getAttribute('data-serial-number') || '';
-                const partNumber = this.getAttribute('data-part-number') || '';
-                const quantity = this.getAttribute('data-quantity') || '';
                 const notes = this.getAttribute('data-notes') || '';
                 
                 // Fill form fields with existing data
                 document.getElementById('editMovingPartId').value = id;
                 document.getElementById('editPartName').value = partName;
                 document.getElementById('editFromToolId').value = fromToolId;
-                document.getElementById('editSerialNumber').value = serialNumber;
-                document.getElementById('editPartNumber').value = partNumber;
-                document.getElementById('editQuantity').value = quantity;
                 document.getElementById('editNotes').value = notes;
             });
         });
+
+        // Placeholder for Link Document Modal - Will be replaced by more specific logic below
+        /* function openLinkDocumentModal(element) { ... } */
+
+        // START: JavaScript for Unified Link File Modal on RMA View Page
+        document.addEventListener('DOMContentLoaded', () => {
+            const modalElement = document.getElementById('unifiedLinkFileModal');
+            const modal = modalElement ? new bootstrap.Modal(modalElement) : null;
+            if (!modal) {
+                console.error('Unified Link File Modal not found on RMA page');
+                return;
+            }
+
+            const form = document.getElementById('unifiedLinkFormRmaPage');
+            const fileNameDisplay = document.getElementById('unifiedLinkFileNameDisplayRmaPage');
+            const fileIdInput = document.getElementById('unifiedLinkFileIdInputRmaPage');
+            const filePathInput = document.getElementById('unifiedLinkFilePathInputRmaPage');
+            const fileTypeInput = document.getElementById('unifiedLinkFileTypeInputRmaPage');
+            const sourceEntityTypeInput = document.getElementById('unifiedLinkSourceEntityTypeInputRmaPage');
+            const sourceEntityIdInput = document.getElementById('unifiedLinkSourceEntityIdInputRmaPage');
+            const originalFileNameInput = document.getElementById('unifiedLinkOriginalFileNameInputRmaPage');
+
+            const targetEntityTypeSelect = document.getElementById('unifiedLinkTargetEntityTypeRmaPage');
+            const targetRmaSection = document.getElementById('unifiedLinkTargetRmaSectionRmaPage');
+            const targetToolSection = document.getElementById('unifiedLinkTargetToolSectionRmaPage');
+            const targetTrackTrendSection = document.getElementById('unifiedLinkTargetTrackTrendSectionRmaPage');
+
+            document.querySelectorAll('.unifiedLinkFileModalTriggerRmaPage').forEach(button => {
+                button.addEventListener('click', function() {
+                    fileNameDisplay.textContent = this.dataset.originalFileName || 'Selected File';
+                    fileIdInput.value = this.dataset.fileId || '';
+                    filePathInput.value = this.dataset.filePath || '';
+                    fileTypeInput.value = this.dataset.fileType || '';
+                    sourceEntityTypeInput.value = this.dataset.sourceEntityType || '';
+                    sourceEntityIdInput.value = this.dataset.sourceEntityId || '';
+                    originalFileNameInput.value = this.dataset.originalFileName || '';
+
+                    // Reset and hide all target sections
+                    targetEntityTypeSelect.value = '';
+                    targetRmaSection.style.display = 'none';
+                    targetToolSection.style.display = 'none';
+                    targetTrackTrendSection.style.display = 'none';
+                    document.getElementById('unifiedLinkTargetRmaIdRmaPage').value = '';
+                    document.getElementById('unifiedLinkTargetToolIdRmaPage').value = '';
+                    document.getElementById('unifiedLinkTargetTrackTrendIdRmaPage').value = '';
+
+                    modal.show();
+                });
+            });
+
+            targetEntityTypeSelect.addEventListener('change', function() {
+                targetRmaSection.style.display = this.value === 'RMA' ? 'block' : 'none';
+                targetToolSection.style.display = this.value === 'TOOL' ? 'block' : 'none';
+                targetTrackTrendSection.style.display = this.value === 'TRACK_TREND' ? 'block' : 'none';
+            });
+
+            // Optional: Handle form submission if not already handled by standard form submit
+            // If using AJAX for form submission, add that logic here.
+            // For now, assuming standard form submission is okay.
+        });
+        // END: JavaScript for Unified Link File Modal on RMA View Page
+
+        // START: JavaScript for Excel Preview
+        async function previewExcelDocument(event) {
+            event.preventDefault();
+            const fileUrl = event.target.dataset.fileUrl;
+            const modalElement = document.getElementById('excelPreviewModal');
+            const modal = new bootstrap.Modal(modalElement);
+            const contentDiv = document.getElementById('excelPreviewContent');
+            const modalTitle = document.getElementById('excelPreviewModalLabel');
+
+            contentDiv.innerHTML = '<p class="text-center">Loading preview...</p>';
+            modalTitle.textContent = 'Excel Preview: ' + event.target.textContent;
+            modal.show();
+
+            try {
+                const response = await fetch(fileUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, { type: "array" });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const htmlTable = XLSX.utils.sheet_to_html(worksheet);
+                
+                contentDiv.innerHTML = htmlTable;
+                // Add some basic styling to the generated table
+                const tableElement = contentDiv.querySelector('table');
+                if (tableElement) {
+                    tableElement.classList.add('table', 'table-bordered', 'table-sm');
+                }
+            } catch (error) {
+                console.error('Error previewing Excel file:', error);
+                contentDiv.innerHTML = '<p class="text-danger text-center">Could not load preview. Is the file a valid Excel document?</p>';
+            }
+        }
+        // END: JavaScript for Excel Preview
+
+        // START: JavaScript for Editable Status
+        function enterStatusEditMode() {
+            document.getElementById('status-view-mode').classList.add('d-none');
+            document.getElementById('status-edit-mode').classList.remove('d-none');
+            // Potentially pre-select current status if needed, though th:selected should handle initial load
+        }
+
+        function cancelStatusEdit() {
+            document.getElementById('status-edit-mode').classList.add('d-none');
+            document.getElementById('status-view-mode').classList.remove('d-none');
+        }
+
+        function saveStatus() {
+            const newStatus = document.getElementById('status-select').value;
+            const rmaId = rmaPageId; // Assuming rmaPageId is globally available from hidden input
+
+            fetch(`/rma/${rmaId}/update-status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `newStatus=${encodeURIComponent(newStatus)}`
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text || 'Failed to update status') });
+                }
+                return response.json(); 
+            })
+            .then(data => {
+                if (data.success) {
+                    // Update the displayed status and badge class
+                    const statusViewMode = document.getElementById('status-view-mode');
+                    const statusSpan = statusViewMode.querySelector('span'); // The inner span that holds the text
+                    statusSpan.textContent = data.newStatusDisplay;
+                    
+                    // Update badge class based on data.newStatus (enum name)
+                    let badgeClass = 'bg-light text-dark'; // Default
+                    if (data.newStatus === 'RMA_WRITTEN_EMAILED') badgeClass = 'bg-primary';
+                    else if (data.newStatus === 'NUMBER_PROVIDED') badgeClass = 'bg-info';
+                    else if (data.newStatus === 'MEMO_EMAILED') badgeClass = 'bg-secondary';
+                    else if (data.newStatus === 'RECEIVED_PARTS') badgeClass = 'bg-warning text-dark';
+                    else if (data.newStatus === 'WAITING_CUSTOMER') badgeClass = 'bg-danger';
+                    else if (data.newStatus === 'WAITING_FSE') badgeClass = 'bg-danger';
+                    else if (data.newStatus === 'COMPLETED') badgeClass = 'bg-success';
+                    
+                    statusViewMode.className = `badge rounded-pill fs-6 cursor-pointer ${badgeClass}`;
+                    cancelStatusEdit(); // Switch back to view mode
+                    // Consider a more subtle success indication if needed
+                } else {
+                    alert('Error updating status: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error saving status:', error);
+                alert('Failed to save status: ' + error.message);
+            });
+        }
+        // END: JavaScript for Editable Status
+
+        // START: JavaScript for Editable Priority
+        function enterPriorityEditMode() {
+            document.getElementById('priority-view-mode-container').classList.add('d-none');
+            document.getElementById('priority-edit-mode-container').classList.remove('d-none');
+        }
+
+        function cancelPriorityEdit() {
+            document.getElementById('priority-edit-mode-container').classList.add('d-none');
+            document.getElementById('priority-view-mode-container').classList.remove('d-none');
+        }
+
+        function savePriority() {
+            const newPriority = document.getElementById('priority-select').value;
+            const rmaId = rmaPageId; // Assuming rmaPageId is globally available
+
+            fetch(`/rma/${rmaId}/update-priority`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `newPriority=${encodeURIComponent(newPriority)}`
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text || 'Failed to update priority') });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    const priorityViewContainer = document.getElementById('priority-view-mode-container');
+                    const priorityBadge = priorityViewContainer.querySelector('span'); // The badge span
+                    priorityBadge.textContent = data.newPriorityDisplay;
+
+                    let badgeClass = 'bg-light text-dark'; // Default
+                    if (data.newPriority === 'LOW') badgeClass = 'bg-info';
+                    else if (data.newPriority === 'MEDIUM') badgeClass = 'bg-warning text-dark';
+                    else if (data.newPriority === 'HIGH') badgeClass = 'bg-danger';
+                    else if (data.newPriority === 'URGENT') badgeClass = 'bg-danger text-uppercase';
+                    
+                    priorityBadge.className = `badge rounded-pill fs-6 border border-secondary-subtle ${badgeClass}`;
+                    cancelPriorityEdit();
+                } else {
+                    alert('Error updating priority: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error saving priority:', error);
+                alert('Failed to save priority: ' + error.message);
+            });
+        }
+        // END: JavaScript for Editable Priority
+
     </script>
     
     <!-- Delete Confirmation Modal -->
@@ -1247,6 +1802,21 @@
                 </div>
                 <div class="modal-body text-center">
                     <img id="modalPictureImg" src="" alt="RMA Picture" style="max-width: 100%; max-height: 80vh;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Excel Preview Modal -->
+    <div class="modal fade" id="excelPreviewModal" tabindex="-1" aria-labelledby="excelPreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="excelPreviewModalLabel">Excel Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="excelPreviewContent" style="overflow-x: auto;"></div>
                 </div>
             </div>
         </div>

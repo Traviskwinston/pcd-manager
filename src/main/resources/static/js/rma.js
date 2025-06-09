@@ -9,6 +9,7 @@ const RMA = {
     init() {
         this.form.init();
         this.fileUpload.init();
+        this.excel.init();
         this.tools.init();
         this.initializeTechnician();
     },

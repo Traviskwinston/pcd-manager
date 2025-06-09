@@ -323,7 +323,7 @@ public class RmaController {
     @PostMapping("/parse-excel")
     @ResponseBody
     public Map<String, Object> parseExcelFile(@RequestParam("file") MultipartFile file) {
-        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<>(); // Initialize response here
         
         try {
             logger.info("=== EXCEL FILE PARSING STARTED ===");
@@ -340,7 +340,6 @@ public class RmaController {
             Rma tempRma = new Rma();
             tempRma.setDocuments(new ArrayList<>());
             
-            // Save the Excel file as a document first
             logger.info("Saving Excel file as temporary document...");
             RmaDocument excelDoc = uploadUtils.saveRmaDocument(tempRma, file);
             
@@ -356,29 +355,57 @@ public class RmaController {
             logger.info("  - File Type: {}", excelDoc.getFileType());
             logger.info("  - File Size: {} bytes", excelDoc.getFileSize());
 
-            // Now parse the saved file using its path
             logger.info("Parsing Excel file from path: {}", excelDoc.getFilePath());
             Map<String, Object> extractedData = excelService.extractRmaDataFromExcelFile(excelDoc.getFilePath());
             
             if (extractedData.containsKey("error")) {
                 logger.error("Failed to parse Excel file: {}", extractedData.get("error"));
-                // Clean up the temporary file since parsing failed
                 uploadUtils.deleteFile(excelDoc.getFilePath());
-                response.put("error", extractedData.get("error"));
+                response.putAll(extractedData); // Put the error message in the response
                 return response;
             }
 
-            // Add the document info to the response
-            extractedData.put("document", Map.of(
+            // Initialize response with all successfully extracted data
+            response.putAll(extractedData);
+
+            // Attempt to find a matching tool using parsed serial numbers
+            String parsedSerial1 = (String) extractedData.get("parsedSerial1");
+            String parsedSerial2 = (String) extractedData.get("parsedSerial2");
+            logger.info("Extracted from Excel -> parsedSerial1: '{}', parsedSerial2: '{}'", parsedSerial1, parsedSerial2);
+            Long matchedToolId = null;
+
+            if (parsedSerial1 != null && !parsedSerial1.isEmpty()) {
+                logger.info("Attempting to find tool by parsedSerial1: {}", parsedSerial1);
+                // Assuming toolService uses toolRepository.findBySerialNumber1()
+                Optional<Tool> toolOpt = toolService.findToolBySerialNumber(parsedSerial1); 
+                if (toolOpt.isPresent()) {
+                    matchedToolId = toolOpt.get().getId();
+                    logger.info("Found matching tool by serial number1: ID={}, Name={}", matchedToolId, toolOpt.get().getName());
+                }
+            }
+
+            if (matchedToolId == null && parsedSerial2 != null && !parsedSerial2.isEmpty()) {
+                logger.info("Attempting to find tool by parsedSerial2: {}", parsedSerial2);
+                Optional<Tool> toolOpt = toolService.findToolBySerialNumber2(parsedSerial2); // Changed to findToolBySerialNumber2
+                if (toolOpt.isPresent()) {
+                    matchedToolId = toolOpt.get().getId();
+                    logger.info("Found matching tool by serial number2: ID={}, Name={}", matchedToolId, toolOpt.get().getName());
+                }
+            }
+
+            if (matchedToolId != null) {
+                response.put("matchedToolId", matchedToolId);
+            }
+
+            // Add the document info to the response AFTER potential matchedToolId
+            response.put("document", Map.of(
                 "fileName", excelDoc.getFileName(),
                 "filePath", excelDoc.getFilePath(),
                 "fileType", excelDoc.getFileType(),
                 "fileSize", excelDoc.getFileSize()
             ));
 
-            logger.info("Excel file parsed successfully");
-            response.putAll(extractedData);
-            
+            logger.info("Excel file parsed successfully, response prepared.");
             return response;
         } catch (Exception e) {
             logger.error("Error processing Excel file: {}", e.getMessage(), e);
@@ -445,28 +472,82 @@ public class RmaController {
                               file.getOriginalFilename().toLowerCase().endsWith(".xls")));
                               
                         if (isExcelFile) {
-                            logger.info("=== EXCEL FILE SAVE PROCESS STARTED ===");
+                            logger.info("=== EXCEL FILE DETECTED ===");
                             logger.info("Found Excel file in document uploads: {}", file.getOriginalFilename());
                             
-                            // Save Excel file as a document
-                            logger.info("Attempting to save Excel file as document...");
-                            RmaDocument excelDoc = uploadUtils.saveRmaDocument(rma, file);
+                            // Check if this Excel file was already processed during parsing
+                            String excelFileIncluded = request.getParameter("excelFileIncluded");
+                            boolean wasAlreadyParsed = "true".equals(excelFileIncluded);
                             
-                            if (excelDoc != null) {
-                                if (rma.getDocuments() == null) {
-                                    rma.setDocuments(new ArrayList<>());
-                                    logger.info("Initialized documents collection for RMA");
+                            if (wasAlreadyParsed) {
+                                logger.info("Excel file was already parsed and saved during parsing phase - will be attached to RMA");
+                                
+                                // Get the document info from the parsed Excel response stored in JS
+                                // Look for document information in the request parameters
+                                String documentFileName = request.getParameter("parsedExcelFileName");
+                                String documentFilePath = request.getParameter("parsedExcelFilePath");
+                                String documentFileType = request.getParameter("parsedExcelFileType");
+                                String documentFileSize = request.getParameter("parsedExcelFileSize");
+                                
+                                if (documentFileName != null && documentFilePath != null) {
+                                    logger.info("Attaching previously parsed Excel document to RMA");
+                                    RmaDocument excelDoc = new RmaDocument();
+                                    excelDoc.setFileName(documentFileName);
+                                    excelDoc.setFilePath(documentFilePath);
+                                    excelDoc.setFileType(documentFileType);
+                                    excelDoc.setFileSize(documentFileSize != null ? Long.parseLong(documentFileSize) : file.getSize());
+                                    excelDoc.setRma(rma);
+                                    
+                                    if (rma.getDocuments() == null) {
+                                        rma.setDocuments(new ArrayList<>());
+                                        logger.info("Initialized documents collection for RMA");
+                                    }
+                                    rma.getDocuments().add(excelDoc);
+                                    logger.info("Successfully attached parsed Excel document:");
+                                    logger.info("  - File Name: {}", excelDoc.getFileName());
+                                    logger.info("  - File Path: {}", excelDoc.getFilePath());
+                                    logger.info("  - File Type: {}", excelDoc.getFileType());
+                                    logger.info("  - File Size: {} bytes", excelDoc.getFileSize());
+                                } else {
+                                    logger.warn("No parsed Excel document info found - falling back to regular save");
+                                    // Save Excel file as a document
+                                    RmaDocument excelDoc = uploadUtils.saveRmaDocument(rma, file);
+                                    
+                                    if (excelDoc != null) {
+                                        if (rma.getDocuments() == null) {
+                                            rma.setDocuments(new ArrayList<>());
+                                            logger.info("Initialized documents collection for RMA");
+                                        }
+                                        rma.getDocuments().add(excelDoc);
+                                        logger.info("Successfully saved Excel file as document (fallback)");
+                                    } else {
+                                        logger.warn("Failed to save Excel file as document");
+                                    }
                                 }
-                                rma.getDocuments().add(excelDoc);
-                                logger.info("Successfully saved Excel file as document:");
-                                logger.info("  - File Name: {}", excelDoc.getFileName());
-                                logger.info("  - File Path: {}", excelDoc.getFilePath());
-                                logger.info("  - File Type: {}", excelDoc.getFileType());
-                                logger.info("  - File Size: {} bytes", excelDoc.getFileSize());
+                                
+                                // Skip adding to allFiles to prevent duplicate processing by RmaService
+                                continue;
                             } else {
-                                logger.warn("Failed to save Excel file as document");
+                                logger.info("Excel file not yet processed - saving as document");
+                                // Save Excel file as a document
+                                RmaDocument excelDoc = uploadUtils.saveRmaDocument(rma, file);
+                                
+                                if (excelDoc != null) {
+                                    if (rma.getDocuments() == null) {
+                                        rma.setDocuments(new ArrayList<>());
+                                        logger.info("Initialized documents collection for RMA");
+                                    }
+                                    rma.getDocuments().add(excelDoc);
+                                    logger.info("Successfully saved Excel file as document:");
+                                    logger.info("  - File Name: {}", excelDoc.getFileName());
+                                    logger.info("  - File Path: {}", excelDoc.getFilePath());
+                                    logger.info("  - File Type: {}", excelDoc.getFileType());
+                                    logger.info("  - File Size: {} bytes", excelDoc.getFileSize());
+                                } else {
+                                    logger.warn("Failed to save Excel file as document");
+                                }
                             }
-                            logger.info("=== EXCEL FILE SAVE PROCESS COMPLETED ===");
+                            logger.info("=== EXCEL FILE PROCESSING COMPLETED ===");
                         }
                         
                         allFiles.add(file);
@@ -494,6 +575,9 @@ public class RmaController {
             // Save the RMA with all files
             Rma savedRma = rmaService.saveRma(rma, combinedUploads);
             logger.info("RMA saved successfully with ID: {}", savedRma.getId());
+            
+            // Handle temporary moving parts data for new RMAs
+            handleTempMovingParts(request, savedRma);
             
             // Log final document count
             int finalDocCount = savedRma.getDocuments() != null ? savedRma.getDocuments().size() : 0;
@@ -1331,6 +1415,40 @@ public class RmaController {
         return response;
     }
     
+    @PostMapping("/{id}/update-priority")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updatePriority(@PathVariable Long id, HttpServletRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        String priorityValue = request.getParameter("newPriority");
+        logger.info("Received request to update priority for RMA ID {} to {}", id, priorityValue);
+
+        if (!StringUtils.hasText(priorityValue)) {
+            response.put("success", false);
+            response.put("message", "New priority value cannot be empty.");
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        try {
+            RmaPriority newPriority = RmaPriority.valueOf(priorityValue);
+            rmaService.updateRmaPriority(id, newPriority);
+            response.put("success", true);
+            logger.info("Updated priority for RMA ID {} to {}. Display: {}", id, newPriority, newPriority.getDisplayName());
+            response.put("newPriorityDisplay", newPriority.getDisplayName());
+            response.put("newPriority", newPriority.name()); // Send enum name for JS to map to badge class
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid priority value received: {}", priorityValue, e);
+            response.put("success", false);
+            response.put("message", "Invalid priority value.");
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            logger.error("Error updating priority for RMA ID {}", id, e);
+            response.put("success", false);
+            response.put("message", "Error updating priority: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+        return ResponseEntity.ok(response);
+    }
+    
     private String getStatusBadgeClass(RmaStatus status) {
         return switch (status) {
             case RMA_WRITTEN_EMAILED -> "badge rounded-pill fs-6 bg-primary";
@@ -1492,7 +1610,9 @@ public class RmaController {
             String rmaNumber = request.getParameter("rmaNumber");
             String sapNotificationNumber = request.getParameter("sapNotificationNumber");
             String toolIdStr = request.getParameter("toolId");
-            
+            String locationIdStr = request.getParameter("locationId"); 
+            String technicianName = request.getParameter("technician"); 
+
             // Update RMA number
             if (rmaNumber != null) {
                 rma.setRmaNumber(rmaNumber.trim().isEmpty() ? null : rmaNumber.trim());
@@ -1525,15 +1645,71 @@ public class RmaController {
                 rma.setTool(null);
             }
             
+            // Update Location
+            if (locationIdStr != null && !locationIdStr.trim().isEmpty()) {
+                try {
+                    Long locationId = Long.parseLong(locationIdStr);
+                    Optional<Location> locationOpt = locationService.getLocationById(locationId);
+                    if (locationOpt.isPresent()) {
+                        rma.setLocation(locationOpt.get());
+                    } else {
+                        response.put("success", false);
+                        response.put("message", "Selected location not found");
+                        return response;
+                    }
+                } catch (NumberFormatException e) {
+                    response.put("success", false);
+                    response.put("message", "Invalid location ID format");
+                    return response;
+                }
+            } else {
+                rma.setLocation(null); 
+            }
+
+            // Update Technician
+            if (technicianName != null) {
+                rma.setTechnician(technicianName.trim().isEmpty() ? null : technicianName.trim());
+            }
+
             // Save the updated RMA
             rmaService.saveRma(rma, null);
             
             response.put("success", true);
             response.put("message", "Header information updated successfully");
+            response.put("rmaNumber", rma.getRmaNumber()); 
+            response.put("sapNotificationNumber", rma.getSapNotificationNumber()); 
             
-            logger.info("Updated header for RMA ID {}: RMA Number: {}, SAP Number: {}, Tool: {}", 
+            if (rma.getTool() != null) {
+                Tool tool = rma.getTool();
+                response.put("toolId", tool.getId());
+                response.put("toolName", tool.getName());
+                response.put("toolSecondaryName", tool.getSecondaryName());
+                response.put("toolTypeDisplay", tool.getToolType() != null ? tool.getToolType().getDisplayName() : "N/A");
+                response.put("toolModel1", tool.getModel1());
+                response.put("toolModel2", tool.getModel2());
+                response.put("toolSerialNumber1", tool.getSerialNumber1());
+                response.put("toolSerialNumber2", tool.getSerialNumber2());
+                response.put("toolChemicalGasService", tool.getChemicalGasService());
+            } else {
+                response.put("toolId", "");
+                response.put("toolName", "No Tool selected");
+                response.put("toolSecondaryName", null);
+                response.put("toolTypeDisplay", "N/A");
+                response.put("toolModel1", null);
+                response.put("toolModel2", null);
+                response.put("toolSerialNumber1", null);
+                response.put("toolSerialNumber2", null);
+                response.put("toolChemicalGasService", null);
+            }
+            
+            response.put("locationName", rma.getLocation() != null ? rma.getLocation().getDisplayName() : "N/A"); 
+            response.put("technicianName", rma.getTechnician() != null ? rma.getTechnician() : "Not assigned"); 
+            
+            logger.info("Updated header for RMA ID {}: RMA Number: {}, SAP Number: {}, Tool: {}, Location: {}, Technician: {}", 
                        id, rma.getRmaNumber(), rma.getSapNotificationNumber(), 
-                       rma.getTool() != null ? rma.getTool().getName() : "None");
+                       rma.getTool() != null ? rma.getTool().getName() : "None",
+                       rma.getLocation() != null ? rma.getLocation().getDisplayName() : "None", 
+                       rma.getTechnician() != null ? rma.getTechnician() : "None"); 
             
         } catch (Exception e) {
             logger.error("Error updating header for RMA ID " + id, e);
@@ -1966,5 +2142,87 @@ public class RmaController {
         }
         
         return result;
+    }
+    
+    /**
+     * Handle temporary moving parts data from the form submission
+     */
+    private void handleTempMovingParts(HttpServletRequest request, Rma savedRma) {
+        try {
+            // Look for temporary moving parts parameters
+            Map<String, String[]> parameterMap = request.getParameterMap();
+            Map<Integer, Map<String, String>> tempMovingParts = new HashMap<>();
+            
+            // Group parameters by index
+            for (String paramName : parameterMap.keySet()) {
+                if (paramName.startsWith("tempMovingParts[")) {
+                    // Extract index and field name
+                    int startIndex = paramName.indexOf('[') + 1;
+                    int endIndex = paramName.indexOf(']');
+                    int dotIndex = paramName.indexOf('.', endIndex);
+                    
+                    if (startIndex > 0 && endIndex > startIndex && dotIndex > endIndex) {
+                        try {
+                            int index = Integer.parseInt(paramName.substring(startIndex, endIndex));
+                            String fieldName = paramName.substring(dotIndex + 1);
+                            String value = request.getParameter(paramName);
+                            
+                            tempMovingParts.computeIfAbsent(index, k -> new HashMap<>()).put(fieldName, value);
+                        } catch (NumberFormatException e) {
+                            logger.warn("Invalid index in temp moving part parameter: {}", paramName);
+                        }
+                    }
+                }
+            }
+            
+            // Create moving parts from the temporary data
+            for (Map<String, String> partData : tempMovingParts.values()) {
+                String partName = partData.get("partName");
+                String fromToolIdStr = partData.get("fromToolId");
+                String destinationToolIdsStr = partData.get("destinationToolIds");
+                String notes = partData.get("notes");
+                
+                if (partName != null && !partName.trim().isEmpty() && 
+                    fromToolIdStr != null && !fromToolIdStr.trim().isEmpty()) {
+                    
+                    try {
+                        Long fromToolId = Long.parseLong(fromToolIdStr);
+                        List<Long> destinationToolIds = new ArrayList<>();
+                        
+                        if (destinationToolIdsStr != null && !destinationToolIdsStr.trim().isEmpty()) {
+                            String[] destIds = destinationToolIdsStr.split(",");
+                            for (String destId : destIds) {
+                                destinationToolIds.add(Long.parseLong(destId.trim()));
+                            }
+                        }
+                        
+                        // Create the moving part using the service
+                        if (!destinationToolIds.isEmpty()) {
+                            Long toToolId = destinationToolIds.get(0); // Use first destination as primary
+                            MovingPart movingPart = movingPartService.createMovingPart(
+                                partName.trim(), fromToolId, toToolId, notes, null, savedRma);
+                            
+                            // If there are multiple destinations, set the destination chain
+                            if (destinationToolIds.size() > 1) {
+                                movingPart.setDestinationToolIds(destinationToolIds);
+                                movingPartService.save(movingPart);
+                            }
+                            
+                            logger.info("Created moving part '{}' for RMA {}", partName, savedRma.getId());
+                        }
+                        
+                    } catch (NumberFormatException e) {
+                        logger.warn("Invalid tool ID in temp moving part data: fromToolId={}, destinationToolIds={}", 
+                                   fromToolIdStr, destinationToolIdsStr);
+                    } catch (Exception e) {
+                        logger.error("Error creating moving part '{}' for RMA {}: {}", 
+                                    partName, savedRma.getId(), e.getMessage(), e);
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error processing temporary moving parts for RMA {}: {}", savedRma.getId(), e.getMessage(), e);
+        }
     }
 } 

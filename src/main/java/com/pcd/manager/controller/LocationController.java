@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Controller
 @RequestMapping("/locations")
@@ -26,6 +28,7 @@ public class LocationController {
     private final LocationRepository locationRepository;
     private final LocationService locationService;
     private final UserService userService;
+    private static final Logger logger = LoggerFactory.getLogger(LocationController.class);
 
     @Autowired
     public LocationController(LocationRepository locationRepository, LocationService locationService, UserService userService) {
@@ -45,16 +48,29 @@ public class LocationController {
         
         // Get the current user's active location if set
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated()) {
+        if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
             String username = auth.getName();
-            userService.getUserByUsername(username).ifPresent(user -> {
+            Optional<User> userOpt = userService.getUserByUsername(username);
+            
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                
+                // If user doesn't have an active site, set it to the default location
+                if (user.getActiveSite() == null && defaultLocation.isPresent()) {
+                    user.setActiveSite(defaultLocation.get());
+                    userService.updateUser(user);
+                    logger.info("Auto-set user {} active site to default location: {}", 
+                               username, defaultLocation.get().getDisplayName());
+                }
+                
+                // Set model attributes for current location
                 if (user.getActiveSite() != null) {
                     model.addAttribute("currentLocation", user.getActiveSite());
                     model.addAttribute("currentLocationExists", true);
                 } else {
                     model.addAttribute("currentLocationExists", false);
                 }
-            });
+            }
         }
     }
 

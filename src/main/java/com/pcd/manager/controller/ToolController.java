@@ -922,4 +922,113 @@ public class ToolController {
 
         return "redirect:/tools/" + id;
     }
+
+    /**
+     * Upload documents to a tool
+     */
+    @PostMapping("/{id}/upload-documents")
+    public String uploadDocuments(
+            @PathVariable Long id,
+            @RequestParam("files") MultipartFile[] files,
+            RedirectAttributes redirectAttributes) {
+        
+        logger.info("Uploading {} documents to tool ID: {}", files.length, id);
+        return handleSpecificFileUpload(id, files, false, redirectAttributes);
+    }
+
+    /**
+     * Upload pictures to a tool
+     */
+    @PostMapping("/{id}/upload-pictures")
+    public String uploadPictures(
+            @PathVariable Long id,
+            @RequestParam("files") MultipartFile[] files,
+            RedirectAttributes redirectAttributes) {
+        
+        logger.info("Uploading {} pictures to tool ID: {}", files.length, id);
+        return handleSpecificFileUpload(id, files, true, redirectAttributes);
+    }
+
+    /**
+     * Common method to handle file uploads for tools
+     */
+    private String handleSpecificFileUpload(
+            Long id,
+            MultipartFile[] files,
+            boolean forceAsPictures,
+            RedirectAttributes redirectAttributes) {
+        
+        Optional<Tool> toolOpt = toolService.getToolById(id);
+        if (toolOpt.isEmpty()) {
+            redirectAttributes.addFlashAttribute("error", "Tool not found with ID: " + id);
+            return "redirect:/tools";
+        }
+        
+        Tool tool = toolOpt.get();
+        int uploadedCount = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (MultipartFile file : files) {
+            if (file.isEmpty()) {
+                continue;
+            }
+            
+            String originalFilename = file.getOriginalFilename();
+            String contentType = file.getContentType();
+            String subdirectory;
+            boolean isPicture;
+
+            if (forceAsPictures) {
+                subdirectory = "pictures";
+                isPicture = true;
+            } else {
+                if (contentType != null && contentType.startsWith("image/")) {
+                    subdirectory = "pictures";
+                    isPicture = true;
+                } else {
+                    subdirectory = "documents";
+                    isPicture = false;
+                }
+            }
+            
+            logger.info("Processing file: {}, type: {}, target subdir: {}", originalFilename, contentType, subdirectory);
+
+            String filePath = saveUploadedFile(file, subdirectory); 
+            if (filePath != null) {
+                if (isPicture) {
+                    tool.getPicturePaths().add(filePath);
+                    tool.getPictureNames().put(filePath, originalFilename);
+                    logger.info("Added picture: {} to tool {}", filePath, tool.getId());
+                } else {
+                    tool.getDocumentPaths().add(filePath);
+                    tool.getDocumentNames().put(filePath, originalFilename);
+                    logger.info("Added document: {} to tool {}", filePath, tool.getId());
+                }
+                uploadedCount++;
+            } else {
+                logger.warn("Failed to save file: {}", originalFilename);
+                errors.add("Failed to save file: " + originalFilename);
+            }
+        }
+
+        if (uploadedCount > 0) {
+            try {
+                toolService.saveTool(tool);
+                String fileType = forceAsPictures ? "picture(s)" : "file(s)";
+                redirectAttributes.addFlashAttribute("message", uploadedCount + " " + fileType + " uploaded successfully.");
+            } catch (Exception e) {
+                logger.error("Error saving tool after file uploads: {}", e.getMessage(), e);
+                errors.add("Error saving tool after uploads: " + e.getMessage());
+                redirectAttributes.addFlashAttribute("error", String.join(", ", errors));
+            }
+        } else if (!errors.isEmpty()) {
+            String fileType = forceAsPictures ? "picture" : "file";
+            redirectAttributes.addFlashAttribute("error", fileType + " upload failed: " + String.join(", ", errors));
+        } else {
+            String fileType = forceAsPictures ? "pictures" : "files";
+            redirectAttributes.addFlashAttribute("info", "No " + fileType + " were selected for upload.");
+        }
+
+        return "redirect:/tools/" + id;
+    }
 } 

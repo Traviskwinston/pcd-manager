@@ -265,9 +265,6 @@
                                             <thead>
                                                 <tr>
                                                     <th>Part Name</th>
-                                                    <th>Serial Number</th>
-                                                    <th>Part Number</th>
-                                                    <th>Quantity</th>
                                                     <th>From Tool</th>
                                                     <th>To Tool</th>
                                                     <th>Notes</th>
@@ -277,9 +274,6 @@
                                             <tbody>
                                                 <tr th:each="movingPart : ${movingParts}">
                                                     <td th:text="${movingPart.partName}">Part Name</td>
-                                                    <td th:text="${movingPart.serialNumber}">Serial Number</td>
-                                                    <td th:text="${movingPart.partNumber}">Part Number</td>
-                                                    <td th:text="${movingPart.quantity}">Quantity</td>
                                                     <td th:text="${movingPart.fromTool != null ? movingPart.fromTool.name : 'N/A'}"></td>
                                                     <td th:text="${movingPart.toTool != null ? movingPart.toTool.name : 'N/A'}"></td>
                                                     <td th:text="${movingPart.notes}">Notes</td>
@@ -313,9 +307,6 @@
                                     <thead>
                                         <tr>
                                             <th>Part Name</th>
-                                            <th>Serial Number</th>
-                                            <th>Part Number</th>
-                                            <th>Quantity</th>
                                             <th>From Tool</th>
                                             <th>To Tool</th>
                                             <th>Notes</th>
@@ -526,7 +517,8 @@
                                 <label for="location" class="form-label">Location</label>
                                 <select id="location" class="form-select" th:field="*{location}">
                                     <option value="">-- Select Location --</option>
-                                    <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.displayName}"></option>
+                                    <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.displayName}" 
+                                            th:selected="${(rma.location != null && loc.id == rma.location.id) || (rma.location == null && loc.isDefaultLocation())}"></option>
                                 </select>
                             </div>
                             <div class="mb-3">
@@ -592,24 +584,65 @@
                         </div>
                     </div>
                     <hr />
+                    <!-- Technician Information -->
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <h5 class="border-bottom pb-1 mb-3">Technician Information</h5>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="fieldTechName" class="form-label">Technician Name</label>
+                            <input type="text" id="fieldTechName" class="form-control" th:field="*{fieldTechName}" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="fieldTechPhone" class="form-label">Technician Phone</label>
+                            <input type="text" id="fieldTechPhone" class="form-control" th:field="*{fieldTechPhone}" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="fieldTechEmail" class="form-label">Technician Email</label>
+                            <input type="email" id="fieldTechEmail" class="form-control" th:field="*{fieldTechEmail}" />
+                        </div>
+                    </div>
+
                     <!-- Customer Information -->
-                    <div class="row">
+                    <div class="row mt-3">
                         <div class="col-md-12">
                             <h5>Customer Information</h5>
                             <div class="row">
+                                <!-- First Row: Customer and Company Ship To Name -->
                                 <div class="col-md-6">
-                            <div class="mb-3">
+                                    <div class="mb-3">
                                         <label for="customerName" class="form-label">Customer</label>
-                                <input type="text" id="customerName" class="form-control" th:field="*{customerName}">
-                            </div>
-                            <div class="mb-3">
+                                        <input type="text" id="customerName" class="form-control" th:field="*{customerName}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
                                         <label for="companyShipToName" class="form-label">Company Ship To Name:</label>
                                         <input type="text" id="companyShipToName" class="form-control" th:field="*{companyShipToName}" />
                                     </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <!-- Second Row: Attn and Company Ship To Address -->
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="attn" class="form-label">Attn:</label>
+                                        <input type="text" id="attn" class="form-control" th:field="*{attn}" />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
                                     <div class="mb-3">
                                         <label for="companyShipToAddress" class="form-label">Company Ship To Address:</label>
                                         <input type="text" id="companyShipToAddress" class="form-control" th:field="*{companyShipToAddress}" />
                                     </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <!-- Third Row: City, State, Zip Code (aligned under Address side) -->
+                                <div class="col-md-6">
+                                    <!-- Intentionally empty to align City/State/Zip under the address block -->
+                                </div>
+                                <div class="col-md-6">
                                     <div class="row">
                                         <div class="col-md-4">
                                             <div class="mb-3">
@@ -629,24 +662,6 @@
                                                 <input type="text" id="zipCode" class="form-control" th:field="*{zipCode}" />
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="attn" class="form-label">Attn:</label>
-                                        <input type="text" id="attn" class="form-control" th:field="*{attn}" />
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="customerContact" class="form-label">Contact:</label>
-                                <input type="text" id="customerContact" class="form-control" th:field="*{customerContact}" />
-                            </div>
-                                    <div class="mb-3">
-                                        <label for="customerPhone" class="form-label">Contact Phone Number:</label>
-                                        <input type="text" id="customerPhone" class="form-control" th:field="*{customerPhone}" />
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="customerEmail" class="form-label">Email:</label>
-                                        <input type="email" id="customerEmail" class="form-control" th:field="*{customerEmail}" />
                                     </div>
                                 </div>
                             </div>
@@ -784,18 +799,6 @@
                         <input type="text" class="form-control" id="movingPartName" required>
                     </div>
                     <div class="mb-3">
-                        <label for="serialNumber" class="form-label">Serial Number:</label>
-                        <input type="text" class="form-control" id="serialNumber" name="serialNumber">
-                    </div>
-                    <div class="mb-3">
-                        <label for="partNumber" class="form-label">Part Number:</label>
-                        <input type="text" class="form-control" id="partNumber" name="partNumber">
-                    </div>
-                    <div class="mb-3">
-                        <label for="quantity" class="form-label">Quantity:</label>
-                        <input type="number" class="form-control" id="quantity" name="quantity" min="1">
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label">Movement:</label>
                         <div class="d-flex align-items-center mb-2">
                             <strong class="me-2">From:</strong>
@@ -869,6 +872,219 @@
             if (RMA.init && typeof RMA.init === 'function') {
                 RMA.init();
             }
+            
+            // Auto-populate TO field in Moving Parts modal with selected tool from RMA form
+            const addMovingPartModal = document.getElementById('addMovingPartModal');
+            if (addMovingPartModal) {
+                addMovingPartModal.addEventListener('show.bs.modal', function () {
+                    const toolSelect = document.getElementById('toolSelect');
+                    const destinationSelect = document.querySelector('#destinationContainerForm .destination-select');
+                    
+                    if (toolSelect && destinationSelect && toolSelect.value) {
+                        // Set the destination tool to the currently selected tool in the main form
+                        destinationSelect.value = toolSelect.value;
+                    }
+                });
+            }
+            
+            // Handle the Add button in Moving Parts modal
+            const saveMovingPartBtn = document.getElementById('saveMovingPartBtn');
+            if (saveMovingPartBtn) {
+                saveMovingPartBtn.addEventListener('click', function() {
+                    const partName = document.getElementById('movingPartName').value.trim();
+                    const fromToolId = document.getElementById('fromToolId').value;
+                    const destinationSelects = document.querySelectorAll('#destinationContainerForm .destination-select');
+                    const notes = document.getElementById('movingPartNotes').value.trim();
+                    
+                    // Validation
+                    if (!partName) {
+                        alert('Please enter a part name.');
+                        return;
+                    }
+                    
+                    if (!fromToolId) {
+                        alert('Please select a source tool (From).');
+                        return;
+                    }
+                    
+                    // Get destination tool IDs
+                    const destinationToolIds = [];
+                    destinationSelects.forEach(select => {
+                        if (select.value) {
+                            destinationToolIds.push(select.value);
+                        }
+                    });
+                    
+                    if (destinationToolIds.length === 0) {
+                        alert('Please select at least one destination tool (To).');
+                        return;
+                    }
+                    
+                    // For new RMAs (no ID yet), just add to the form as hidden inputs
+                    const rmaIdInput = document.querySelector('input[name="id"]');
+                    const rmaId = rmaIdInput ? rmaIdInput.value : null;
+                    
+                    if (!rmaId) {
+                        // For new RMAs, store the moving parts data to be submitted with the form
+                        addMovingPartToNewRmaForm(partName, fromToolId, destinationToolIds, notes);
+                        
+                        // Add visual row to the table
+                        addMovingPartVisualRow(partName, fromToolId, destinationToolIds, notes);
+                        
+                        // Clear the modal form and close
+                        clearMovingPartModal();
+                    } else {
+                        // For existing RMAs, submit to the server immediately
+                        submitMovingPartToServer(rmaId, partName, fromToolId, destinationToolIds, notes);
+                    }
+                });
+            }
+            
+            // Helper function to add moving part data to new RMA form
+            function addMovingPartToNewRmaForm(partName, fromToolId, destinationToolIds, notes) {
+                const formElement = document.getElementById('rmaForm');
+                if (!formElement) return;
+                
+                // Count existing moving parts to get the index
+                const existingInputs = formElement.querySelectorAll('input[name^="tempMovingParts["]');
+                const index = Math.floor(existingInputs.length / 4); // 4 inputs per moving part
+                
+                // Create hidden inputs for the moving part data
+                const hiddenInputs = [
+                    { name: `tempMovingParts[${index}].partName`, value: partName },
+                    { name: `tempMovingParts[${index}].fromToolId`, value: fromToolId },
+                    { name: `tempMovingParts[${index}].destinationToolIds`, value: destinationToolIds.join(',') },
+                    { name: `tempMovingParts[${index}].notes`, value: notes || '' }
+                ];
+                
+                hiddenInputs.forEach(inputData => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = inputData.name;
+                    input.value = inputData.value;
+                    formElement.appendChild(input);
+                });
+            }
+            
+            // Helper function to add visual row to the table
+            function addMovingPartVisualRow(partName, fromToolId, destinationToolIds, notes) {
+                const tableBody = document.getElementById('moving-parts-table-body');
+                if (!tableBody) return;
+                
+                const row = document.createElement('tr');
+                
+                // Get tool names for display
+                const fromToolSelect = document.getElementById('fromToolId');
+                const fromToolName = fromToolSelect.options[fromToolSelect.selectedIndex].text;
+                
+                const destinationNames = [];
+                destinationToolIds.forEach(toolId => {
+                    const allSelects = document.querySelectorAll('#destinationContainerForm .destination-select');
+                    for (let select of allSelects) {
+                        if (select.value === toolId) {
+                            destinationNames.push(select.options[select.selectedIndex].text);
+                            break;
+                        }
+                    }
+                });
+                
+                row.innerHTML = `
+                    <td>${partName}</td>
+                    <td>${fromToolName}</td>
+                    <td>${destinationNames.join(', ')}</td>
+                    <td>${notes || '-'}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeMovingPartRow(this)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            }
+            
+            // Helper function to clear and close the modal
+            function clearMovingPartModal() {
+                document.getElementById('movingPartName').value = '';
+                document.getElementById('fromToolId').value = '';
+                document.querySelectorAll('#destinationContainerForm .destination-select').forEach(select => select.value = '');
+                document.getElementById('movingPartNotes').value = '';
+                
+                const modal = bootstrap.Modal.getInstance(addMovingPartModal);
+                if (modal) {
+                    modal.hide();
+                }
+            }
+            
+            // Helper function to submit moving part to server for existing RMAs
+            function submitMovingPartToServer(rmaId, partName, fromToolId, destinationToolIds, notes) {
+                const formData = new FormData();
+                formData.append('partName', partName);
+                formData.append('fromToolId', fromToolId);
+                destinationToolIds.forEach(id => formData.append('destinationToolIds', id));
+                if (notes) formData.append('notes', notes);
+                
+                fetch(`/rma/${rmaId}/moving-parts/add`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Reload the page to show the updated moving parts
+                        window.location.reload();
+                    } else {
+                        alert('Error adding moving part. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error adding moving part. Please try again.');
+                });
+            }
+            
+            // Global function to remove moving part rows (for new RMAs)
+            window.removeMovingPartRow = function(button) {
+                const row = button.closest('tr');
+                const index = Array.from(row.parentNode.children).indexOf(row);
+                
+                // Remove the visual row
+                row.remove();
+                
+                // Remove corresponding hidden inputs for new RMAs
+                const formElement = document.getElementById('rmaForm');
+                if (formElement) {
+                    const inputsToRemove = formElement.querySelectorAll(`input[name^="tempMovingParts[${index}]"]`);
+                    inputsToRemove.forEach(input => input.remove());
+                    
+                    // Reindex remaining inputs
+                    const remainingInputs = formElement.querySelectorAll('input[name^="tempMovingParts["]');
+                    const groupedInputs = {};
+                    
+                    remainingInputs.forEach(input => {
+                        const match = input.name.match(/tempMovingParts\[(\d+)\]\.(.+)/);
+                        if (match) {
+                            const oldIndex = parseInt(match[1]);
+                            const field = match[2];
+                            if (!groupedInputs[oldIndex]) groupedInputs[oldIndex] = [];
+                            groupedInputs[oldIndex].push({ input, field });
+                        }
+                    });
+                    
+                    // Remove all temp moving part inputs
+                    remainingInputs.forEach(input => input.remove());
+                    
+                    // Re-add with correct indices
+                    Object.keys(groupedInputs).sort((a, b) => parseInt(a) - parseInt(b)).forEach((oldIndex, newIndex) => {
+                        groupedInputs[oldIndex].forEach(({ input, field }) => {
+                            const newInput = document.createElement('input');
+                            newInput.type = 'hidden';
+                            newInput.name = `tempMovingParts[${newIndex}].${field}`;
+                            newInput.value = input.value;
+                            formElement.appendChild(newInput);
+                        });
+                    });
+                }
+            };
         });
     </script>
 </body>
