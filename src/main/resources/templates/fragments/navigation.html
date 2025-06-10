@@ -11,21 +11,19 @@
     <!-- Navigation Fragment -->
     <nav th:fragment="navbar(activeTab)" class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="/dashboard">PCD Manager</a>
+            <a class="navbar-brand" href="/dashboard">
+                PCD Manager
+                <!-- Current Location Display - clickable to go to locations page -->
+                <a class="text-light text-decoration-none ms-2" th:if="${currentLocation != null}" 
+                   th:href="@{/locations}" th:text="${currentLocation.getDisplayName()}">AZ F52</a>
+                <a class="text-light text-decoration-none ms-2" th:unless="${currentLocation != null}" 
+                   th:href="@{/locations}">No Location</a>
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <!-- Locations tab shows current location or default -->
-                    <li class="nav-item">
-                        <a class="nav-link" th:classappend="${activeTab == 'locations' ? 'active' : ''}" href="/locations">
-                            <!-- Display active location name, or 'Locations' if none is set -->
-                            <span th:if="${activeLocationGlobally != null}" 
-                                  th:text="${activeLocationGlobally.getDisplayName()}">Current Location</span>
-                            <span th:unless="${activeLocationGlobally != null}">Locations</span>
-                        </a>
-                    </li>
                     <li class="nav-item">
                         <a class="nav-link" th:classappend="${activeTab == 'dashboard' ? 'active' : ''}" href="/dashboard">Dashboard</a>
                     </li>

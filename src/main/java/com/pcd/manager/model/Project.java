@@ -54,6 +54,10 @@ public class Project {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "location_id")
+    private Location location;
+
     // Many-to-many relationship with users (team members)
     @ManyToMany
     @JoinTable(

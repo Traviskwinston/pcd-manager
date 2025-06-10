@@ -431,28 +431,28 @@ public class DataInitializer implements CommandLineRunner {
             "Duane: Environmental testing completed, unit ready for service."
         };
         
-        // Historical RMA data from CSV
+        // Historical RMA data from CSV - Fixed tool names to match actual tool names in database
         String[][] rmaData = {
-            {"KOR151D", "UPW Incident", "10/1/2024", "", "", "UPW Incident with contractor", "Track & Trend"},
+            {"KOR151", "UPW Incident", "10/1/2024", "", "", "UPW Incident with contractor", "Track & Trend"},
             {"Atomizers", "Multiple Slurry Tools", "12/10/2024", "Yes", "Some", "Some has been cleaned and some were shipped out.", ""},
-            {"KOR151D", "Photohelic", "12/10/2024", "2/27/2025", "", "UPW Incident with contractor - Contractor quote for parts.", "Track & Trend"},
-            {"BH151D", "HV121", "11/14/2024", "4/24/2025", "4/24/2025", "Upw supply HV121 3/4\" Fluoroware leaking from weep hole - HV121 & HV221 were removed and placed in BH151D due to different model.", ""},
-            {"BH151D", "Commons Door", "10/31/2024", "4/18/2025", "", "Door was cracked from over torqued with electrical drill", ""},
+            {"KOR151", "Photohelic", "12/10/2024", "2/27/2025", "", "UPW Incident with contractor - Contractor quote for parts.", "Track & Trend"},
+            {"BH151", "HV121", "11/14/2024", "4/24/2025", "4/24/2025", "Upw supply HV121 3/4\" Fluoroware leaking from weep hole - HV121 & HV221 were removed and placed in BH151D due to different model.", ""},
+            {"BH151", "Commons Door", "10/31/2024", "4/18/2025", "", "Door was cracked from over torqued with electrical drill", ""},
             {"WL151D", "Inner connects", "11/15/2024", "", "", "1\" Prime Lock flare to 3/4\" male - Inner Connections for 5 and 7 Blend", "5/6/2025"},
             {"WK151D", "Feed Tank", "8/12/2024", "24-Sep", "", "While opening door. Door was heavy slipped and fell on grating. The door cracked on bottom.", "4/9/2025"},
-            {"TM151F", "IY replacements", "12/11/2024", "1/28/2025", "", "2 IY for the scale needed for install", "Yes"},
+            {"TM151D", "IY replacements", "12/11/2024", "1/28/2025", "", "2 IY for the scale needed for install", "Yes"},
             {"JS151D", "CF01B Grey Peg", "12/10/2024", "12/18/2025", "", "Grey Standoff and plastic screw for CF01B - Received parts from Mike Southwell he had extra", "Yes"},
-            {"AH151D", "HG01 hook & PS003", "12/16/2024", "Yes", "Yes", "PS003 not functioning correctly and Broken HG01 Hook", ""},
+            {"AH151", "HG01 hook & PS003", "12/16/2024", "Yes", "Yes", "PS003 not functioning correctly and Broken HG01 Hook", ""},
             {"EF151D", "HG02 hook & Tank 1 lid handle", "12/19/2024", "Yes", "", "HG02 Hook Broken and Tank 1 Lid handle Broken", "5/23/2025"},
-            {"SSC151D", "PV005", "12/30/2024", "4/18/2025", "4/22/2025", "PV005 Leaking from weep hole. RMA for SSC151D PV005 will go to KF152", ""},
-            {"KG151D", "PV005", "12/30/2024", "4/18/2025", "4/22/2025", "PV005 Leaking from weep hole", ""},
-            {"VC151F", "PV009/PC009", "12/30/2024", "1/28/2025", "Yes", "Feed PV009/PC009 Failed", ""},
+            {"SSC151", "PV005", "12/30/2024", "4/18/2025", "4/22/2025", "PV005 Leaking from weep hole. RMA for SSC151D PV005 will go to KF152", ""},
+            {"KG151", "PV005", "12/30/2024", "4/18/2025", "4/22/2025", "PV005 Leaking from weep hole", ""},
+            {"VC151D", "PV009/PC009", "12/30/2024", "1/28/2025", "Yes", "Feed PV009/PC009 Failed", ""},
             {"VC151D", "Wiring Track and Trend", "12/23/2024", "", "", "AT24 was not registering a reading. It was found that the green wire 467 was landed in the com location just above V/I 3- instead of V/I 3- itself.", "Track & Trend"},
             {"FU151D", "AT023/AT025 wiring", "1/6/2025", "1/13/2025", "", "AT023/AT025 Wiring - Finishing kit", "AT025 - 1/14/2025"},
-            {"VC151F", "fast n tight reducer", "12/23/2024", "2/26/2025", "", "Leaking OFA from Fast n tight fitting in feed station after HV031 feeds OFA to PV009/PC009 DP01", "Installed"},
+            {"VC151D", "fast n tight reducer", "12/23/2024", "2/26/2025", "", "Leaking OFA from Fast n tight fitting in feed station after HV031 feeds OFA to PV009/PC009 DP01", "Installed"},
             {"JP151D", "Tank 1", "1/14/2025", "4/10/2025", "", "JP151 Tank 1 cracked", ""},
-            {"JT151D", "AE24", "1/14/2025", "Yes", "Yes", "Damaged while installing in tool", "In JP151 parts kit"},
-            {"KOR151D", "McMillan", "1/16/2025", "2/26/2025", "", "McMillan failed not holding set point as desired", "3/20/2025"},
+            {"JT151", "AE24", "1/14/2025", "Yes", "Yes", "Damaged while installing in tool", "In JP151 parts kit"},
+            {"KOR151", "McMillan", "1/16/2025", "2/26/2025", "", "McMillan failed not holding set point as desired", "3/20/2025"},
             {"FU151D", "Stylus", "1/15/2025", "2/26/2025", "", "Stylus missing tip", ""},
             {"HG151D", "HV035", "1/30/2025", "4/3/2025", "Yes", "Leaking UPW from weephole", ""},
             {"HG151D", "PV015", "2/3/2025", "", "Yes", "Water pressure hammering due to regulator. Also broke the needle on the gauge", ""},
@@ -463,31 +463,31 @@ public class DataInitializer implements CommandLineRunner {
             {"EK151D", "Feed Tank", "2/18/2025", "", "", "EK151D - Found small dots on the bottom of tank thank looked like rust. Unsure", ""},
             {"EK151D", "LPC Cal. Loop & Return Supply", "2/18/2025", "3/20/2025", "", "EK151D - LPC Cal. Loop & Return Supply both fittings were broken and leaking", ""},
             {"EK151D", "Blue Tags HV064 & HV065", "2/18/2025", "3/20/2025", "", "EK151D - Blue Tags HV064 & HV065 were found as CV064 &CV065", ""},
-            {"EK151F", "Feed Non-Commpression fitting", "2/18/2025", "3/25/2025", "", "EK151D - Feed Non-Commpression fitting that is off of the main OFA manifold feeding to PV010", ""},
-            {"BT151D", "DT1 and DT2 Filters leaking", "2/18/2025", "4/2/2025", "", "BT151D - DT1 and DT2 Filters leaking", ""},
+            {"EK151D", "Feed Non-Commpression fitting", "2/18/2025", "3/25/2025", "", "EK151D - Feed Non-Commpression fitting that is off of the main OFA manifold feeding to PV010", ""},
+            {"BT151", "DT1 and DT2 Filters leaking", "2/18/2025", "4/2/2025", "", "BT151D - DT1 and DT2 Filters leaking", ""},
             {"WR151D", "Tank 2 Crack and indent", "2/18/2025", "4/15/2025", "", "WR151D - Tank 2 Crack and indent", ""},
             {"WR151D", "Tank 1 Track and trend", "2/26/2025", "", "", "WR151D - Tank 1 found a piece of broken plastic screw at the bottom of tank drain manifold.", "Track & Trend"},
-            {"BT152D", "PV005, PV202, HV121", "2/26/2025", "4/18/2025", "", "PV005 not holding pressure, HV121 leaking at weep hole, PV202 not depressureizing correctly.", "5/12/2025"},
-            {"BT152D", "Flow Controller Cable", "2/26/2025", "4/10/2025", "", "FC connector for UPW FC 121, was found damaged when removing heat shrink from connector.", "2/17/2025"},
-            {"HD152D", "PV005", "2/27/2025", "4/18/2025", "4/22/2025", "Leaking from weephole. This part was removed and installed into BT152D NEEDED TO START TOOL UP ASAP", ""},
-            {"AH151D", "Leaking Filters", "3/5/2025", "4/2/2025", "", "AH151D - Leaking filters on FL102 & FL201.", "Track & Trend"},
-            {"JP151F", "PV009/PC009", "3/6/2025", "3/14/2025", "", "JP151F - PV009/PC009 failed after", "Installed"},
-            {"JP151F", "FT002", "3/6/2025", "", "", "JP151F FT002 Wiring landed wrong", "Track & Trend"},
+            {"BT152", "PV005, PV202, HV121", "2/26/2025", "4/18/2025", "", "PV005 not holding pressure, HV121 leaking at weep hole, PV202 not depressureizing correctly.", "5/12/2025"},
+            {"BT152", "Flow Controller Cable", "2/26/2025", "4/10/2025", "", "FC connector for UPW FC 121, was found damaged when removing heat shrink from connector.", "2/17/2025"},
+            {"HD152", "PV005", "2/27/2025", "4/18/2025", "4/22/2025", "Leaking from weephole. This part was removed and installed into BT152D NEEDED TO START TOOL UP ASAP", ""},
+            {"AH151", "Leaking Filters", "3/5/2025", "4/2/2025", "", "AH151D - Leaking filters on FL102 & FL201.", "Track & Trend"},
+            {"JP151D", "PV009/PC009", "3/6/2025", "3/14/2025", "", "JP151F - PV009/PC009 failed after", "Installed"},
+            {"JP151D", "FT002", "3/6/2025", "", "", "JP151F FT002 Wiring landed wrong", "Track & Trend"},
             {"RE151D", "Tank 2 Crack", "3/11/2025", "4/15/2025", "", "RE151D - Crack Tank 2", ""},
-            {"GR151D", "CV203", "3/12/2025", "5/16/2025", "", "GR151D - CV203", "5/20/2025"},
+            {"GR151", "CV203", "3/12/2025", "5/16/2025", "", "GR151D - CV203", "5/20/2025"},
             {"WK151D", "CP02", "3/13/2025", "4/2/2025", "", "CP02 leaking from side wall one of the plastic screw is not tightening", "Track & Trend"},
             {"WK151D", "PV015, PI012, FT030", "3/21/2025", "", "", "Water pressure hammering due to regulator. Also broke the needle on the gauge. FT030 not giving feedback to FC030", "5/19/2025"},
             {"WK151D", "PI012", "4/14/2025", "5/7/2025", "", "This part was replaced before and was damaged during start up.", ""},
-            {"JK151F", "Feed tank leak", "4/15/2025", "", "", "Cracked weld on Feed tank bottom fitting", ""},
-            {"JK151F", "Leak sensor retaining clips", "4/15/2025", "5/16/2025", "", "Missing leak sensor retaining clips", "5/21/2025"},
-            {"KF151D", "PV005", "3/19/2025", "4/3/2025", "", "PV005 is Leaking from weep hole", ""},
-            {"RE151F", "FT002", "3/19/2025", "5/27/2025", "", "Intel was pulling chemical from the drum and noticed the FT002 on flow was constantly reading 0.", ""},
-            {"AR151D", "PV005", "4/8/2025", "", "", "PV005 is Leaking from weep hole", ""},
-            {"KOR152D", "Power Supply", "4/14/2025", "", "4/14/2025", "Power Supply 4PWS Sparked and smoked when power was turned on by Intel", "4/11/2025"},
+            {"JK151D", "Feed tank leak", "4/15/2025", "", "", "Cracked weld on Feed tank bottom fitting", ""},
+            {"JK151D", "Leak sensor retaining clips", "4/15/2025", "5/16/2025", "", "Missing leak sensor retaining clips", "5/21/2025"},
+            {"KF151", "PV005", "3/19/2025", "4/3/2025", "", "PV005 is Leaking from weep hole", ""},
+            {"RE151D", "FT002", "3/19/2025", "5/27/2025", "", "Intel was pulling chemical from the drum and noticed the FT002 on flow was constantly reading 0.", ""},
+            {"AR151", "PV005", "4/8/2025", "", "", "PV005 is Leaking from weep hole", ""},
+            {"KOR152", "Power Supply", "4/14/2025", "", "4/14/2025", "Power Supply 4PWS Sparked and smoked when power was turned on by Intel", "4/11/2025"},
             {"XJ151D", "NV01 & NV02", "4/17/2025", "4/23/2025", "", "Valves are stripped on thread can't close or open. The valves keep turning.", ""},
             {"JK151D", "Distribution Tank 2", "4/17/2025", "", "", "Distribution Tank 2 had gouge on the left side of the tank interior and scratch on the outerside of tank near gouge.", "Track & Trend"},
             {"JK151D", "Distribution Tank 1", "4/17/2025", "", "", "Tank 1 has gouge on righ side of tank", "Track & Trend"},
-            {"JK151F", "Feed Tank", "4/15/2025", "", "", "Tank was leaking from weld on bottom of tank", ""},
+            {"JK151D", "Feed Tank", "4/15/2025", "", "", "Tank was leaking from weld on bottom of tank", ""},
             {"JK151D", "Level sensor Clips", "4/15/2025", "", "", "Level sensors were missing retaining clips", ""},
             {"JK151D", "Pneumatic lines swapped", "4/21/2025", "", "", "Feed and Blend solenoid lines were swapped front to back", "Track & Trend"},
             {"RAK151D", "SOL #2", "4/10/2025", "", "", "Pin # 3 bent on SOL #2 wulit-wire connector, could not make connection", ""},
@@ -495,9 +495,9 @@ public class DataInitializer implements CommandLineRunner {
             {"JK151D", "HV013 Leak", "4/29/2025", "Yes", "Yes", "Intel was flushing system with UPW and noticed HV013 was leaking from side wall.", ""},
             {"KT151D", "Tank 2 gouge", "5/1/2025", "", "", "Tank 2 has a gouge in the back of the tank.", ""},
             {"RAK151D", "PI012", "4/8/2025", "5/5/2025", "Yes", "Pressure gauge needle broke and was not functioning correctly. The needle was slamming hard.", "5/19/2025"},
-            {"KT151F", "Feed tank scratches", "5/7/2025", "", "", "Scratches and small gouges in Feed Tank", "Track and Trend"},
+            {"KT151D", "Feed tank scratches", "5/7/2025", "", "", "Scratches and small gouges in Feed Tank", "Track and Trend"},
             {"KT151D", "PV004", "5/12/2025", "5/27/2025", "", "Leaking from weephole", ""},
-            {"JP151F", "non compression fitting", "5/16/2025", "", "", "Non compression fitting blew off", ""},
+            {"JP151D", "non compression fitting", "5/16/2025", "", "", "Non compression fitting blew off", ""},
             {"KT151D", "Oversized distribution tank", "5/14/2025", "", "", "Replacement tank was oversized and the standoff pegs had to be trimmed to make the tank fit", "Track and Trend"},
             {"KT151D", "NV003 leaking", "5/20/2025", "", "", "NV003 leaking even after tightening", ""},
             {"RAK152D", "HV038 leaking by", "5/22/2025", "", "", "HV038 leaking by", ""}
@@ -1137,9 +1137,27 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
         
+        // Get the default location for the grid item
+        Location defaultLocation = locationRepository.findByDefaultLocationIsTrue()
+            .orElseGet(() -> {
+                // If no default location exists, try to find Arizona F52
+                return locationRepository.findByStateAndFab("Arizona", "52")
+                    .orElseGet(() -> {
+                        // Create a default location if none exists
+                        logger.warn("No default location found, creating Arizona F52 as default");
+                        Location newLocation = new Location();
+                        newLocation.setState("Arizona");
+                        newLocation.setFab("52");
+                        newLocation.setName("Fab 52 Arizona");
+                        newLocation.setDefaultLocation(true);
+                        return locationRepository.save(newLocation);
+                    });
+            });
+        
         MapGridItem item = new MapGridItem();
         item.setType(MapGridItem.ItemType.TOOL);
         item.setTool(tool);
+        item.setLocation(defaultLocation);  // Set the required location
         item.setX(x);
         item.setY(y);
         item.setWidth(width);
@@ -1148,6 +1166,7 @@ public class DataInitializer implements CommandLineRunner {
         item.setUpdatedBy(creator);
         mapGridItemRepository.save(item);
         
-        logger.debug("Placed tool {} on grid at position ({}, {})", toolName, x, y);
+        logger.debug("Placed tool {} on grid at position ({}, {}) for location {}", 
+                    toolName, x, y, defaultLocation.getDisplayName());
     }
 } 

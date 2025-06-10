@@ -6,44 +6,16 @@
     <title>PCD Manager - RMA List</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Data Table Component CSS -->
+    <link th:href="@{/css/components/data-table.css}" rel="stylesheet">
+    <link th:href="@{/dark-mode.css}" rel="stylesheet">
     <style>
         .content-area {
-            font-size: 0.9rem; /* Slightly smaller base font for compactness */
-        }
-        .table-compact th, .table-compact td {
-            padding: 0.4rem 0.3rem; /* Reduced padding */
-            font-size: 0.85rem; /* Smaller font in table */
-            vertical-align: middle;
-        }
-        .table-compact th {
-            white-space: normal; /* Allow header text to wrap */
-            text-align: center;
-        }
-        .table-compact td {
-             white-space: nowrap; /* Keep cell content on one line initially */
-             overflow: hidden;
-             text-overflow: ellipsis; /* Add ellipsis for overflowed content */
-             max-width: 150px; /* Adjust as needed, especially for parts/comments */
-             text-align: center; /* Center align data cells by default */
-        }
-        .table-compact td.allow-wrap {
-            white-space: normal;
-            word-break: break-word;
-            text-align: left; /* Override to left-align for wrapped content */
+            font-size: 0.9rem;
         }
 
-        .info-icon-interactive {
-            cursor: pointer;
-            transition: transform 0.2s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: #0d6efd; /* Bootstrap primary blue */
-        }
-        .info-icon-interactive:hover {
-            transform: scale(1.2);
-        }
-        
         /* Popover for Problem Description */
         .problem-popover-icon {
             cursor: pointer;
@@ -58,14 +30,10 @@
         }
         .popover-body strong {
             display: inline-block;
-            width: 100px; /* Adjust as needed */
-        }
-        .action-icon {
-            font-size: 1.2rem;
-            text-decoration: none;
+            width: 100px;
         }
         .status-badge {
-            font-size: 0.9rem !important; /* Larger than default badge font */
+            font-size: 0.9rem !important;
         }
         
         /* Moving Parts icon styling */
@@ -86,46 +54,22 @@
             background-color: #0b5ed7; /* Darker blue on hover */
         }
         
-        /* Sorting arrows styling */
-        .sortable-header {
-            cursor: pointer;
-            position: relative;
-            user-select: none;
-        }
+        /* RMA-specific sorting arrows using Bootstrap icons */
         .sort-arrows {
-            margin-left: 5px;
+            margin-left: 4px;
             display: inline-flex;
             flex-direction: column;
-            line-height: 0.7;
-        }
-        .sort-up, .sort-down {
-            font-size: 0.8rem;
-            color: #6c757d;
-            transition: color 0.2s;
-        }
-        .sortable-header:hover .sort-up,
-        .sortable-header:hover .sort-down {
-            color: #0d6efd;
-        }
-        .sortable-header.sort-asc .sort-up,
-        .sortable-header.sort-desc .sort-down {
-            color: #0d6efd;
-            font-weight: bold;
+            line-height: 0.6;
+            flex-shrink: 0;
         }
         
-        /* Status filter dropdown styling */
+        /* RMA-specific status filter dropdown */
         .status-filter-header .dropdown-toggle {
             border: none;
             padding: 2px 6px;
         }
         .status-filter-header .dropdown-toggle:focus {
             box-shadow: none;
-        }
-        
-        /* Search highlighting */
-        .search-highlight {
-            background-color: yellow;
-            font-weight: bold;
         }
         
         /* Fixed square status count badges */
@@ -171,54 +115,72 @@
 <body>
     <div th:replace="~{fragments/navigation :: navbar('rma')}"></div>
 
-    <div class="container mt-4 content-area">
-        <div class="row mb-3 align-items-center">
-            <div class="col">
-                <h1>RMA List</h1>
+    <div class="container-fluid mt-4 content-area">
+        <!-- Header Section -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>
+                    <i class="fas fa-clipboard-list me-2"></i>
+                    RMA Management
+                </h2>
             </div>
-            <div class="col text-end">
-                <a th:href="@{/rma/new}" class="btn btn-primary btn-sm">
-                    <i class="bi bi-plus-circle"></i> New RMA
+            <div>
+                <a th:href="@{/rma/new}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    New RMA
                 </a>
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">Manage RMAs</h4>
-                <div class="d-flex align-items-center gap-3">
-                    <div class="input-group" style="width: 300px;">
-                        <span class="input-group-text">
-                            <i class="bi bi-search"></i>
-                        </span>
-                        <input type="text" id="rmaSearchInput" class="form-control" placeholder="Search by Tool, Parts, or Part Number...">
-                        <button class="btn btn-outline-secondary" type="button" id="clearSearch">
-                            <i class="bi bi-x"></i>
+        <!-- Data Table Container -->
+        <div class="data-table-container">
+            
+            <!-- Search Controls -->
+            <div class="row mb-3 align-items-center">
+                <div class="col-md-8">
+                    <div class="input-group">
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="rmaSearchInput"
+                            placeholder="Search by tool, parts, or part number..."
+                            aria-label="Search">
+                        <button 
+                            class="btn btn-outline-secondary" 
+                            type="button" 
+                            id="clearSearch"
+                            title="Clear search">
+                            <i class="fas fa-times"></i>
                         </button>
                     </div>
                 </div>
             </div>
-            <div class="card-body">
-                <div class="table-responsive rma-table-container">
-                    <table class="table table-hover table-compact">
+
+            <!-- Responsive Table Container -->
+                        <div class="data-table-responsive table-responsive rma-table-container" id="rma-table-container">
+                <table class="table table-striped data-table-compact">
                         <thead>
                             <tr>
-                                <th style="width: 10%;" class="sortable-header" data-sort="tool">
-                                    Tool
-                                    <span class="sort-arrows">
-                                        <i class="bi bi-caret-up sort-up"></i>
-                                        <i class="bi bi-caret-down sort-down"></i>
-                                    </span>
+                                <th style="width: 15%;" class="sortable-header" data-sort="tool">
+                                    <div class="header-content">
+                                        <span class="header-text">Tool</span>
+                                        <span class="sort-arrows">
+                                            <i class="bi bi-caret-up sort-up"></i>
+                                            <i class="bi bi-caret-down sort-down"></i>
+                                        </span>
+                                    </div>
                                 </th>
-                                <th style="width: 5%;">Parts</th>
-                                <th style="width: 10%;" class="sortable-header" data-sort="rma-number">
-                                    RMA Number
-                                    <span class="sort-arrows">
-                                        <i class="bi bi-caret-up sort-up"></i>
-                                        <i class="bi bi-caret-down sort-down"></i>
-                                    </span>
+                                <th style="width: 12%;">Parts</th>
+                                <th style="width: 12%;" class="sortable-header" data-sort="rma-number">
+                                    <div class="header-content">
+                                        <span class="header-text">RMA Number</span>
+                                        <span class="sort-arrows">
+                                            <i class="bi bi-caret-up sort-up"></i>
+                                            <i class="bi bi-caret-down sort-down"></i>
+                                        </span>
+                                    </div>
                                 </th>
-                                <th style="width: 15%;" class="status-filter-header">
+                                <th style="width: 12%;" class="status-filter-header">
                                     Status
                                     <div class="dropdown d-inline-block ms-1">
                                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -296,62 +258,76 @@
                                         </ul>
                                     </div>
                                 </th>
-                                <th style="width: 7%;" class="sortable-header" data-sort="written-date">
-                                    Written
-                                    <span class="sort-arrows">
-                                        <i class="bi bi-caret-up sort-up"></i>
-                                        <i class="bi bi-caret-down sort-down"></i>
-                                    </span>
+                                <th style="width: 8%;" class="sortable-header" data-sort="written-date">
+                                    <div class="header-content">
+                                        <span class="header-text">Written</span>
+                                        <span class="sort-arrows">
+                                            <i class="bi bi-caret-up sort-up"></i>
+                                            <i class="bi bi-caret-down sort-down"></i>
+                                        </span>
+                                    </div>
                                 </th>
-                                <th style="width: 7%;" class="sortable-header" data-sort="rma-provided-date">
-                                    RMA #<br>Provided
-                                    <span class="sort-arrows">
-                                        <i class="bi bi-caret-up sort-up"></i>
-                                        <i class="bi bi-caret-down sort-down"></i>
-                                    </span>
+                                <th style="width: 8%;" class="sortable-header" data-sort="rma-provided-date">
+                                    <div class="header-content">
+                                        <span class="header-text">RMA # Provided</span>
+                                        <span class="sort-arrows">
+                                            <i class="bi bi-caret-up sort-up"></i>
+                                            <i class="bi bi-caret-down sort-down"></i>
+                                        </span>
+                                    </div>
                                 </th>
-                                <th style="width: 7%;" class="sortable-header" data-sort="shipping-memo-date">
-                                    Shipping<br>Memo
-                                    <span class="sort-arrows">
-                                        <i class="bi bi-caret-up sort-up"></i>
-                                        <i class="bi bi-caret-down sort-down"></i>
-                                    </span>
+                                <th style="width: 8%;" class="sortable-header" data-sort="shipping-memo-date">
+                                    <div class="header-content">
+                                        <span class="header-text">Shipping Memo</span>
+                                        <span class="sort-arrows">
+                                            <i class="bi bi-caret-up sort-up"></i>
+                                            <i class="bi bi-caret-down sort-down"></i>
+                                        </span>
+                                    </div>
                                 </th>
-                                <th style="width: 6%;" class="sortable-header" data-sort="parts-received-date">
-                                    Parts<br>Received
-                                    <span class="sort-arrows">
-                                        <i class="bi bi-caret-up sort-up"></i>
-                                        <i class="bi bi-caret-down sort-down"></i>
-                                    </span>
+                                <th style="width: 8%;" class="sortable-header" data-sort="parts-received-date">
+                                    <div class="header-content">
+                                        <span class="header-text">Parts Received</span>
+                                        <span class="sort-arrows">
+                                            <i class="bi bi-caret-up sort-up"></i>
+                                            <i class="bi bi-caret-down sort-down"></i>
+                                        </span>
+                                    </div>
                                 </th>
-                                <th style="width: 6%;" class="sortable-header" data-sort="parts-installed-date">
-                                    Parts<br>Installed
-                                    <span class="sort-arrows">
-                                        <i class="bi bi-caret-up sort-up"></i>
-                                        <i class="bi bi-caret-down sort-down"></i>
-                                    </span>
+                                <th style="width: 8%;" class="sortable-header" data-sort="parts-installed-date">
+                                    <div class="header-content">
+                                        <span class="header-text">Parts Installed</span>
+                                        <span class="sort-arrows">
+                                            <i class="bi bi-caret-up sort-up"></i>
+                                            <i class="bi bi-caret-down sort-down"></i>
+                                        </span>
+                                    </div>
                                 </th>
-                                <th style="width: 6%;" class="sortable-header" data-sort="failed-parts-ready-date">
-                                    Failed Parts<br>Ready
-                                    <span class="sort-arrows">
-                                        <i class="bi bi-caret-up sort-up"></i>
-                                        <i class="bi bi-caret-down sort-down"></i>
-                                    </span>
+                                <th style="width: 8%;" class="sortable-header" data-sort="failed-parts-ready-date">
+                                    <div class="header-content">
+                                        <span class="header-text">Failed Parts Ready</span>
+                                        <span class="sort-arrows">
+                                            <i class="bi bi-caret-up sort-up"></i>
+                                            <i class="bi bi-caret-down sort-down"></i>
+                                        </span>
+                                    </div>
                                 </th>
-                                <th style="width: 6%;" class="sortable-header" data-sort="failed-parts-shipped-date">
-                                    Failed Parts<br>Shipped
-                                    <span class="sort-arrows">
-                                        <i class="bi bi-caret-up sort-up"></i>
-                                        <i class="bi bi-caret-down sort-down"></i>
-                                    </span>
+                                <th style="width: 8%;" class="sortable-header" data-sort="failed-parts-shipped-date">
+                                    <div class="header-content">
+                                        <span class="header-text">Failed Parts Shipped</span>
+                                        <span class="sort-arrows">
+                                            <i class="bi bi-caret-up sort-up"></i>
+                                            <i class="bi bi-caret-down sort-down"></i>
+                                        </span>
+                                    </div>
                                 </th>
-                                <th style="width: 7%;">Moving Parts</th>
-                                <th style="width: 7%;">Comments</th>
+                                <th style="width: 5%;">Moving Parts</th>
+                                <th style="width: 5%;">Comments</th>
                                 <th style="width: 3%;"></th> <!-- View Action -->
                             </tr>
                         </thead>
                         <tbody>
-                            <tr th:each="rma : ${rmas}" th:object="${rma}" class="rma-row"
+                            <tr th:each="rma : ${rmas}" th:object="${rma}" class="data-table-row rma-row"
                                 th:attr="data-tool=*{tool != null ? tool.name : ''},
                                          data-parts=${#strings.listJoin(rma.partLineItems.![partName ?: partNumber ?: productDescription], ' ')},
                                          data-part-numbers=${#strings.listJoin(rma.partLineItems.![partNumber], ' ')},
@@ -494,6 +470,16 @@
                         </tbody>
                     </table>
                 </div>
+                
+                <!-- Results summary -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <small class="text-muted">
+                            Showing <span id="rma-count">0</span> 
+                            <span id="rma-count-text">RMAs</span>
+                        </small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -539,6 +525,7 @@
                 this.init();
                 this.calculateTotalStatusCounts();
                 this.updateStatusCounts();
+                this.updateRmaCount();
             }
 
             init() {
@@ -559,7 +546,14 @@
 
                 // Sorting functionality
                 document.querySelectorAll('.sortable-header').forEach(header => {
-                    header.addEventListener('click', () => {
+                    header.addEventListener('click', (e) => {
+                        // Ignore clicks on dropdowns or their children
+                        if (e.target.closest('[data-bs-toggle="dropdown"]') || 
+                            e.target.closest('.dropdown') || 
+                            e.target.closest('.dropdown-menu')) {
+                            return; // Don't handle sort for dropdown clicks
+                        }
+                        
                         const sortType = header.getAttribute('data-sort');
                         this.handleSort(sortType, header);
                     });
@@ -690,6 +684,14 @@
                 });
 
                 this.updateStatusCounts();
+                this.updateRmaCount();
+            }
+
+            updateRmaCount() {
+                const visibleRows = document.querySelectorAll('.rma-row:not([style*="display: none"])');
+                const count = visibleRows.length;
+                document.getElementById('rma-count').textContent = count;
+                document.getElementById('rma-count-text').textContent = count === 1 ? 'RMA' : 'RMAs';
             }
 
             calculateTotalStatusCounts() {
@@ -715,6 +717,136 @@
         // Initialize RMA Manager when page loads
         document.addEventListener('DOMContentLoaded', function() {
             new RMAManager();
+            
+            // Enhanced horizontal scrolling functionality
+            const tableContainer = document.querySelector('.rma-table-container');
+            
+            if (tableContainer) {
+                // Shift + mouse wheel for horizontal scrolling
+                tableContainer.addEventListener('wheel', function(e) {
+                    if (e.shiftKey) {
+                        e.preventDefault();
+                        tableContainer.scrollLeft += e.deltaY;
+                    }
+                });
+                
+                // Click and drag to scroll horizontally
+                let isDown = false;
+                let startX;
+                let scrollLeft;
+                let hasDragged = false;
+                
+                tableContainer.addEventListener('mousedown', function(e) {
+                    // Only start drag if clicking on the container itself, not interactive elements
+                    if (e.target.closest('a, button, input, .dropdown, [data-bs-toggle]')) {
+                        return;
+                    }
+                    
+                    isDown = true;
+                    hasDragged = false;
+                    tableContainer.classList.add('dragging');
+                    startX = e.pageX - tableContainer.offsetLeft;
+                    scrollLeft = tableContainer.scrollLeft;
+                });
+                
+                tableContainer.addEventListener('mouseleave', function() {
+                    isDown = false;
+                    tableContainer.classList.remove('dragging');
+                    // Reset drag flag after a short delay
+                    setTimeout(() => { hasDragged = false; }, 100);
+                });
+                
+                tableContainer.addEventListener('mouseup', function() {
+                    isDown = false;
+                    tableContainer.classList.remove('dragging');
+                    // Reset drag flag after a short delay to allow click detection
+                    setTimeout(() => { hasDragged = false; }, 100);
+                });
+                
+                tableContainer.addEventListener('mousemove', function(e) {
+                    if (!isDown) return;
+                    e.preventDefault();
+                    const x = e.pageX - tableContainer.offsetLeft;
+                    const walk = (x - startX) * 2; // Scroll speed multiplier
+                    
+                    // Mark as dragged if mouse moved more than 5 pixels
+                    if (Math.abs(walk) > 5) {
+                        hasDragged = true;
+                    }
+                    
+                    tableContainer.scrollLeft = scrollLeft - walk;
+                });
+                
+                // Keyboard arrow keys for horizontal scrolling
+                document.addEventListener('keydown', function(e) {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                    
+                    if (e.key === 'ArrowLeft' && e.shiftKey) {
+                        e.preventDefault();
+                        tableContainer.scrollLeft -= 50;
+                    } else if (e.key === 'ArrowRight' && e.shiftKey) {
+                        e.preventDefault();
+                        tableContainer.scrollLeft += 50;
+                                         }
+                 });
+                 
+                                 // Clickable table rows
+                const rmaRows = document.querySelectorAll('.rma-row');
+                rmaRows.forEach(row => {
+                    row.addEventListener('click', function(e) {
+                        // Don't navigate if we just finished dragging
+                        if (hasDragged) {
+                            return;
+                        }
+                        
+                        // Don't navigate if clicking on interactive elements
+                        if (e.target.closest('a, button, input, .dropdown, [data-bs-toggle], .moving-parts-icon, .problem-popover-icon, .info-icon-interactive')) {
+                            return;
+                        }
+                        
+                        // Get the RMA ID from the view action link
+                        const viewLink = row.querySelector('a[href*="/rma/"]');
+                        if (viewLink) {
+                            const href = viewLink.getAttribute('href');
+                            if (href) {
+                                window.location.href = href;
+                            }
+                        }
+                    });
+                });
+             }
+        });
+    </script>
+    
+    <!-- Bootstrap JavaScript - MUST load before theme toggle for dropdowns to work -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Theme Toggle JavaScript -->
+    <script th:src="@{/js/theme-toggle.js}"></script>
+    
+        <!-- Dropdown fix for RMA page -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fix dropdown functionality on this page
+            const statusDropdown = document.getElementById('statusFilterDropdown');
+            const profileDropdown = document.getElementById('profileDropdown');
+            
+            if (statusDropdown) {
+                statusDropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const dropdownInstance = bootstrap.Dropdown.getInstance(statusDropdown) || new bootstrap.Dropdown(statusDropdown);
+                    dropdownInstance.toggle();
+                });
+            }
+            
+            if (profileDropdown) {
+                profileDropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const dropdownInstance = bootstrap.Dropdown.getInstance(profileDropdown) || new bootstrap.Dropdown(profileDropdown);
+                    dropdownInstance.toggle();
+                });
+            }
         });
     </script>
 </body>

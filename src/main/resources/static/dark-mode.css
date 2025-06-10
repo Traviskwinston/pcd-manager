@@ -25,7 +25,7 @@
     justify-content: center;
     width: 40px;
     height: 40px;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 6px;
     background: transparent;
     color: inherit;
@@ -34,12 +34,24 @@
 }
 
 .theme-toggle:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.5);
 }
 
 .theme-toggle i {
     font-size: 1.2rem;
     transition: all 0.2s ease;
+}
+
+/* Light mode specific styling */
+:root .theme-toggle {
+    border-color: rgba(0, 0, 0, 0.2);
+    color: #495057;
+}
+
+:root .theme-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.3);
 }
 
 /* Dark theme specific styles */
@@ -64,7 +76,7 @@
 
 [data-bs-theme="dark"] .nav-link:hover,
 [data-bs-theme="dark"] .nav-link.active {
-    color: #ffc107 !important;
+    color: #5ba3f5 !important;
 }
 
 [data-bs-theme="dark"] .dropdown-menu {
@@ -106,7 +118,8 @@
 
 [data-bs-theme="dark"] .tool-item.assigned {
     background-color: #1e3a5f;
-    border-left-color: #ffc107;
+    border-left-color: #5ba3f5;
+    color: var(--bs-body-color) !important;
 }
 
 [data-bs-theme="dark"] .passdown-item {
@@ -120,9 +133,29 @@
     color: var(--bs-body-color);
 }
 
+[data-bs-theme="dark"] .list-group-item-link {
+    color: var(--bs-body-color) !important;
+}
+
 [data-bs-theme="dark"] .list-group-item-link:hover {
     background-color: var(--bs-tertiary-bg);
-    color: #ffc107;
+    color: #5ba3f5 !important;
+}
+
+/* Additional tool list text overrides */
+[data-bs-theme="dark"] .tool-item,
+[data-bs-theme="dark"] .tool-item * {
+    color: var(--bs-body-color) !important;
+}
+
+[data-bs-theme="dark"] .tool-item a,
+[data-bs-theme="dark"] .tool-item a:visited {
+    color: var(--bs-body-color) !important;
+    text-decoration: none;
+}
+
+[data-bs-theme="dark"] .tool-item a:hover {
+    color: #5ba3f5 !important;
 }
 
 /* Buttons */
@@ -310,27 +343,90 @@
 }
 
 [data-bs-theme="dark"] #grid-controls {
-    background-color: #6f42c1;
+    background-color: #4a1a5c; /* Dark purple background */
+    border: 1px solid #5e226e; /* Dark purple border */
+    box-shadow: 0 4px 12px rgba(74, 26, 92, 0.4); /* Purple glow shadow */
+}
+
+[data-bs-theme="dark"] #grid-controls-header {
+    background-color: #4a1a5c; /* Dark purple header */
+    color: #c084d1; /* Light purple text */
+    border-bottom: 1px solid #5e226e; /* Dark purple border */
 }
 
 [data-bs-theme="dark"] #grid-controls-body {
-    background-color: var(--bs-secondary-bg);
+    background-color: #3a1447; /* Darker purple body */
     color: var(--bs-body-color);
+    border-color: #5e226e;
 }
 
 [data-bs-theme="dark"] .grid-control-btn {
-    background-color: var(--bs-secondary-bg);
-    border-color: var(--bs-border-color);
-    color: var(--bs-body-color);
+    background-color: #2d0f38; /* Very dark purple */
+    border-color: #5e226e; /* Dark purple border */
+    color: #c084d1; /* Light purple text */
+    transition: all 0.2s ease;
 }
 
 [data-bs-theme="dark"] .grid-control-btn:hover {
-    background-color: var(--bs-tertiary-bg);
+    background-color: #4a1a5c; /* Lighter purple on hover */
+    border-color: #7a2b85; /* Brighter purple border */
+    color: #d19ad8; /* Slightly brighter text */
+    transform: translateY(-1px); /* Subtle lift effect */
 }
 
 [data-bs-theme="dark"] .grid-control-btn.active {
-    background-color: var(--bs-tertiary-bg);
-    border-color: var(--bs-border-color);
+    background-color: #6b2475; /* Active purple */
+    border-color: #8e44ad; /* Bright purple border */
+    color: #e8b4f0; /* Bright purple text */
+    box-shadow: 0 0 8px rgba(142, 68, 173, 0.3); /* Purple glow */
+}
+
+/* Dark mode grid tool colors */
+[data-bs-theme="dark"] .tool-shape.teal-tool,
+[data-bs-theme="dark"] .konvajs-content .teal-tool {
+    background-color: #0d4f47 !important; /* Dark teal background */
+    border-color: #1a5d55 !important; /* Dark teal outline */
+    color: #4fd1c7 !important; /* Light teal text */
+}
+
+[data-bs-theme="dark"] .tool-shape.purple-tool,
+[data-bs-theme="dark"] .konvajs-content .purple-tool {
+    background-color: #4a1a5c !important; /* Dark purple background */
+    border-color: #5e226e !important; /* Dark purple outline */
+    color: #c084d1 !important; /* Light purple text */
+}
+
+[data-bs-theme="dark"] .tool-shape,
+[data-bs-theme="dark"] .konvajs-content .tool-shape {
+    background-color: #1a3a5c !important; /* Dark blue background for default tools */
+    border-color: #2a4a6c !important; /* Dark blue outline */
+    color: #87ceeb !important; /* Light blue text */
+}
+
+/* Konva canvas tool styling for dark mode */
+[data-bs-theme="dark"] .konvajs-content canvas {
+    filter: none; /* Ensure no unwanted filters */
+}
+
+/* Additional Konva element targeting */
+[data-bs-theme="dark"] .konvajs-content rect[fill="#16a085"] {
+    fill: #0d4f47 !important; /* Dark teal fill */
+    stroke: #1a5d55 !important; /* Dark teal stroke */
+}
+
+[data-bs-theme="dark"] .konvajs-content rect[fill="#8e44ad"] {
+    fill: #4a1a5c !important; /* Dark purple fill */
+    stroke: #5e226e !important; /* Dark purple stroke */
+}
+
+[data-bs-theme="dark"] .konvajs-content rect[fill="#007bff"] {
+    fill: #1a3a5c !important; /* Dark blue fill */
+    stroke: #2a4a6c !important; /* Dark blue stroke */
+}
+
+/* Text elements in Konva canvas */
+[data-bs-theme="dark"] .konvajs-content text[fill="black"] {
+    fill: #f0f8ff !important; /* Light text for readability */
 }
 
 /* Filter icons */
@@ -482,4 +578,243 @@
     background-color: var(--bs-body-bg);
     border-color: var(--bs-border-color);
     color: var(--bs-body-color);
+}
+
+/* RMA List Page Dark Mode Styles */
+
+/* RMA Table Compact Styles */
+[data-bs-theme="dark"] .table-compact {
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .table-compact th {
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .table-compact td {
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .table-compact tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.075);
+}
+
+/* RMA Interactive Icons */
+[data-bs-theme="dark"] .info-icon-interactive {
+    color: #5ba3f5; /* Blue theme */
+}
+
+[data-bs-theme="dark"] .problem-popover-icon {
+    color: #5ba3f5; /* Blue theme */
+}
+
+[data-bs-theme="dark"] .moving-parts-icon {
+    background-color: #5ba3f5; /* Blue theme */
+    color: #fff;
+}
+
+[data-bs-theme="dark"] .moving-parts-icon:hover {
+    background-color: #4a91e2; /* Darker blue on hover */
+}
+
+/* RMA Sorting Arrows */
+[data-bs-theme="dark"] .sort-up,
+[data-bs-theme="dark"] .sort-down {
+    color: #6c757d;
+}
+
+[data-bs-theme="dark"] .sortable-header:hover .sort-up,
+[data-bs-theme="dark"] .sortable-header:hover .sort-down {
+    color: #5ba3f5; /* Blue theme */
+}
+
+[data-bs-theme="dark"] .sortable-header.sort-asc .sort-up,
+[data-bs-theme="dark"] .sortable-header.sort-desc .sort-down {
+    color: #5ba3f5; /* Blue theme */
+}
+
+/* RMA Header Content Structure */
+[data-bs-theme="dark"] .header-content {
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .header-text {
+    color: var(--bs-body-color);
+}
+
+/* RMA Search Highlighting */
+[data-bs-theme="dark"] .search-highlight {
+    background-color: #4a91e2; /* Blue highlight instead of yellow */
+    color: #fff;
+    font-weight: bold;
+}
+
+/* RMA Status Filter Dropdown */
+[data-bs-theme="dark"] .status-filter-header .dropdown-toggle {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .status-filter-header .dropdown-toggle:hover {
+    background-color: var(--bs-tertiary-bg);
+}
+
+[data-bs-theme="dark"] .dropdown-item-text {
+    color: var(--bs-body-color);
+}
+
+/* RMA Status Count Badges - Dark Mode Colors */
+[data-bs-theme="dark"] .status-count-square.badge.bg-primary {
+    background-color: #5ba3f5 !important; /* Blue theme */
+    color: #fff !important;
+}
+
+[data-bs-theme="dark"] .status-count-square.badge.bg-info {
+    background-color: #17a2b8 !important;
+    color: #fff !important;
+}
+
+[data-bs-theme="dark"] .status-count-square.badge.bg-secondary {
+    background-color: #6c757d !important;
+    color: #fff !important;
+}
+
+[data-bs-theme="dark"] .status-count-square.badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000 !important;
+}
+
+[data-bs-theme="dark"] .status-count-square.badge.bg-danger {
+    background-color: #dc3545 !important;
+    color: #fff !important;
+}
+
+[data-bs-theme="dark"] .status-count-square.badge.bg-success {
+    background-color: #198754 !important;
+    color: #fff !important;
+}
+
+/* RMA Table Container */
+[data-bs-theme="dark"] .rma-table-container {
+    background-color: var(--bs-body-bg);
+}
+
+/* RMA Links */
+[data-bs-theme="dark"] .text-decoration-hover-underline {
+    color: #5ba3f5; /* Blue theme */
+    text-decoration: none;
+}
+
+[data-bs-theme="dark"] .text-decoration-hover-underline:hover {
+    color: #4a91e2; /* Darker blue on hover */
+    text-decoration: underline;
+}
+
+/* RMA Form Check Inputs in Dropdown */
+[data-bs-theme="dark"] .status-filter-item .form-check-input {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .status-filter-item .form-check-input:checked {
+    background-color: #5ba3f5; /* Blue theme */
+    border-color: #5ba3f5;
+}
+
+/* Input Group for Search */
+[data-bs-theme="dark"] .input-group-text {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+/* Popovers in Dark Mode */
+[data-bs-theme="dark"] .popover {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .popover-header {
+    background-color: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .popover-body {
+    background-color: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .popover .popover-arrow::before {
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .popover .popover-arrow::after {
+    border-color: var(--bs-secondary-bg);
+}
+
+/* Action Icons */
+[data-bs-theme="dark"] .action-icon {
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .action-icon:hover {
+    color: #5ba3f5; /* Blue theme */
+}
+
+/* List Unstyled in RMA Parts */
+[data-bs-theme="dark"] .list-unstyled {
+    color: var(--bs-body-color);
+}
+
+/* RMA Status Badges - Rounded Pill Badges in Table */
+[data-bs-theme="dark"] .status-badge.badge.bg-primary {
+    background-color: #375a7f !important; /* Darker blue for dark mode */
+    color: #fff !important;
+    border: 1px solid #4a91e2;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-info {
+    background-color: #1b6ec2 !important; /* Darker info blue */
+    color: #fff !important;
+    border: 1px solid #17a2b8;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-secondary {
+    background-color: #495057 !important; /* Darker gray */
+    color: #fff !important;
+    border: 1px solid #6c757d;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-warning {
+    background-color: #fd7e14 !important; /* Darker orange instead of bright yellow */
+    color: #000 !important;
+    border: 1px solid #ffc107;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-danger {
+    background-color: #b02a37 !important; /* Darker red */
+    color: #fff !important;
+    border: 1px solid #dc3545;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-success {
+    background-color: #146c43 !important; /* Darker green */
+    color: #fff !important;
+    border: 1px solid #198754;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-light {
+    background-color: #495057 !important; /* Dark gray instead of light */
+    color: #fff !important;
+    border: 1px solid #6c757d;
+}
+
+/* Override text-dark class on warning badges in dark mode */
+[data-bs-theme="dark"] .status-badge.badge.bg-warning.text-dark {
+    color: #000 !important; /* Keep dark text on orange background */
 } 

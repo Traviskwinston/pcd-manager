@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <!-- This fragment provides a reusable data table layout -->
+</head>
+<body>
+
+<!-- 
+     Data Table Fragment
+     Usage example:
+     <div th:replace="fragments/data-table :: data-table(
+         id='tools-table',
+         searchPlaceholder='Search tools...',
+         columns=${columns},
+         rows=${tools},
+         rowTemplate='tools/row-template'
+     )"></div>
+     
+     Where columns is a list of maps with keys: title, field, sortable, filterable, width
+     And rows is the data to display
+-->
+
+<div th:fragment="data-table(id, searchPlaceholder, columns, rows, rowTemplate, enableRowClick)" 
+     class="data-table-container">
+    
+    <!-- Search and Filter Controls -->
+    <div class="row mb-3 align-items-center">
+        <div class="col-md-8">
+            <div class="input-group">
+                <input 
+                    type="text" 
+                    class="form-control" 
+                    th:id="${id + '-search'}"
+                    th:placeholder="${searchPlaceholder != null ? searchPlaceholder : 'Search...'}"
+                    aria-label="Search">
+                <button 
+                    class="btn btn-outline-secondary" 
+                    type="button" 
+                    th:id="${id + '-clear'}"
+                    title="Clear search">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Additional controls slot -->
+        <div class="col-md-4 text-end">
+            <div th:if="${additionalControls}" th:utext="${additionalControls}"></div>
+        </div>
+    </div>
+
+    <!-- Responsive Table Container -->
+    <div class="data-table-responsive table-responsive" th:id="${id + '-container'}">
+        <table class="table table-striped data-table-compact">
+            <thead>
+                <tr>
+                    <th th:each="column : ${columns}"
+                        th:class="${column.sortable ? 'sortable-header' : ''} + ' ' + (column.filterClass ?: '')"
+                        th:data-sort="${column.sortable ? column.field : null}"
+                        th:style="${column.width != null ? 'width: ' + column.width : ''}">
+                        
+                        <!-- Header with sorting arrows -->
+                        <div th:if="${column.sortable}" class="header-content">
+                            <span class="header-text" th:text="${column.title}">Header</span>
+                            <div class="sort-arrows">
+                                <div class="sort-up">▲</div>
+                                <div class="sort-down">▼</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Header with filter dropdown -->
+                        <div th:if="${column.filterable}" class="dropdown filter-header">
+                            <button class="btn btn-sm dropdown-toggle" 
+                                    type="button" 
+                                    th:id="${column.field + 'Filter'}"
+                                    data-bs-toggle="dropdown" 
+                                    aria-expanded="false">
+                                <span th:text="${column.title}">Header</span>
+                            </button>
+                            <ul class="dropdown-menu" th:attr="aria-labelledby=${column.field + 'Filter'}">
+                                <!-- Filter options would be populated by the calling template -->
+                                <div th:if="${column.filterOptions}" 
+                                     th:each="option : ${column.filterOptions}">
+                                    <li><a class="dropdown-item" 
+                                           th:href="'?filter=' + ${option.value}" 
+                                           th:text="${option.label}">Filter Option</a></li>
+                                </div>
+                            </ul>
+                        </div>
+                        
+                        <!-- Simple header -->
+                        <span th:if="${!column.sortable and !column.filterable}" 
+                              th:text="${column.title}">Header</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Row template inclusion -->
+                <div th:each="row : ${rows}" 
+                     th:include="${rowTemplate} :: row(${row})" 
+                     th:remove="tag"></div>
+                
+                <!-- Empty state -->
+                <tr th:if="${#lists.isEmpty(rows)}">
+                    <td th:colspan="${#lists.size(columns)}" class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <div>No data available</div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Results summary -->
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <small class="text-muted">
+                Showing <span th:text="${#lists.size(rows)}">0</span> 
+                <span th:text="${rows != null and #lists.size(rows) == 1 ? 'item' : 'items'}">items</span>
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- 
+     Simple Data Table Row Fragment
+     For basic use cases where you just want to display field values
+-->
+<tr th:fragment="simple-row(row, fields)" 
+    class="data-table-row"
+    th:data-search="${row.searchData ?: ''}"
+    th:each-field="${fields}">
+    <td th:each="field : ${fields}" 
+        th:text="${#strings.defaultString(#objects.getProperty(row, field), '-')}">
+        Data
+    </td>
+</tr>
+
+<!-- 
+     Status Badge Fragment
+     For displaying status badges consistently
+-->
+<span th:fragment="status-badge(status, type)" 
+      class="badge status-badge" 
+      th:classappend="'bg-' + ${type ?: 'secondary'}"
+      th:text="${status}">
+    Status
+</span>
+
+<!-- 
+     Action Icons Fragment  
+     For consistent action buttons
+-->
+<div th:fragment="action-icons(actions)" class="text-center">
+    <div th:each="action : ${actions}" class="d-inline-block me-2">
+        <a th:if="${action.type == 'link'}" 
+           th:href="${action.url}" 
+           th:class="'action-icon ' + (action.class ?: '')"
+           th:title="${action.title}">
+            <i th:class="${action.icon}"></i>
+        </a>
+        
+        <button th:if="${action.type == 'button'}" 
+                type="button"
+                th:class="'btn btn-sm action-icon ' + (action.class ?: '')"
+                th:title="${action.title}"
+                th:onclick="${action.onClick}">
+            <i th:class="${action.icon}"></i>
+        </button>
+    </div>
+</div>
+
+</body>
+</html> 

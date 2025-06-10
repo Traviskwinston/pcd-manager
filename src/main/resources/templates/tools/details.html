@@ -6,6 +6,7 @@
     <title>PCD Manager - Tool Details</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" th:href="@{/dark-mode.css}">
     <style>
         .checklist-item {
             padding: 8px 0;
@@ -224,47 +225,47 @@
             </div>
         </div>
 
-        <!-- Tool Notes Section -->
+        <!-- Tool Comments Section -->
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Notes</h5>
-                <span class="badge bg-secondary" th:text="${toolNotes != null ? toolNotes.size() : '0'}">0</span>
+                <h5 class="mb-0">Comments</h5>
+                <span class="badge bg-secondary" th:text="${toolComments != null ? toolComments.size() : '0'}">0</span>
             </div>
             <div class="card-body">
-                <!-- Add Note Form -->
+                <!-- Add Comment Form -->
                 <div class="mb-4" th:if="${currentUser != null}">
-                    <form th:action="@{/tools/{id}/notes/add(id=${tool.id})}" method="post">
+                    <form th:action="@{/tools/{id}/post-comment(id=${tool.id})}" method="post">
                         <div class="form-group">
-                            <label for="noteContent" class="form-label">Add a new note:</label>
-                            <textarea class="form-control" id="noteContent" name="content" rows="2" required 
-                                      placeholder="Enter your note here..."></textarea>
+                            <label for="commentContent" class="form-label">Add a comment:</label>
+                            <textarea class="form-control" id="commentContent" name="content" rows="3" required 
+                                      placeholder="Enter your comment here..."></textarea>
                         </div>
                         <div class="mt-2 text-end">
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-plus-circle me-1"></i> Add Note
+                                <i class="bi bi-plus-circle me-1"></i> Post Comment
                             </button>
                         </div>
                     </form>
                 </div>
                 
-                <!-- Notes List -->
-                <div th:if="${toolNotes == null || toolNotes.empty}" class="alert alert-info">
-                    No notes have been added to this tool yet.
+                <!-- Comments List -->
+                <div th:if="${toolComments == null || toolComments.empty}" class="alert alert-info">
+                    No comments have been added to this tool yet.
                 </div>
-                <div th:if="${toolNotes != null && !toolNotes.empty}" class="list-group">
+                <div th:if="${toolComments != null && !toolComments.empty}" class="list-group">
                     <div class="list-group-item list-group-item-action flex-column align-items-start"
-                         th:each="note : ${toolNotes}">
+                         th:each="comment : ${toolComments}">
                         <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1"><strong th:text="${note.user != null ? note.user.name : 'Unknown User'}">User Name</strong></h6>
-                            <small th:text="${#temporals.format(note.createdAt, 'MMM dd, yyyy HH:mm')}">Jan 1, 2023 12:00</small>
+                            <h6 class="mb-1"><strong th:text="${comment.user != null ? comment.user.name : 'Unknown User'}">User Name</strong></h6>
+                            <small th:text="${#temporals.format(comment.createdDate, 'MMM dd, yyyy HH:mm')}">Jan 1, 2023 12:00</small>
                         </div>
-                        <p class="mb-1" th:text="${note.content}">Note content goes here...</p>
-                        <!-- Delete button (only for note owner or admin) -->
+                        <p class="mb-1" th:text="${comment.content}">Comment content goes here...</p>
+                        <!-- Delete button (only for comment owner or admin) -->
                         <div class="d-flex justify-content-end mt-2" 
-                             th:if="${currentUser != null && (currentUser.id == note.user.id || currentUser.role == 'ADMIN')}">
-                            <form th:action="@{/tools/{toolId}/notes/{noteId}/delete(toolId=${tool.id}, noteId=${note.id})}" method="post">
+                             th:if="${currentUser != null && (currentUser.id == comment.user.id || currentUser.role == 'ADMIN')}">
+                            <form th:action="@{/tools/{toolId}/comments/{commentId}/delete(toolId=${tool.id}, commentId=${comment.id})}" method="post">
                                 <button type="submit" class="btn btn-sm btn-outline-danger" 
-                                        onclick="return confirm('Are you sure you want to delete this note?')">
+                                        onclick="return confirm('Are you sure you want to delete this comment?')">
                                     <i class="bi bi-trash"></i> Delete
                                 </button>
                             </form>
@@ -1917,9 +1918,9 @@
                             <select id="unifiedLinkTargetTrackTrendId" name="targetTrackTrendId" class="form-select">
                                 <option value="">-- Select Track/Trend --</option>
                                  <th:block th:if="${allTrackTrends != null}">
-                                    <option th:each="tt : ${allTrackTrends}"
-                                            th:value="${tt.id}"
-                                            th:text="${tt.name + ' (' + #temporals.format(tt.startDate, 'yyyy-MM-dd') + ')'}"></option>
+                                                                    <option th:each="tt : ${allTrackTrends}"
+                                        th:value="${tt.id}"
+                                        th:text="${tt.name + (tt.description != null ? ' - ' + tt.description : '')}"></option>
                                 </th:block>
                             </select>
                         </div>
@@ -1992,6 +1993,7 @@
 
     <!-- Bootstrap JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/theme-toggle.js}"></script>
     
     <!-- Debug modal functionality -->
     <script>

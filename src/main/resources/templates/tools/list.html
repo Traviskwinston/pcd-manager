@@ -3,94 +3,676 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PCD Manager - Tools</title>
+    <title>Tools List</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/dark-mode.css}">
+    <link rel="stylesheet" th:href="@{/css/components/data-table.css}">
+    <style>
+        /* Info icon styles for notes - matching RMA comments */
+        .info-icon-interactive {
+            cursor: pointer;
+            transition: transform 0.2s;
+            color: #0d6efd !important; /* Bootstrap primary color */
+        }
+        
+        .info-icon-interactive:hover {
+            transform: scale(1.1);
+            color: #0a58ca !important; /* Darker blue on hover */
+        }
+        
+        /* Table compact styling */
+        .table-compact {
+            font-size: 0.9rem;
+        }
+        
+        .table-compact th,
+        .table-compact td {
+            padding: 0.5rem;
+            vertical-align: middle;
+        }
+        
+        /* Tools specific table container */
+        .tools-table-container {
+            min-height: 600px;
+        }
+
+        /* Clickable row styling */
+        .clickable-row {
+            cursor: pointer;
+        }
+        
+        .clickable-row:hover {
+            background-color: rgba(0,123,255,0.1);
+        }
+        
+        /* Prevent row click when dragging */
+        .dragging {
+            pointer-events: none;
+        }
+
+        /* Status filter styling (copied from RMA) */
+        .status-filter-header .dropdown-toggle {
+            border: none;
+            padding: 2px 6px;
+        }
+        .status-filter-header .dropdown-toggle:focus {
+            box-shadow: none;
+        }
+        .status-count-square {
+            display: inline-block;
+            min-width: 20px;
+            padding: 2px 4px;
+            font-size: 0.75em;
+            text-align: center;
+            border-radius: 3px;
+            margin-right: 8px;
+        }
+        .status-filter-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            width: 100%;
+        }
+        .status-filter-left {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+        }
+    </style>
 </head>
 <body>
     <div th:replace="~{fragments/navigation :: navbar('tools')}"></div>
-
-    <div class="container mt-4">
-        <div class="row mb-3">
-            <div class="col">
-                <h1>Tools</h1>
+    
+    <div class="container-fluid mt-4 content-area">
+        <!-- Header Section -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>
+                    <i class="fas fa-tools me-2"></i>
+                    Tools Management
+                </h2>
             </div>
-            <div class="col text-end">
-                <a href="/tools/new" class="btn btn-primary">Add New Tool</a>
+            <div>
+                <a th:href="@{/tools/new}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    New Tool
+                </a>
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-body">
-                <div th:if="${tools.empty}" class="alert alert-info">
-                    No tools found. Click "Add New Tool" to create one.
+        <!-- Data Table Container -->
+        <div class="data-table-container">
+            
+            <!-- Search Controls -->
+            <div class="row mb-3 align-items-center">
+                <div class="col-md-8">
+                    <div class="input-group">
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="toolsSearchInput"
+                            placeholder="Search by tool name, serial number, model, technicians, or notes..."
+                            aria-label="Search">
+                        <button 
+                            class="btn btn-outline-secondary" 
+                            type="button" 
+                            id="clearSearch"
+                            title="Clear search">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
-                
-                <div th:if="${!tools.empty}" class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Serial Number</th>
-                                <th>Model Number</th>
-                                <th>Location</th>
-                                <th>Technician(s)</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:each="tool : ${tools}">
-                                <td>
-                                    <span th:text="${tool.name}">Tool Name</span>
-                                    <span class="text-secondary" th:if="${tool.secondaryName != null && !tool.secondaryName.isEmpty()}" th:text="'(' + ${tool.secondaryName} + ')'"></span>
-                                </td>
-                                <td th:text="${tool.serialNumber1 ?: '-'} + (${tool.serialNumber2 != null && !tool.serialNumber2.isEmpty()} ? '/' + ${tool.serialNumber2} : '')">SN12345</td>
-                                <td th:text="${tool.model1 ?: '-'} + (${tool.model2 != null && !tool.model2.isEmpty()} ? '/' + ${tool.model2} : '')">M100</td>
-                                <td th:text="${tool.location != null ? tool.location.displayName : '-'}">AZ F52</td>
-                                <td>
-                                    <span th:if="${tool.currentTechnicians != null && !tool.currentTechnicians.isEmpty()}"
-                                          th:text="${#strings.listJoin(tool.currentTechnicians.?[name != null && !name.isEmpty()].![name], ', ')}"></span>
-                                    <span th:if="${tool.currentTechnicians == null || tool.currentTechnicians.isEmpty()}" class="text-muted">-</span>
-                                </td>
-                                <td>
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        <a th:href="@{/tools/{id}(id=${tool.id})}" class="btn btn-outline-primary">View</a>
-                                        <a th:href="@{/tools/{id}/edit(id=${tool.id})}" class="btn btn-outline-secondary">Edit</a>
-                                        <button type="button" class="btn btn-outline-danger" 
-                                                data-bs-toggle="modal" th:data-bs-target="${'#deleteModal-' + tool.id}">
-                                            Delete
-                                        </button>
-                                    </div>
-                                    
-                                    <!-- Delete Modal -->
-                                    <div class="modal fade" th:id="${'deleteModal-' + tool.id}" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="col-md-4 text-end">
+                    <small class="text-muted" id="resultsSummary">
+                        Showing <span id="visibleCount" th:text="${#lists.size(tools)}">0</span> of <span id="totalCount" th:text="${#lists.size(tools)}">0</span> tools
+                    </small>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div th:if="${tools.empty}" class="data-table-empty-state text-center py-5">
+                <i class="fas fa-tools fa-3x text-muted mb-3"></i>
+                <h4 class="text-muted">No Tools Found</h4>
+                <p class="text-muted">Get started by creating your first tool.</p>
+                <a th:href="@{/tools/new}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    Create Tool
+                </a>
+            </div>
+
+            <!-- Responsive Table Container -->
+            <div th:if="${!tools.empty}" class="data-table-responsive table-responsive tools-table-container" id="tools-table-container">
+                <table class="table table-striped data-table-compact">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%; text-align: left;" class="sortable-header" data-sort="name">
+                                <div class="header-content">
+                                    <span class="header-text">Tool Name</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
+                            <th style="width: 18%; text-align: left;" class="sortable-header" data-sort="serialNumber">
+                                <div class="header-content">
+                                    <span class="header-text">Serial Number</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
+                            <th style="width: 15%; text-align: left;" class="sortable-header" data-sort="model">
+                                <div class="header-content">
+                                    <span class="header-text">Model</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
+                            <th style="width: 10%;" class="status-filter-header filter-header">
+                                Status
+                                <div class="dropdown d-inline-block ms-1">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-funnel"></i>
+                                    </button>
+                                    <ul class="dropdown-menu p-2" aria-labelledby="statusFilterDropdown" style="min-width: 250px;">
+                                        <li class="dropdown-item-text">
+                                            <small class="text-muted">Filter by Status:</small>
+                                            <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="showAllStatuses">Show All</button>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li class="dropdown-item-text">
+                                            <div class="status-filter-item">
+                                                <div class="status-filter-left">
+                                                    <span class="badge bg-secondary status-count-square status-count" data-status="NOT_STARTED">0</span>
+                                                    <span>Not Started</span>
                                                 </div>
-                                                <div class="modal-body">
-                                                    Are you sure you want to delete this tool?
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                    <form th:action="@{/tools/{id}/delete(id=${tool.id})}" method="post" class="d-inline">
-                                                        <button type="submit" class="btn btn-danger">Delete</button>
-                                                    </form>
-                                                </div>
+                                                <input class="form-check-input status-filter" type="checkbox" value="NOT_STARTED" id="status-NOT_STARTED" checked>
                                             </div>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                                        </li>
+                                        <li class="dropdown-item-text">
+                                            <div class="status-filter-item">
+                                                <div class="status-filter-left">
+                                                    <span class="badge bg-primary status-count-square status-count" data-status="IN_PROGRESS">0</span>
+                                                    <span>In Progress</span>
+                                                </div>
+                                                <input class="form-check-input status-filter" type="checkbox" value="IN_PROGRESS" id="status-IN_PROGRESS" checked>
+                                            </div>
+                                        </li>
+                                        <li class="dropdown-item-text">
+                                            <div class="status-filter-item">
+                                                <div class="status-filter-left">
+                                                    <span class="badge bg-success status-count-square status-count" data-status="COMPLETED">0</span>
+                                                    <span>Completed</span>
+                                                </div>
+                                                <input class="form-check-input status-filter" type="checkbox" value="COMPLETED" id="status-COMPLETED" checked>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </th>
+                            <th style="width: 8%;">Moving Parts</th>
+                            <th style="width: 8%;">RMAs</th>
+                            <th style="width: 8%;">Passdown</th>
+                            <th style="width: 8%;">Comments</th>
+                            <th style="width: 16%;">Technicians</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="tool : ${tools}" class="data-table-row tool-row clickable-row"
+                            th:attr="data-tool-id=${tool.id},
+                                     data-name=${tool.name + (tool.secondaryName != null ? ' (' + tool.secondaryName + ')' : '')},
+                                     data-serial-number=${(tool.serialNumber1 != null ? tool.serialNumber1 : '') + (tool.serialNumber2 != null ? (tool.serialNumber1 != null ? '/' : '') + tool.serialNumber2 : '')},
+                                     data-model=${(tool.model1 != null ? tool.model1 : '') + (tool.model2 != null ? (tool.model1 != null ? '/' : '') + tool.model2 : '')},
+                                     data-status=${tool.status != null ? tool.status.name() : 'NOT_STARTED'},
+                                     data-technicians=${#strings.listJoin(tool.currentTechnicians.![name], ' ')},
+                                     data-notes=${tool.notes != null ? tool.notes : ''}">
+                            <td style="text-align: left;">
+                                <strong th:text="${tool.name}">Tool Name</strong>
+                                <span th:if="${tool.secondaryName != null}" 
+                                      class="text-muted ms-1" 
+                                      th:text="'(' + ${tool.secondaryName} + ')'"></span>
+                            </td>
+                            <td style="text-align: left;">
+                                <span th:if="${tool.serialNumber1 != null}" th:text="${tool.serialNumber1}">Serial Number 1</span><span th:if="${tool.serialNumber1 != null and tool.serialNumber2 != null}">/</span><span th:if="${tool.serialNumber2 != null}" th:text="${tool.serialNumber2}">Serial Number 2</span>
+                                <span th:if="${tool.serialNumber1 == null and tool.serialNumber2 == null}" class="text-muted">-</span>
+                            </td>
+                            <td style="text-align: left;">
+                                <span th:if="${tool.model1 != null}" th:text="${tool.model1}">Model 1</span><span th:if="${tool.model1 != null and tool.model2 != null}">/</span><span th:if="${tool.model2 != null}" th:text="${tool.model2}">Model 2</span>
+                                <span th:if="${tool.model1 == null and tool.model2 == null}" class="text-muted">-</span>
+                            </td>
+                            <td class="text-center">
+                                <span th:if="${tool.status != null}" th:switch="${tool.status.name()}">
+                                    <span th:case="'NOT_STARTED'" class="badge rounded-pill bg-secondary status-badge" th:text="'Not Started'"></span>
+                                    <span th:case="'IN_PROGRESS'" class="badge rounded-pill bg-primary status-badge" th:text="'In Progress'"></span>
+                                    <span th:case="'COMPLETED'" class="badge rounded-pill bg-success status-badge" th:text="'Completed'"></span>
+                                    <span th:case="*" class="badge rounded-pill bg-light text-dark status-badge" th:text="${tool.status.name().replace('_',' ')}"></span>
+                                </span>
+                                <span th:if="${tool.status == null}" class="badge rounded-pill bg-light text-dark status-badge">N/A</span>
+                            </td>
+                            <td class="text-center">
+                                <!-- Interactive Moving Parts icon when moving parts exist -->
+                                <i th:class="${'bi bi-arrows-move ' + (toolMovingPartsMap != null and toolMovingPartsMap[tool.id] != null and not #lists.isEmpty(toolMovingPartsMap[tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${toolMovingPartsMap != null and toolMovingPartsMap[tool.id] != null and not #lists.isEmpty(toolMovingPartsMap[tool.id])}"
+                                   data-bs-toggle="popover"
+                                   data-bs-placement="left"
+                                   data-bs-trigger="hover focus click"
+                                   data-bs-html="true"
+                                   th:attr="data-bs-title='Moving Parts (' + ${#lists.size(toolMovingPartsMap[tool.id])} + ')'"
+                                   th:data-bs-content="${#strings.listJoin(toolMovingPartsMap[tool.id].![
+                                       '<div class=&quot;mb-2&quot;>' + 
+                                       '<div class=&quot;mb-1&quot;><strong>' + partName + '</strong></div>' +
+                                       '<small class=&quot;text-muted&quot;>' + 
+                                       '<a href=&quot;/moving-parts/' + id + '&quot; class=&quot;text-decoration-none&quot; onclick=&quot;event.stopPropagation();&quot;>' +
+                                       (moveDate != null ? #temporals.format(moveDate, 'MM/dd/yy HH:mm') : id) + '</a>' + 
+                                       '<br/>' + 
+                                       (fromTool != null ? 'From: ' + fromTool.name : '') + 
+                                       (fromTool != null and toTool != null ? ' → ' : '') + 
+                                       (toTool != null ? 'To: ' + toTool.name : '') + 
+                                       '</small></div>'
+                                   ], '<hr class=&quot;my-1&quot;/>')}"
+                                   onclick="event.stopPropagation();">
+                                </i>
+                                
+                                <!-- Greyed out icon when no moving parts -->
+                                <i th:if="${toolMovingPartsMap == null or toolMovingPartsMap[tool.id] == null or #lists.isEmpty(toolMovingPartsMap[tool.id])}" 
+                                   class="bi bi-arrows-move text-muted">
+                                </i>
+                                
+                                <!-- Moving Parts count -->
+                                <span th:text="${toolMovingPartsMap != null and toolMovingPartsMap[tool.id] != null ? #lists.size(toolMovingPartsMap[tool.id]) : 0}" class="ms-1 small"></span>
+                            </td>
+                            <td class="text-center">
+                                <!-- Interactive RMA icon when RMAs exist -->
+                                <i th:class="${'bi bi-clipboard-data-fill ' + (toolRmasMap[tool.id] != null and not #lists.isEmpty(toolRmasMap[tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${toolRmasMap[tool.id] != null and not #lists.isEmpty(toolRmasMap[tool.id])}"
+                                   data-bs-toggle="popover"
+                                   data-bs-placement="left"
+                                   data-bs-trigger="hover focus click"
+                                   data-bs-html="true"
+                                   th:attr="data-bs-title='RMAs (' + ${#lists.size(toolRmasMap[tool.id])} + ')'"
+                                   th:data-bs-content="${#strings.listJoin(toolRmasMap[tool.id].![
+                                       '<div class=&quot;mb-2&quot;><small class=&quot;text-muted&quot;>' + 
+                                       '<a href=&quot;/rma/' + id + '&quot; class=&quot;text-decoration-none&quot; onclick=&quot;event.stopPropagation();&quot;>' +
+                                       (rmaNumber != null ? rmaNumber : id) + '</a> ' +
+                                       '<span class=&quot;badge bg-' + 
+                                       (status.name() == 'COMPLETED' ? 'success' : 
+                                        status.name() == 'IN_PROGRESS' ? 'primary' : 
+                                        status.name() == 'SHIPPED' ? 'info' : 'secondary') + 
+                                       '&quot;>' + status.name().replace('_', ' ') + '</span>' +
+                                       (customerName != null ? '<br/>' + customerName : '') + 
+                                       '</small></div>'
+                                   ], '<hr class=&quot;my-1&quot;/>')}"
+                                   onclick="event.stopPropagation();">
+                                </i>
+                                
+                                <!-- Greyed out icon when no RMAs -->
+                                <i th:if="${toolRmasMap[tool.id] == null or #lists.isEmpty(toolRmasMap[tool.id])}" 
+                                   class="bi bi-clipboard-data text-muted">
+                                </i>
+                                
+                                <!-- RMA count -->
+                                <span th:text="${toolRmasMap[tool.id] != null ? #lists.size(toolRmasMap[tool.id]) : 0}" class="ms-1 small"></span>
+                            </td>
+                            <td class="text-center">
+                                <!-- Interactive Passdown icon when passdowns exist -->
+                                <i th:class="${'bi bi-journal-text ' + (toolPassdownsMap[tool.id] != null and not #lists.isEmpty(toolPassdownsMap[tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${toolPassdownsMap[tool.id] != null and not #lists.isEmpty(toolPassdownsMap[tool.id])}"
+                                   data-bs-toggle="popover"
+                                   data-bs-placement="left"
+                                   data-bs-trigger="hover focus click"
+                                   data-bs-html="true"
+                                   th:attr="data-bs-title='Passdowns (' + ${#lists.size(toolPassdownsMap[tool.id])} + ')'"
+                                   th:data-bs-content="${#strings.listJoin(toolPassdownsMap[tool.id].![
+                                       '<div class=&quot;mb-2&quot;>' + 
+                                       (comment != null ? '<div class=&quot;mb-1&quot;>' + comment + '</div>' : '') +
+                                       '<small class=&quot;text-muted&quot;>' + 
+                                       '<a href=&quot;/passdowns/' + id + '&quot; class=&quot;text-decoration-none&quot; onclick=&quot;event.stopPropagation();&quot;>' +
+                                       (date != null ? #temporals.format(date, 'MM/dd/yy') : id) + '</a>' + 
+                                       (user != null ? ' by ' + user.name : '') + 
+                                       '</small></div>'
+                                   ], '<hr class=&quot;my-1&quot;/>')}"
+                                   onclick="event.stopPropagation();">
+                                </i>
+                                
+                                <!-- Greyed out icon when no passdowns -->
+                                <i th:if="${toolPassdownsMap[tool.id] == null or #lists.isEmpty(toolPassdownsMap[tool.id])}" 
+                                   class="bi bi-journal-text text-muted">
+                                </i>
+                                
+                                <!-- Passdown count -->
+                                <span th:text="${toolPassdownsMap[tool.id] != null ? #lists.size(toolPassdownsMap[tool.id]) : 0}" class="ms-1 small"></span>
+                            </td>
+                            <td class="text-center">
+                                <!-- Interactive comments icon when comments exist -->
+                                <i th:class="${'bi bi-chat-dots-fill ' + (not #lists.isEmpty(tool.comments) ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${not #lists.isEmpty(tool.comments)}"
+                                   data-bs-toggle="popover"
+                                   data-bs-placement="left"
+                                   data-bs-trigger="hover focus click"
+                                   data-bs-html="true"
+                                   th:attr="data-bs-title='Comments (' + ${#lists.size(tool.comments)} + ')'"
+                                   th:data-bs-content="${#strings.listJoin(tool.comments.![
+                                       '<div class=&quot;mb-2&quot;><small class=&quot;text-muted&quot;>' + 
+                                       #temporals.format(createdDate, 'MM/dd/yy HH:mm') + 
+                                       (user != null ? ' by ' + (user.name ?: 'Unknown') : '') + 
+                                       '</small><br/>' + 
+                                       (content ?: 'No content') + '</div>'
+                                   ], '<hr class=&quot;my-1&quot;/>')}"
+                                   onclick="event.stopPropagation();">
+                                </i>
+                                
+                                <!-- Greyed out icon when no comments -->
+                                <i th:if="${#lists.isEmpty(tool.comments)}" 
+                                   class="bi bi-chat-dots text-muted">
+                                </i>
+                                
+                                <!-- Comment count -->
+                                <span th:text="${#lists.size(tool.comments)}" class="ms-1 small"></span>
+                            </td>
+                            <td>
+                                <span th:if="${!tool.currentTechnicians.empty}" th:text="${#strings.listJoin(tool.currentTechnicians.![name], ', ')}">Technicians</span>
+                                <span th:if="${tool.currentTechnicians.empty}" class="text-muted">-</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/theme-toggle.js}"></script>
+    <script th:src="@{/js/components/data-table.js}"></script>
+    <script>
+        // Tools Management functionality (copied from RMA approach)
+        class ToolsManager {
+            constructor() {
+                this.currentSort = null;
+                this.sortDirection = 'asc';
+                this.currentSearch = '';
+                this.visibleStatuses = new Set(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED']);
+                this.totalStatusCounts = {}; // Track total counts across all tools
+                
+                this.init();
+                this.calculateTotalStatusCounts();
+                this.updateStatusCounts();
+                this.updateToolsCount();
+                
+                // DEBUG: Show what data-status values actually exist
+                console.log('🔧 DEBUGGING TOOL STATUSES:');
+                const rows = document.querySelectorAll('.tool-row');
+                const actualStatuses = new Set();
+                rows.forEach((row, index) => {
+                    const status = row.getAttribute('data-status');
+                    actualStatuses.add(status);
+                    if (index < 5) { // Show first 5 tools
+                        console.log(`🔧 Tool ${index}: data-status="${status}"`);
+                    }
+                });
+                console.log('🔧 All unique statuses found:', Array.from(actualStatuses));
+                console.log('🔧 Expected statuses:', Array.from(this.visibleStatuses));
+            }
+
+            init() {
+                // Search functionality
+                const searchInput = document.getElementById('toolsSearchInput');
+                const clearSearchButton = document.getElementById('clearSearch');
+                
+                searchInput.addEventListener('input', (e) => {
+                    this.currentSearch = e.target.value.toLowerCase();
+                    this.filterTable();
+                });
+                
+                clearSearchButton.addEventListener('click', () => {
+                    searchInput.value = '';
+                    this.currentSearch = '';
+                    this.filterTable();
+                });
+
+                // Status filtering
+                document.querySelectorAll('.status-filter').forEach(checkbox => {
+                    console.log('🔧 Found status filter checkbox:', checkbox.value);
+                    checkbox.addEventListener('change', (e) => {
+                        const status = e.target.value;
+                        console.log(`🔧 Checkbox ${status} changed to:`, e.target.checked);
+                        if (e.target.checked) {
+                            this.visibleStatuses.add(status);
+                        } else {
+                            // Prevent unchecking all statuses (keep at least one visible)
+                            if (this.visibleStatuses.size === 1) {
+                                console.log('🚫 Cannot uncheck all statuses');
+                                e.preventDefault();
+                                e.target.checked = true;
+                                return;
+                            }
+                            this.visibleStatuses.delete(status);
+                        }
+                        console.log('🔧 Visible statuses now:', Array.from(this.visibleStatuses));
+                        this.filterTable();
+                    });
+                });
+
+                // Show All button
+                const showAllButton = document.getElementById('showAllStatuses');
+                if (showAllButton) {
+                    showAllButton.addEventListener('click', () => {
+                        // Check all checkboxes
+                        document.querySelectorAll('.status-filter').forEach(checkbox => {
+                            checkbox.checked = true;
+                            this.visibleStatuses.add(checkbox.value);
+                        });
+                        this.filterTable();
+                    });
+                }
+            }
+
+            filterTable() {
+                const rows = document.querySelectorAll('.tool-row');
+                console.log('🔧 Filtering', rows.length, 'tool rows');
+                
+                let visibleCount = 0;
+                rows.forEach(row => {
+                    const name = (row.getAttribute('data-name') || '').toLowerCase();
+                    const serialNumber = (row.getAttribute('data-serial-number') || '').toLowerCase();
+                    const model = (row.getAttribute('data-model') || '').toLowerCase();
+                    const technicians = (row.getAttribute('data-technicians') || '').toLowerCase();
+                    const notes = (row.getAttribute('data-notes') || '').toLowerCase();
+                    const status = row.getAttribute('data-status') || 'NOT_STARTED';
+
+                    // Check search criteria
+                    const matchesSearch = !this.currentSearch || 
+                        name.includes(this.currentSearch) || 
+                        serialNumber.includes(this.currentSearch) || 
+                        model.includes(this.currentSearch) ||
+                        technicians.includes(this.currentSearch) ||
+                        notes.includes(this.currentSearch);
+
+                    // Check status filter
+                    const matchesStatus = this.visibleStatuses.has(status);
+
+                    console.log(`🔧 Row with status ${status}: matches search=${matchesSearch}, matches status=${matchesStatus}`);
+
+                    if (matchesSearch && matchesStatus) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                console.log('🔧 Visible rows after filtering:', visibleCount);
+                this.updateStatusCounts();
+                this.updateToolsCount();
+            }
+
+            updateToolsCount() {
+                const visibleRows = document.querySelectorAll('.tool-row:not([style*="display: none"])');
+                const count = visibleRows.length;
+                const visibleCountSpan = document.getElementById('visibleCount');
+                const totalCountSpan = document.getElementById('totalCount');
+                
+                if (visibleCountSpan) visibleCountSpan.textContent = count;
+                if (totalCountSpan) totalCountSpan.textContent = document.querySelectorAll('.tool-row').length;
+            }
+
+            calculateTotalStatusCounts() {
+                // Count all tools by status (regardless of filters)
+                document.querySelectorAll('.tool-row').forEach(row => {
+                    const status = row.getAttribute('data-status') || 'NOT_STARTED';
+                    if (status) {
+                        this.totalStatusCounts[status] = (this.totalStatusCounts[status] || 0) + 1;
+                    }
+                });
+            }
+
+            updateStatusCounts() {
+                // Always show total counts, not filtered counts
+                // This ensures counts don't disappear when everything is unchecked
+                document.querySelectorAll('.status-count').forEach(badge => {
+                    const status = badge.getAttribute('data-status');
+                    badge.textContent = this.totalStatusCounts[status] || 0;
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Tools Manager
+            new ToolsManager();
+
+            // Initialize Bootstrap Popovers
+            var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+            var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+                return new bootstrap.Popover(popoverTriggerEl, {
+                    sanitize: false, // Allow HTML in content
+                    fallbackPlacements: ['left', 'top', 'bottom'],
+                    container: 'body' // Added to help with potential positioning/event issues
+                });
+            });
+
+            // Track currently pinned popovers
+            var currentlyPinnedPopover = null;
+                    
+            // Handle popover clicks to manage pinning
+            popoverTriggerList.forEach(function (triggerEl) {
+                triggerEl.addEventListener('click', function (event) {
+                    var clickedPopover = popoverList.find(function (popover) {
+                        return popover._element === triggerEl;
+                    });
+                    
+                    // If there's a currently pinned popover and it's different from the clicked one
+                    if (currentlyPinnedPopover && currentlyPinnedPopover !== clickedPopover) {
+                        currentlyPinnedPopover.hide();
+                    }
+                    
+                    // Update the currently pinned popover
+                    setTimeout(function () {
+                        var popoverId = triggerEl.getAttribute('aria-describedby');
+                        if (popoverId && document.getElementById(popoverId)) {
+                            currentlyPinnedPopover = clickedPopover;
+                        } else {
+                            if (currentlyPinnedPopover === clickedPopover) {
+                                currentlyPinnedPopover = null;
+                            }
+                        }
+                    }, 100);
+                });
+            });
+                    
+            // Close popovers when clicking outside (but don't interfere with dropdowns)
+            document.addEventListener('click', function (event) {
+                // Don't interfere with dropdown functionality
+                if (event.target.closest('[data-bs-toggle="dropdown"]') || 
+                    event.target.closest('.dropdown-menu')) {
+                    return;
+                }
+                
+                popoverList.forEach(function (popover) {
+                    var triggerElement = popover._element;
+                    var popoverId = triggerElement.getAttribute('aria-describedby');
+                    var popoverElement = popoverId ? document.getElementById(popoverId) : null;
+                    
+                    var isClickInsideTrigger = triggerElement.contains(event.target);
+                    var isClickInsidePopover = popoverElement ? popoverElement.contains(event.target) : false;
+                
+                    // Hide popover if clicking outside both trigger and popover content
+                    if (!isClickInsideTrigger && !isClickInsidePopover) {
+                        popover.hide();
+                        // Clear pinned state if this was the pinned popover
+                        if (currentlyPinnedPopover === popover) {
+                            currentlyPinnedPopover = null;
+                        }
+                    }
+                });
+            });
+
+            // Handle clickable rows with improved drag detection
+            document.querySelectorAll('.clickable-row').forEach(row => {
+                let mouseDownTime = 0;
+                let mouseDownX = 0;
+                let mouseDownY = 0;
+                let isDragging = false;
+                
+                row.addEventListener('mousedown', function(e) {
+                    mouseDownTime = Date.now();
+                    mouseDownX = e.clientX;
+                    mouseDownY = e.clientY;
+                    isDragging = false;
+                });
+                
+                row.addEventListener('mousemove', function(e) {
+                    if (mouseDownTime > 0) {
+                        const timeDiff = Date.now() - mouseDownTime;
+                        const distanceX = Math.abs(e.clientX - mouseDownX);
+                        const distanceY = Math.abs(e.clientY - mouseDownY);
+                        const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+                        
+                        // Consider it dragging if moved more than 5 pixels or held for more than 200ms
+                        if (distance > 5 || timeDiff > 200) {
+                            isDragging = true;
+                            this.classList.add('dragging');
+                        }
+                    }
+                });
+                
+                row.addEventListener('mouseup', function(e) {
+                    setTimeout(() => {
+                        this.classList.remove('dragging');
+                        isDragging = false;
+                        mouseDownTime = 0;
+                    }, 50);
+                });
+                
+                row.addEventListener('click', function(e) {
+                    // Don't navigate if we were dragging or clicking on interactive elements
+                    if (isDragging || 
+                        e.target.closest('[data-bs-toggle="popover"]') || 
+                        e.target.closest('.info-icon-interactive')) {
+                        return;
+                    }
+                    
+                    // Navigate to tool detail page using the data-tool-id attribute
+                    const toolId = this.getAttribute('data-tool-id');
+                    if (toolId) {
+                        window.location.href = '/tools/' + toolId;
+                    }
+                });
+                
+                // Reset dragging state on mouse leave
+                row.addEventListener('mouseleave', function(e) {
+                    isDragging = false;
+                    mouseDownTime = 0;
+                    this.classList.remove('dragging');
+                });
+            });
+
+        });
+    </script>
 </body>
-</html> 
+</html>

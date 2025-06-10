@@ -1,0 +1,383 @@
+/**
+ * Reusable Data Table Component
+ * Extracted from RMA List - can be used for Tools, Parts, etc.
+ */
+
+/* Base table styling */
+.data-table-container {
+    font-size: 0.9rem;
+}
+
+.data-table-compact th, 
+.data-table-compact td {
+    padding: 0.4rem 0.3rem;
+    font-size: 0.85rem;
+    vertical-align: middle;
+}
+
+.data-table-compact th {
+    white-space: normal;
+    text-align: center;
+}
+
+.data-table-compact td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    text-align: center;
+}
+
+.data-table-compact td.allow-wrap {
+    white-space: normal;
+    word-break: break-word;
+    text-align: left;
+}
+
+/* Sortable headers */
+.sortable-header {
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.header-content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.header-text {
+    display: inline-block;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.sort-arrows {
+    margin-left: 4px;
+    display: inline-flex;
+    flex-direction: column;
+    line-height: 0.6;
+    flex-shrink: 0;
+}
+
+.sort-up, .sort-down {
+    font-size: 0.75rem;
+    color: #6c757d;
+    transition: color 0.2s;
+}
+
+.sortable-header:hover .sort-up,
+.sortable-header:hover .sort-down {
+    color: #0d6efd;
+}
+
+.sortable-header.sort-asc .sort-up,
+.sortable-header.sort-desc .sort-down {
+    color: #0d6efd;
+    font-weight: bold;
+}
+
+/* Enhanced horizontal scrolling */
+.data-table-responsive {
+    cursor: grab;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.data-table-responsive.dragging {
+    cursor: grabbing !important;
+    user-select: none;
+}
+
+/* When dragging, override all cursors to show grabbing */
+.data-table-responsive.dragging,
+.data-table-responsive.dragging *,
+.data-table-responsive.dragging .data-table-row,
+.data-table-responsive.dragging .data-table-row * {
+    cursor: grabbing !important;
+}
+
+/* Clickable rows */
+.data-table-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.data-table-row td {
+    cursor: pointer;
+}
+
+.data-table-row:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.1) !important;
+}
+
+/* Interactive elements keep pointer cursor */
+.data-table-row a, 
+.data-table-row button, 
+.data-table-row input,
+.data-table-row [data-bs-toggle],
+.data-table-row .dropdown,
+.data-table-row .interactive-icon {
+    cursor: pointer;
+}
+
+/* Filter dropdown styling */
+.filter-header .dropdown-toggle {
+    border: none;
+    padding: 2px 6px;
+}
+
+.filter-header .dropdown-toggle:focus {
+    box-shadow: none;
+}
+
+.filter-header .dropdown-menu {
+    z-index: 1055;
+    position: fixed;
+}
+
+.filter-header .dropdown {
+    position: relative;
+}
+
+/* Make sure dropdowns escape the table-responsive container */
+.data-table-responsive .dropdown-menu {
+    position: fixed !important;
+    z-index: 1055 !important;
+}
+
+/* Status badges - reusable */
+.status-badge.badge.bg-primary {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+}
+
+.status-badge.badge.bg-info {
+    background-color: #0dcaf0 !important;
+    color: #000 !important;
+}
+
+.status-badge.badge.bg-secondary {
+    background-color: #6c757d !important;
+    color: #fff !important;
+}
+
+.status-badge.badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000 !important;
+}
+
+.status-badge.badge.bg-danger {
+    background-color: #dc3545 !important;
+    color: #fff !important;
+}
+
+.status-badge.badge.bg-success {
+    background-color: #198754 !important;
+    color: #fff !important;
+}
+
+.status-badge.badge.bg-light {
+    background-color: #f8f9fa !important;
+    color: #000 !important;
+}
+
+/* Search highlighting */
+.search-highlight {
+    background-color: #ffc107;
+    font-weight: bold;
+}
+
+/* Action icons */
+.action-icon {
+    font-size: 1.2rem;
+    text-decoration: none;
+    color: #6c757d;
+    transition: color 0.2s;
+}
+
+.action-icon:hover {
+    color: #0d6efd;
+}
+
+/* Interactive icons */
+.interactive-icon {
+    cursor: pointer;
+    transition: transform 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #0d6efd;
+}
+
+.interactive-icon:hover {
+    transform: scale(1.2);
+}
+
+/* Dark mode overrides */
+[data-bs-theme="dark"] .data-table-compact {
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .data-table-compact th {
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .data-table-compact td {
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .data-table-compact tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.075);
+}
+
+[data-bs-theme="dark"] .sort-up,
+[data-bs-theme="dark"] .sort-down {
+    color: #6c757d;
+}
+
+[data-bs-theme="dark"] .sortable-header:hover .sort-up,
+[data-bs-theme="dark"] .sortable-header:hover .sort-down {
+    color: #5ba3f5;
+}
+
+[data-bs-theme="dark"] .sortable-header.sort-asc .sort-up,
+[data-bs-theme="dark"] .sortable-header.sort-desc .sort-down {
+    color: #5ba3f5;
+}
+
+[data-bs-theme="dark"] .search-highlight {
+    background-color: #4a91e2;
+    color: #fff;
+    font-weight: bold;
+}
+
+[data-bs-theme="dark"] .action-icon {
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .action-icon:hover {
+    color: #5ba3f5;
+}
+
+[data-bs-theme="dark"] .interactive-icon {
+    color: #5ba3f5;
+}
+
+/* Dark mode status badges */
+[data-bs-theme="dark"] .status-badge.badge.bg-primary {
+    background-color: #375a7f !important;
+    color: #fff !important;
+    border: 1px solid #4a91e2;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-info {
+    background-color: #1b6ec2 !important;
+    color: #fff !important;
+    border: 1px solid #17a2b8;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-secondary {
+    background-color: #495057 !important;
+    color: #fff !important;
+    border: 1px solid #6c757d;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-warning {
+    background-color: #fd7e14 !important;
+    color: #000 !important;
+    border: 1px solid #ffc107;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-danger {
+    background-color: #b02a37 !important;
+    color: #fff !important;
+    border: 1px solid #dc3545;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-success {
+    background-color: #146c43 !important;
+    color: #fff !important;
+    border: 1px solid #198754;
+}
+
+[data-bs-theme="dark"] .status-badge.badge.bg-light {
+    background-color: #495057 !important;
+    color: #fff !important;
+    border: 1px solid #6c757d;
+}
+
+/* Hover tooltip styles */
+.hover-detail-cell {
+    position: relative;
+}
+
+.hover-detail-cell .hover-tooltip {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ffffff;
+    color: #212529;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    min-width: 200px;
+    max-width: 400px;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    pointer-events: none;
+}
+
+.hover-detail-cell:hover .hover-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+.hover-tooltip .tooltip-item {
+    margin-bottom: 6px;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+.hover-tooltip .tooltip-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Expandable cell content */
+.expandable-cell {
+    position: relative;
+    max-width: 200px;
+}
+
+.expandable-content {
+    word-wrap: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.expandable-cell .hover-tooltip {
+    white-space: normal;
+    word-wrap: break-word;
+    max-width: 300px;
+}
+
+/* Dark mode tooltips */
+[data-bs-theme="dark"] .hover-detail-cell .hover-tooltip {
+    background: #2d3748;
+    color: #f7fafc;
+    border: 1px solid #4a5568;
+}

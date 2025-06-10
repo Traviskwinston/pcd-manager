@@ -199,6 +199,15 @@ public class Tool {
     @JsonIgnore
     private Set<TrackTrend> trackTrends = new HashSet<>();
 
+    /**
+     * Comments associated with this tool
+     */
+    @OneToMany(mappedBy = "tool", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @JsonIgnore
+    private List<ToolComment> comments = new ArrayList<>();
+
     public enum ToolType {
         CHEMBLEND("ChemBlend"),
         SLURRY("Slurry");

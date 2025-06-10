@@ -9,6 +9,8 @@ import com.pcd.manager.repository.MovingPartRepository;
 import com.pcd.manager.repository.NoteRepository;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.repository.TrackTrendRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,8 @@ import java.util.Optional;
 
 @Service
 public class MovingPartService {
+
+    private static final Logger logger = LoggerFactory.getLogger(MovingPartService.class);
 
     @Autowired
     private MovingPartRepository movingPartRepository;
@@ -41,7 +45,10 @@ public class MovingPartService {
     }
     
     public List<MovingPart> getMovingPartsByToolId(Long toolId) {
-        return movingPartRepository.findAllByToolId(toolId);
+        logger.debug("Searching for moving parts for tool ID: {}", toolId);
+        List<MovingPart> results = movingPartRepository.findAllByToolId(toolId);
+        logger.debug("Found {} moving parts for tool ID: {}", results.size(), toolId);
+        return results;
     }
     
     @Transactional

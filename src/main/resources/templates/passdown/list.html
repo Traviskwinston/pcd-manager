@@ -6,248 +6,439 @@
     <title>PCD Manager - Passdowns</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/dark-mode.css}">
+    <link rel="stylesheet" th:href="@{/css/components/data-table.css}">
+    <style>
+        /* Date divider styles */
+        .date-divider-row {
+            background-color: var(--bs-primary, #0d6efd) !important;
+            color: white !important;
+            font-weight: 600;
+            border-top: 2px solid var(--bs-border-color, #dee2e6);
+        }
+        
+        .date-divider-row td {
+            padding: 0.8rem 1rem;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+        }
+        
+        /* Left-align all table content */
+        .data-table-compact td,
+        .table td {
+            text-align: left !important;
+            vertical-align: top !important;
+        }
+        
+        .data-table-compact td span,
+        .data-table-compact td div,
+        .table td span,
+        .table td div {
+            text-align: left !important;
+            display: block;
+            width: 100%;
+        }
+        
+        /* Comment cell styling */
+        .comment-cell {
+            max-width: 400px;
+            word-wrap: break-word;
+            word-break: break-word;
+            white-space: pre-wrap;
+            text-align: left !important;
+            vertical-align: top;
+            overflow-wrap: break-word;
+        }
+        
+        .comment-cell span {
+            text-align: left !important;
+            display: block;
+            width: 100%;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+        
+        /* Allow rows to expand based on content */
+        .passdown-row {
+            height: auto !important;
+        }
+        
+        .passdown-row td {
+            height: auto !important;
+            vertical-align: top !important;
+            text-align: left !important;
+        }
+        
+        /* Override Bootstrap centering */
+        .table-striped > tbody > tr > td,
+        .table > tbody > tr > td,
+        .table > thead > tr > th {
+            text-align: left !important;
+        }
+        
+        /* Thumbnail styling */
+        .passdown-thumbnail {
+            max-height: 60px;
+            max-width: 80px;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+        
+        /* Filter panel styling */
+        .filter-panel {
+            background-color: var(--bs-secondary-bg, #f8f9fa);
+            border: 1px solid var(--bs-border-color, #dee2e6);
+            border-radius: 0.375rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .filter-group {
+            margin-bottom: 0.75rem;
+        }
+        
+        .filter-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Passdown table container */
+        .passdown-table-container {
+            min-height: 600px;
+        }
+        
+        /* Action icons */
+        .action-icon {
+            color: #0d6efd;
+            text-decoration: none;
+            padding: 4px;
+            margin: 0 2px;
+        }
+        
+        .action-icon:hover {
+            color: #0a58ca;
+        }
+        
+        .action-icon.delete-icon {
+            color: #dc3545;
+        }
+        
+        .action-icon.delete-icon:hover {
+            color: #bb2d3b;
+        }
+    </style>
 </head>
 <body>
     <div th:replace="~{fragments/navigation :: navbar('passdown')}"></div>
 
-    <div class="container mt-4">
-        <div class="card">
-            <div class="card-header">
-                <div class="row align-items-center">
+    <div class="container-fluid px-4 mt-4 content-area">
+        <!-- Header Section -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>
+                    <i class="fas fa-clipboard-check me-2"></i>
+                    Passdown Management
+                </h2>
+            </div>
+            <div>
+                <a th:href="@{/passdown/new}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    New Passdown
+                </a>
+            </div>
+        </div>
+
+        <!-- Data Table Container -->
+        <div class="data-table-container">
+            
+            <!-- Filter Panel -->
+            <div class="filter-panel">
+                <div class="row g-3 align-items-end">
                     <div class="col-md-2">
-                        <h3>Passdowns</h3>
+                        <label for="filter-person" class="form-label small">Technician</label>
+                        <select id="filter-person" class="form-select form-select-sm">
+                            <option value="">All Technicians</option>
+                            <option th:each="u: ${passdownUsers}" th:value="${u}" th:text="${u}">User</option>
+                        </select>
                     </div>
-                    <div class="col-md-8">
-                        <div class="row g-2 align-items-center">
-                            <div class="col-md-3">
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">Person</span>
-                                    <select id="filter-person" class="form-select form-select-sm">
-                                        <option value="">All People</option>
-                                        <option th:each="u: ${passdownUsers}" th:value="${u}" th:text="${u}">User</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">Tool</span>
-                                    <select id="filter-tool" class="form-select form-select-sm">
-                                        <option value="">All Tools</option>
-                                        <option th:each="t: ${passdownTools}" th:value="${t}" th:text="${t}">Tool</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-5">
-                                <div class="input-group input-group-sm">
-                                    <input type="date" class="form-control form-control-sm" id="date-from" name="dateFrom" max="9999-12-31">
-                                    <span class="input-group-text">-</span>
-                                    <input type="date" class="form-control form-control-sm" id="date-to" name="dateTo" max="9999-12-31">
-                                </div>
-                            </div>
-                            <div class="col-md-1 text-end">
-                                <button id="clear-filters" class="btn btn-sm btn-outline-secondary" title="Clear all filters">
-                                    <i class="bi bi-x-circle"></i>
-                                </button>
-                            </div>
+                    <div class="col-md-2">
+                        <label for="filter-tool" class="form-label small">Tool</label>
+                        <select id="filter-tool" class="form-select form-select-sm">
+                            <option value="">All Tools</option>
+                            <option th:each="t: ${passdownTools}" th:value="${t}" th:text="${t}">Tool</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="date-from" class="form-label small">Date From</label>
+                        <input type="date" class="form-control form-control-sm" id="date-from" name="dateFrom" max="9999-12-31">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="date-to" class="form-label small">Date To</label>
+                        <input type="date" class="form-control form-control-sm" id="date-to" name="dateTo" max="9999-12-31">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="passdown-page-search" class="form-label small">Search</label>
+                        <div class="input-group input-group-sm">
+                            <input id="passdown-page-search" type="text" class="form-control" placeholder="Search comments, tools, technicians...">
+                            <button 
+                                class="btn btn-outline-secondary" 
+                                type="button" 
+                                id="clear-search"
+                                title="Clear search">
+                                <i class="fas fa-times"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="col-md-2 text-end">
-                        <div class="d-flex align-items-center justify-content-end">
-                            <a th:href="@{/passdown/new}" class="btn btn-primary btn-sm">
-                                <i class="bi bi-plus-circle"></i>
-                            </a>
-                            <input id="passdown-page-search" type="text" class="form-control form-control-sm ms-2" placeholder="Search..." style="max-width:140px;">
-                        </div>
+                    <div class="col-md-1">
+                        <button id="clear-filters" class="btn btn-sm btn-outline-secondary w-100" title="Clear all filters">
+                            <i class="bi bi-x-circle"></i> Clear
+                        </button>
                     </div>
                 </div>
             </div>
-            <div class="card-body">
-                <!-- Passdowns List -->
-                <div th:if="${passdowns.isEmpty()}" class="alert alert-info">
-                    No passdowns found for the selected criteria.
-                </div>
 
-                <div th:if="${!passdowns.isEmpty()}">
-                    <!-- Simple list with date headers -->
-                    <div class="passdowns-list">
-                        <!-- Loop through passdowns and create date headers -->
-                        <th:block th:each="passdown, stat : ${passdowns}">
-                            <!-- Date header - only show if first item or date changed -->
-                            <div th:if="${stat.first || !passdown.date.equals(passdowns[stat.index-1].date)}" 
-                                 class="date-header mt-4 mb-3">
-                                <h5 class="bg-light p-2 rounded">
-                                    <strong th:text="${#temporals.format(passdown.date, 'EEEE, MMMM d, yyyy')}">Date</strong>
-                                </h5>
-                            </div>
-                            
-                            <!-- Passdown item -->
-                            <div class="card mb-3 passdown-item" th:attr="data-comment=${passdown.comment},data-user=${passdown.user != null ? passdown.user.name : ''},data-tool=${passdown.tool != null ? passdown.tool.name : ''}">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between">
-                                        <div class="flex-grow-1 me-3">
-                                            <p class="mb-1" style="white-space: pre-line;" th:text="${passdown.comment}">Comment text here...</p>
-                                            <!-- Thumbnail Display - Corrected -->
-                                            <div th:if="${passdown.picturePaths != null && !passdown.picturePaths.isEmpty()}" class="mt-2">
-                                                <img th:src="@{'/uploads/' + ${passdown.picturePaths.iterator().next()}}" alt="Passdown Picture" 
-                                                     style="max-height: 80px; max-width: 120px;" 
-                                                     class="img-thumbnail">
-                                            </div>
-                                        </div>
-                                        <small class="text-muted ms-3" style="min-width: 150px; text-align: left;">
-                                            <div>Created by: <span th:text="${passdown.user != null ? passdown.user.name : 'Unknown User'}">User</span></div>
-                                            <div>Created on: <span th:if="${passdown.createdDate != null}" th:text="${#temporals.format(passdown.createdDate, 'MM/dd/yyyy')}">01/01/2023</span></div>
-                                        </small>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-center mt-2">
-                                        <p class="mb-0 text-muted small" th:text="${passdown.tool != null ? passdown.tool.name : 'No Tool Selected'}">Tool Name</p>
-                                        <div class="d-flex gap-2">
-                                            <a th:href="@{/passdown/{id}/edit(id=${passdown.id})}" class="btn btn-sm btn-primary me-1">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
-                                            <button type="button" class="btn btn-sm btn-danger" 
-                                                    data-bs-toggle="modal" th:data-bs-target="${'#deleteModal-' + passdown.id}">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                            
-                                            <!-- Delete Modal for each passdown -->
-                                            <div class="modal fade" th:id="${'deleteModal-' + passdown.id}" tabindex="-1" 
-                                                 th:aria-labelledby="${'deleteModalLabel-' + passdown.id}" aria-hidden="true">
-                                                <div class="modal-dialog">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" th:id="${'deleteModalLabel-' + passdown.id}">Confirm Delete</h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            Are you sure you want to delete this passdown?
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                            <form th:action="@{/passdown/{id}/delete(id=${passdown.id})}" method="post" class="d-inline">
-                                                                <button type="submit" class="btn btn-danger">Delete</button>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+
+
+            <!-- Empty State -->
+            <div th:if="${passdowns.isEmpty()}" class="data-table-empty-state text-center py-5">
+                <i class="fas fa-clipboard-check fa-3x text-muted mb-3"></i>
+                <h4 class="text-muted">No Passdowns Found</h4>
+                <p class="text-muted">Get started by creating your first passdown entry.</p>
+                <a th:href="@{/passdown/new}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    Create Passdown
+                </a>
+            </div>
+
+            <!-- Responsive Table Container -->
+            <div th:if="${!passdowns.isEmpty()}" class="data-table-responsive table-responsive passdown-table-container" id="passdown-table-container">
+                <table class="table table-striped data-table-compact">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%;" class="sortable-header" data-sort="tool">
+                                <div class="header-content">
+                                    <span class="header-text">Tool</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
                                 </div>
-                            </div>
+                            </th>
+                            <th style="width: 55%;">Comment</th>
+                            <th style="width: 15%;" class="sortable-header" data-sort="technician">
+                                <div class="header-content">
+                                    <span class="header-text">Technician</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
+                            <th style="width: 10%;" class="sortable-header" data-sort="created-on">
+                                <div class="header-content">
+                                    <span class="header-text">Created On</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Loop through passdowns and create date headers and passdown rows -->
+                        <th:block th:each="passdown, stat : ${passdowns}">
+                            <!-- Date divider row - only show if first item or date changed -->
+                            <tr th:if="${stat.first || !passdown.date.equals(passdowns[stat.index-1].date)}" 
+                                class="date-divider-row">
+                                <td colspan="4" class="text-center">
+                                    <i class="fas fa-calendar-day me-2"></i>
+                                    <strong th:text="${#temporals.format(passdown.date, 'EEEE, MMMM d, yyyy')}">Monday, June 9, 2025</strong>
+                                </td>
+                            </tr>
+                            
+                            <!-- Passdown row -->
+                            <tr class="data-table-row passdown-row"
+                                th:attr="data-comment=${passdown.comment},
+                                         data-user=${passdown.user != null ? passdown.user.name : ''},
+                                         data-tool=${passdown.tool != null ? passdown.tool.name : ''},
+                                         data-technician=${passdown.user != null ? passdown.user.name : ''},
+                                         data-created-on=${passdown.createdDate != null ? #temporals.format(passdown.createdDate, 'yyyy-MM-dd') : ''},
+                                         data-date=${#temporals.format(passdown.date, 'yyyy-MM-dd')}">
+                                <!-- Tool -->
+                                <td>
+                                    <span th:if="${passdown.tool != null}" th:text="${passdown.tool.name}" class="text-decoration-hover-underline"></span>
+                                    <span th:if="${passdown.tool == null}" class="text-muted">No Tool Selected</span>
+                                </td>
+                                
+                                <!-- Comment -->
+                                <td class="comment-cell">
+                                    <span th:text="${passdown.comment}">Comment text here...</span>
+                                    <!-- Thumbnail Display -->
+                                    <div th:if="${passdown.picturePaths != null && !passdown.picturePaths.isEmpty()}">
+                                        <img th:src="@{'/uploads/' + ${passdown.picturePaths.iterator().next()}}" 
+                                             alt="Passdown Picture" 
+                                             class="passdown-thumbnail img-thumbnail">
+                                    </div>
+                                </td>
+                                
+                                <!-- Technician -->
+                                <td>
+                                    <span th:text="${passdown.user != null ? passdown.user.name : 'Unknown User'}">User</span>
+                                </td>
+                                
+                                <!-- Created On -->
+                                <td>
+                                    <span th:if="${passdown.createdDate != null}" 
+                                          th:text="${#temporals.format(passdown.createdDate, 'MM/dd/yy HH:mm')}">01/01/23 10:30</span>
+                                    <span th:if="${passdown.createdDate == null}" class="text-muted">-</span>
+                                </td>
+                            </tr>
                         </th:block>
-                    </div>
-                </div>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
+
+
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Passdown page live-search and filter script -->
+    <script th:src="@{/js/theme-toggle.js}"></script>
+    <script th:src="@{/js/components/data-table.js}"></script>
     <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const pageSearch = document.getElementById('passdown-page-search');
-        const filterPerson = document.getElementById('filter-person');
-        const filterTool = document.getElementById('filter-tool');
-        const dateFrom = document.getElementById('date-from');
-        const dateTo = document.getElementById('date-to');
-        const passdownItems = document.querySelectorAll('.passdown-item');
-        
-        // Function to get date from passdown card (extract from "Date: MM/DD/YYYY" text)
-        function getPassdownDate(card) {
-          const dateText = card.querySelector('.text-muted span:nth-of-type(2)').textContent;
-          if (dateText) {
-            // Convert MM/DD/YYYY to YYYY-MM-DD for comparison
-            const parts = dateText.split('/');
-            if (parts.length === 3) {
-              return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
-            }
-          }
-          return '';
-        }
-        
-        // Combined filter function
-        function applyFilters() {
-          const searchTerm = pageSearch ? pageSearch.value.trim().toLowerCase() : '';
-          const personFilter = filterPerson ? filterPerson.value : '';
-          const toolFilter = filterTool ? filterTool.value : '';
-          const fromDate = dateFrom ? dateFrom.value : '';
-          const toDate = dateTo ? dateTo.value : '';
-          
-          passdownItems.forEach(card => {
-            const comment = (card.getAttribute('data-comment') || '').toLowerCase();
-            const user = (card.getAttribute('data-user') || '');
-            const tool = (card.getAttribute('data-tool') || '');
-            const cardDate = getPassdownDate(card);
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize data table with search functionality
+            const dataTable = new DataTable({
+                searchInputId: 'passdown-page-search',
+                clearButtonId: 'clear-search',
+                tableSelector: '.passdown-table-container table',
+                rowSelector: '.passdown-row',
+                resultsSummaryId: 'resultsSummary',
+                visibleCountId: 'visibleCount',
+                totalCountId: 'totalCount',
+                searchableAttributes: ['data-comment', 'data-user', 'data-tool', 'data-technician'],
+                enableSorting: true,
+                enableRowClick: false
+            });
+
+            // Get filter elements
+            const filterPerson = document.getElementById('filter-person');
+            const filterTool = document.getElementById('filter-tool');
+            const dateFrom = document.getElementById('date-from');
+            const dateTo = document.getElementById('date-to');
+            const passdownRows = document.querySelectorAll('.passdown-row');
             
-            // Check all filter conditions
-            const matchesSearch = !searchTerm || 
-                                 comment.includes(searchTerm) || 
-                                 user.toLowerCase().includes(searchTerm) || 
-                                 tool.toLowerCase().includes(searchTerm);
-            const matchesPerson = !personFilter || user === personFilter;
-            const matchesTool = !toolFilter || tool === toolFilter;
-            
-            // Date range check
-            const matchesDateRange = (!fromDate || cardDate >= fromDate) && 
-                                    (!toDate || cardDate <= toDate);
-            
-            // Show card if it matches all criteria
-            if (matchesSearch && matchesPerson && matchesTool && matchesDateRange) {
-              card.classList.remove('d-none');
-            } else {
-              card.classList.add('d-none');
-            }
-          });
-          
-          // Update date headers visibility
-          updateDateHeadersVisibility();
-        }
-        
-        // Hide date headers with no visible items
-        function updateDateHeadersVisibility() {
-          const dateHeaders = document.querySelectorAll('.date-header');
-          
-          dateHeaders.forEach(header => {
-            // Get all passdown items after this header and before next header
-            let nextHeader = header.nextElementSibling;
-            let hasVisibleItem = false;
-            
-            while (nextHeader && !nextHeader.classList.contains('date-header')) {
-              if (nextHeader.classList.contains('passdown-item') && 
-                  !nextHeader.classList.contains('d-none')) {
-                hasVisibleItem = true;
-                break;
-              }
-              nextHeader = nextHeader.nextElementSibling;
+            // Function to get date from passdown row
+            function getPassdownDate(row) {
+                return row.getAttribute('data-date') || '';
             }
             
-            // Hide header if no visible items
-            if (hasVisibleItem) {
-              header.classList.remove('d-none');
-            } else {
-              header.classList.add('d-none');
+            // Combined filter function
+            function applyFilters() {
+                const personFilter = filterPerson ? filterPerson.value : '';
+                const toolFilter = filterTool ? filterTool.value : '';
+                const fromDate = dateFrom ? dateFrom.value : '';
+                const toDate = dateTo ? dateTo.value : '';
+                
+                passdownRows.forEach(row => {
+                    const user = row.getAttribute('data-user') || '';
+                    const tool = row.getAttribute('data-tool') || '';
+                    const rowDate = getPassdownDate(row);
+                    
+                    // Check filter conditions
+                    const matchesPerson = !personFilter || user === personFilter;
+                    const matchesTool = !toolFilter || tool === toolFilter;
+                    
+                    // Date range check
+                    const matchesDateRange = (!fromDate || rowDate >= fromDate) && 
+                                            (!toDate || rowDate <= toDate);
+                    
+                    // Show row if it matches all criteria
+                    if (matchesPerson && matchesTool && matchesDateRange) {
+                        row.classList.remove('data-table-hidden');
+                    } else {
+                        row.classList.add('data-table-hidden');
+                    }
+                });
+                
+                // Update date dividers visibility
+                updateDateDividersVisibility();
+                updatePassdownCount();
             }
-          });
-        }
-        
-        // Add event listeners to all filter inputs
-        if (pageSearch) pageSearch.addEventListener('input', applyFilters);
-        if (filterPerson) filterPerson.addEventListener('change', applyFilters);
-        if (filterTool) filterTool.addEventListener('change', applyFilters);
-        if (dateFrom) dateFrom.addEventListener('change', applyFilters);
-        if (dateTo) dateTo.addEventListener('change', applyFilters);
-        
-        // Add clear filter button functionality
-        const clearBtn = document.getElementById('clear-filters');
-        clearBtn.addEventListener('click', function() {
-          if (pageSearch) pageSearch.value = '';
-          if (filterPerson) filterPerson.value = '';
-          if (filterTool) filterTool.value = '';
-          if (dateFrom) dateFrom.value = '';
-          if (dateTo) dateTo.value = '';
-          applyFilters();
+            
+            // Hide date dividers with no visible items
+            function updateDateDividersVisibility() {
+                const dateDividers = document.querySelectorAll('.date-divider-row');
+                
+                dateDividers.forEach(divider => {
+                    // Get all passdown rows after this divider and before next divider
+                    let nextElement = divider.nextElementSibling;
+                    let hasVisibleItem = false;
+                    
+                    while (nextElement && !nextElement.classList.contains('date-divider-row')) {
+                        if (nextElement.classList.contains('passdown-row') && 
+                            !nextElement.classList.contains('data-table-hidden')) {
+                            hasVisibleItem = true;
+                            break;
+                        }
+                        nextElement = nextElement.nextElementSibling;
+                    }
+                    
+                    // Hide divider if no visible items
+                    if (hasVisibleItem) {
+                        divider.classList.remove('data-table-hidden');
+                    } else {
+                        divider.classList.add('data-table-hidden');
+                    }
+                });
+            }
+            
+            // Update results count function
+            function updatePassdownCount() {
+                const visibleRows = document.querySelectorAll('.passdown-row:not(.data-table-hidden)').length;
+                const totalRows = document.querySelectorAll('.passdown-row').length;
+                
+                const visibleCountSpan = document.getElementById('visibleCount');
+                const totalCountSpan = document.getElementById('totalCount');
+                
+                if (visibleCountSpan) visibleCountSpan.textContent = visibleRows;
+                if (totalCountSpan) totalCountSpan.textContent = totalRows;
+            }
+            
+            // Add event listeners to filter inputs
+            if (filterPerson) filterPerson.addEventListener('change', applyFilters);
+            if (filterTool) filterTool.addEventListener('change', applyFilters);
+            if (dateFrom) dateFrom.addEventListener('change', applyFilters);
+            if (dateTo) dateTo.addEventListener('change', applyFilters);
+            
+            // Add clear filter button functionality
+            const clearBtn = document.getElementById('clear-filters');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function() {
+                    if (filterPerson) filterPerson.value = '';
+                    if (filterTool) filterTool.value = '';
+                    if (dateFrom) dateFrom.value = '';
+                    if (dateTo) dateTo.value = '';
+                    
+                    // Clear search input
+                    const searchInput = document.getElementById('passdown-page-search');
+                    if (searchInput) searchInput.value = '';
+                    
+                    // Reset all filters
+                    applyFilters();
+                    
+                    // Update data table search
+                    if (dataTable && dataTable.clearSearch) {
+                        dataTable.clearSearch();
+                    }
+                });
+            }
+            
+            // Call initial count update
+            updatePassdownCount();
         });
-      });
     </script>
 </body>
 </html> 

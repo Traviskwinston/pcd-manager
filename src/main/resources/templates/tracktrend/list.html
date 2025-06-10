@@ -6,6 +6,9 @@
     <title>Track/Trend List</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/dark-mode.css}">
+    <link rel="stylesheet" th:href="@{/css/components/data-table.css}">
     <style>
         /* Main container styles to prevent overflow issues */
         .card-body {
@@ -129,7 +132,6 @@
         
         /* Tool list in tooltip */
         .tool-list {
-            /* Removed max-height and overflow */
             padding: 0;
             margin: 0;
             list-style: none;
@@ -208,129 +210,210 @@
             padding: 0.5rem;
             vertical-align: middle;
         }
+        
+        /* Track/Trend specific table container */
+        .track-trend-table-container {
+            min-height: 600px;
+        }
     </style>
 </head>
 <body>
     <div th:replace="~{fragments/navigation :: navbar('tracktrend')}"></div>
-    <div class="container mt-4 content-area">
-        <div class="row mb-3 align-items-center">
-            <div class="col">
-                <h1>Track / Trend List</h1>
+    
+    <div class="container-fluid mt-4 content-area">
+        <!-- Header Section -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>
+                    <i class="fas fa-chart-line me-2"></i>
+                    Track / Trend Management
+                </h2>
             </div>
-            <div class="col text-end">
-                <a th:href="@{/tracktrend/new}" class="btn btn-primary btn-sm">
-                    <i class="bi bi-plus-circle"></i> New Track/Trend
+            <div>
+                <a th:href="@{/tracktrend/new}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    New Track/Trend
                 </a>
             </div>
         </div>
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">Manage Track/Trends</h4>
+
+        <!-- Data Table Container -->
+        <div class="data-table-container">
+            
+            <!-- Search Controls -->
+            <div class="row mb-3 align-items-center">
+                <div class="col-md-8">
+                    <div class="input-group">
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="trackTrendSearchInput"
+                            placeholder="Search by name, description, tools, or RMAs..."
+                            aria-label="Search">
+                        <button 
+                            class="btn btn-outline-secondary" 
+                            type="button" 
+                            id="clearSearch"
+                            title="Clear search">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <small class="text-muted" id="resultsSummary">
+                        Showing <span id="visibleCount" th:text="${#lists.size(trackTrends)}">0</span> of <span id="totalCount" th:text="${#lists.size(trackTrends)}">0</span> track/trends
+                    </small>
+                </div>
             </div>
-            <div class="card-body">
-                <div th:if="${trackTrends.empty}" class="alert alert-info">
-                    No Track/Trend entries found.
-                </div>
-                <div th:if="${!trackTrends.empty}" class="table-responsive">
-                    <table class="table table-hover table-compact">
-                        <thead>
-                            <tr>
-                                <th style="width: 25%;">Name</th>
-                                <th style="width: 35%;">Description</th>
-                                <th style="width: 15%;">Tools</th>
-                                <th style="width: 10%;">RMAs</th>
-                                <th style="width: 10%;">Comments</th>
-                                <th style="width: 5%;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:each="tt : ${trackTrends}">
-                                <td>
-                                    <a th:href="@{'/tracktrend/' + ${tt.id}}" th:text="${tt.name}" class="text-decoration-none">Name</a>
-                                </td>
-                                <td>
-                                    <span th:if="${tt.description != null}" th:text="${#strings.abbreviate(tt.description, 50)}">Description</span>
-                                    <span th:unless="${tt.description != null}" class="text-muted">No description</span>
-                                </td>
-                                <td>
-                                    <span th:text="${tt.affectedTools.size()}"></span>
-                                    <!-- Custom tooltip for affected tools -->
-                                    <span th:if="${!tt.affectedTools.empty}" class="custom-tooltip-container">
-                                        <i tabindex="0" th:id="${'info-icon-' + tt.id}" class="bi bi-info-circle text-primary ms-1 info-icon-interactive" th:data-tooltip-id="${'tooltip-' + tt.id}"></i>
-                                        <div th:id="${'tooltip-' + tt.id}" class="custom-tooltip">
-                                            <div class="text-start pop-content">
-                                                <strong>Affected Tools:</strong>
-                                                <ul class="tool-list mt-2">
-                                                    <li th:each="tool : ${tt.affectedTools}">
-                                                        <a th:href="@{'/tools/' + ${tool.id}}">
-                                                            <span th:text="${tool.name + (tool.secondaryName != null ? ' (' + tool.secondaryName + ')' : '')}">Tool Name</span>
-                                                        </a>
-                                                    </li>
-                                                    <li th:if="${tt.affectedTools.empty}" class="text-muted">No tools associated</li>
-                                                </ul>
-                                            </div>
-                                        </div>
+
+            <!-- Empty State -->
+            <div th:if="${trackTrends.empty}" class="data-table-empty-state text-center py-5">
+                <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                <h4 class="text-muted">No Track/Trend Entries Found</h4>
+                <p class="text-muted">Get started by creating your first track/trend entry.</p>
+                <a th:href="@{/tracktrend/new}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    Create Track/Trend
+                </a>
+            </div>
+
+            <!-- Responsive Table Container -->
+            <div th:if="${!trackTrends.empty}" class="data-table-responsive table-responsive track-trend-table-container" id="track-trend-table-container">
+                <table class="table table-striped data-table-compact">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;" class="sortable-header" data-sort="name">
+                                <div class="header-content">
+                                    <span class="header-text">Name</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
                                     </span>
-                                </td>
-                                <!-- RMAs Column -->
-                                <td>
-                                    <span th:text="${relatedRmasMap.get(tt.id).size()}"></span>
-                                    <!-- Custom tooltip for related RMAs -->
-                                    <span th:if="${!relatedRmasMap.get(tt.id).empty}" class="custom-tooltip-container">
-                                        <i tabindex="0" th:id="${'rma-icon-' + tt.id}" class="bi bi-file-earmark-text text-primary ms-1 info-icon-interactive" th:data-tooltip-id="${'rma-tooltip-' + tt.id}"></i>
-                                        <div th:id="${'rma-tooltip-' + tt.id}" class="custom-tooltip">
-                                            <div class="text-start pop-content">
-                                                <strong>Related RMAs:</strong>
-                                                <ul class="tool-list mt-2">
-                                                    <li th:each="rma : ${relatedRmasMap.get(tt.id)}">
-                                                        <a th:href="@{'/rma/' + ${rma.id}}">
-                                                            <span th:text="${(rma.rmaNumber != null and rma.rmaNumber != '') ? rma.rmaNumber : (rma.sapNotificationNumber != null and rma.sapNotificationNumber != '') ? rma.sapNotificationNumber : 'RMA #' + rma.id}">RMA Number</span>
-                                                            <span th:if="${rma.tool != null}" th:text="' - ' + ${rma.tool.name}" class="text-muted"></span>
-                                                        </a>
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </div>
+                                </div>
+                            </th>
+                            <th style="width: 35%;" class="sortable-header" data-sort="description">
+                                <div class="header-content">
+                                    <span class="header-text">Description</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
                                     </span>
-                                    <span th:if="${relatedRmasMap.get(tt.id).empty}" class="text-muted">No RMAs</span>
-                                </td>
-                                <td>
-                                    <span th:text="${tt.comments.size()}"></span>
-                                    <!-- Custom tooltip for comments -->
-                                    <span th:if="${!tt.comments.empty}" class="custom-tooltip-container">
-                                        <i tabindex="0" th:id="${'comment-icon-' + tt.id}" class="bi bi-chat-text text-primary ms-1 info-icon-interactive" th:data-tooltip-id="${'comment-tooltip-' + tt.id}"></i>
-                                        <div th:id="${'comment-tooltip-' + tt.id}" class="custom-tooltip">
-                                            <div class="text-start pop-content">
-                                                <strong>Comments:</strong>
-                                                <ul class="comment-list mt-2">
-                                                    <li th:each="comment : ${tt.comments}" class="comment-item">
-                                                        <div class="comment-meta">
-                                                            <span th:text="${comment.user != null ? comment.user.name : 'Unknown User'}">User</span> - 
-                                                            <span th:text="${#temporals.format(comment.createdDate, 'MMM d, yyyy HH:mm')}">Date</span>
-                                                        </div>
-                                                        <p class="comment-content" th:text="${#strings.abbreviate(comment.content, 100)}">Comment text</p>
-                                                    </li>
-                                                </ul>
-                                            </div>
+                                </div>
+                            </th>
+                            <th style="width: 15%;">Tools</th>
+                            <th style="width: 10%;">RMAs</th>
+                            <th style="width: 10%;">Comments</th>
+                            <th style="width: 5%;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="tt : ${trackTrends}" class="data-table-row track-trend-row"
+                            th:attr="data-name=${tt.name},
+                                     data-description=${tt.description ?: ''},
+                                     data-tools=${#strings.listJoin(tt.affectedTools.![name], ' ')},
+                                     data-rmas=${#strings.listJoin(relatedRmasMap.get(tt.id).![rmaNumber ?: sapNotificationNumber ?: ('RMA-' + id)], ' ')}">
+                            <td>
+                                <a th:href="@{'/tracktrend/' + ${tt.id}}" th:text="${tt.name}" class="text-decoration-hover-underline">Name</a>
+                            </td>
+                            <td>
+                                <span th:if="${tt.description != null}" th:text="${#strings.abbreviate(tt.description, 50)}">Description</span>
+                                <span th:unless="${tt.description != null}" class="text-muted">No description</span>
+                            </td>
+                            <td>
+                                <span th:text="${tt.affectedTools.size()}"></span>
+                                <!-- Custom tooltip for affected tools -->
+                                <span th:if="${!tt.affectedTools.empty}" class="custom-tooltip-container">
+                                    <i tabindex="0" th:id="${'info-icon-' + tt.id}" class="bi bi-info-circle text-primary ms-1 info-icon-interactive" th:data-tooltip-id="${'tooltip-' + tt.id}"></i>
+                                    <div th:id="${'tooltip-' + tt.id}" class="custom-tooltip">
+                                        <div class="text-start pop-content">
+                                            <strong>Affected Tools:</strong>
+                                            <ul class="tool-list mt-2">
+                                                <li th:each="tool : ${tt.affectedTools}">
+                                                    <a th:href="@{'/tools/' + ${tool.id}}">
+                                                        <span th:text="${tool.name + (tool.secondaryName != null ? ' (' + tool.secondaryName + ')' : '')}">Tool Name</span>
+                                                    </a>
+                                                </li>
+                                                <li th:if="${tt.affectedTools.empty}" class="text-muted">No tools associated</li>
+                                            </ul>
                                         </div>
-                                    </span>
-                                    <span th:if="${tt.comments.empty}" class="text-muted">No comments</span>
-                                </td>
-                                <td class="text-center">
-                                    <a th:href="@{'/tracktrend/' + ${tt.id}}" class="action-icon" title="View Track/Trend">
-                                        <i class="bi bi-eye-fill"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                                    </div>
+                                </span>
+                            </td>
+                            <!-- RMAs Column -->
+                            <td>
+                                <span th:text="${relatedRmasMap.get(tt.id).size()}"></span>
+                                <!-- Custom tooltip for related RMAs -->
+                                <span th:if="${!relatedRmasMap.get(tt.id).empty}" class="custom-tooltip-container">
+                                    <i tabindex="0" th:id="${'rma-icon-' + tt.id}" class="bi bi-file-earmark-text text-primary ms-1 info-icon-interactive" th:data-tooltip-id="${'rma-tooltip-' + tt.id}"></i>
+                                    <div th:id="${'rma-tooltip-' + tt.id}" class="custom-tooltip">
+                                        <div class="text-start pop-content">
+                                            <strong>Related RMAs:</strong>
+                                            <ul class="tool-list mt-2">
+                                                <li th:each="rma : ${relatedRmasMap.get(tt.id)}">
+                                                    <a th:href="@{'/rma/' + ${rma.id}}">
+                                                        <span th:text="${(rma.rmaNumber != null and rma.rmaNumber != '') ? rma.rmaNumber : (rma.sapNotificationNumber != null and rma.sapNotificationNumber != '') ? rma.sapNotificationNumber : 'RMA #' + rma.id}">RMA Number</span>
+                                                        <span th:if="${rma.tool != null}" th:text="' - ' + ${rma.tool.name}" class="text-muted"></span>
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </span>
+                                <span th:if="${relatedRmasMap.get(tt.id).empty}" class="text-muted">No RMAs</span>
+                            </td>
+                            <td>
+                                <span th:text="${tt.comments.size()}"></span>
+                                <!-- Custom tooltip for comments -->
+                                <span th:if="${!tt.comments.empty}" class="custom-tooltip-container">
+                                    <i tabindex="0" th:id="${'comment-icon-' + tt.id}" class="bi bi-chat-text text-primary ms-1 info-icon-interactive" th:data-tooltip-id="${'comment-tooltip-' + tt.id}"></i>
+                                    <div th:id="${'comment-tooltip-' + tt.id}" class="custom-tooltip">
+                                        <div class="text-start pop-content">
+                                            <strong>Comments:</strong>
+                                            <ul class="comment-list mt-2">
+                                                <li th:each="comment : ${tt.comments}" class="comment-item">
+                                                    <div class="comment-meta">
+                                                        <span th:text="${comment.user != null ? comment.user.name : 'Unknown User'}">User</span> - 
+                                                        <span th:text="${#temporals.format(comment.createdDate, 'MMM d, yyyy HH:mm')}">Date</span>
+                                                    </div>
+                                                    <p class="comment-content" th:text="${#strings.abbreviate(comment.content, 100)}">Comment text</p>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </span>
+                                <span th:if="${tt.comments.empty}" class="text-muted">No comments</span>
+                            </td>
+                            <td class="text-center">
+                                <a th:href="@{'/tracktrend/' + ${tt.id}}" class="action-icon" title="View Track/Trend">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/theme-toggle.js}"></script>
+    <script th:src="@{/js/components/data-table.js}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize data table with search functionality
+            const dataTable = new DataTable({
+                searchInputId: 'trackTrendSearchInput',
+                clearButtonId: 'clearSearch',
+                tableSelector: '.track-trend-table-container table',
+                rowSelector: '.track-trend-row',
+                resultsSummaryId: 'resultsSummary',
+                visibleCountId: 'visibleCount',
+                totalCountId: 'totalCount',
+                searchableAttributes: ['data-name', 'data-description', 'data-tools', 'data-rmas'],
+                enableSorting: true,
+                enableRowClick: false
+            });
+
             // Track the active tooltip and state
             let activeTooltip = null;
             let activeIcon = null;
@@ -469,6 +552,21 @@
                 // Hide the tooltip again (it will be shown by the caller)
                 tooltip.style.display = 'none';
             }
+            
+            // Update results count function
+            function updateTrackTrendCount() {
+                const visibleRows = document.querySelectorAll('.track-trend-row:not(.data-table-hidden)').length;
+                const totalRows = document.querySelectorAll('.track-trend-row').length;
+                
+                const visibleCountSpan = document.getElementById('visibleCount');
+                const totalCountSpan = document.getElementById('totalCount');
+                
+                if (visibleCountSpan) visibleCountSpan.textContent = visibleRows;
+                if (totalCountSpan) totalCountSpan.textContent = totalRows;
+            }
+            
+            // Call initial count update
+            updateTrackTrendCount();
         });
     </script>
 </body>

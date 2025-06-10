@@ -6,12 +6,16 @@
     <title>PCD Manager - Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" th:href="@{/dark-mode.css}">
+    <link rel="stylesheet" th:href="@{/css/components/data-table.css}">
     <style>
         .scrollable-list {
-            flex: 1 1 auto;
+            flex: 1 1 0;
             overflow-y: auto;
-            max-height: none; /* Allow full scroll within card body */
+            overflow-x: hidden;
+            min-height: 0; /* Important for flex shrinking */
+            height: 0; /* Force flex to control height */
         }
         .tool-item {
             padding: 8px 120x;
@@ -75,12 +79,37 @@
             background-color: rgba(0,0,0,.03);
             color: #0d6efd;
         }
+        
+        /* Dark mode hover styles for tool items */
+        [data-bs-theme="dark"] .list-group-item-link:hover {
+            background-color: rgba(110, 168, 254, 0.2);
+            color: #ffffff;
+        }
+        
+        [data-bs-theme="dark"] .tool-item:hover {
+            background-color: rgba(110, 168, 254, 0.15);
+        }
+        
+        [data-bs-theme="dark"] .tool-item {
+            background-color: #495057;
+        }
+        
+        [data-bs-theme="dark"] .tool-item.assigned {
+            background-color: #1e3a5f;
+            border-left: 3px solid #6ea8fe;
+        }
         /* Ensure full-height layout */
         html, body {
             height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
         }
         .dashboard-container {
-            height: calc(100vh - 56px); /* Adjust if navbar height differs */
+            height: calc(100vh - 76px); /* Account for navbar (56px) + top margin (20px) */
+            max-height: calc(100vh - 76px);
+            overflow: hidden;
+            padding: 0;
         }
         .full-height-card {
             display: flex;
@@ -93,8 +122,37 @@
             flex: 1 1 auto;
             flex-direction: column;
             overflow: hidden; /* Prevent content from breaking card layout */
-            padding-top: 0.5rem;
-            padding-bottom: 0.5rem;
+            padding: 0 !important; /* Remove all padding */
+            min-height: 0; /* Essential for flex children to shrink */
+        }
+        
+        /* Add minimal internal padding only where needed */
+        .full-height-card .card-body > * {
+            padding: 0.25rem;
+        }
+        
+        /* Override Bootstrap card padding */
+        .card-body {
+            padding: 0 !important;
+        }
+        
+        /* Remove padding from flex column elements */
+        .d-flex.flex-column {
+            padding: 0 !important;
+        }
+        
+        /* Specifically target tools and main columns */
+        .tools-col, .main-col {
+            padding: 0 !important;
+        }
+        
+        /* Add bottom padding to sections touching the bottom */
+        .tools-col {
+            padding-bottom: 2px !important;
+        }
+        
+        .bottom-half {
+            padding-bottom: 2px !important;
         }
         /* Clamp passdown comments */
         .clamp-3 {
@@ -106,26 +164,25 @@
         }
         /* Column widths */
         .tools-col {
-            flex: 0 0 30%;
-            max-width: 30%;
-            padding-right: 0; /* Remove right padding */
+            flex: 0 0 calc(30% - 0.5px);
+            max-width: calc(30% - 0.5px);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
         .main-col {
-            flex: 0 0 70%;
-            max-width: 70%;
-            display: flex; /* Keep flex for inner content alignment */
+            flex: 0 0 calc(70% - 0.5px);
+            max-width: calc(70% - 0.5px);
+            display: flex;
             flex-direction: column;
-            height: 100%; /* Ensure main col takes full height */
-            padding-left: 0; /* Remove left padding */
+            padding: 2px;
+            height: 100%;
         }
-        /* Tool card and filter card heights */
+        /* Tool card takes full height */
         .tools-card {
-            height: 50%;
-            margin-bottom: 0;
-        }
-        .filters-card {
-            height: 50%;
-            margin-top: 0;
+            flex: 1 1 100%;
+            display: flex;
+            flex-direction: column;
         }
         /* Restore grid elements */
         #grid-canvas, #grid-controls {
@@ -133,18 +190,17 @@
         }
         .top-half {
             display: flex !important;
-            flex: 1 1 50%; /* Take 50% of the main column height */
+            flex: 1 1 calc(50% - 0.5px);
             position: relative;
             overflow: hidden;
-            margin: 0; /* Remove margin */
+            margin-bottom: 1px;
         }
         /* Make passdowns section take 50% of the height */
         .bottom-half {
-             flex: 1 1 50%; /* Take 50% of the main column height */
+             flex: 1 1 calc(50% - 0.5px);
              display: flex; 
              flex-direction: column;
              overflow: hidden;
-             margin: 0; /* Remove margin */
         }
         
         /* Grid specific styles */
@@ -198,7 +254,58 @@
         }
         .grid-control-btn.active {
             background-color: #e9ecef;
-            border-color: #adb5bd;
+        }
+        
+        /* Dashboard passdown table styles */
+        .dashboard-date-divider-row {
+            background-color: var(--bs-primary, #0d6efd) !important;
+            color: white !important;
+            font-weight: 600;
+            border-top: 2px solid var(--bs-border-color, #dee2e6);
+        }
+        
+        .dashboard-comment-cell {
+            max-width: 300px;
+            word-wrap: break-word;
+            word-break: break-word;
+            white-space: pre-wrap;
+            text-align: left !important;
+            vertical-align: top;
+            overflow-wrap: break-word;
+        }
+        
+        .dashboard-comment-cell span {
+            text-align: left !important;
+            display: block;
+            width: 100%;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+        
+        .dashboard-passdown-row {
+            height: auto !important;
+            cursor: pointer;
+        }
+        
+        .dashboard-passdown-row:hover {
+            background-color: rgba(0, 123, 255, 0.1) !important;
+        }
+        
+        .dashboard-passdown-row td {
+            height: auto !important;
+            vertical-align: top !important;
+            text-align: left !important;
+        }
+        
+        .dashboard-passdown-table-container .table td,
+        .dashboard-passdown-table-container .table th {
+            text-align: left !important;
+        }
+        
+        .dashboard-passdown-table-container .table td span,
+        .dashboard-passdown-table-container .table td div {
+            text-align: left !important;
         }
         .grid-tool-icon {
             font-size: 1rem;
@@ -271,12 +378,12 @@
     <!-- Tooltip element (added globally) -->
     <div class="assigned-user-tooltip" id="assigned-user-tooltip"></div>
 
-    <div class="container mt-4 dashboard-container h-100">
-        <div class="row h-100 g-0">
-            <!-- Left Column: Tools + Filters -->
+    <div class="container-fluid dashboard-container h-100" style="padding: 32px 32px 0 32px;">
+        <div class="row h-100" style="gap: 1px;">
+            <!-- Left Column: Tools -->
             <div class="d-flex flex-column h-100 tools-col">
                 <!-- Tools Section -->
-                <div class="tools-card mb-0">
+                <div class="tools-card">
                     <div class="card full-height-card w-100">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center">
@@ -286,8 +393,40 @@
                                 <input id="tool-search" type="text" class="form-control form-control-sm" placeholder="Search name, model, serial..." style="max-width:150px;">
                             </div>
                         </div>
-                        <div class="card-body">
-                            <div class="scrollable-list">
+                        <div class="card-body d-flex flex-column">
+                            <!-- Filters Section -->
+                            <div class="mb-3">
+                                <div class="row mb-2">
+                                    <div class="col-md-4">
+                                        <select id="filter-type" class="form-select form-select-sm">
+                                            <option value="">All Types</option>
+                                            <option th:each="type : ${T(com.pcd.manager.model.Tool.ToolType).values()}"
+                                                    th:value="${type}" th:text="${type}">CHEMBLEND</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <select id="filter-status" class="form-select form-select-sm">
+                                            <option value="">All Status</option>
+                                            <option th:each="status : ${T(com.pcd.manager.model.Tool.ToolStatus).values()}"
+                                                    th:value="${status}" th:text="${status}">NOT_STARTED</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <select id="filter-issue" class="form-select form-select-sm">
+                                            <option value="">All Issues</option>
+                                            <option th:each="tt : ${allTrackTrends}" 
+                                                    th:value="${tt.id}" 
+                                                    th:text="${tt.title}">Track/Trend Issue</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <input type="text" id="filter-notes" class="form-control form-control-sm" placeholder="Search in notes...">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="scrollable-list flex-grow-1">
                                 <!-- No tools message -->
                                 <div th:if="${#lists.isEmpty(tools)}" class="text-center text-muted py-3">
                                     No tools found. <a th:href="@{/tools/new}">Add a new tool?</a>
@@ -330,49 +469,6 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Filters Section -->
-                <div class="filters-card">
-                    <div class="card full-height-card w-100">
-                        <div class="card-header">
-                            <h5 class="mb-0">Filters</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label for="filter-type" class="form-label">Type</label>
-                                <select id="filter-type" class="form-select form-select-sm">
-                                    <option value="">All Types</option>
-                                    <option th:each="type : ${T(com.pcd.manager.model.Tool.ToolType).values()}"
-                                            th:value="${type}" th:text="${type}">CHEMBLEND</option>
-                                </select>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="filter-status" class="form-label">Status</label>
-                                <select id="filter-status" class="form-select form-select-sm">
-                                    <option value="">All Status</option>
-                                    <option th:each="status : ${T(com.pcd.manager.model.Tool.ToolStatus).values()}"
-                                            th:value="${status}" th:text="${status}">NOT_STARTED</option>
-                                </select>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="filter-issue" class="form-label">Issue</label>
-                                <select id="filter-issue" class="form-select form-select-sm">
-                                    <option value="">All Issues</option>
-                                    <option th:each="tt : ${allTrackTrends}" 
-                                            th:value="${tt.id}" 
-                                            th:text="${tt.title}">Track/Trend Issue</option>
-                                </select>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="filter-notes" class="form-label">Notes Contain:</label>
-                                <input type="text" id="filter-notes" class="form-control form-control-sm" placeholder="Search in notes...">
                             </div>
                         </div>
                     </div>
@@ -431,54 +527,121 @@
                 <div class="bottom-half"> 
                     <div class="card full-height-card w-100">
                         <div class="card-header">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <h5 class="mb-0">Recent Passdowns</h5>
-                                    <span class="filter-icon ms-2 passdown-filter-icon" title="Filter passdowns"><i class="bi bi-filter"></i></span>
-                                    <div id="current-passdown-filters" class="ms-2 text-muted small">
-                                        User: All Users | Tool: All Tools
-                                    </div>
-                                </div>
-                                <div>
-                                    <input id="passdown-search" type="text" class="form-control form-control-sm" placeholder="Search passdowns..." style="max-width:200px;">
+                            <h5 class="mb-0">Recent Passdowns</h5>
+                        </div>
+                        <div class="card-body d-flex flex-column">
+
+                        <!-- Filters Section -->
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <select id="dashboard-filter-person" class="form-select form-select-sm">
+                                    <option value="">All Technicians</option>
+                                    <option th:each="u: ${passdownUsers}" th:value="${u}" th:text="${u}"></option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select id="dashboard-filter-tool" class="form-select form-select-sm">
+                                    <option value="">All Tools</option>
+                                    <option th:each="t: ${passdownTools}" th:value="${t}" th:text="${t}"></option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="input-group input-group-sm">
+                                    <input 
+                                        type="text" 
+                                        class="form-control" 
+                                        id="dashboard-passdown-search"
+                                        placeholder="Search comments, tools, technicians..."
+                                        aria-label="Search">
+                                    <button 
+                                        class="btn btn-outline-secondary" 
+                                        type="button" 
+                                        id="dashboard-clear-search"
+                                        title="Clear search">
+                                        <i class="fas fa-times"></i>
+                                    </button>
                                 </div>
                             </div>
-                            <!-- Passdown filter panel -->
-                            <div id="passdown-filter-panel" class="px-3 py-2 bg-light border-bottom" style="display:none;">
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <select id="filter-passdown-user" class="form-select form-select-sm">
-                                            <option value="">All Users</option>
-                                            <option th:each="u: ${passdownUsers}" th:value="${u}" th:text="${u}"></option>
-                                        </select>
-                                    </div>
-                                    <div class="col">
-                                        <input type="text" id="filter-passdown-tool-search" class="form-control form-control-sm mb-1" placeholder="Search tools...">
-                                        <select id="filter-passdown-tool" class="form-select form-select-sm" size="6">
-                                            <option value="">All Tools</option>
-                                            <option th:each="t: ${passdownTools}" th:value="${t}" th:text="${t}"></option>
-                                        </select>
-                                    </div>
-                                </div>
+                            <div class="col-md-2">
+                                <button id="dashboard-clear-filters" class="btn btn-outline-secondary btn-sm w-100">
+                                    <i class="fas fa-broom me-1"></i>
+                                    Clear
+                                </button>
                             </div>
                         </div>
-                        <div class="card-body">
-                            <div class="scrollable-list">
-                                <div th:if="${#lists.isEmpty(recentPassdowns)}" class="text-center text-muted py-3">
-                                    No recent passdowns.
-                                </div>
-                                <div th:unless="${#lists.isEmpty(recentPassdowns)}">
-                                    <div th:each="passdown : ${recentPassdowns}" class="passdown-item"
-                                         th:data-comment="${passdown.comment}"
-                                         th:data-user="${passdown.user.name}"
-                                         th:data-tool="${passdown.tool != null ? passdown.tool.name : ''}">
-                                        <p class="mb-1 clamp-3" th:text="${passdown.comment}">Passdown comment...</p>
-                                        <div class="small text-muted d-flex align-items-center">
-                                            <span>Posted by: <span th:text="${passdown.user.name}">User</span></span>
-                                            <span class="ms-3">Date: <span th:text="${#temporals.format(passdown.createdDate, 'MM/dd/yyyy')}">Date</span></span>
-                                            <span th:if="${passdown.tool != null}" class="ms-3">Tool: <span th:text="${passdown.tool.name}">Tool</span></span>
-                                        </div>
-                                    </div>
+
+                        <!-- Empty State -->
+                        <div th:if="${#lists.isEmpty(recentPassdowns)}" class="text-center py-4 flex-grow-1 d-flex align-items-center justify-content-center">
+                            <div>
+                                <i class="fas fa-clipboard-check fa-3x text-muted mb-3"></i>
+                                <h6 class="text-muted">No Recent Passdowns</h6>
+                                <p class="text-muted small">Get started by creating your first passdown entry.</p>
+                                <a th:href="@{/passdown/new}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus me-1"></i>
+                                    Create Passdown
+                                </a>
+                            </div>
+                        </div>
+
+                            <!-- Table Container -->
+                            <div th:if="${!#lists.isEmpty(recentPassdowns)}" class="flex-grow-1 overflow-hidden">
+                                <div class="data-table-responsive table-responsive h-100 dashboard-passdown-table-container" id="dashboard-passdown-table-container">
+                                    <table class="table table-striped data-table-compact table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 25%;">Tool</th>
+                                                <th style="width: 50%;">Comment</th>
+                                                <th style="width: 15%;">Technician</th>
+                                                <th style="width: 10%;">Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Loop through passdowns and create date headers and passdown rows -->
+                                            <th:block th:each="passdown, stat : ${recentPassdowns}">
+                                                <!-- Date divider row - only show if first item or date changed -->
+                                                <tr th:if="${stat.first || !passdown.date.equals(recentPassdowns[stat.index-1].date)}" 
+                                                    class="dashboard-date-divider-row">
+                                                    <td colspan="4" class="text-center">
+                                                        <i class="fas fa-calendar-day me-2"></i>
+                                                        <strong th:text="${#temporals.format(passdown.date, 'EEEE, MMMM d, yyyy')}">Monday, June 9, 2025</strong>
+                                                    </td>
+                                                </tr>
+                                                
+                                                <!-- Passdown row -->
+                                                <tr class="data-table-row dashboard-passdown-row clickable-row"
+                                                    th:attr="data-comment=${passdown.comment},
+                                                             data-user=${passdown.user != null ? passdown.user.name : ''},
+                                                             data-tool=${passdown.tool != null ? passdown.tool.name : ''},
+                                                             data-technician=${passdown.user != null ? passdown.user.name : ''},
+                                                             data-created-on=${passdown.createdDate != null ? #temporals.format(passdown.createdDate, 'yyyy-MM-dd') : ''},
+                                                             data-date=${#temporals.format(passdown.date, 'yyyy-MM-dd')}"
+                                                    th:onclick="'window.location.href=\'/passdown/' + ${passdown.id} + '/view\''">
+                                                    <!-- Tool -->
+                                                    <td>
+                                                        <span th:if="${passdown.tool != null}" th:text="${passdown.tool.name}"></span>
+                                                        <span th:if="${passdown.tool == null}" class="text-muted">No Tool Selected</span>
+                                                    </td>
+                                                    
+                                                    <!-- Comment -->
+                                                    <td class="dashboard-comment-cell">
+                                                        <span th:text="${passdown.comment}">Comment text here...</span>
+                                                    </td>
+                                                    
+                                                    <!-- Technician -->
+                                                    <td>
+                                                        <span th:text="${passdown.user != null ? passdown.user.name : 'Unknown User'}">User</span>
+                                                    </td>
+                                                    
+                                                    <!-- Created On -->
+                                                    <td>
+                                                        <span th:if="${passdown.createdDate != null}" 
+                                                              th:text="${#temporals.format(passdown.createdDate, 'MM/dd/yy')}">01/01/23</span>
+                                                        <span th:if="${passdown.createdDate == null}" class="text-muted">-</span>
+                                                    </td>
+                                                </tr>
+                                            </th:block>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -918,52 +1081,109 @@
         });
     </script>
 
-    <!-- Passdown filter script -->
+    <!-- Dashboard passdown table script -->
+    <script th:src="@{/js/components/data-table.js}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const icon = document.querySelector('.passdown-filter-icon');
-            const panel = document.getElementById('passdown-filter-panel');
-            const items = document.querySelectorAll('.passdown-item');
-            const searchInput = document.getElementById('passdown-search');
-            const userSelect = document.getElementById('filter-passdown-user');
-            const toolSearch = document.getElementById('filter-passdown-tool-search');
-            const toolSelect = document.getElementById('filter-passdown-tool');
-
-            function applyPassdownFilters() {
-                const term = searchInput.value.trim().toLowerCase();
-                const user = userSelect.value;
-                const tool = toolSelect.value;
-                items.forEach(item => {
-                    const comment = item.dataset.comment.toLowerCase();
-                    const usr = item.dataset.user;
-                    const tl = item.dataset.tool;
-                    const okSearch = !term || comment.includes(term);
-                    const okUser = !user || usr === user;
-                    const okTool = !tool || tl === tool;
-                    item.style.display = okSearch && okUser && okTool ? '' : 'none';
-                });
-                // Update current filter display
-                const currentFilterElem = document.getElementById('current-passdown-filters');
-                if (currentFilterElem) {
-                    const displayUser = user || 'All Users';
-                    const displayTool = tool || 'All Tools';
-                    currentFilterElem.textContent = `User: ${displayUser} | Tool: ${displayTool}`;
-                }
+            // Get filter elements
+            const filterPerson = document.getElementById('dashboard-filter-person');
+            const filterTool = document.getElementById('dashboard-filter-tool');
+            const searchInput = document.getElementById('dashboard-passdown-search');
+            const clearSearchBtn = document.getElementById('dashboard-clear-search');
+            const clearFiltersBtn = document.getElementById('dashboard-clear-filters');
+            const passdownRows = document.querySelectorAll('.dashboard-passdown-row');
+            
+            // Function to get date from passdown row
+            function getPassdownDate(row) {
+                return row.getAttribute('data-date') || '';
             }
-            searchInput.addEventListener('input', applyPassdownFilters);
-            userSelect.addEventListener('change', applyPassdownFilters);
-            toolSelect.addEventListener('change', applyPassdownFilters);
-            toolSearch.addEventListener('input', () => {
-                const val = toolSearch.value.trim().toLowerCase();
-                Array.from(toolSelect.options).forEach(opt => {
-                    opt.style.display = !val || opt.value.toLowerCase().includes(val) ? '' : 'none';
+            
+            // Combined filter function
+            function applyDashboardFilters() {
+                const personFilter = filterPerson ? filterPerson.value : '';
+                const toolFilter = filterTool ? filterTool.value : '';
+                const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+                
+                passdownRows.forEach(row => {
+                    const user = row.getAttribute('data-user') || '';
+                    const tool = row.getAttribute('data-tool') || '';
+                    const comment = row.getAttribute('data-comment') || '';
+                    const technician = row.getAttribute('data-technician') || '';
+                    
+                    // Check filter conditions
+                    const matchesPerson = !personFilter || user === personFilter;
+                    const matchesTool = !toolFilter || tool === toolFilter;
+                    const matchesSearch = !searchTerm || 
+                                        comment.toLowerCase().includes(searchTerm) ||
+                                        tool.toLowerCase().includes(searchTerm) ||
+                                        technician.toLowerCase().includes(searchTerm);
+                    
+                    // Show row if it matches all criteria
+                    if (matchesPerson && matchesTool && matchesSearch) {
+                        row.classList.remove('data-table-hidden');
+                        row.style.display = '';
+                    } else {
+                        row.classList.add('data-table-hidden');
+                        row.style.display = 'none';
+                    }
                 });
-            });
-            if (icon && panel) {
-                icon.addEventListener('click', () => {
-                    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                
+                // Update date dividers visibility
+                updateDateDividersVisibility();
+            }
+            
+            // Hide date dividers with no visible items
+            function updateDateDividersVisibility() {
+                const dateDividers = document.querySelectorAll('.dashboard-date-divider-row');
+                
+                dateDividers.forEach(divider => {
+                    // Get all passdown rows after this divider and before next divider
+                    let nextElement = divider.nextElementSibling;
+                    let hasVisibleItem = false;
+                    
+                    while (nextElement && !nextElement.classList.contains('dashboard-date-divider-row')) {
+                        if (nextElement.classList.contains('dashboard-passdown-row') && 
+                            !nextElement.classList.contains('data-table-hidden')) {
+                            hasVisibleItem = true;
+                            break;
+                        }
+                        nextElement = nextElement.nextElementSibling;
+                    }
+                    
+                    // Hide divider if no visible items
+                    if (hasVisibleItem) {
+                        divider.style.display = '';
+                    } else {
+                        divider.style.display = 'none';
+                    }
                 });
             }
+            
+            // Add event listeners to filter inputs
+            if (filterPerson) filterPerson.addEventListener('change', applyDashboardFilters);
+            if (filterTool) filterTool.addEventListener('change', applyDashboardFilters);
+            if (searchInput) searchInput.addEventListener('input', applyDashboardFilters);
+            
+            // Clear search functionality
+            if (clearSearchBtn) {
+                clearSearchBtn.addEventListener('click', function() {
+                    if (searchInput) searchInput.value = '';
+                    applyDashboardFilters();
+                });
+            }
+            
+            // Add clear filter button functionality
+            if (clearFiltersBtn) {
+                clearFiltersBtn.addEventListener('click', function() {
+                    if (filterPerson) filterPerson.value = '';
+                    if (filterTool) filterTool.value = '';
+                    if (searchInput) searchInput.value = '';
+                    applyDashboardFilters();
+                });
+            }
+            
+            // Call initial filter application
+            applyDashboardFilters();
         });
     </script>
 

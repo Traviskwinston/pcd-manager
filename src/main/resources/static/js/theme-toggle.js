@@ -36,7 +36,7 @@
             
             // Create the toggle button
             this.toggleButton = document.createElement('button');
-            this.toggleButton.className = 'theme-toggle me-2';
+            this.toggleButton.className = 'btn theme-toggle me-2';
             this.toggleButton.setAttribute('type', 'button');
             this.toggleButton.setAttribute('aria-label', 'Toggle dark mode');
             this.toggleButton.setAttribute('title', 'Toggle dark mode');

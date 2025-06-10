@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Optional;
 
 @Controller
-@RequestMapping("/tools")
 public class MovingPartController {
 
     @Autowired
@@ -30,7 +29,7 @@ public class MovingPartController {
     @Autowired
     private UserService userService;
 
-    @PostMapping("/{id}/moving-parts/add")
+    @PostMapping("/tools/{id}/moving-parts/add")
     public String addMovingPart(@PathVariable("id") Long toolId,
                              @RequestParam("partName") String partName,
                              @RequestParam("fromToolId") Long fromToolId,
@@ -62,7 +61,7 @@ public class MovingPartController {
         return "redirect:/tools/" + toolId;
     }
     
-    @PostMapping("/{id}/moving-parts/{movingPartId}/link-note")
+    @PostMapping("/tools/{id}/moving-parts/{movingPartId}/link-note")
     public String linkNoteToMovingPart(@PathVariable("id") Long toolId,
                                        @PathVariable("movingPartId") Long movingPartId,
                                        @RequestParam("noteId") Long noteId,
@@ -79,7 +78,7 @@ public class MovingPartController {
         return "redirect:/tools/" + toolId;
     }
     
-    @PostMapping("/{id}/moving-parts/{movingPartId}/delete")
+    @PostMapping("/tools/{id}/moving-parts/{movingPartId}/delete")
     public String deleteMovingPart(@PathVariable("id") Long toolId,
                                    @PathVariable("movingPartId") Long movingPartId,
                                    RedirectAttributes redirectAttributes) {
@@ -94,7 +93,7 @@ public class MovingPartController {
         return "redirect:/tools/" + toolId;
     }
 
-    @PostMapping("/{id}/moving-parts/{movingPartId}/edit")
+    @PostMapping("/tools/{id}/moving-parts/{movingPartId}/edit")
     public String editMovingPart(@PathVariable("id") Long toolId,
                                 @PathVariable("movingPartId") Long movingPartId,
                                 @RequestParam("partName") String partName,

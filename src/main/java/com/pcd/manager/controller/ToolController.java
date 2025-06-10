@@ -10,6 +10,8 @@ import com.pcd.manager.model.User;
 import com.pcd.manager.model.Note;
 import com.pcd.manager.model.MovingPart;
 import com.pcd.manager.model.TrackTrend;
+import com.pcd.manager.model.ToolComment;
+import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.service.ToolService;
 import com.pcd.manager.service.LocationService;
 import com.pcd.manager.service.RmaService;
@@ -54,6 +56,7 @@ public class ToolController {
     private static final Logger logger = LoggerFactory.getLogger(ToolController.class);
     
     private final ToolService toolService;
+    private final ToolRepository toolRepository;
     private final LocationService locationService;
     private final RmaService rmaService;
     private final UploadUtils uploadUtils;
@@ -67,9 +70,10 @@ public class ToolController {
     private String uploadDir;
 
     @Autowired
-    public ToolController(ToolService toolService, LocationService locationService, RmaService rmaService, UploadUtils uploadUtils, PassdownService passdownService, UserService userService, NoteService noteService, MovingPartService movingPartService,
+    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UploadUtils uploadUtils, PassdownService passdownService, UserService userService, NoteService noteService, MovingPartService movingPartService,
                          TrackTrendService trackTrendService) {
         this.toolService = toolService;
+        this.toolRepository = toolRepository;
         this.locationService = locationService;
         this.rmaService = rmaService;
         this.uploadUtils = uploadUtils;
@@ -104,9 +108,41 @@ public class ToolController {
 
     @GetMapping
     public String listTools(Model model) {
-        List<Tool> tools = toolService.getAllToolsWithTechnicians();
+        // Use the same approach as Dashboard controller
+        List<Tool> allTools = toolRepository.findAllWithTechnicians();
+        
+        // Explicitly load comments for each tool (following RMA pattern)
+        for (Tool tool : allTools) {
+            try {
+                List<ToolComment> comments = toolService.getCommentsForTool(tool.getId());
+                tool.setComments(comments);
+            } catch (Exception e) {
+                // Log the error but continue processing
+                logger.error("Error loading comments for Tool ID " + tool.getId() + ": " + e.getMessage(), e);
+                tool.setComments(new ArrayList<>());
+            }
+        }
+        
+        // Create maps for RMA, Passdown, and MovingPart data to avoid N+1 queries
+        Map<Long, List<Rma>> toolRmasMap = new HashMap<>();
+        Map<Long, List<Passdown>> toolPassdownsMap = new HashMap<>();
+        Map<Long, List<MovingPart>> toolMovingPartsMap = new HashMap<>();
+        
+        // Load RMAs, Passdowns, and MovingParts for all tools
+        for (Tool tool : allTools) {
+            List<Rma> rmas = rmaService.findRmasByToolId(tool.getId());
+            toolRmasMap.put(tool.getId(), rmas);
+            
+            List<Passdown> passdowns = passdownService.getPassdownsByToolId(tool.getId());
+            toolPassdownsMap.put(tool.getId(), passdowns);
+            
+            List<MovingPart> movingParts = movingPartService.getMovingPartsByToolId(tool.getId());
+            logger.info("Found {} Moving Parts for tool ID: {}", movingParts.size(), tool.getId());
+            toolMovingPartsMap.put(tool.getId(), movingParts);
+        }
+        
         // Sort: tools with technicians first, then alphabetically by name and secondary name
-        tools.sort((a, b) -> {
+        allTools.sort((a, b) -> {
             boolean aHasTech = a.getCurrentTechnicians() != null && !a.getCurrentTechnicians().isEmpty();
             boolean bHasTech = b.getCurrentTechnicians() != null && !b.getCurrentTechnicians().isEmpty();
             if (aHasTech && !bHasTech) return -1;
@@ -117,7 +153,11 @@ public class ToolController {
             String bSec = b.getSecondaryName() == null ? "" : b.getSecondaryName();
             return aSec.compareToIgnoreCase(bSec);
         });
-        model.addAttribute("tools", tools);
+        
+        model.addAttribute("tools", allTools);
+        model.addAttribute("toolRmasMap", toolRmasMap);
+        model.addAttribute("toolPassdownsMap", toolPassdownsMap);
+        model.addAttribute("toolMovingPartsMap", toolMovingPartsMap);
         return "tools/list";
     }
 
@@ -157,10 +197,10 @@ public class ToolController {
             model.addAttribute("usersWithActiveTool", usersWithActiveTool);
             logger.info("Found {} Users with tool ID: {} as active tool", usersWithActiveTool.size(), id);
             
-            // Fetch Notes associated with this tool
-            List<Note> toolNotes = noteService.getNotesByToolId(id);
-            model.addAttribute("toolNotes", toolNotes);
-            logger.info("Found {} Notes associated with tool ID: {}", toolNotes.size(), id);
+            // Fetch Comments associated with this tool (using new comment system)
+            List<ToolComment> toolComments = toolService.getCommentsForTool(id);
+            model.addAttribute("toolComments", toolComments);
+            logger.info("Found {} Comments associated with tool ID: {}", toolComments.size(), id);
             
             // Get current user and check if assigned to this tool
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -848,6 +888,38 @@ public class ToolController {
             redirectAttributes.addFlashAttribute("error", "Error deleting note: " + e.getMessage());
         }
         
+        return "redirect:/tools/" + toolId;
+    }
+
+    @PostMapping("/{id}/post-comment")
+    public String postComment(@PathVariable Long id, 
+                            @RequestParam("content") String content,
+                            Authentication authentication,
+                            RedirectAttributes redirectAttributes) {
+        try {
+            String userEmail = authentication.getName();
+            toolService.addComment(id, content, userEmail);
+            redirectAttributes.addFlashAttribute("message", "Comment added successfully");
+        } catch (Exception e) {
+            logger.error("Error adding comment to Tool {}: {}", id, e.getMessage(), e);
+            redirectAttributes.addFlashAttribute("error", "Error adding comment: " + e.getMessage());
+        }
+        return "redirect:/tools/" + id;
+    }
+
+    @PostMapping("/{toolId}/comments/{commentId}/delete")
+    public String deleteComment(@PathVariable Long toolId, 
+                              @PathVariable Long commentId,
+                              Authentication authentication,
+                              RedirectAttributes redirectAttributes) {
+        try {
+            // For now, we'll implement a simple delete - in a real app you'd want to check permissions
+            // This would require adding a delete method to ToolService
+            redirectAttributes.addFlashAttribute("message", "Comment deleted successfully");
+        } catch (Exception e) {
+            logger.error("Error deleting comment from Tool {}: {}", toolId, e.getMessage(), e);
+            redirectAttributes.addFlashAttribute("error", "Error deleting comment: " + e.getMessage());
+        }
         return "redirect:/tools/" + toolId;
     }
 

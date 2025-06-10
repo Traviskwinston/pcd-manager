@@ -1477,22 +1477,18 @@ function createToolPreview() {
     });
     
     // Determine fill color based on tool type
-    let fillColor = '#3498db'; // Default blue
-    if (toolType === 'CHEMBLEND') {
-        fillColor = '#8e44ad'; // Purple
-    } else if (toolType === 'SLURRY') {
-        fillColor = '#16a085'; // Teal
-    }
+    // Get theme-aware colors
+    const colors = getThemeAwareColors(toolType);
     
     // Create main rectangle
     const rect = new Konva.Rect({
         width: width,
         height: height,
-        fill: fillColor,
-        stroke: '#333',
+        fill: colors.fill,
+        stroke: colors.stroke,
         strokeWidth: 1,
         cornerRadius: 2,
-        shadowColor: 'black',
+        shadowColor: colors.shadowColor,
         shadowBlur: 5,
         shadowOffset: { x: 2, y: 2 },
         shadowOpacity: 0.3,
@@ -1504,7 +1500,7 @@ function createToolPreview() {
         text: toolName,
         fontSize: 14,
         fontFamily: 'Arial',
-        fill: 'black',
+        fill: colors.textFill,
         align: 'center',
         verticalAlign: 'middle',
         width: width,
@@ -1976,6 +1972,65 @@ function reorderShapesBySize() {
 }
 
 /**
+ * Get theme-aware colors for tools based on current theme and tool type
+ */
+function getThemeAwareColors(toolType) {
+    const isDarkMode = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    
+    if (isDarkMode) {
+        // Dark mode colors
+        switch (toolType) {
+            case 'CHEMBLEND':
+                return {
+                    fill: '#4a1a5c',        // Dark purple background
+                    stroke: '#5e226e',      // Dark purple outline
+                    textFill: '#c084d1',    // Light purple text
+                    shadowColor: 'rgba(0,0,0,0.5)'
+                };
+            case 'SLURRY':
+                return {
+                    fill: '#0d4f47',        // Dark teal background
+                    stroke: '#1a5d55',      // Dark teal outline
+                    textFill: '#4fd1c7',    // Light teal text
+                    shadowColor: 'rgba(0,0,0,0.5)'
+                };
+            default:
+                return {
+                    fill: '#1a3a5c',        // Dark blue background
+                    stroke: '#2a4a6c',      // Dark blue outline
+                    textFill: '#87ceeb',    // Light blue text
+                    shadowColor: 'rgba(0,0,0,0.5)'
+                };
+        }
+    } else {
+        // Light mode colors (original)
+        switch (toolType) {
+            case 'CHEMBLEND':
+                return {
+                    fill: '#8e44ad',        // Purple
+                    stroke: '#333',
+                    textFill: 'black',
+                    shadowColor: 'black'
+                };
+            case 'SLURRY':
+                return {
+                    fill: '#16a085',        // Teal
+                    stroke: '#333',
+                    textFill: 'black',
+                    shadowColor: 'black'
+                };
+            default:
+                return {
+                    fill: '#3498db',        // Default blue
+                    stroke: '#333',
+                    textFill: 'black',
+                    shadowColor: 'black'
+                };
+        }
+    }
+}
+
+/**
  * Create a tool shape from data
  */
 function createToolShape(data) {
@@ -2033,18 +2088,18 @@ function createToolShape(data) {
         id: data.id,
         toolId: toolId,
         type: 'tool',
+        toolType: toolData.type,
         draggable: false
     });
     
     // Determine fill color based on tool type
-    let fillColor = '#3498db'; // Default blue
+    // Get theme-aware colors
+    const colors = getThemeAwareColors(toolData.type);
     let cssClass = '';
     
     if (toolData.type === 'CHEMBLEND') {
-        fillColor = '#8e44ad'; // Purple
         cssClass = 'purple-tool';
     } else if (toolData.type === 'SLURRY') {
-        fillColor = '#16a085'; // Teal
         cssClass = 'teal-tool';
     }
     
@@ -2052,11 +2107,11 @@ function createToolShape(data) {
     const rect = new Konva.Rect({
         width: width,
         height: height,
-        fill: fillColor,
-        stroke: '#333',
+        fill: colors.fill,
+        stroke: colors.stroke,
         strokeWidth: 1,
         cornerRadius: 2,
-        shadowColor: 'black',
+        shadowColor: colors.shadowColor,
         shadowBlur: 5,
         shadowOffset: { x: 2, y: 2 },
         shadowOpacity: 0.3,
@@ -2072,7 +2127,7 @@ function createToolShape(data) {
         text: displayName,
         fontSize: 14,
         fontFamily: 'Arial',
-        fill: 'black',
+        fill: colors.textFill,
         align: 'center',
         verticalAlign: 'middle',
         width: width,
@@ -2219,6 +2274,56 @@ function prepareEditDrawingModal(shape) {
 }
 
 /**
+ * Refresh tool colors when theme changes
+ */
+function refreshToolColors() {
+    // Update all tool shapes
+    Object.values(toolShapes).forEach(group => {
+        const toolData = {
+            type: group.attrs.toolType || 'DEFAULT'
+        };
+        const colors = getThemeAwareColors(toolData.type);
+        
+        const rect = group.findOne('.mainRect');
+        const text = group.findOne('.text');
+        
+        if (rect) {
+            rect.fill(colors.fill);
+            rect.stroke(colors.stroke);
+            rect.shadowColor(colors.shadowColor);
+        }
+        
+        if (text) {
+            text.fill(colors.textFill);
+        }
+    });
+    
+    // Update tool preview if it exists
+    if (toolPreview) {
+        const toolType = toolPreview.attrs.toolType || 'DEFAULT';
+        const colors = getThemeAwareColors(toolType);
+        
+        const rect = toolPreview.findOne('.mainRect');
+        const text = toolPreview.findOne('.text');
+        
+        if (rect) {
+            rect.fill(colors.fill);
+            rect.stroke(colors.stroke);
+            rect.shadowColor(colors.shadowColor);
+        }
+        
+        if (text) {
+            text.fill(colors.textFill);
+        }
+    }
+    
+    // Redraw the layer
+    if (toolLayer) {
+        toolLayer.batchDraw();
+    }
+}
+
+/**
  * Initialize the document
  */
 document.addEventListener('DOMContentLoaded', function() {
@@ -2233,6 +2338,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 modalBackdrop.remove();
             }
         });
+    });
+    
+    // Listen for theme changes to refresh tool colors
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'data-bs-theme') {
+                refreshToolColors();
+            }
+        });
+    });
+    
+    observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['data-bs-theme']
     });
 });
 

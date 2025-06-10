@@ -57,32 +57,62 @@ public class DocumentController {
 
             List<Map<String, String>> documents = new ArrayList<>();
             if (Files.exists(documentsRootPath) && Files.isDirectory(documentsRootPath)) {
-                documents = Files.walk(documentsRootPath)
-                        .filter(Files::isRegularFile)
-                        .map(path -> {
-                            Map<String, String> docInfo = new HashMap<>();
-                            String relativePath = documentsRootPath.relativize(path).toString().replace("\\", "/");
-                            docInfo.put("name", path.getFileName().toString());
-                            docInfo.put("path", relativePath); 
-                            try {
-                                docInfo.put("size", String.valueOf(Files.size(path) / 1024)); // Size in KB
-                                docInfo.put("lastModified", Files.getLastModifiedTime(path).toString());
-                            } catch (IOException e) {
-                                logger.warn("Could not read metadata for file: {}", path, e);
-                                docInfo.put("size", "N/A");
-                                docInfo.put("lastModified", "N/A");
-                            }
-                            return docInfo;
-                        })
-                        .sorted(Comparator.comparing(docMap -> docMap.get("name").toLowerCase()))
-                        .collect(Collectors.toList());
+                try {
+                    documents = Files.walk(documentsRootPath)
+                            .filter(Files::isRegularFile)
+                            .filter(path -> {
+                                try {
+                                    // Additional check to ensure it's a readable file
+                                    return Files.isReadable(path) && Files.size(path) >= 0;
+                                } catch (IOException e) {
+                                    logger.warn("Cannot read file: {}", path, e);
+                                    return false;
+                                }
+                            })
+                            .map(path -> {
+                                try {
+                                    Map<String, String> docInfo = new HashMap<>();
+                                    String relativePath = documentsRootPath.relativize(path).toString().replace("\\", "/");
+                                    docInfo.put("name", path.getFileName().toString());
+                                    docInfo.put("path", relativePath); 
+                                    
+                                    try {
+                                        long sizeInBytes = Files.size(path);
+                                        docInfo.put("size", String.valueOf(sizeInBytes / 1024)); // Size in KB
+                                        docInfo.put("lastModified", Files.getLastModifiedTime(path).toString());
+                                    } catch (IOException e) {
+                                        logger.warn("Could not read metadata for file: {}", path, e);
+                                        docInfo.put("size", "N/A");
+                                        docInfo.put("lastModified", "N/A");
+                                    }
+                                    return docInfo;
+                                } catch (Exception e) {
+                                    logger.error("Error processing file: {}", path, e);
+                                    // Return a valid map even in case of error
+                                    Map<String, String> errorDocInfo = new HashMap<>();
+                                    errorDocInfo.put("name", "Error reading file");
+                                    errorDocInfo.put("path", "N/A");
+                                    errorDocInfo.put("size", "N/A");
+                                    errorDocInfo.put("lastModified", "N/A");
+                                    return errorDocInfo;
+                                }
+                            })
+                            .filter(docMap -> docMap != null && docMap.containsKey("name"))
+                            .sorted(Comparator.comparing(docMap -> docMap.get("name").toLowerCase()))
+                            .collect(Collectors.toList());
+                } catch (IOException e) {
+                    logger.error("Error walking directory tree", e);
+                    documents = new ArrayList<>();
+                }
             }
 
+            logger.debug("Found {} documents", documents.size());
             model.addAttribute("documents", documents);
             return "documents/list";
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.error("Error listing documents", e);
             model.addAttribute("error", "Failed to list documents: " + e.getMessage());
+            model.addAttribute("documents", new ArrayList<>()); // Ensure documents is never null
             return "documents/list";
         }
     }

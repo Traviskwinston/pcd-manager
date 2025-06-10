@@ -6,11 +6,15 @@ import com.pcd.manager.model.RmaDocument;
 import com.pcd.manager.model.RmaPicture;
 import com.pcd.manager.model.Passdown;
 import com.pcd.manager.model.MovingPart;
+import com.pcd.manager.model.ToolComment;
+import com.pcd.manager.model.User;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.repository.RmaRepository;
 import com.pcd.manager.repository.RmaDocumentRepository;
 import com.pcd.manager.repository.RmaPictureRepository;
 import com.pcd.manager.repository.MovingPartRepository;
+import com.pcd.manager.repository.ToolCommentRepository;
+import com.pcd.manager.repository.UserRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,6 +37,8 @@ public class ToolService {
     private final RmaDocumentRepository documentRepository;
     private final RmaPictureRepository pictureRepository;
     private final MovingPartRepository movingPartRepository;
+    private final ToolCommentRepository toolCommentRepository;
+    private final UserRepository userRepository;
     private PassdownService passdownService; // Not final anymore, will be set by setter
 
     @Autowired
@@ -39,12 +46,16 @@ public class ToolService {
                       RmaRepository rmaRepository,
                       RmaDocumentRepository documentRepository,
                       RmaPictureRepository pictureRepository,
-                      MovingPartRepository movingPartRepository) {
+                      MovingPartRepository movingPartRepository,
+                      ToolCommentRepository toolCommentRepository,
+                      UserRepository userRepository) {
         this.toolRepository = toolRepository;
         this.rmaRepository = rmaRepository;
         this.documentRepository = documentRepository;
         this.pictureRepository = pictureRepository;
         this.movingPartRepository = movingPartRepository;
+        this.toolCommentRepository = toolCommentRepository;
+        this.userRepository = userRepository;
         // PassdownService will be injected via setter
     }
     
@@ -337,5 +348,38 @@ public class ToolService {
         if (movingPartOpt.isEmpty()) logger.warn("MovingPart not found with ID: {}", movingPartId);
         if (targetToolOpt.isEmpty()) logger.warn("Target Tool not found with ID: {}", targetToolId);
         return false;
+    }
+
+    /**
+     * Add a comment to a tool
+     */
+    @Transactional
+    public ToolComment addComment(Long toolId, String content, String userEmail) {
+        Tool tool = toolRepository.findById(toolId)
+            .orElseThrow(() -> new IllegalArgumentException("Tool not found: " + toolId));
+        
+        User user = userRepository.findByEmailIgnoreCase(userEmail)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail));
+        
+        ToolComment comment = new ToolComment();
+        comment.setContent(content);
+        comment.setTool(tool);
+        comment.setUser(user);
+        comment.setCreatedDate(LocalDateTime.now());
+        
+        ToolComment savedComment = toolCommentRepository.save(comment);
+        
+        // Add the comment to the tool's comment list
+        tool.getComments().add(savedComment);
+        toolRepository.save(tool);
+        
+        return savedComment;
+    }
+    
+    /**
+     * Get all comments for a tool
+     */
+    public List<ToolComment> getCommentsForTool(Long toolId) {
+        return toolCommentRepository.findByToolIdOrderByCreatedDateDesc(toolId);
     }
 } 
