@@ -108,8 +108,8 @@ public class ToolController {
 
     @GetMapping
     public String listTools(Model model) {
-        // Use the same approach as Dashboard controller
-        List<Tool> allTools = toolRepository.findAllWithTechnicians();
+        // Use optimized query to prevent N+1 queries 
+        List<Tool> allTools = toolRepository.findAllWithAllRelations();
         
         // Explicitly load comments for each tool (following RMA pattern)
         for (Tool tool : allTools) {

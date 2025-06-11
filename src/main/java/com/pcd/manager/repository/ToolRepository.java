@@ -44,4 +44,14 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
      */
     @Query("SELECT DISTINCT t FROM Tool t LEFT JOIN FETCH t.currentTechnicians")
     List<Tool> findAllWithTechnicians();
+    
+    /**
+     * Find all tools with ALL related entities eagerly loaded to prevent N+1 queries
+     * This is optimized for dashboard and list views
+     */
+    @Query("SELECT DISTINCT t FROM Tool t " +
+           "LEFT JOIN FETCH t.currentTechnicians " +
+           "LEFT JOIN FETCH t.location " +
+           "LEFT JOIN FETCH t.tags")
+    List<Tool> findAllWithAllRelations();
 } 

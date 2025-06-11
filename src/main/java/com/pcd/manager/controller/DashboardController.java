@@ -122,8 +122,8 @@ public class DashboardController {
         List<MapGridItem> gridItems = mapGridService.getGridItemsByLocationId(currentLocationId);
         logger.info("Fetched {} grid items for facility map for location ID: {}", gridItems.size(), currentLocationId);
 
-        // Fetch all tools with technicians eagerly loaded
-        List<Tool> allTools = toolRepository.findAllWithTechnicians();
+        // Fetch all tools with ALL related entities eagerly loaded to prevent N+1 queries
+        List<Tool> allTools = toolRepository.findAllWithAllRelations();
 
         // Sort tools: Assigned tools first, then by name
         List<Tool> sortedTools = allTools.stream()
