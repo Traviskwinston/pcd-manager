@@ -136,9 +136,21 @@ public class ToolController {
             List<Passdown> passdowns = passdownService.getPassdownsByToolId(tool.getId());
             toolPassdownsMap.put(tool.getId(), passdowns);
             
-            List<MovingPart> movingParts = movingPartService.getMovingPartsByToolId(tool.getId());
-            logger.info("Found {} Moving Parts for tool ID: {}", movingParts.size(), tool.getId());
-            toolMovingPartsMap.put(tool.getId(), movingParts);
+            // Check if movingPartService is null
+            if (movingPartService == null) {
+                logger.error("MovingPartService is NULL! Cannot load moving parts.");
+                toolMovingPartsMap.put(tool.getId(), new ArrayList<>());
+            } else {
+                try {
+                    logger.info("About to call movingPartService.getMovingPartsByToolId for tool ID: {}", tool.getId());
+                    List<MovingPart> movingParts = movingPartService.getMovingPartsByToolId(tool.getId());
+                    logger.info("Found {} Moving Parts for tool ID: {}", movingParts.size(), tool.getId());
+                    toolMovingPartsMap.put(tool.getId(), movingParts);
+                } catch (Exception e) {
+                    logger.error("Exception occurred while loading moving parts for tool ID {}: {}", tool.getId(), e.getMessage(), e);
+                    toolMovingPartsMap.put(tool.getId(), new ArrayList<>());
+                }
+            }
         }
         
         // Sort: tools with technicians first, then alphabetically by name and secondary name
