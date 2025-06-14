@@ -25,10 +25,6 @@ public class Location {
     
     private String description;
     
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = true)
-    private LocationType locationType;
-    
     private String address;
     
     @Column(columnDefinition = "TEXT")
@@ -99,55 +95,6 @@ public class Location {
     
     public void setDefault(boolean defaultLocation) {
         setDefaultLocation(defaultLocation);
-    }
-
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public LocationType getLocationType() {
-        return locationType;
-    }
-
-    public void setLocationType(LocationType locationType) {
-        this.locationType = locationType;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public void setAddress(String address) {
-        this.address = address;
-    }
-
-    public String getNotes() {
-        return notes;
-    }
-
-    public void setNotes(String notes) {
-        this.notes = notes;
     }
 
     @Override

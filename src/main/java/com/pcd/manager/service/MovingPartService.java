@@ -52,7 +52,7 @@ public class MovingPartService {
     }
     
     @Transactional
-    public MovingPart createMovingPart(String partName, Long fromToolId, Long toToolId, String notes, Long noteId, Rma rma) {
+    public MovingPart createMovingPart(String partName, Long fromToolId, List<Long> destinationToolIds, String notes, Long noteId, Rma rma) {
         MovingPart movingPart = new MovingPart();
         movingPart.setPartName(partName);
         movingPart.setMoveDate(LocalDateTime.now());
@@ -63,43 +63,8 @@ public class MovingPartService {
             toolRepository.findById(fromToolId).ifPresent(movingPart::setFromTool);
         }
         
-        // Set the to tool if provided
-        if (toToolId != null) {
-            toolRepository.findById(toToolId).ifPresent(movingPart::setToTool);
-        }
-        
-        // Link note if provided
-        if (noteId != null) {
-            noteRepository.findById(noteId).ifPresent(movingPart::setLinkedNote);
-        }
-
-        // Set the RMA if provided
-        if (rma != null) {
-            movingPart.setRma(rma);
-        }
-        
-        return movingPartRepository.save(movingPart);
-    }
-    
-    @Transactional
-    public MovingPart createMovingPartWithDestinations(String partName, Long fromToolId, List<Long> destinationToolIds, String notes, Long noteId, Rma rma) {
-        MovingPart movingPart = new MovingPart();
-        movingPart.setPartName(partName);
-        movingPart.setMoveDate(LocalDateTime.now());
-        movingPart.setNotes(notes);
-        
-        // Set the from tool if provided
-        if (fromToolId != null) {
-            toolRepository.findById(fromToolId).ifPresent(movingPart::setFromTool);
-        }
-        
-        // Set the primary destination (first tool) and destination chain
+        // Set the destination chain
         if (destinationToolIds != null && !destinationToolIds.isEmpty()) {
-            // Set the first destination as the primary toTool
-            Long primaryDestinationId = destinationToolIds.get(0);
-            toolRepository.findById(primaryDestinationId).ifPresent(movingPart::setToTool);
-            
-            // Store the full destination chain
             movingPart.setDestinationToolIds(destinationToolIds);
         }
         
@@ -140,7 +105,7 @@ public class MovingPartService {
     }
     
     @Transactional
-    public Optional<MovingPart> updateMovingPart(Long id, String partName, Long fromToolId, Long toToolId, String notes, Rma rma) {
+    public Optional<MovingPart> updateMovingPart(Long id, String partName, Long fromToolId, List<Long> destinationToolIds, String notes, Rma rma) {
         Optional<MovingPart> movingPartOpt = movingPartRepository.findById(id);
         
         if (movingPartOpt.isPresent()) {
@@ -155,11 +120,11 @@ public class MovingPartService {
                 movingPart.setFromTool(null); // Allow unsetting
             }
             
-            // Update toTool if provided
-            if (toToolId != null) {
-                toolRepository.findById(toToolId).ifPresent(movingPart::setToTool);
+            // Update destination chain
+            if (destinationToolIds != null && !destinationToolIds.isEmpty()) {
+                movingPart.setDestinationToolIds(destinationToolIds);
             } else {
-                movingPart.setToTool(null); // Allow unsetting
+                movingPart.setDestinationChain(null); // Clear chain if no destinations
             }
 
             // Update Rma if provided (could be null to unset)
@@ -215,5 +180,49 @@ public class MovingPartService {
             }
         }
         return List.of();
+    }
+
+    /**
+     * Add a new destination to an existing moving part's chain
+     * @param movingPartId The ID of the moving part
+     * @param newDestinationToolId The ID of the new destination tool
+     * @return Updated MovingPart if successful, empty if not found
+     */
+    @Transactional
+    public Optional<MovingPart> addDestinationToMovingPart(Long movingPartId, Long newDestinationToolId) {
+        Optional<MovingPart> movingPartOpt = movingPartRepository.findById(movingPartId);
+        if (movingPartOpt.isPresent()) {
+            MovingPart movingPart = movingPartOpt.get();
+            movingPart.addDestination(newDestinationToolId);
+            return Optional.of(movingPartRepository.save(movingPart));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Get a formatted movement path string for display (e.g., "Tool A → Tool B → Tool C")
+     * @param movingPart The moving part
+     * @return Formatted movement path string
+     */
+    public String getFormattedMovementPath(MovingPart movingPart) {
+        StringBuilder path = new StringBuilder();
+        
+        // Add from tool
+        if (movingPart.getFromTool() != null) {
+            path.append(movingPart.getFromTool().getName());
+        } else {
+            path.append("Unknown");
+        }
+        
+        // Add destination chain
+        List<Long> destinationIds = movingPart.getDestinationToolIds();
+        if (destinationIds != null && !destinationIds.isEmpty()) {
+            List<Tool> destinationTools = toolRepository.findAllById(destinationIds);
+            for (Tool tool : destinationTools) {
+                path.append(" → ").append(tool.getName());
+            }
+        }
+        
+        return path.toString();
     }
 } 

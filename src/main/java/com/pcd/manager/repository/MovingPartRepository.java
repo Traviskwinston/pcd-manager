@@ -11,9 +11,9 @@ import java.util.List;
 @Repository
 public interface MovingPartRepository extends JpaRepository<MovingPart, Long> {
     
-    List<MovingPart> findByFromToolOrToToolOrderByMoveDateDesc(Tool fromTool, Tool toTool);
+    List<MovingPart> findByFromToolOrderByMoveDateDesc(Tool fromTool);
     
-    @Query("SELECT mp FROM MovingPart mp WHERE mp.fromTool.id = :toolId OR mp.toTool.id = :toolId OR " +
+    @Query("SELECT mp FROM MovingPart mp WHERE mp.fromTool.id = :toolId OR " +
            "(mp.destinationChain IS NOT NULL AND " +
            "(mp.destinationChain LIKE CONCAT('[', :toolId, ']') OR " +
            "mp.destinationChain LIKE CONCAT('[', :toolId, ',%') OR " +
@@ -22,7 +22,7 @@ public interface MovingPartRepository extends JpaRepository<MovingPart, Long> {
            "ORDER BY mp.moveDate DESC")
     List<MovingPart> findAllByToolId(Long toolId);
     
-    @Query("SELECT mp FROM MovingPart mp WHERE mp.fromTool = :tool OR mp.toTool = :tool OR " +
+    @Query("SELECT mp FROM MovingPart mp WHERE mp.fromTool = :tool OR " +
            "(mp.destinationChain IS NOT NULL AND " +
            "(mp.destinationChain LIKE CONCAT('[', :#{#tool.id}, ']') OR " +
            "mp.destinationChain LIKE CONCAT('[', :#{#tool.id}, ',%') OR " +

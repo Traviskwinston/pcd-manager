@@ -243,24 +243,51 @@ public class ExcelService {
             setCellValue(sheet, "B36", commentsStr.toString());
         }
         
-        // Parts (up to 4)
+        // Parts (up to 4) - using the correct template layout
         if (rma.getPartLineItems() != null && !rma.getPartLineItems().isEmpty()) {
+            logger.info("EXCEL EXPORT - Processing {} part line items for RMA {}", rma.getPartLineItems().size(), rma.getId());
             List<PartLineItem> parts = new ArrayList<>(rma.getPartLineItems());
+            
+            // Part layout in template:
+            // Part 1: PN (B26), Desc (B27), Qty (B25)
+            // Part 2: PN (I26), Desc (I27), Qty (I25)  
+            // Part 3: PN (B31), Desc (B32), Qty (B30)
+            // Part 4: PN (I31), Desc (I32), Qty (I30)
+            
+            String[][] partCells = {
+                {"B25", "B26", "B27"}, // Part 1: Qty, PN, Desc
+                {"I25", "I26", "I27"}, // Part 2: Qty, PN, Desc
+                {"B30", "B31", "B32"}, // Part 3: Qty, PN, Desc
+                {"I30", "I31", "I32"}  // Part 4: Qty, PN, Desc
+            };
+            
             // Limit to first 4 parts
             for (int i = 0; i < Math.min(parts.size(), 4); i++) {
                 PartLineItem part = parts.get(i);
-                int rowNum = 42 + i; // Starting at row 42 for first part
+                String[] cells = partCells[i];
+                String qtyCell = cells[0];
+                String pnCell = cells[1];
+                String descCell = cells[2];
                 
-                setCellValue(sheet, "A" + rowNum, part.getPartName()); // Part Name
-                setCellValue(sheet, "B" + rowNum, part.getPartNumber()); // Part Number
-                setCellValue(sheet, "C" + rowNum, part.getProductDescription()); // Description
+                logger.info("EXCEL EXPORT - Part #{}: Qty={}, PN={}, Desc={}, Name='{}', Number='{}', Description='{}', Qty={}, Replacement={}", 
+                           i+1, qtyCell, pnCell, descCell, part.getPartName(), part.getPartNumber(), part.getProductDescription(), 
+                           part.getQuantity(), part.getReplacementRequired());
+                
+                // Set quantity
                 if (part.getQuantity() != null) {
-                    setCellValue(sheet, "D" + rowNum, part.getQuantity().toString()); // Qty
+                    setCellValue(sheet, qtyCell, part.getQuantity().toString());
                 }
-                if (part.getReplacementRequired() != null) {
-                    setCellValue(sheet, "E" + rowNum, part.getReplacementRequired() ? "Yes" : "No"); // Replacement Required
-                }
+                
+                // Set part number
+                setCellValue(sheet, pnCell, part.getPartNumber());
+                
+                // Set description
+                setCellValue(sheet, descCell, part.getProductDescription());
+                
+                // Note: Part Name and Replacement Required don't have designated cells in this template layout
             }
+        } else {
+            logger.warn("EXCEL EXPORT - No part line items found for RMA {}", rma.getId());
         }
     }
     
@@ -269,6 +296,7 @@ public class ExcelService {
      */
     private void setCellValue(Sheet sheet, String cellReference, String value) {
         if (value == null || value.isEmpty()) {
+            logger.debug("EXCEL EXPORT - Skipping empty value for cell {}", cellReference);
             return;
         }
         
@@ -278,21 +306,27 @@ public class ExcelService {
             int rowIndex = ref.getRow();
             int colIndex = ref.getCol();
             
+            logger.debug("EXCEL EXPORT - Setting cell {} (row {}, col {}) to value: '{}'", 
+                        cellReference, rowIndex, colIndex, value);
+            
             // Get or create the row and cell
             Row row = sheet.getRow(rowIndex);
             if (row == null) {
                 row = sheet.createRow(rowIndex);
+                logger.debug("EXCEL EXPORT - Created new row {}", rowIndex);
             }
             
             Cell cell = row.getCell(colIndex);
             if (cell == null) {
                 cell = row.createCell(colIndex);
+                logger.debug("EXCEL EXPORT - Created new cell at {}", cellReference);
             }
             
             // Set the value
             cell.setCellValue(value);
+            logger.debug("EXCEL EXPORT - Successfully set cell {} to '{}'", cellReference, value);
         } catch (Exception e) {
-            logger.error("Error setting cell value for {}: {}", cellReference, e.getMessage());
+            logger.error("EXCEL EXPORT - Error setting cell value for {}: {}", cellReference, e.getMessage(), e);
         }
     }
 

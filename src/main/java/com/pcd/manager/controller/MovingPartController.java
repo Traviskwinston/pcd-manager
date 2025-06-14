@@ -45,14 +45,7 @@ public class MovingPartController {
                 return "redirect:/tools/" + toolId;
             }
             
-            // For backward compatibility, if only one destination, use the single destination method
-            if (destinationToolIds.size() == 1) {
-                movingPartService.createMovingPart(partName, fromToolId, destinationToolIds.get(0), notes, noteId, null);
-            } else {
-                // Use the new method for multiple destinations
-                movingPartService.createMovingPartWithDestinations(partName, fromToolId, destinationToolIds, notes, noteId, null);
-            }
-            
+            movingPartService.createMovingPart(partName, fromToolId, destinationToolIds, notes, noteId, null);
             redirectAttributes.addFlashAttribute("successMessage", "Moving part recorded successfully");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", "Error recording moving part: " + e.getMessage());
@@ -103,46 +96,43 @@ public class MovingPartController {
                                 RedirectAttributes redirectAttributes) {
         
         try {
-            // Get the existing moving part
-            Optional<MovingPart> movingPartOpt = movingPartService.getMovingPartById(movingPartId);
-            if (movingPartOpt.isEmpty()) {
-                redirectAttributes.addFlashAttribute("errorMessage", "Moving part not found");
+            if (destinationToolIds == null || destinationToolIds.isEmpty()) {
+                redirectAttributes.addFlashAttribute("errorMessage", "At least one destination tool must be selected");
                 return "redirect:/tools/" + toolId;
             }
             
-            MovingPart movingPart = movingPartOpt.get();
+            Optional<MovingPart> result = movingPartService.updateMovingPart(movingPartId, partName, fromToolId, destinationToolIds, notes, null);
             
-            // Update the moving part fields
-            movingPart.setPartName(partName);
-            movingPart.setNotes(notes);
-            
-            // Update tools
-            if (fromToolId != null) {
-                Optional<Tool> fromTool = toolService.getToolById(fromToolId);
-                fromTool.ifPresent(movingPart::setFromTool);
-            }
-            
-            // For backward compatibility, set the first destination as toTool
-            if (destinationToolIds != null && !destinationToolIds.isEmpty()) {
-                Optional<Tool> toTool = toolService.getToolById(destinationToolIds.get(0));
-                toTool.ifPresent(movingPart::setToTool);
-                
-                // Set the destination chain if there are multiple destinations
-                if (destinationToolIds.size() > 1) {
-                    movingPart.setDestinationToolIds(destinationToolIds);
+            if (result.isPresent()) {
+                redirectAttributes.addFlashAttribute("successMessage", "Moving part updated successfully");
                 } else {
-                    // Clear destination chain if only one destination
-                    movingPart.setDestinationChain(null);
-                }
+                redirectAttributes.addFlashAttribute("errorMessage", "Moving part not found");
             }
-            
-            // Save the updated moving part
-            movingPartService.save(movingPart);
-            
-            redirectAttributes.addFlashAttribute("successMessage", "Moving part updated successfully");
             
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", "Error updating moving part: " + e.getMessage());
+        }
+        
+        return "redirect:/tools/" + toolId;
+    }
+
+    @PostMapping("/tools/{id}/moving-parts/{movingPartId}/add-destination")
+    public String addDestinationToMovingPart(@PathVariable("id") Long toolId,
+                                           @PathVariable("movingPartId") Long movingPartId,
+                                           @RequestParam("newDestinationToolId") Long newDestinationToolId,
+                                           RedirectAttributes redirectAttributes) {
+        
+        try {
+            Optional<MovingPart> result = movingPartService.addDestinationToMovingPart(movingPartId, newDestinationToolId);
+            
+            if (result.isPresent()) {
+                redirectAttributes.addFlashAttribute("successMessage", "New destination added to moving part successfully");
+            } else {
+                redirectAttributes.addFlashAttribute("errorMessage", "Moving part not found");
+            }
+            
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Error adding destination: " + e.getMessage());
         }
         
         return "redirect:/tools/" + toolId;

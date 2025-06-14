@@ -40,10 +40,6 @@ public class MovingPart {
     @JoinColumn(name = "from_tool_id")
     private Tool fromTool;
 
-    @ManyToOne
-    @JoinColumn(name = "to_tool_id")
-    private Tool toTool;
-
     @Column(name = "destination_chain", columnDefinition = "TEXT")
     private String destinationChain;
 
@@ -105,13 +101,38 @@ public class MovingPart {
         return destinationChain != null && !destinationChain.trim().isEmpty();
     }
 
+    /**
+     * Get the first destination tool ID from the chain (for backward compatibility)
+     */
+    public Long getFirstDestinationToolId() {
+        List<Long> destinations = getDestinationToolIds();
+        return destinations.isEmpty() ? null : destinations.get(0);
+    }
+
+    /**
+     * Get the last destination tool ID from the chain (current location)
+     */
+    public Long getCurrentLocationToolId() {
+        List<Long> destinations = getDestinationToolIds();
+        return destinations.isEmpty() ? null : destinations.get(destinations.size() - 1);
+    }
+
+    /**
+     * Add a new destination to the movement chain
+     */
+    public void addDestination(Long toolId) {
+        List<Long> destinations = getDestinationToolIds();
+        destinations.add(toolId);
+        setDestinationToolIds(destinations);
+    }
+
     @Override
     public String toString() {
         return "MovingPart{" +
                "id=" + id +
                ", partName='" + partName + '\'' +
                ", fromToolId=" + (fromTool != null ? fromTool.getId() : null) +
-               ", toToolId=" + (toTool != null ? toTool.getId() : null) +
+               ", destinationChain='" + destinationChain + '\'' +
                ", rmaId=" + (rma != null ? rma.getId() : null) +
                ", moveDate=" + moveDate +
                '}';

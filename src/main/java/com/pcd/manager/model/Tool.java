@@ -178,11 +178,6 @@ public class Tool {
     @EqualsAndHashCode.Exclude
     private List<MovingPart> partsMovedFrom = new ArrayList<>();
 
-    @OneToMany(mappedBy = "toTool", cascade = CascadeType.ALL)
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<MovingPart> partsMovedTo = new ArrayList<>();
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "active_tool_id")
     @ToString.Exclude

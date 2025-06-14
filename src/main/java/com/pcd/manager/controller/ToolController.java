@@ -230,6 +230,9 @@ public class ToolController {
             List<MovingPart> movingParts = movingPartService.getMovingPartsByToolId(id);
             model.addAttribute("movingParts", movingParts);
             
+            // Add the moving part service to the model so templates can use it
+            model.addAttribute("movingPartService", movingPartService);
+            
             // Create destination chain display data for each moving part (similar to RMA controller)
             Map<Long, List<Tool>> movingPartDestinationChains = new HashMap<>();
             Map<Long, Tool> toolMap = new HashMap<>();

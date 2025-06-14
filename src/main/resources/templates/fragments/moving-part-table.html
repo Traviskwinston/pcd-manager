@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Moving Part Table Fragment</title>
+</head>
+<body>
+
+<!-- Moving Parts Table Fragment -->
+<div th:fragment="movingPartsTable(movingParts, movingPartService, showActions, editUrlPattern, deleteUrlPattern)" class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Part Name</th>
+                <th>Movement Path</th>
+                <th>Notes</th>
+                <th>Date</th>
+                <th th:if="${showActions}">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="movingPart : ${movingParts}">
+                <td th:text="${movingPart.partName}">Part Name</td>
+                <td>
+                    <!-- Display formatted movement path -->
+                    <span th:if="${movingPartService != null}" 
+                          th:text="${movingPartService.getFormattedMovementPath(movingPart)}">Tool A → Tool B → Tool C</span>
+                    
+                    <!-- Fallback if service not available -->
+                    <span th:if="${movingPartService == null}">
+                        <span th:if="${movingPart.fromTool != null}">
+                            <a th:href="@{/tools/{id}(id=${movingPart.fromTool.id})}"
+                               th:text="${movingPart.fromTool.name}"
+                               class="text-decoration-none">From Tool</a>
+                        </span>
+                        <span th:if="${movingPart.fromTool == null}" class="text-muted">Unknown</span>
+                        
+                        <!-- Show destination chain with tool IDs (will be improved when service is available) -->
+                        <th:block th:if="${movingPart.destinationChain != null && !#strings.isEmpty(movingPart.destinationChain)}">
+                            <th:block th:each="destToolId : ${movingPart.destinationToolIds}">
+                                → <span th:text="'Tool ID: ' + ${destToolId}">Tool ID</span>
+                            </th:block>
+                        </th:block>
+                    </span>
+                </td>
+                <td th:text="${movingPart.notes ?: '-'}">Notes</td>
+                <td th:text="${#temporals.format(movingPart.moveDate, 'MMM dd, yyyy')}">Jan 1, 2023</td>
+                <td th:if="${showActions}">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary edit-moving-part-btn"
+                                data-bs-toggle="modal" data-bs-target="#editMovingPartModal"
+                                th:data-id="${movingPart.id}"
+                                th:data-part-name="${movingPart.partName}"
+                                th:data-from-tool-id="${movingPart.fromTool != null ? movingPart.fromTool.id : ''}"
+                                th:data-destination-chain="${movingPart.destinationChain != null ? movingPart.destinationChain : '[]'}"
+                                th:data-notes="${movingPart.notes != null ? movingPart.notes : ''}"
+                                title="Edit Moving Part">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        
+                        <form th:if="${deleteUrlPattern != null}" 
+                              th:action="${#strings.replace(deleteUrlPattern, '{movingPartId}', movingPart.id)}"
+                              method="post" style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('Are you sure you want to delete this moving part record?')"
+                                    title="Delete Moving Part">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Moving Parts Section Fragment -->
+<div th:fragment="movingPartsSection(title, movingParts, movingPartService, showAddButton, addButtonText, showActions, editUrlPattern, deleteUrlPattern)" class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0" th:text="${title}">Moving Parts</h5>
+        <button th:if="${showAddButton}" type="button" class="btn btn-sm btn-success" 
+                data-bs-toggle="modal" data-bs-target="#addMovingPartModal">
+            <i class="bi bi-plus-circle me-1"></i>
+            <span th:text="${addButtonText ?: 'Add Moving Part'}">Add Moving Part</span>
+        </button>
+    </div>
+    <div class="card-body">
+        <div th:if="${movingParts == null || movingParts.empty}" class="alert alert-info">
+            <span th:text="${'No moving parts have been recorded' + (title != null ? ' for this ' + #strings.toLowerCase(title) : '') + '.'}">
+                No moving parts have been recorded.
+            </span>
+        </div>
+        <div th:if="${movingParts != null && !movingParts.empty}">
+            <div th:replace="~{fragments/moving-part-table :: movingPartsTable(${movingParts}, ${movingPartService}, ${showActions}, ${editUrlPattern}, ${deleteUrlPattern})}"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Compact Moving Parts Display Fragment (for smaller spaces) -->
+<div th:fragment="movingPartsCompact(movingParts, movingPartService, maxDisplay)" class="moving-parts-compact">
+    <div th:if="${movingParts != null && !movingParts.empty}">
+        <div th:each="movingPart, iterStat : ${movingParts}" 
+             th:if="${maxDisplay == null || iterStat.index < maxDisplay}"
+             class="mb-1">
+            <small>
+                <strong th:text="${movingPart.partName}">Part Name</strong>: 
+                <span th:if="${movingPartService != null}" 
+                      th:text="${movingPartService.getFormattedMovementPath(movingPart)}">Movement Path</span>
+                <span th:if="${movingPartService == null}" class="text-muted">Movement details</span>
+                <span class="text-muted" th:text="${' (' + #temporals.format(movingPart.moveDate, 'MM/dd/yy') + ')'}"> (01/01/23)</span>
+            </small>
+        </div>
+        <div th:if="${maxDisplay != null && movingParts.size() > maxDisplay}" class="text-muted">
+            <small th:text="${'... and ' + (movingParts.size() - maxDisplay) + ' more'}">... and 2 more</small>
+        </div>
+    </div>
+    <div th:if="${movingParts == null || movingParts.empty}" class="text-muted">
+        <small>No moving parts recorded</small>
+    </div>
+</div>
+
+</body>
+</html> 

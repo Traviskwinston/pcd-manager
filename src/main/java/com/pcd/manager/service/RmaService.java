@@ -81,7 +81,12 @@ public class RmaService {
     }
 
     public List<Rma> getAllRmas() {
-        return rmaRepository.findAll();
+        logger.info("Getting all RMAs ordered by written date descending");
+        List<Rma> rmas = rmaRepository.findAllOrderedByWrittenDateDesc();
+        logger.info("Retrieved {} RMAs, first RMA written date: {}", 
+            rmas.size(), 
+            rmas.isEmpty() ? "N/A" : (rmas.get(0).getWrittenDate() != null ? rmas.get(0).getWrittenDate() : "NULL"));
+        return rmas;
     }
 
     /**

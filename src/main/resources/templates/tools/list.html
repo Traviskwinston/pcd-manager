@@ -219,7 +219,7 @@
                                     </ul>
                                 </div>
                             </th>
-                            <th style="width: 8%;">Moving Parts</th>
+                            <th style="width: 8%; display: none;">Moving Parts</th>
                             <th style="width: 8%;">RMAs</th>
                             <th style="width: 8%;">Passdown</th>
                             <th style="width: 8%;">Comments</th>
@@ -258,38 +258,37 @@
                                 </span>
                                 <span th:if="${tool.status == null}" class="badge rounded-pill bg-light text-dark status-badge">N/A</span>
                             </td>
-                            <td class="text-center">
-                                <!-- Interactive Moving Parts icon when moving parts exist -->
-                                <i th:class="${'bi bi-arrows-move ' + (toolMovingPartsMap != null and toolMovingPartsMap[tool.id] != null and not #lists.isEmpty(toolMovingPartsMap[tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
-                                   th:if="${toolMovingPartsMap != null and toolMovingPartsMap[tool.id] != null and not #lists.isEmpty(toolMovingPartsMap[tool.id])}"
-                                   data-bs-toggle="popover"
-                                   data-bs-placement="left"
-                                   data-bs-trigger="hover focus click"
-                                   data-bs-html="true"
-                                   th:attr="data-bs-title='Moving Parts (' + ${#lists.size(toolMovingPartsMap[tool.id])} + ')'"
-                                   th:data-bs-content="${#strings.listJoin(toolMovingPartsMap[tool.id].![
-                                       '<div class=&quot;mb-2&quot;>' + 
-                                       '<div class=&quot;mb-1&quot;><strong>' + partName + '</strong></div>' +
-                                       '<small class=&quot;text-muted&quot;>' + 
-                                       '<a href=&quot;/moving-parts/' + id + '&quot; class=&quot;text-decoration-none&quot; onclick=&quot;event.stopPropagation();&quot;>' +
-                                       (moveDate != null ? #temporals.format(moveDate, 'MM/dd/yy HH:mm') : id) + '</a>' + 
-                                       '<br/>' + 
-                                       (fromTool != null ? 'From: ' + fromTool.name : '') + 
-                                       (fromTool != null and toTool != null ? ' → ' : '') + 
-                                       (toTool != null ? 'To: ' + toTool.name : '') + 
-                                       '</small></div>'
-                                   ], '<hr class=&quot;my-1&quot;/>')}"
-                                   onclick="event.stopPropagation();">
-                                </i>
-                                
-                                <!-- Greyed out icon when no moving parts -->
-                                <i th:if="${toolMovingPartsMap == null or toolMovingPartsMap[tool.id] == null or #lists.isEmpty(toolMovingPartsMap[tool.id])}" 
-                                   class="bi bi-arrows-move text-muted">
-                                </i>
-                                
-                                <!-- Moving Parts count -->
-                                <span th:text="${toolMovingPartsMap != null and toolMovingPartsMap[tool.id] != null ? #lists.size(toolMovingPartsMap[tool.id]) : 0}" class="ms-1 small"></span>
-                            </td>
+                                        <td class="text-center" style="display: none;">
+                <!-- Interactive Moving Parts icon when moving parts exist -->
+                <i th:class="${'bi bi-arrows-move ' + (toolMovingPartsMap != null and toolMovingPartsMap[tool.id] != null and not #lists.isEmpty(toolMovingPartsMap[tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
+                   th:if="${toolMovingPartsMap != null and toolMovingPartsMap[tool.id] != null and not #lists.isEmpty(toolMovingPartsMap[tool.id])}"
+                   data-bs-toggle="popover"
+                   data-bs-placement="left"
+                   data-bs-trigger="hover focus click"
+                   data-bs-html="true"
+                   th:attr="data-bs-title='Moving Parts (' + ${#lists.size(toolMovingPartsMap[tool.id])} + ')'"
+                   th:data-bs-content="${#strings.listJoin(toolMovingPartsMap[tool.id].![
+                       '<div class=&quot;mb-2&quot;>' + 
+                       '<div class=&quot;mb-1&quot;><strong>' + partName + '</strong></div>' +
+                       '<small class=&quot;text-muted&quot;>' + 
+                       '<a href=&quot;/moving-parts/' + id + '&quot; class=&quot;text-decoration-none&quot; onclick=&quot;event.stopPropagation();&quot;>' +
+                       (moveDate != null ? #temporals.format(moveDate, 'MM/dd/yy HH:mm') : id) + '</a>' + 
+                       '<br/>' + 
+                       (fromTool != null ? 'From: ' + fromTool.name : '') + 
+                       (fromTool != null and destinationChain != null and !destinationChain.isEmpty() ? ' → Destinations' : '') + 
+                       '</small></div>'
+                   ], '<hr class=&quot;my-1&quot;/>')}"
+                   onclick="event.stopPropagation();">
+                </i>
+                
+                <!-- Greyed out icon when no moving parts -->
+                <i th:if="${toolMovingPartsMap == null or toolMovingPartsMap[tool.id] == null or #lists.isEmpty(toolMovingPartsMap[tool.id])}" 
+                   class="bi bi-arrows-move text-muted">
+                </i>
+                
+                <!-- Moving Parts count -->
+                <span th:text="${toolMovingPartsMap != null and toolMovingPartsMap[tool.id] != null ? #lists.size(toolMovingPartsMap[tool.id]) : 0}" class="ms-1 small"></span>
+            </td>
                             <td class="text-center">
                                 <!-- Interactive RMA icon when RMAs exist -->
                                 <i th:class="${'bi bi-clipboard-data-fill ' + (toolRmasMap[tool.id] != null and not #lists.isEmpty(toolRmasMap[tool.id]) ? 'info-icon-interactive' : 'text-muted')}"

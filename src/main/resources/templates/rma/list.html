@@ -112,6 +112,25 @@
         .card-body {
             min-height: 500px;
         }
+        
+        /* Status column responsive behavior */
+        .status-badge {
+            white-space: nowrap;
+            min-width: fit-content;
+        }
+        
+        /* Ensure status column doesn't get too narrow */
+        .status-filter-header {
+            min-width: 190px !important;
+        }
+        
+        /* Status cell content */
+        td .status-badge {
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 </head>
 <body>
@@ -182,7 +201,7 @@
                                         </span>
                                     </div>
                                 </th>
-                                <th style="width: 12%;" class="status-filter-header">
+                                <th style="width: 12%; min-width: 190px;" class="status-filter-header">
                                     Status
                                     <div class="dropdown d-inline-block ms-1">
                                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -528,6 +547,9 @@
                 this.calculateTotalStatusCounts();
                 this.updateStatusCounts();
                 this.updateRmaCount();
+                
+                // Apply default sorting by written date (descending - most recent first)
+                this.applyDefaultSort();
             }
 
             init() {
@@ -713,6 +735,17 @@
                     const status = badge.getAttribute('data-status');
                     badge.textContent = this.totalStatusCounts[status] || 0;
                 });
+            }
+            
+            applyDefaultSort() {
+                // Find the written date header and apply descending sort
+                const writtenDateHeader = document.querySelector('[data-sort="written-date"]');
+                if (writtenDateHeader) {
+                    this.currentSort = 'written-date';
+                    this.sortDirection = 'desc'; // Most recent first
+                    writtenDateHeader.classList.add('sort-desc');
+                    this.sortTable('written-date', 'desc');
+                }
             }
         }
 

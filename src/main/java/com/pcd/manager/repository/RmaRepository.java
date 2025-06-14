@@ -26,6 +26,12 @@ public interface RmaRepository extends JpaRepository<Rma, Long> {
            "r.priority DESC, r.receivedDate ASC")
     List<Rma> findAllOrderedByStatusAndPriority();
     
+    @Query("SELECT DISTINCT r FROM Rma r " +
+           "LEFT JOIN FETCH r.tool " +
+           "LEFT JOIN FETCH r.location " +
+           "ORDER BY r.writtenDate DESC NULLS LAST, r.id DESC")
+    List<Rma> findAllOrderedByWrittenDateDesc();
+    
     List<Rma> findTop5ByOrderByCreatedDateDesc();
     
     /**

@@ -31,27 +31,12 @@
                     <div class="mb-3">
                         <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="name" th:field="*{name}" required>
-                        <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">
-                            Please provide a valid name.
-                        </div>
+                        <div class="invalid-feedback" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div>
                     </div>
                     
                     <div class="mb-3">
                         <label for="description" class="form-label">Description</label>
-                        <input type="text" class="form-control" id="description" th:field="*{description}">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="locationType" class="form-label">Location Type <span class="text-danger">*</span></label>
-                        <select class="form-select" id="locationType" th:field="*{locationType}" required>
-                            <option value="">Select a location type</option>
-                            <option th:each="type : ${T(com.pcd.manager.model.LocationType).values()}"
-                                    th:value="${type}" 
-                                    th:text="${type.displayName}">Type</option>
-                        </select>
-                        <div class="invalid-feedback" th:if="${#fields.hasErrors('locationType')}" th:errors="*{locationType}">
-                            Please select a location type.
-                        </div>
+                        <textarea class="form-control" id="description" th:field="*{description}" rows="3"></textarea>
                     </div>
                     
                     <div class="mb-3">

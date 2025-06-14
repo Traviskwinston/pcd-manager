@@ -109,20 +109,9 @@
                 <!-- Basic Information Card - Horizontal Layout -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-0">
-                    <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
-                            type="button" 
-                            data-bs-toggle="collapse" 
-                            data-bs-target="#basicInfoCollapse" 
-                            aria-expanded="true" 
-                            aria-controls="basicInfoCollapse">
-                        <span>Basic Information</span>
-                        <i class="bi bi-chevron-up"></i>
-                    </button>
-                </h5>
+                <h5 class="mb-0">Basic Information</h5>
             </div>
-            <div class="collapse show" id="basicInfoCollapse">
-                <div class="card-body">
+            <div class="card-body">
                 <div class="row mb-3">
                     <div class="col-md-3">
                         <strong>Type:</strong> 
@@ -297,45 +286,44 @@
                                     type="button" 
                                     data-bs-toggle="collapse" 
                                     data-bs-target="#documentsCollapse" 
-                                    aria-expanded="false" 
+                                    aria-expanded="true" 
                                     aria-controls="documentsCollapse">
                                 <span>Documents</span>
                                 <i class="bi bi-chevron-down"></i>
                             </button>
                         </h5>
                     </div>
-                    <div class="collapse" id="documentsCollapse">
+                    <div class="collapse show" id="documentsCollapse">
                         <div class="card-body">
-                            <!-- Show message if no documents -->
-                            <div th:if="${#sets.isEmpty(tool.documentPaths)}" class="alert alert-info text-center">
-                                <i class="bi bi-file-earmark-text fs-4"></i>
-                                <p class="mb-0 mt-2 small">No documents uploaded yet.</p>
-                            </div>
-                            
-                            <!-- Documents list -->
-                            <div th:if="${!#sets.isEmpty(tool.documentPaths)}" class="list-group list-group-flush">
-                                <div class="list-group-item d-flex align-items-center px-0" th:each="docPath : ${tool.documentPaths}">
-                                    <!-- Document Name -->
-                                    <div class="flex-grow-1">
-                                        <i class="bi bi-file-earmark-text me-2"></i>
-                                        <span class="small" th:text="${tool.documentNames != null && tool.documentNames.containsKey(docPath) ? 
-                                                           tool.documentNames.get(docPath) : 
-                                                           (docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath)}">document.pdf</span>
-                                    </div>
-                                    
-                                    <!-- Action Buttons -->
-                                    <div class="ms-auto">
-                                        <div class="btn-group">
-                                            <a th:href="@{'/uploads/' + ${docPath}}" class="btn btn-sm btn-outline-primary" target="_blank" title="View">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
-                                            <button type="button" class="btn btn-sm btn-outline-danger delete-file-btn" 
-                                                   data-bs-toggle="modal" data-bs-target="#deleteDocConfirmModal"
-                                                   th:data-document-path="${docPath}"
-                                                   title="Delete">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </div>
+                        <!-- Show message if no documents -->
+                        <div th:if="${#sets.isEmpty(tool.documentPaths)}" class="alert alert-info text-center">
+                            <i class="bi bi-file-earmark-text fs-4"></i>
+                            <p class="mb-0 mt-2 small">No documents uploaded yet.</p>
+                        </div>
+                        
+                        <!-- Documents list -->
+                        <div th:if="${!#sets.isEmpty(tool.documentPaths)}" class="list-group list-group-flush">
+                            <div class="list-group-item d-flex align-items-center px-0" th:each="docPath : ${tool.documentPaths}">
+                                <!-- Document Name -->
+                                <div class="flex-grow-1">
+                                    <i class="bi bi-file-earmark-text me-2"></i>
+                                    <span class="small" th:text="${tool.documentNames != null && tool.documentNames.containsKey(docPath) ? 
+                                                       tool.documentNames.get(docPath) : 
+                                                       (docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath)}">document.pdf</span>
+                                </div>
+                                
+                                <!-- Action Buttons -->
+                                <div class="ms-auto">
+                                    <div class="btn-group">
+                                        <a th:href="@{'/uploads/' + ${docPath}}" class="btn btn-sm btn-outline-primary" target="_blank" title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger delete-file-btn" 
+                                               data-bs-toggle="modal" data-bs-target="#deleteDocConfirmModal"
+                                               th:data-document-path="${docPath}"
+                                               title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -351,14 +339,14 @@
                                     type="button" 
                                     data-bs-toggle="collapse" 
                                     data-bs-target="#picturesCollapse" 
-                                    aria-expanded="false" 
+                                    aria-expanded="true" 
                                     aria-controls="picturesCollapse">
                                 <span>Pictures</span>
                                 <i class="bi bi-chevron-down"></i>
                             </button>
                         </h5>
                     </div>
-                    <div class="collapse" id="picturesCollapse">
+                    <div class="collapse show" id="picturesCollapse">
                         <div class="card-body">
                             <!-- Show message if no pictures -->
                             <div th:if="${#sets.isEmpty(tool.picturePaths)}" class="alert alert-info text-center">
@@ -391,6 +379,68 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Upload Section -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#fileUploadCollapse" 
+                                    aria-expanded="false" 
+                                    aria-controls="fileUploadCollapse">
+                                <span><i class="bi bi-cloud-arrow-up-fill me-2"></i>Upload New Files</span>
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                        </h5>
+                    </div>
+                    <div class="collapse" id="fileUploadCollapse">
+                        <div class="card-body">
+                            <form th:action="@{/tools/{id}/upload-files(id=${tool.id})}" method="post" enctype="multipart/form-data" id="toolFileUploadForm">
+                                <!-- Drop Zone and File Input -->
+                                <div id="tool-drop-area" class="rounded bg-light border border-dashed border-primary p-3 mb-3 text-center" style="cursor: pointer;">
+                                    <i class="bi bi-cloud-arrow-up-fill text-primary fs-2 mb-2"></i>
+                                    <h6>Drag files here or <label for="toolFileInput" class="text-primary" style="cursor: pointer; text-decoration: underline;">browse</label></h6>
+                                    <div class="small text-muted">Supports images (jpg, png, gif) and documents (pdf, doc, docx, xls, xlsx, txt, csv)</div>
+                                    <input type="file" id="toolFileInput" name="files" multiple="multiple" class="d-none">
+                                </div>
+
+                                <!-- Files Preview -->
+                                <div id="tool-files-preview" class="mt-2" style="display: none;">
+                                    <h6 class="small fw-bold">Selected files:</h6>
+                                    <div id="tool-image-preview" class="mb-2">
+                                        <div class="d-flex align-items-center small">
+                                            <i class="bi bi-images me-1"></i>
+                                            <div>Images: <span id="tool-image-count">0</span></div>
+                                        </div>
+                                        <ul id="tool-image-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
+                                    </div>
+                                    <div id="tool-document-preview" class="mb-2">
+                                        <div class="d-flex align-items-center small">
+                                            <i class="bi bi-file-earmark-text me-1"></i>
+                                            <div>Documents: <span id="tool-document-count">0</span></div>
+                                        </div>
+                                        <ul id="tool-document-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
+                                    </div>
+                                    <div id="tool-other-file-preview">
+                                         <div class="d-flex align-items-center small">
+                                            <i class="bi bi-file-earmark me-1"></i>
+                                            <div>Other Files: <span id="tool-other-file-count">0</span></div>
+                                        </div>
+                                        <ul id="tool-other-file-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-end mt-3">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="bi bi-upload me-1"></i> Upload Selected Files
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -448,23 +498,21 @@
             <div class="col-lg-6">
                 <!-- Track/Trends Section -->
                 <div class="card mb-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 flex-grow-1">
+                    <div class="card-header">
+                        <h5 class="mb-0">
                             <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
                                     type="button" 
                                     data-bs-toggle="collapse" 
                                     data-bs-target="#trackTrendsCollapse" 
-                                    aria-expanded="false" 
+                                    aria-expanded="true" 
                                     aria-controls="trackTrendsCollapse">
                                 <span>Track/Trends</span>
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-secondary me-2" th:text="${trackTrendsForTool != null ? trackTrendsForTool.size() : 0}">0</span>
-                                    <i class="bi bi-chevron-down"></i>
-                                </div>
+                                <i class="bi bi-chevron-down"></i>
                             </button>
                         </h5>
+                        <span class="badge bg-secondary position-absolute top-50 end-0 translate-middle-y me-3" th:text="${trackTrendsForTool != null ? trackTrendsForTool.size() : 0}">0</span>
                     </div>
-                    <div class="collapse" id="trackTrendsCollapse">
+                    <div class="collapse show" id="trackTrendsCollapse">
                         <div class="card-body">
                             <div th:if="${trackTrendsForTool == null or trackTrendsForTool.empty}" class="alert alert-info">
                                 <small>No Track/Trends associated with this tool.</small>
@@ -485,26 +533,26 @@
 
                 <!-- Associated RMAs Section -->
                 <div class="card mb-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 flex-grow-1">
+                    <div class="card-header">
+                        <h5 class="mb-0">
                             <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
                                     type="button" 
                                     data-bs-toggle="collapse" 
                                     data-bs-target="#associatedRmasCollapse" 
-                                    aria-expanded="false" 
+                                    aria-expanded="true" 
                                     aria-controls="associatedRmasCollapse">
                                 <span>Associated RMAs</span>
-                                <div class="d-flex align-items-center">
-                                    <a th:href="@{/rma/new(toolId=${tool.id})}" class="btn btn-sm btn-success me-2">
-                                        <i class="bi bi-plus-circle"></i> Create RMA
-                                    </a>
-                                    <span class="badge bg-secondary me-2" th:text="${associatedRmas != null ? associatedRmas.size() : '0'}">0</span>
-                                    <i class="bi bi-chevron-down"></i>
-                                </div>
+                                <i class="bi bi-chevron-down"></i>
                             </button>
                         </h5>
+                        <div class="position-absolute top-50 end-0 translate-middle-y me-3">
+                            <a th:href="@{/rma/new(toolId=${tool.id})}" class="btn btn-sm btn-success me-2">
+                                <i class="bi bi-plus-circle"></i> Create RMA
+                            </a>
+                            <span class="badge bg-secondary" th:text="${associatedRmas != null ? associatedRmas.size() : '0'}">0</span>
+                        </div>
                     </div>
-                    <div class="collapse" id="associatedRmasCollapse">
+                    <div class="collapse show" id="associatedRmasCollapse">
                         <div class="card-body">
                             <div th:if="${associatedRmas != null && !associatedRmas.isEmpty()}" class="table-responsive">
                                 <table class="table table-hover table-sm">
@@ -605,8 +653,8 @@
 
                 <!-- Tool Comments Section -->
                 <div class="card mb-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 flex-grow-1">
+                    <div class="card-header">
+                        <h5 class="mb-0">
                             <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
                                     type="button" 
                                     data-bs-toggle="collapse" 
@@ -614,12 +662,10 @@
                                     aria-expanded="false" 
                                     aria-controls="toolCommentsCollapse">
                                 <span>Comments</span>
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-secondary me-2" th:text="${toolComments != null ? toolComments.size() : '0'}">0</span>
-                                    <i class="bi bi-chevron-down"></i>
-                                </div>
+                                <i class="bi bi-chevron-down"></i>
                             </button>
                         </h5>
+                        <span class="badge bg-secondary position-absolute top-50 end-0 translate-middle-y me-3" th:text="${toolComments != null ? toolComments.size() : '0'}">0</span>
                     </div>
                     <div class="collapse" id="toolCommentsCollapse">
                         <div class="card-body">
@@ -669,10 +715,9 @@
         </div>
     </div>
 
-
-
-        <!-- Part Movements Section -->
-        <div class="row" th:if="${!#lists.isEmpty(tool.partMovements)}">
+    <!-- Part Movements Section -->
+    <div class="container-fluid mt-4" th:if="${!#lists.isEmpty(tool.partMovements)}">
+        <div class="row">
             <div class="col-12">
                 <div class="card mb-4">
                     <div class="card-header">
@@ -717,70 +762,7 @@
         </div>
     </div>
     
-    <!-- New Drag-and-Drop File Upload Section -->
-    <div class="container mt-4 mb-4">
-        <div class="card border-primary">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">
-                    <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center text-white" 
-                            type="button" 
-                            data-bs-toggle="collapse" 
-                            data-bs-target="#fileUploadCollapse" 
-                            aria-expanded="false" 
-                            aria-controls="fileUploadCollapse">
-                        <span><i class="bi bi-cloud-arrow-up-fill me-2"></i>Upload New Files to This Tool</span>
-                        <i class="bi bi-chevron-down"></i>
-                    </button>
-                </h5>
-            </div>
-            <div class="collapse" id="fileUploadCollapse">
-                <div class="card-body">
-                    <form th:action="@{/tools/{id}/upload-files(id=${tool.id})}" method="post" enctype="multipart/form-data" id="toolFileUploadForm">
-                        <!-- Drop Zone and File Input -->
-                        <div id="tool-drop-area" class="rounded bg-light border border-dashed border-primary p-3 mb-3 text-center" style="cursor: pointer;">
-                            <i class="bi bi-cloud-arrow-up-fill text-primary fs-2 mb-2"></i>
-                            <h6>Drag files here or <label for="toolFileInput" class="text-primary" style="cursor: pointer; text-decoration: underline;">browse</label></h6>
-                            <div class="small text-muted">Supports images (jpg, png, gif) and documents (pdf, doc, docx, xls, xlsx, txt, csv)</div>
-                            <input type="file" id="toolFileInput" name="files" multiple="multiple" class="d-none">
-                        </div>
 
-                        <!-- Files Preview -->
-                        <div id="tool-files-preview" class="mt-2" style="display: none;">
-                            <h6 class="small fw-bold">Selected files:</h6>
-                            <div id="tool-image-preview" class="mb-2">
-                                <div class="d-flex align-items-center small">
-                                    <i class="bi bi-images me-1"></i>
-                                    <div>Images: <span id="tool-image-count">0</span></div>
-                                </div>
-                                <ul id="tool-image-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
-                            </div>
-                            <div id="tool-document-preview" class="mb-2">
-                                <div class="d-flex align-items-center small">
-                                    <i class="bi bi-file-earmark-text me-1"></i>
-                                    <div>Documents: <span id="tool-document-count">0</span></div>
-                                </div>
-                                <ul id="tool-document-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
-                            </div>
-                            <div id="tool-other-file-preview">
-                                 <div class="d-flex align-items-center small">
-                                    <i class="bi bi-file-earmark me-1"></i>
-                                    <div>Other Files: <span id="tool-other-file-count">0</span></div>
-                                </div>
-                                <ul id="tool-other-file-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
-                            </div>
-                        </div>
-                        
-                        <div class="text-end mt-3">
-                            <button type="submit" class="btn btn-success">
-                                <i class="bi bi-upload me-1"></i> Upload Selected Files
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- End New Drag-and-Drop File Upload Section -->
     
     <!-- Move Document Modal -->
     <div class="modal fade" id="moveDocumentModal" tabindex="-1" aria-labelledby="moveDocumentModalLabel" aria-hidden="true">
@@ -1512,54 +1494,453 @@
                 }
             }
             // --- End Unified Link File Modal Logic ---
+        });
+    </script>
 
-            // Handle all collapsible sections chevron rotation
-            const collapsibleSections = [
-                'basicInfoCollapse',
-                'toolChecklistCollapse', 
-                'documentsCollapse',
-                'picturesCollapse',
-                'associatedUsersCollapse',
-                'trackTrendsCollapse',
-                'associatedRmasCollapse',
-                'toolPassdownsCollapse',
-                'toolCommentsCollapse',
-                'partMovementsCollapse',
-                'fileUploadCollapse'
-            ];
-            
-            collapsibleSections.forEach(sectionId => {
-                const collapseElement = document.getElementById(sectionId);
-                if (collapseElement) {
-                    const button = document.querySelector(`[data-bs-target="#${sectionId}"]`);
-                    const chevron = button ? button.querySelector('.bi-chevron-down, .bi-chevron-up') : null;
+    <!-- Hidden Tool ID for JS -->
+    <input type="hidden" id="toolId" th:value="${tool.id}">
+
+    <!-- Enhanced Delete Document Confirmation Modal -->
+    <div class="modal fade" id="deleteDocConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Selected document: <strong id="docNameToDelete">document.pdf</strong></p>
+                    <p>How would you like to handle this document?</p>
+                    <input type="hidden" id="docPathToDelete">
                     
-                    if (button && chevron) {
-                        collapseElement.addEventListener('show.bs.collapse', function () {
-                            chevron.classList.remove('bi-chevron-down');
-                            chevron.classList.add('bi-chevron-up');
-                            button.classList.remove('collapsed');
-                        });
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="deleteOption" id="deleteDocOnly" value="unlink" checked>
+                        <label class="form-check-label" for="deleteDocOnly">
+                            <strong>Unlink only:</strong> Remove only from this tool, keep in other locations
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="deleteOption" id="deleteDocEverywhere" value="delete">
+                        <label class="form-check-label" for="deleteDocEverywhere">
+                            <strong>Delete everywhere:</strong> Remove from all locations
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDocDeleteBtn">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Delete Picture Confirmation Modal -->
+    <div class="modal fade" id="deletePicConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Selected picture: <strong id="picNameToDelete">picture.jpg</strong></p>
+                    <p>How would you like to handle this picture?</p>
+                    <input type="hidden" id="picPathToDelete">
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="deletePicOption" id="deletePicOnly" value="unlink" checked>
+                        <label class="form-check-label" for="deletePicOnly">
+                            <strong>Unlink only:</strong> Remove only from this tool, keep in other locations
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="deletePicOption" id="deletePicEverywhere" value="delete">
+                        <label class="form-check-label" for="deletePicEverywhere">
+                            <strong>Delete everywhere:</strong> Remove from all locations
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmPicDeleteBtn">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Document Modal -->
+    <div class="modal fade" id="linkDocumentModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Link Document</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Link <strong id="docNameToLink">document.pdf</strong> to:</p>
+                    <input type="hidden" id="docPathToLink">
+                    
+                    <div class="mb-3">
+                        <label for="linkDocumentType" class="form-label">Link to:</label>
+                        <select class="form-select" id="linkDocumentType">
+                            <option value="rma" selected>RMA</option>
+                            <option value="passdown">Passdown</option>
+                        </select>
+                    </div>
+                    
+                    <div id="linkDocumentRmaSection">
+                        <div class="mb-3">
+                            <label for="linkDocumentRmaId" class="form-label">Select RMA:</label>
+                            <select class="form-select" id="linkDocumentRmaId">
+                                <option value="">-- Select an RMA --</option>
+                                <option th:each="rma : ${allRmas}" 
+                                        th:value="${rma.id}" 
+                                        th:text="${(rma.rmaNumber != null ? rma.rmaNumber : 'RMA-' + rma.id) + 
+                                                (rma.customerName != null ? ' - ' + rma.customerName : '')}">
+                                    RMA Number - Customer
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="linkDocumentPassdownSection" style="display: none;">
+                        <div class="mb-3">
+                            <label for="linkDocumentPassdownId" class="form-label">Select Passdown:</label>
+                            <select class="form-select" id="linkDocumentPassdownId">
+                                <option value="">-- Select a Passdown --</option>
+                                <option th:each="pd : ${recentPassdowns}" 
+                                        th:value="${pd.id}" 
+                                        th:text="${#temporals.format(pd.date, 'MM/dd/yyyy') + ' by ' + 
+                                                 (pd.user != null ? pd.user.name : 'Unknown')}">
+                                    Date - User
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmDocLinkBtn">Link</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Picture Modal -->
+    <div class="modal fade" id="linkPictureModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Link Picture</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Link <strong id="picNameToLink">picture.jpg</strong> to:</p>
+                    <input type="hidden" id="picPathToLink">
+                    
+                    <div class="mb-3">
+                        <label for="linkPictureType" class="form-label">Link to:</label>
+                        <select class="form-select" id="linkPictureType">
+                            <option value="rma" selected>RMA</option>
+                            <option value="passdown">Passdown</option>
+                        </select>
+                    </div>
+                    
+                    <div id="linkPictureRmaSection">
+                        <div class="mb-3">
+                            <label for="linkPictureRmaId" class="form-label">Select RMA:</label>
+                            <select class="form-select" id="linkPictureRmaId">
+                                <option value="">-- Select an RMA --</option>
+                                <option th:each="rma : ${allRmas}" 
+                                        th:value="${rma.id}" 
+                                        th:text="${(rma.rmaNumber != null ? rma.rmaNumber : 'RMA-' + rma.id) + 
+                                                (rma.customerName != null ? ' - ' + rma.customerName : '')}">
+                                    RMA Number - Customer
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="linkPicturePassdownSection" style="display: none;">
+                        <div class="mb-3">
+                            <label for="linkPicturePassdownId" class="form-label">Select Passdown:</label>
+                            <select class="form-select" id="linkPicturePassdownId">
+                                <option value="">-- Select a Passdown --</option>
+                                <option th:each="pd : ${recentPassdowns}" 
+                                        th:value="${pd.id}" 
+                                        th:text="${#temporals.format(pd.date, 'MM/dd/yyyy') + ' by ' + 
+                                                 (pd.user != null ? pd.user.name : 'Unknown')}">
+                                    Date - User
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmPicLinkBtn">Link</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Moving Part Modals -->
+    <div th:replace="~{fragments/moving-part-modal :: addMovingPartModal('/tools/' + ${tool.id} + '/moving-parts/add', ${allTools})}"></div>
+
+    <!-- Link Note Modal -->
+    <div class="modal fade" id="linkNoteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="linkNoteForm" th:action="@{/tools/{id}/moving-parts/0/link-note(id=${tool.id})}" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Link Note to Moving Part</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="noteId" class="form-label">Select Note:</label>
+                            <select class="form-select" id="noteId" name="noteId" required>
+                                <option value="">Select a note...</option>
+                                <option th:each="note : ${toolNotes}" 
+                                        th:value="${note.id}" 
+                                        th:text="${#strings.abbreviate(note.content, 50) + ' (' + #temporals.format(note.createdAt, 'MMM dd, yyyy') + ')'}">
+                                    Note Content (Date)
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Link Note</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Note Modal -->
+    <div class="modal fade" id="viewNoteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Linked Note</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 id="viewNoteUser" class="mb-0">User Name</h6>
+                        <small id="viewNoteDate" class="text-muted">Date</small>
+                    </div>
+                    <p id="viewNoteContent" class="mb-0">Note content will appear here</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/moving-part-modal :: editMovingPartModal('/tools/' + ${tool.id} + '/moving-parts/0/edit', ${allTools})}"></div>
+
+    <!-- Unified Link File Modal -->
+    <div class="modal fade" id="unifiedLinkFileModal" tabindex="-1" aria-labelledby="unifiedLinkFileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form id="unifiedLinkForm" th:action="@{/files/link-entity}" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="unifiedLinkFileModalLabel">Link File</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Link <strong id="unifiedLinkFileNameDisplay">file_name_here</strong> to:</p>
                         
-                        collapseElement.addEventListener('hide.bs.collapse', function () {
-                            chevron.classList.remove('bi-chevron-up');
-                            chevron.classList.add('bi-chevron-down');
-                            button.classList.add('collapsed');
-                        });
-                        
-                        // Set initial state
-                        if (collapseElement.classList.contains('show')) {
-                            chevron.classList.remove('bi-chevron-down');
-                            chevron.classList.add('bi-chevron-up');
-                            button.classList.remove('collapsed');
-                        } else {
-                            chevron.classList.remove('bi-chevron-up');
-                            chevron.classList.add('bi-chevron-down');
-                            button.classList.add('collapsed');
-                        }
-                    }
-                }
+                        <input type="hidden" id="unifiedLinkFilePathInput" name="filePath">
+                        <input type="hidden" id="unifiedLinkFileTypeInput" name="fileType">
+                        <input type="hidden" id="unifiedLinkSourceEntityTypeInput" name="sourceEntityType">
+                        <input type="hidden" id="unifiedLinkSourceEntityIdInput" name="sourceEntityId">
+                        <input type="hidden" id="unifiedLinkOriginalFileNameInput" name="originalFileName">
+
+                        <div class="mb-3">
+                            <label for="unifiedLinkTargetEntityType" class="form-label">Link to Entity Type:</label>
+                            <select id="unifiedLinkTargetEntityType" name="targetEntityType" class="form-select" required>
+                                <option value="">-- Select Entity Type --</option>
+                                <option value="RMA">RMA</option>
+                                <option value="TOOL">Tool</option>
+                                <option value="TRACK_TREND">Track/Trend</option>
+                            </select>
+                        </div>
+
+                        <div id="unifiedLinkTargetRmaSection" class="mb-3" style="display: none;">
+                            <label for="unifiedLinkTargetRmaId" class="form-label">Select RMA:</label>
+                            <select id="unifiedLinkTargetRmaId" name="targetRmaId" class="form-select">
+                                <option value="">-- Select RMA --</option>
+                                <th:block th:if="${allRmas != null}">
+                                    <option th:each="rmaOption : ${allRmas}" 
+                                            th:value="${rmaOption.id}" 
+                                            th:text="${(rmaOption.rmaNumber ?: ('RMA-' + rmaOption.id)) + (rmaOption.customerName != null ? ' - ' + rmaOption.customerName : '')}">
+                                    </option>
+                                </th:block>
+                            </select>
+                        </div>
+
+                        <div id="unifiedLinkTargetToolSection" class="mb-3" style="display: none;">
+                            <label for="unifiedLinkTargetToolId" class="form-label">Select Tool:</label>
+                            <select id="unifiedLinkTargetToolId" name="targetToolId" class="form-select">
+                                <option value="">-- Select Tool --</option>
+                                <th:block th:if="${allTools != null}">
+                                   <option th:each="toolOption : ${allTools}"
+                                           th:if="${toolOption.id != tool.id}"
+                                           th:value="${toolOption.id}" 
+                                           th:text="${toolOption.name + (toolOption.secondaryName != null ? ' (' + toolOption.secondaryName + ')' : '')}">
+                                   </option>
+                               </th:block>
+                            </select>
+                        </div>
+
+                        <div id="unifiedLinkTargetTrackTrendSection" class="mb-3" style="display: none;">
+                            <label for="unifiedLinkTargetTrackTrendId" class="form-label">Select Track/Trend:</label>
+                            <select id="unifiedLinkTargetTrackTrendId" name="targetTrackTrendId" class="form-select">
+                                <option value="">-- Select Track/Trend --</option>
+                                 <th:block th:if="${allTrackTrends != null}">
+                                                                    <option th:each="tt : ${allTrackTrends}"
+                                        th:value="${tt.id}"
+                                        th:text="${tt.name + (tt.description != null ? ' - ' + tt.description : '')}"></option>
+                                </th:block>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="confirmUnifiedLinkBtn">Link File</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- End Unified Link File Modal -->
+
+    <!-- Upload Document Modal -->
+    <div class="modal fade" id="uploadDocumentModal" tabindex="-1" aria-labelledby="uploadDocumentModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form th:action="@{/tools/{id}/upload-documents(id=${tool.id})}" method="post" enctype="multipart/form-data">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="uploadDocumentModalLabel">Upload Documents</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="documentFiles" class="form-label">Select Documents</label>
+                            <input type="file" class="form-control" id="documentFiles" name="files" multiple 
+                                   accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv">
+                            <div class="form-text">Supported formats: PDF, DOC, DOCX, XLS, XLSX, TXT, CSV</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-upload me-1"></i> Upload Documents
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Picture Modal -->
+    <div class="modal fade" id="uploadPictureModal" tabindex="-1" aria-labelledby="uploadPictureModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form th:action="@{/tools/{id}/upload-pictures(id=${tool.id})}" method="post" enctype="multipart/form-data">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="uploadPictureModalLabel">Upload Pictures</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="pictureFiles" class="form-label">Select Pictures</label>
+                            <input type="file" class="form-control" id="pictureFiles" name="files" multiple 
+                                   accept="image/*">
+                            <div class="form-text">Supported formats: JPG, PNG, GIF, BMP, WEBP</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-upload me-1"></i> Upload Pictures
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/theme-toggle.js}"></script>
+    
+    <!-- Debug modal functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Tool details page loaded successfully');
+            
+            // Debug upload button clicks
+            const uploadDocBtn = document.querySelector('[data-bs-target="#uploadDocumentModal"]');
+            const uploadPicBtn = document.querySelector('[data-bs-target="#uploadPictureModal"]');
+            
+            if (uploadDocBtn) {
+                uploadDocBtn.addEventListener('click', function(e) {
+                    console.log('Upload Document button clicked!', e);
+                    console.log('Button attributes:', {
+                        toggle: this.getAttribute('data-bs-toggle'),
+                        target: this.getAttribute('data-bs-target')
+                    });
+                });
+                console.log('Upload Document button found and listener added');
+            } else {
+                console.error('Upload Document button NOT found!');
+            }
+            
+            if (uploadPicBtn) {
+                uploadPicBtn.addEventListener('click', function(e) {
+                    console.log('Upload Picture button clicked!', e);
+                    console.log('Button attributes:', {
+                        toggle: this.getAttribute('data-bs-toggle'),
+                        target: this.getAttribute('data-bs-target')
+                    });
+                });
+                console.log('Upload Picture button found and listener added');
+            } else {
+                console.error('Upload Picture button NOT found!');
+            }
+            
+            // Check if modals exist
+            const docModal = document.getElementById('uploadDocumentModal');
+            const picModal = document.getElementById('uploadPictureModal');
+            
+            console.log('Modal elements:', {
+                documentModal: docModal ? 'found' : 'NOT FOUND',
+                pictureModal: picModal ? 'found' : 'NOT FOUND'
             });
+            
+            // Check if Bootstrap is loaded
+            console.log('Bootstrap available:', typeof bootstrap !== 'undefined');
+            
+            // Handle checklist collapse icon rotation
+            const checklistCollapse = document.getElementById('toolChecklistCollapse');
+            const checklistToggleIcon = document.getElementById('checklistToggleIcon');
+            
+            if (checklistCollapse && checklistToggleIcon) {
+                checklistCollapse.addEventListener('show.bs.collapse', function () {
+                    checklistToggleIcon.classList.remove('bi-chevron-down');
+                    checklistToggleIcon.classList.add('bi-chevron-up');
+                });
+                
+                checklistCollapse.addEventListener('hide.bs.collapse', function () {
+                    checklistToggleIcon.classList.remove('bi-chevron-up');
+                    checklistToggleIcon.classList.add('bi-chevron-down');
+                });
+            }
         });
     </script>
     

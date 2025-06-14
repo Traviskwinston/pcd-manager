@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Moving Part Modal Fragment</title>
+</head>
+<body>
+
+<!-- Add Moving Part Modal Fragment -->
+<div th:fragment="addMovingPartModal(actionUrl, tools)" class="modal fade" id="addMovingPartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form th:action="${actionUrl}" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Moving Part</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="partName" class="form-label">Part Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="partName" name="partName" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Movement</label>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label for="fromToolId" class="form-label">From:</label>
+                                <select class="form-select" id="fromToolId" name="fromToolId" required>
+                                    <option value="">Select source tool</option>
+                                    <option th:each="tool : ${tools}" 
+                                            th:value="${tool.id}" 
+                                            th:text="${tool.name}">Tool Name</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label">To: <span class="text-danger">*</span></label>
+                                <div id="destinationContainer">
+                                    <div class="destination-row mb-2">
+                                        <div class="input-group">
+                                            <select class="form-select destination-select" name="destinationToolIds" required>
+                                                <option value="">Select destination tool</option>
+                                                <option th:each="tool : ${tools}" 
+                                                        th:value="${tool.id}" 
+                                                        th:text="${tool.name}">Tool Name</option>
+                                            </select>
+                                            <button type="button" class="btn btn-outline-danger remove-destination" style="display: none;">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-success" id="addAnotherDestination">
+                                    <i class="bi bi-plus"></i> Add Another Destination
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Moving Part Modal Fragment -->
+<div th:fragment="editMovingPartModal(actionUrl, tools)" class="modal fade" id="editMovingPartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="editMovingPartForm" th:action="${actionUrl}" method="post">
+                <input type="hidden" id="editMovingPartId" name="movingPartId" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Moving Part</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editPartName" class="form-label">Part Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="editPartName" name="partName" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Movement</label>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label for="editFromToolId" class="form-label">From:</label>
+                                <select class="form-select" id="editFromToolId" name="fromToolId" required>
+                                    <option value="">Select source tool</option>
+                                    <option th:each="tool : ${tools}" 
+                                            th:value="${tool.id}" 
+                                            th:text="${tool.name}">Tool Name</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label">To: <span class="text-danger">*</span></label>
+                                <div id="editDestinationContainer">
+                                    <!-- Destinations will be populated by JavaScript -->
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-success" id="editAddAnotherDestination">
+                                    <i class="bi bi-plus"></i> Add Another Destination
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="editNotes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Moving Part Modal JavaScript Fragment -->
+<script th:fragment="movingPartModalScript">
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add destination functionality
+        const addBtn = document.getElementById('addAnotherDestination');
+        if (addBtn) {
+            addBtn.addEventListener('click', function() {
+                addDestinationRow('destinationContainer', false);
+            });
+        }
+
+        const editAddBtn = document.getElementById('editAddAnotherDestination');
+        if (editAddBtn) {
+            editAddBtn.addEventListener('click', function() {
+                addDestinationRow('editDestinationContainer', true);
+            });
+        }
+        
+        // Initialize edit button handlers
+        initializeEditButtonHandlers();
+    });
+    
+    function initializeEditButtonHandlers() {
+        document.querySelectorAll('.edit-moving-part-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                const partName = this.getAttribute('data-part-name');
+                const fromToolId = this.getAttribute('data-from-tool-id');
+                const destinationChain = this.getAttribute('data-destination-chain');
+                const notes = this.getAttribute('data-notes');
+                
+                console.log('Edit button clicked:', {
+                    id, partName, fromToolId, destinationChain, notes
+                });
+                
+                // Update form action URL
+                const form = document.getElementById('editMovingPartForm');
+                const currentAction = form.action;
+                const newAction = currentAction.replace('/0/', '/' + id + '/');
+                form.action = newAction;
+                
+                // Populate form fields
+                document.getElementById('editMovingPartId').value = id;
+                document.getElementById('editPartName').value = partName;
+                document.getElementById('editFromToolId').value = fromToolId;
+                document.getElementById('editNotes').value = notes;
+                
+                // Populate destination chain
+                populateDestinationChain(destinationChain);
+            });
+        });
+    }
+
+    function addDestinationRow(containerId, isEdit) {
+        const container = document.getElementById(containerId);
+        const newRow = document.createElement('div');
+        newRow.className = 'destination-row mb-2';
+        
+        const toolOptions = document.querySelector('.destination-select').innerHTML;
+        
+        newRow.innerHTML = `
+            <div class="input-group">
+                <select class="form-select destination-select" name="destinationToolIds" required>
+                    ${toolOptions}
+                </select>
+                <button type="button" class="btn btn-outline-danger remove-destination">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        `;
+        
+        container.appendChild(newRow);
+        updateRemoveButtons(containerId);
+    }
+
+    function updateRemoveButtons(containerId) {
+        const container = document.getElementById(containerId);
+        const rows = container.querySelectorAll('.destination-row');
+        
+        rows.forEach((row, index) => {
+            const removeBtn = row.querySelector('.remove-destination');
+            if (rows.length > 1) {
+                removeBtn.style.display = 'block';
+                removeBtn.onclick = function() {
+                    row.remove();
+                    updateRemoveButtons(containerId);
+                };
+            } else {
+                removeBtn.style.display = 'none';
+            }
+        });
+    }
+
+
+
+    function populateDestinationChain(destinationChainJson) {
+        console.log('populateDestinationChain called with:', destinationChainJson);
+        
+        const container = document.getElementById('editDestinationContainer');
+        if (!container) {
+            console.error('Edit destination container not found');
+            return;
+        }
+        
+        container.innerHTML = ''; // Clear existing destinations
+        
+        let destinationIds = [];
+        if (destinationChainJson && destinationChainJson.trim() !== '' && destinationChainJson !== '[]') {
+            try {
+                // The destinationChain is stored as JSON array string like "[2,3,4]"
+                destinationIds = JSON.parse(destinationChainJson);
+                console.log('Parsed destination IDs:', destinationIds);
+            } catch (e) {
+                console.error('Error parsing destination chain:', e, 'Raw value:', destinationChainJson);
+                destinationIds = [];
+            }
+        }
+        
+        // If no destinations, add one empty row
+        if (destinationIds.length === 0) {
+            console.log('No destinations found, adding empty row');
+            destinationIds = [''];
+        }
+        
+        // Get tool options from the add modal since edit modal container is empty initially
+        let toolOptions = '';
+        const addModalSelect = document.querySelector('#addMovingPartModal .destination-select');
+        if (addModalSelect) {
+            toolOptions = addModalSelect.innerHTML;
+            console.log('Found tool options from add modal');
+        } else {
+            // Try to get from any existing select in the page
+            const anySelect = document.querySelector('select[name="destinationToolIds"]');
+            if (anySelect) {
+                toolOptions = anySelect.innerHTML;
+                console.log('Found tool options from existing select');
+            } else {
+                console.warn('Could not find tool options, creating basic structure');
+                toolOptions = '<option value="">Select destination tool</option>';
+            }
+        }
+        
+        console.log('Creating', destinationIds.length, 'destination rows');
+        
+        destinationIds.forEach((destinationId, index) => {
+            console.log('Creating row', index, 'for destination ID:', destinationId);
+            
+            const newRow = document.createElement('div');
+            newRow.className = 'destination-row mb-2';
+            
+            newRow.innerHTML = `
+                <div class="input-group">
+                    <select class="form-select destination-select" name="destinationToolIds" required>
+                        ${toolOptions}
+                    </select>
+                    <button type="button" class="btn btn-outline-danger remove-destination" style="display: none;">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(newRow);
+            
+            // Set the selected value
+            if (destinationId && destinationId !== '') {
+                const select = newRow.querySelector('.destination-select');
+                select.value = destinationId;
+                console.log('Set destination select to:', destinationId, 'Selected value:', select.value);
+                
+                // Verify the option exists
+                const selectedOption = select.querySelector(`option[value="${destinationId}"]`);
+                if (!selectedOption) {
+                    console.warn('Option with value', destinationId, 'not found in select');
+                }
+            }
+        });
+        
+        updateRemoveButtons('editDestinationContainer');
+        console.log('Finished populating destination chain');
+    }
+</script>
+
+</body>
+</html> 

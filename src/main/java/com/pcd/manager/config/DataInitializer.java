@@ -51,8 +51,10 @@ import com.pcd.manager.model.RmaComment;
 import com.pcd.manager.repository.RmaCommentRepository;
 import com.pcd.manager.model.TrackTrend;
 import com.pcd.manager.model.TrackTrendComment;
+import com.pcd.manager.model.ToolComment;
 import com.pcd.manager.repository.TrackTrendRepository;
 import com.pcd.manager.repository.TrackTrendCommentRepository;
+import com.pcd.manager.repository.ToolCommentRepository;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -66,6 +68,7 @@ public class DataInitializer implements CommandLineRunner {
     private final MapGridItemRepository mapGridItemRepository;
     private final RmaRepository rmaRepository;
     private final RmaCommentRepository rmaCommentRepository;
+    private final ToolCommentRepository toolCommentRepository;
     private final TrackTrendRepository trackTrendRepository;
     private final TrackTrendCommentRepository trackTrendCommentRepository;
 
@@ -79,6 +82,7 @@ public class DataInitializer implements CommandLineRunner {
             MapGridItemRepository mapGridItemRepository,
             RmaRepository rmaRepository,
             RmaCommentRepository rmaCommentRepository,
+            ToolCommentRepository toolCommentRepository,
             TrackTrendRepository trackTrendRepository,
             TrackTrendCommentRepository trackTrendCommentRepository) {
         this.userRepository = userRepository;
@@ -89,6 +93,7 @@ public class DataInitializer implements CommandLineRunner {
         this.mapGridItemRepository = mapGridItemRepository;
         this.rmaRepository = rmaRepository;
         this.rmaCommentRepository = rmaCommentRepository;
+        this.toolCommentRepository = toolCommentRepository;
         this.trackTrendRepository = trackTrendRepository;
         this.trackTrendCommentRepository = trackTrendCommentRepository;
     }
@@ -117,6 +122,9 @@ public class DataInitializer implements CommandLineRunner {
             
             // Create RMA comments
             createRmaComments();
+            
+            // Create tool comments
+            createToolComments();
             
             // Create historical Passdowns
             createHistoricalPassdowns();
@@ -719,9 +727,15 @@ public class DataInitializer implements CommandLineRunner {
         
         int commentsCreated = 0;
         
-        // Create 0-5 comments per RMA
+        // Create 0-3 comments per RMA, with some having 5-6
         for (Rma rma : allRmas) {
-            int numComments = random.nextInt(6); // 0 to 5 comments
+            int numComments;
+            // 85% chance of 0-3 comments, 15% chance of 5-6 comments
+            if (random.nextDouble() < 0.85) {
+                numComments = random.nextInt(4); // 0 to 3 comments
+            } else {
+                numComments = 5 + random.nextInt(2); // 5 or 6 comments
+            }
             
             for (int i = 0; i < numComments; i++) {
                 RmaComment comment = new RmaComment();
@@ -752,6 +766,156 @@ public class DataInitializer implements CommandLineRunner {
         }
         
         logger.info("Created {} RMA comments across {} RMAs", commentsCreated, allRmas.size());
+    }
+    
+    private void createToolComments() {
+        logger.info("Creating tool comments...");
+        
+        // Check if comments already exist
+        long existingCommentCount = toolCommentRepository.count();
+        logger.info("Found {} existing tool comments in database", existingCommentCount);
+        
+        // TEMPORARY: Force recreation of tool comments for debugging
+        if (existingCommentCount > 0) {
+            logger.info("Deleting existing {} tool comments to recreate them", existingCommentCount);
+            toolCommentRepository.deleteAll();
+            logger.info("Deleted all existing tool comments, proceeding with creation");
+        }
+        
+        List<Tool> allTools = toolRepository.findAll();
+        logger.info("Found {} tools for comment creation", allTools.size());
+        if (allTools.isEmpty()) {
+            logger.warn("No tools found, cannot create comments");
+            return;
+        }
+        
+        // Get users for comments
+        List<User> users = userRepository.findAll();
+        logger.info("Found {} users for comment creation", users.size());
+        if (users.isEmpty()) {
+            logger.warn("No users found, cannot create comments");
+            return;
+        }
+        
+        Random random = new Random();
+        
+        // Tool comment content arrays
+        String[] maintenanceComments = {
+            "Completed routine calibration check. All parameters within specification. Tool ready for production.",
+            "Performed quarterly preventive maintenance. Replaced filters and lubricated moving parts.",
+            "Updated tool software to latest version. Performance improvements noted in testing.",
+            "Cleaned process chambers and replaced worn seals. System performance back to baseline.",
+            "Conducted annual certification inspection. All safety systems functioning properly.",
+            "Replaced aging temperature sensor that was showing drift. Calibration verified.",
+            "Performed deep cleaning of slurry delivery system. Flow rates now consistent.",
+            "Updated PLC program with latest process improvements from engineering.",
+            "Replaced worn pump components during scheduled downtime. Testing shows improved reliability.",
+            "Completed tool qualification after major maintenance. All specs met or exceeded."
+        };
+        
+        String[] operationalComments = {
+            "Tool running smoothly after recent process optimization. Customer very satisfied with results.",
+            "Minor alarm occurred during shift - traced to environmental condition. No action required.",
+            "Process recipe updated per customer request. Initial results look promising.",
+            "Tool utilization increased to 95% this month. Excellent performance metrics.",
+            "Customer technician training completed successfully. They are now fully certified.",
+            "New process window established for customer's latest product. Validation in progress.",
+            "Tool performed flawlessly during 72-hour stress test. Reliability confirmed.",
+            "Productivity targets exceeded for third consecutive month. Outstanding performance.",
+            "Customer audit completed with zero findings. Tool documentation up to date.",
+            "Process yield improved 3% after implementing engineering recommendations."
+        };
+        
+        String[] troubleshootingComments = {
+            "Investigated intermittent pressure alarm. Root cause identified and corrected.",
+            "Responded to customer concern about process variation. Adjusted control parameters.",
+            "Electrical noise issue resolved by improving cabinet grounding. System stable.",
+            "Flow controller replaced after showing erratic behavior. Backup unit installed.",
+            "Temperature control instability traced to faulty RTD. Replacement ordered.",
+            "Pneumatic actuator response slow. Cleaned and adjusted valve trim successfully.",
+            "Process timing optimized to reduce cycle time while maintaining quality.",
+            "HMI touchscreen replaced due to responsiveness issues. System restored.",
+            "Chemical delivery pump rebuilt after 18 months of service. Performance excellent.",
+            "Vacuum system performance degraded. Scheduled thorough inspection and cleaning."
+        };
+        
+        String[] qualityComments = {
+            "Quality control inspection passed with flying colors. All measurements within tolerance.",
+            "Process capability study completed. Cpk values exceed customer requirements.",
+            "Statistical process control charts show excellent stability over past month.",
+            "Customer quality audit successful. Commended for documentation and procedures.",
+            "Metrology verification completed. All measurement systems certified accurate.",
+            "Process validation package approved by customer quality team. Production authorized.",
+            "Continuous improvement project implemented. Defect rate reduced by 40%.",
+            "Six Sigma analysis identified key process parameters for optimization.",
+            "Quality metrics dashboard updated with real-time performance indicators.",
+            "Best practices documented and shared with other similar tools in facility."
+        };
+        
+        String[] teamComments = {
+            "Great teamwork during emergency repair. Tool back online ahead of schedule.",
+            "Excellent collaboration between engineering and operations teams on this improvement.",
+            "Training session well received by technicians. Knowledge retention test scores high.",
+            "Cross-functional team meeting scheduled to review lessons learned.",
+            "Mentoring new technician going well. They show strong aptitude for troubleshooting.",
+            "Process knowledge transfer completed from day shift to night shift team.",
+            "Safety meeting highlighted importance of proper PPE during maintenance.",
+            "Team celebration for achieving 6 months without lost time incident.",
+            "Suggestion box idea implemented successfully. Team member recognized.",
+            "Communication improvement noted between shifts. Handoff quality much better."
+        };
+        
+        int commentsCreated = 0;
+        
+        // Create 1-3 comments per tool, with some having 5-6 (every tool gets at least 1 comment)
+        for (Tool tool : allTools) {
+            int numComments;
+            // 85% chance of 1-3 comments, 15% chance of 5-6 comments
+            if (random.nextDouble() < 0.85) {
+                numComments = 1 + random.nextInt(3); // 1 to 3 comments
+            } else {
+                numComments = 5 + random.nextInt(2); // 5 or 6 comments
+            }
+            
+            for (int i = 0; i < numComments; i++) {
+                ToolComment comment = new ToolComment();
+                comment.setTool(tool);
+                comment.setUser(users.get(random.nextInt(users.size())));
+                
+                // Select comment type based on random distribution
+                String content;
+                double commentType = random.nextDouble();
+                if (commentType < 0.3) {
+                    content = maintenanceComments[random.nextInt(maintenanceComments.length)];
+                } else if (commentType < 0.5) {
+                    content = operationalComments[random.nextInt(operationalComments.length)];
+                } else if (commentType < 0.7) {
+                    content = troubleshootingComments[random.nextInt(troubleshootingComments.length)];
+                } else if (commentType < 0.9) {
+                    content = qualityComments[random.nextInt(qualityComments.length)];
+                } else {
+                    content = teamComments[random.nextInt(teamComments.length)];
+                }
+                
+                comment.setContent(content);
+                
+                // Set creation date randomly within the past 4 weeks
+                LocalDateTime baseDate = LocalDateTime.now().minusWeeks(4);
+                long randomDays = random.nextInt(28); // 0-27 days
+                long randomHours = random.nextInt(24);
+                long randomMinutes = random.nextInt(60);
+                comment.setCreatedDate(baseDate.plusDays(randomDays).plusHours(randomHours).plusMinutes(randomMinutes));
+                
+                toolCommentRepository.save(comment);
+                commentsCreated++;
+            }
+        }
+        
+        logger.info("Created {} tool comments across {} tools", commentsCreated, allTools.size());
+        
+        // Final verification - check actual count in database
+        long finalCount = toolCommentRepository.count();
+        logger.info("Final tool comment count in database: {}", finalCount);
     }
     
     private void createHistoricalPassdowns() {

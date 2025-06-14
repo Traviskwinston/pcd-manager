@@ -1482,16 +1482,7 @@ public class RmaController {
             
             Rma rma = rmaOpt.get();
             
-            // For backward compatibility, if only one destination, use the toToolId parameter
-            Long toToolId = (destinationToolIds != null && !destinationToolIds.isEmpty()) ? destinationToolIds.get(0) : null;
-            
-            MovingPart movingPart = movingPartService.createMovingPart(partName, fromToolId, toToolId, notes, null, rma);
-            
-            // If there are multiple destinations, set the destination chain
-            if (destinationToolIds != null && destinationToolIds.size() > 1) {
-                movingPart.setDestinationToolIds(destinationToolIds);
-                movingPartService.save(movingPart);
-            }
+            MovingPart movingPart = movingPartService.createMovingPart(partName, fromToolId, destinationToolIds, notes, null, rma);
             
             redirectAttributes.addFlashAttribute("message", "Moving part recorded successfully");
         } catch (Exception e) {
@@ -1524,33 +1515,13 @@ public class RmaController {
             
             MovingPart movingPart = movingPartOpt.get();
             
-            // Update the moving part fields
-            movingPart.setPartName(partName);
-            movingPart.setNotes(notes);
+            // Use the service method to update the moving part
+            Optional<MovingPart> result = movingPartService.updateMovingPart(movingPartId, partName, fromToolId, destinationToolIds, notes, null);
             
-            // Update tools
-            if (fromToolId != null) {
-                Optional<Tool> fromTool = toolService.getToolById(fromToolId);
-                fromTool.ifPresent(movingPart::setFromTool);
+            if (result.isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "Failed to update moving part");
+                return "redirect:/rma/" + rmaId;
             }
-            
-            // For backward compatibility, set the first destination as toTool
-            Long toToolId = (destinationToolIds != null && !destinationToolIds.isEmpty()) ? destinationToolIds.get(0) : null;
-            if (toToolId != null) {
-                Optional<Tool> toTool = toolService.getToolById(toToolId);
-                toTool.ifPresent(movingPart::setToTool);
-            }
-            
-            // Set the destination chain if there are multiple destinations
-            if (destinationToolIds != null && destinationToolIds.size() > 1) {
-                movingPart.setDestinationToolIds(destinationToolIds);
-            } else {
-                // Clear destination chain if only one destination
-                movingPart.setDestinationChain(null);
-            }
-            
-            // Save the updated moving part
-            movingPartService.save(movingPart);
             
             redirectAttributes.addFlashAttribute("success", "Moving part updated successfully");
             
@@ -2198,15 +2169,8 @@ public class RmaController {
                         
                         // Create the moving part using the service
                         if (!destinationToolIds.isEmpty()) {
-                            Long toToolId = destinationToolIds.get(0); // Use first destination as primary
                             MovingPart movingPart = movingPartService.createMovingPart(
-                                partName.trim(), fromToolId, toToolId, notes, null, savedRma);
-                            
-                            // If there are multiple destinations, set the destination chain
-                            if (destinationToolIds.size() > 1) {
-                                movingPart.setDestinationToolIds(destinationToolIds);
-                                movingPartService.save(movingPart);
-                            }
+                                partName.trim(), fromToolId, destinationToolIds, notes, null, savedRma);
                             
                             logger.info("Created moving part '{}' for RMA {}", partName, savedRma.getId());
                         }
