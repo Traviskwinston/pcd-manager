@@ -184,9 +184,25 @@
                 </div>
             </div>
 
+            <!-- Loading Indicator -->
+            <div th:if="${asyncLoading}" id="rma-loading-container" class="text-center py-5">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div class="mb-2">
+                    <h5>Loading RMA Data...</h5>
+                    <div class="progress" style="width: 300px; margin: 0 auto;">
+                        <div id="rma-loading-progress" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                    </div>
+                </div>
+                <small class="text-muted">Please wait while we load your RMA data...</small>
+            </div>
+
             <!-- Responsive Table Container -->
-                        <div class="data-table-responsive table-responsive rma-table-container" id="rma-table-container">
-                <table class="table table-striped data-table-compact">
+            <div class="data-table-responsive table-responsive rma-table-container" id="rma-table-container" th:style="${asyncLoading} ? 'display: none;' : ''">
+                <table class="table table-striped data-table-compact" id="rma-table">
                         <thead>
                             <tr>
                                 <th style="width: 11%;" class="sortable-header" data-sort="rma-number">
@@ -754,9 +770,244 @@
             }
         }
 
-        // Initialize RMA Manager when page loads
+        // Async Data Loading for RMA List
+        const AsyncRMALoader = {
+            init() {
+                const loadingContainer = document.getElementById('rma-loading-container');
+                if (!loadingContainer) return;
+
+                this.loadRMAData();
+            },
+
+            loadRMAData() {
+                const progressBar = document.getElementById('rma-loading-progress');
+                const loadingContainer = document.getElementById('rma-loading-container');
+                const tableContainer = document.getElementById('rma-table-container');
+
+                this.updateProgress(10);
+
+                fetch('/rma/api/data')
+                    .then(response => {
+                        this.updateProgress(30);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        this.updateProgress(60);
+                        if (data.success) {
+                            this.populateTable(data);
+                            this.updateProgress(90);
+                            
+                            setTimeout(() => {
+                                this.updateProgress(100);
+                                
+                                setTimeout(() => {
+                                    loadingContainer.style.display = 'none';
+                                    tableContainer.style.display = 'block';
+                                    
+                                    // Initialize RMA Manager after loading data
+                                    window.rmaManager = new RMAManager();
+                                    this.initializeInteractions();
+                                }, 200);
+                            }, 300);
+                        } else {
+                            this.showError(data.error || 'Failed to load RMA data');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading RMA data:', error);
+                        this.showError('Failed to load RMA data. Please refresh the page.');
+                    });
+            },
+
+            updateProgress(percent) {
+                const progressBar = document.getElementById('rma-loading-progress');
+                if (progressBar) {
+                    progressBar.style.width = percent + '%';
+                    progressBar.setAttribute('aria-valuenow', percent);
+                }
+            },
+
+            showError(message) {
+                const loadingContainer = document.getElementById('rma-loading-container');
+                if (loadingContainer) {
+                    loadingContainer.innerHTML = `
+                        <div class="alert alert-danger" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            ${message}
+                            <br><br>
+                            <button class="btn btn-primary" onclick="location.reload()">Retry</button>
+                        </div>
+                    `;
+                }
+            },
+
+            populateTable(data) {
+                const tbody = document.querySelector('#rma-table tbody');
+                if (!tbody) return;
+
+                tbody.innerHTML = '';
+
+                data.rmas.forEach(rma => {
+                    const row = this.createTableRow(rma, data.rmaCommentsMap, data.movingPartsMap);
+                    tbody.appendChild(row);
+                });
+
+                this.updateCounts(data.rmas.length);
+            },
+
+            createTableRow(rma, commentsMap, movingPartsMap) {
+                const row = document.createElement('tr');
+                row.className = 'rma-row';
+                row.setAttribute('data-tool', rma.tool?.name?.toLowerCase() || '');
+                row.setAttribute('data-parts', this.formatPartsForSearch(rma.partLineItems));
+                row.setAttribute('data-part-numbers', this.formatPartNumbersForSearch(rma.partLineItems));
+                row.setAttribute('data-rma-number', (rma.rmaNumber || rma.sapNotificationNumber || '').toLowerCase());
+                row.setAttribute('data-status', rma.status || '');
+                
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '-';
+                    const date = new Date(dateStr);
+                    return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+                };
+
+                const getStatusBadgeClass = (status) => {
+                    const statusMap = {
+                        'RMA_WRITTEN_EMAILED': 'bg-primary',
+                        'NUMBER_PROVIDED': 'bg-info',
+                        'MEMO_EMAILED': 'bg-secondary',
+                        'RECEIVED_PARTS': 'bg-warning text-dark',
+                        'WAITING_CUSTOMER': 'bg-danger',
+                        'WAITING_FSE': 'bg-danger',
+                        'COMPLETED': 'bg-success'
+                    };
+                    return statusMap[status] || 'bg-light text-dark';
+                };
+
+                const formatParts = (partLineItems) => {
+                    if (!partLineItems || partLineItems.length === 0) return 'N/A';
+                    return `<ul class="list-unstyled mb-0" style="font-size: 0.9em;">
+                        ${partLineItems.map(item => 
+                            `<li>${item.partName || item.partNumber || item.productDescription || 'Unknown Part'}</li>`
+                        ).join('')}
+                    </ul>`;
+                };
+
+                const formatComments = (comments) => {
+                    if (!comments || comments.length === 0) return '';
+                    return comments.map(comment => {
+                        const date = comment.createdDate ? new Date(comment.createdDate).toLocaleDateString() : '';
+                        const user = comment.user?.name || 'Unknown';
+                        return `<div class="mb-2"><small class="text-muted">${date} by ${user}</small><br/>${comment.content || 'No content'}</div>`;
+                    }).join('<hr class="my-1"/>');
+                };
+
+                const commentCount = commentsMap[rma.id] || 0;
+                const movingPartCount = movingPartsMap[rma.id] || 0;
+
+                row.innerHTML = `
+                    <td>
+                        <a href="/rma/${rma.id}">
+                            ${rma.rmaNumber || rma.sapNotificationNumber || `RMA-${rma.id}`}
+                        </a>
+                        ${rma.priority > 1 ? `<span class="badge bg-danger ms-1">P${rma.priority}</span>` : ''}
+                    </td>
+                    <td>${rma.tool?.name || '-'}</td>
+                    <td>${rma.location?.name || '-'}</td>
+                    <td>${rma.customerName || '-'}</td>
+                    <td class="allow-wrap">${formatParts(rma.partLineItems)}</td>
+                    <td class="text-center">
+                        <span class="badge rounded-pill status-badge ${getStatusBadgeClass(rma.status)}">
+                            ${rma.statusDisplayName || 'N/A'}
+                        </span>
+                    </td>
+                    <td>${formatDate(rma.writtenDate)}</td>
+                    <td>${formatDate(rma.rmaNumberProvidedDate)}</td>
+                    <td>${formatDate(rma.shippingMemoEmailedDate)}</td>
+                    <td>${formatDate(rma.partsReceivedDate)}</td>
+                    <td>${formatDate(rma.installedPartsDate)}</td>
+                    <td>${formatDate(rma.failedPartsPackedDate)}</td>
+                    <td>${formatDate(rma.failedPartsShippedDate)}</td>
+                    <td class="text-center">
+                        <span ${movingPartCount > 0 ? 'title="' + movingPartCount + ' moving parts"' : ''}>
+                            <i class="bi bi-arrow-left-right ${movingPartCount > 0 ? 'moving-parts-icon' : 'text-muted'}"></i>
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <i class="bi bi-chat-dots${commentCount > 0 ? '-fill info-icon-interactive' : ' text-muted'}" 
+                           ${commentCount > 0 ? `data-bs-toggle="popover" data-bs-placement="left" data-bs-trigger="hover focus click" 
+                                                 data-bs-html="true" data-bs-title="Comments (${commentCount})" 
+                                                 data-bs-content="${formatComments(rma.comments).replace(/"/g, '&quot;')}"` : ''}></i>
+                        <span class="ms-1 small">${commentCount}</span>
+                    </td>
+                    <td class="text-center">
+                        <a href="/rma/${rma.id}" class="action-icon" title="View RMA">
+                            <i class="bi bi-eye-fill"></i>
+                        </a>
+                    </td>
+                `;
+
+                return row;
+            },
+
+            formatPartsForSearch(partLineItems) {
+                if (!partLineItems || partLineItems.length === 0) return '';
+                return partLineItems.map(item => 
+                    [item.partName, item.productDescription].filter(Boolean).join(' ')
+                ).join(' ').toLowerCase();
+            },
+
+            formatPartNumbersForSearch(partLineItems) {
+                if (!partLineItems || partLineItems.length === 0) return '';
+                return partLineItems.map(item => item.partNumber || '').filter(Boolean).join(' ').toLowerCase();
+            },
+
+            updateCounts(rmaCount) {
+                const countElement = document.getElementById('rma-count');
+                const countTextElement = document.getElementById('rma-count-text');
+                
+                if (countElement) countElement.textContent = rmaCount;
+                if (countTextElement) countTextElement.textContent = rmaCount === 1 ? 'RMA' : 'RMAs';
+            },
+
+            initializeInteractions() {
+                // Re-initialize popovers for dynamically loaded content
+                const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+                popoverTriggerList.map(function (popoverTriggerEl) {
+                    return new bootstrap.Popover(popoverTriggerEl, {
+                        sanitize: false,
+                        fallbackPlacements: ['left', 'top', 'bottom'],
+                        container: 'body'
+                    });
+                });
+
+                // Add click handlers for closing popovers
+                document.addEventListener('click', function (event) {
+                    const popovers = document.querySelectorAll('.popover');
+                    popovers.forEach(function (popover) {
+                        const trigger = document.querySelector(`[aria-describedby="${popover.id}"]`);
+                        if (trigger && !trigger.contains(event.target) && !popover.contains(event.target)) {
+                            const instance = bootstrap.Popover.getInstance(trigger);
+                            if (instance) instance.hide();
+                        }
+                    });
+                });
+            }
+        };
+
+        // Initialize async loading or regular RMA manager
         document.addEventListener('DOMContentLoaded', function() {
-            new RMAManager();
+            const loadingContainer = document.getElementById('rma-loading-container');
+            
+            if (loadingContainer) {
+                // Async loading mode
+                AsyncRMALoader.init();
+            } else {
+                // Regular mode
+                new RMAManager();
+            }
             
             // Enhanced horizontal scrolling functionality
             const tableContainer = document.querySelector('.rma-table-container');

@@ -103,63 +103,159 @@ public class RmaController {
 
     @GetMapping
     public String listRmas(Model model) {
-        logger.info("=== LOADING RMA LIST PAGE (OPTIMIZED) ===");
-        // Use lightweight query for list view - only load essential fields
-        List<Rma> allRmas = rmaRepository.findAllForListView();
-        logger.info("Loaded {} RMAs for list view", allRmas.size());
+        logger.info("=== LOADING RMA LIST PAGE (INSTANT) ===");
         
-        if (allRmas.isEmpty()) {
-            model.addAttribute("rmas", allRmas);
-            model.addAttribute("rmaCommentsMap", new HashMap<>());
-            model.addAttribute("movingPartsMap", new HashMap<>());
-            return "rma/list";
-        }
+        // Return empty data for instant page load - data will be loaded asynchronously
+        model.addAttribute("rmas", new ArrayList<>());
+        model.addAttribute("rmaCommentsMap", new HashMap<>());
+        model.addAttribute("movingPartsMap", new HashMap<>());
+        model.addAttribute("asyncLoading", true); // Flag to indicate async loading is enabled
         
-        List<Long> rmaIds = allRmas.stream().map(Rma::getId).collect(Collectors.toList());
-        
-        // OPTIMIZATION: Load only essential data using lightweight queries
-        
-        // Initialize maps to ensure they're never null
-        Map<Long, Integer> rmaCommentsMap = new HashMap<>();
-        Map<Long, Integer> movingPartsMap = new HashMap<>();
-        
-        // Bulk load lightweight comment counts
-        try {
-            List<Object[]> commentCounts = rmaCommentRepository.findCommentCountsByRmaIds(rmaIds);
-            for (Object[] row : commentCounts) {
-                Long rmaId = (Long) row[0];
-                Long count = (Long) row[1];
-                rmaCommentsMap.put(rmaId, count.intValue());
-            }
-            logger.info("Loaded comment counts for {} RMAs", commentCounts.size());
-        } catch (Exception e) {
-            logger.error("Error loading RMA comment counts: {}", e.getMessage(), e);
-        }
-        
-        // Bulk load lightweight moving part counts
-        try {
-            List<Object[]> movingPartCounts = movingPartRepository.findMovingPartCountsByRmaIds(rmaIds);
-            for (Object[] row : movingPartCounts) {
-                Long rmaId = (Long) row[0];
-                Long count = (Long) row[1];
-                movingPartsMap.put(rmaId, count.intValue());
-            }
-            logger.info("Loaded moving part counts for {} RMAs", movingPartCounts.size());
-        } catch (Exception e) {
-            logger.error("Error loading RMA moving part counts: {}", e.getMessage(), e);
-        }
-        
-        model.addAttribute("rmas", allRmas);
-        model.addAttribute("rmaCommentsMap", rmaCommentsMap);
-        model.addAttribute("movingPartsMap", movingPartsMap);
-        
-        logger.info("=== COMPLETED RMA LIST PAGE LOADING (OPTIMIZED) ===");
-        logger.info("Final counts - RMAs: {}, Comments: {}, Moving Parts: {}", 
-                   allRmas.size(),
-                   rmaCommentsMap.values().stream().mapToInt(Integer::intValue).sum(),
-                   movingPartsMap.values().stream().mapToInt(Integer::intValue).sum());
-        
+        logger.info("=== RMA LIST PAGE LOADED INSTANTLY ===");
         return "rma/list";
+    }
+
+    /**
+     * Async endpoint for loading RMA data
+     */
+    @GetMapping("/api/data")
+    @ResponseBody
+    public Map<String, Object> loadRmaDataAsync() {
+        logger.info("=== LOADING RMA DATA ASYNC ===");
+        long startTime = System.currentTimeMillis();
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // Use basic findAll to avoid query issues - we'll optimize later
+            List<Rma> allRmas = rmaRepository.findAll();
+            logger.info("Loaded {} RMAs for async loading", allRmas.size());
+            
+            Map<Long, Integer> rmaCommentsMap = new HashMap<>();
+            Map<Long, Integer> movingPartsMap = new HashMap<>();
+            
+            if (!allRmas.isEmpty()) {
+                List<Long> rmaIds = allRmas.stream().map(Rma::getId).collect(Collectors.toList());
+                
+                // Bulk load lightweight comment counts
+                try {
+                    List<Object[]> commentCounts = rmaCommentRepository.findCommentCountsByRmaIds(rmaIds);
+                    for (Object[] row : commentCounts) {
+                        Long rmaId = (Long) row[0];
+                        Long count = (Long) row[1];
+                        rmaCommentsMap.put(rmaId, count.intValue());
+                    }
+                    logger.info("Loaded comment counts for {} RMAs", commentCounts.size());
+                } catch (Exception e) {
+                    logger.error("Error loading RMA comment counts: {}", e.getMessage(), e);
+                }
+                
+                // Bulk load lightweight moving part counts
+                try {
+                    List<Object[]> movingPartCounts = movingPartRepository.findMovingPartCountsByRmaIds(rmaIds);
+                    for (Object[] row : movingPartCounts) {
+                        Long rmaId = (Long) row[0];
+                        Long count = (Long) row[1];
+                        movingPartsMap.put(rmaId, count.intValue());
+                    }
+                    logger.info("Loaded moving part counts for {} RMAs", movingPartCounts.size());
+                } catch (Exception e) {
+                    logger.error("Error loading RMA moving part counts: {}", e.getMessage(), e);
+                }
+            }
+            
+            // Convert RMA data to a format suitable for JSON response
+            List<Map<String, Object>> rmaData = allRmas.stream().map(rma -> {
+                Map<String, Object> rmaMap = new HashMap<>();
+                rmaMap.put("id", rma.getId());
+                rmaMap.put("rmaNumber", rma.getRmaNumber());
+                rmaMap.put("sapNotificationNumber", rma.getSapNotificationNumber());
+                rmaMap.put("status", rma.getStatus() != null ? rma.getStatus().name() : null);
+                rmaMap.put("statusDisplayName", rma.getStatus() != null ? rma.getStatus().getDisplayName() : null);
+                // Handle tool data safely
+                if (rma.getTool() != null) {
+                    Map<String, Object> toolMap = new HashMap<>();
+                    toolMap.put("id", rma.getTool().getId());
+                    toolMap.put("name", rma.getTool().getName() != null ? rma.getTool().getName() : "");
+                    rmaMap.put("tool", toolMap);
+                } else {
+                    rmaMap.put("tool", null);
+                }
+                
+                // Handle location data safely
+                if (rma.getLocation() != null) {
+                    Map<String, Object> locationMap = new HashMap<>();
+                    locationMap.put("id", rma.getLocation().getId());
+                    locationMap.put("name", rma.getLocation().getName() != null ? rma.getLocation().getName() : "");
+                    rmaMap.put("location", locationMap);
+                } else {
+                    rmaMap.put("location", null);
+                }
+                rmaMap.put("customerName", rma.getCustomerName());
+                rmaMap.put("priority", rma.getPriority());
+                rmaMap.put("writtenDate", rma.getWrittenDate() != null ? rma.getWrittenDate().toString() : null);
+                rmaMap.put("rmaNumberProvidedDate", rma.getRmaNumberProvidedDate() != null ? rma.getRmaNumberProvidedDate().toString() : null);
+                rmaMap.put("shippingMemoEmailedDate", rma.getShippingMemoEmailedDate() != null ? rma.getShippingMemoEmailedDate().toString() : null);
+                rmaMap.put("partsReceivedDate", rma.getPartsReceivedDate() != null ? rma.getPartsReceivedDate().toString() : null);
+                rmaMap.put("installedPartsDate", rma.getInstalledPartsDate() != null ? rma.getInstalledPartsDate().toString() : null);
+                rmaMap.put("failedPartsPackedDate", rma.getFailedPartsPackedDate() != null ? rma.getFailedPartsPackedDate().toString() : null);
+                rmaMap.put("failedPartsShippedDate", rma.getFailedPartsShippedDate() != null ? rma.getFailedPartsShippedDate().toString() : null);
+                
+                // Add part line items
+                List<Map<String, Object>> partLineItems = new ArrayList<>();
+                if (rma.getPartLineItems() != null) {
+                    for (var item : rma.getPartLineItems()) {
+                        Map<String, Object> partMap = new HashMap<>();
+                        partMap.put("partName", item.getPartName());
+                        partMap.put("partNumber", item.getPartNumber());
+                        partMap.put("productDescription", item.getProductDescription());
+                        partLineItems.add(partMap);
+                    }
+                }
+                rmaMap.put("partLineItems", partLineItems);
+                
+                // Add comments data
+                List<Map<String, Object>> comments = new ArrayList<>();
+                if (rma.getComments() != null) {
+                    for (var comment : rma.getComments()) {
+                        Map<String, Object> commentMap = new HashMap<>();
+                        commentMap.put("id", comment.getId());
+                        commentMap.put("content", comment.getContent());
+                        commentMap.put("createdDate", comment.getCreatedDate() != null ? comment.getCreatedDate().toString() : null);
+                        if (comment.getUser() != null) {
+                            Map<String, Object> userMap = new HashMap<>();
+                            userMap.put("name", comment.getUser().getName() != null ? comment.getUser().getName() : "Unknown");
+                            commentMap.put("user", userMap);
+                        } else {
+                            commentMap.put("user", null);
+                        }
+                        comments.add(commentMap);
+                    }
+                }
+                rmaMap.put("comments", comments);
+                
+                return rmaMap;
+            }).collect(Collectors.toList());
+            
+            result.put("success", true);
+            result.put("rmas", rmaData);
+            result.put("rmaCommentsMap", rmaCommentsMap);
+            result.put("movingPartsMap", movingPartsMap);
+            
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("=== COMPLETED ASYNC RMA DATA LOADING in {}ms ===", duration);
+            logger.info("Final counts - RMAs: {}, Comments: {}, Moving Parts: {}", 
+                       allRmas.size(),
+                       rmaCommentsMap.values().stream().mapToInt(Integer::intValue).sum(),
+                       movingPartsMap.values().stream().mapToInt(Integer::intValue).sum());
+                       
+        } catch (Exception e) {
+            logger.error("Error loading RMA data async: {}", e.getMessage(), e);
+            result.put("success", false);
+            result.put("error", e.getMessage());
+        }
+        
+        return result;
     }
 
     @GetMapping("/test-upload")

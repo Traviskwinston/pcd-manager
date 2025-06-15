@@ -21,6 +21,7 @@ import com.pcd.manager.service.RmaService;
 import com.pcd.manager.service.PassdownService;
 import com.pcd.manager.service.UserService;
 import com.pcd.manager.service.TrackTrendService;
+import com.pcd.manager.service.AsyncDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -48,6 +49,7 @@ import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.security.Principal;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Controller
@@ -67,12 +69,13 @@ public class ToolController {
     private final PassdownRepository passdownRepository;
     private final ToolCommentRepository toolCommentRepository;
     private final TrackTrendRepository trackTrendRepository;
+    private final AsyncDataService asyncDataService;
     
     @Value("${app.upload.dir:${user.home}/uploads}")
     private String uploadDir;
 
     @Autowired
-    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService, RmaRepository rmaRepository, PassdownRepository passdownRepository, ToolCommentRepository toolCommentRepository, TrackTrendRepository trackTrendRepository) {
+    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService, RmaRepository rmaRepository, PassdownRepository passdownRepository, ToolCommentRepository toolCommentRepository, TrackTrendRepository trackTrendRepository, AsyncDataService asyncDataService) {
         this.toolService = toolService;
         this.toolRepository = toolRepository;
         this.locationService = locationService;
@@ -84,6 +87,7 @@ public class ToolController {
         this.passdownRepository = passdownRepository;
         this.toolCommentRepository = toolCommentRepository;
         this.trackTrendRepository = trackTrendRepository;
+        this.asyncDataService = asyncDataService;
     }
     
     @PostConstruct
@@ -110,10 +114,12 @@ public class ToolController {
 
     @GetMapping
     public String listTools(Model model) {
-        logger.info("=== LOADING TOOLS LIST PAGE (OPTIMIZED) ===");
+        logger.info("=== LOADING TOOLS LIST PAGE (ASYNC OPTIMIZED) ===");
+        long startTime = System.currentTimeMillis();
+        
         // Use lightweight query for list view - only load essential fields
         List<Tool> allTools = toolRepository.findAllForListView();
-        logger.info("Loaded {} tools for list view", allTools.size());
+        logger.info("Loaded {} tools for async list view", allTools.size());
         
         if (allTools.isEmpty()) {
             model.addAttribute("tools", allTools);
@@ -126,114 +132,41 @@ public class ToolController {
         
         List<Long> toolIds = allTools.stream().map(Tool::getId).collect(Collectors.toList());
         
-        // OPTIMIZATION: Load only essential data using lightweight queries
-        
         // Initialize all maps to ensure they're never null
         Map<Long, List<Map<String, Object>>> toolRmasMap = new HashMap<>();
         Map<Long, List<Map<String, Object>>> toolPassdownsMap = new HashMap<>();
         Map<Long, List<Map<String, Object>>> toolCommentsMap = new HashMap<>();
         Map<Long, List<Map<String, Object>>> toolTrackTrendsMap = new HashMap<>();
         
-        // Bulk load lightweight RMA data
         try {
-            logger.info("Bulk loading lightweight RMA data for {} tools", toolIds.size());
-            List<Object[]> rmaData = rmaRepository.findRmaListDataByToolIds(toolIds);
-            logger.info("Found {} RMA records from lightweight query", rmaData.size());
+            // ASYNC OPTIMIZATION: Load all related data in parallel instead of sequentially
+            logger.info("Starting parallel async data loading for {} tools", toolIds.size());
             
-            for (Object[] row : rmaData) {
-                Long rmaId = (Long) row[0];
-                String rmaNumber = (String) row[1];
-                Object status = row[2]; // RmaStatus enum
-                Long toolId = (Long) row[3];
-                
-                Map<String, Object> rmaInfo = new HashMap<>();
-                rmaInfo.put("id", rmaId);
-                rmaInfo.put("rmaNumber", rmaNumber);
-                rmaInfo.put("status", status);
-                
-                toolRmasMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(rmaInfo);
-            }
+            CompletableFuture<Map<String, Map<Long, List<Map<String, Object>>>>> asyncDataFuture = 
+                asyncDataService.loadAllToolDataAsync(toolIds);
             
-            logger.info("Processed {} RMA records across {} tools", rmaData.size(), toolIds.size());
+            // Wait for all async operations to complete
+            Map<String, Map<Long, List<Map<String, Object>>>> asyncData = asyncDataFuture.get();
+            
+            // Extract the data maps
+            toolRmasMap = asyncData.getOrDefault("rmas", new HashMap<>());
+            toolPassdownsMap = asyncData.getOrDefault("passdowns", new HashMap<>());
+            toolCommentsMap = asyncData.getOrDefault("comments", new HashMap<>());
+            toolTrackTrendsMap = asyncData.getOrDefault("trackTrends", new HashMap<>());
+            
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("=== COMPLETED ASYNC TOOLS LIST PAGE LOAD IN {}ms ===", duration);
+            
+            // Add performance info to model for display
+            model.addAttribute("loadTime", duration);
+            model.addAttribute("asyncEnabled", true);
+            
         } catch (Exception e) {
-            logger.error("Error loading lightweight RMA data: {}", e.getMessage(), e);
-        }
-        
-        // Bulk load lightweight Passdown data
-        try {
-            logger.info("Bulk loading lightweight Passdown data for {} tools", toolIds.size());
-            List<Object[]> passdownData = passdownRepository.findPassdownListDataByToolIds(toolIds);
-            logger.info("Found {} Passdown records from lightweight query", passdownData.size());
+            logger.error("Error in async tools list loading, falling back to empty maps: {}", e.getMessage(), e);
             
-            for (Object[] row : passdownData) {
-                Long passdownId = (Long) row[0];
-                Object date = row[1]; // LocalDate
-                String userName = (String) row[2];
-                String comment = (String) row[3];
-                Long toolId = (Long) row[4];
-                
-                Map<String, Object> passdownInfo = new HashMap<>();
-                passdownInfo.put("id", passdownId);
-                passdownInfo.put("date", date);
-                passdownInfo.put("userName", userName);
-                passdownInfo.put("comment", comment);
-                
-                toolPassdownsMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(passdownInfo);
-            }
-            
-            logger.info("Processed {} Passdown records across {} tools", passdownData.size(), toolIds.size());
-        } catch (Exception e) {
-            logger.error("Error loading lightweight Passdown data: {}", e.getMessage(), e);
-        }
-        
-        // Bulk load lightweight Comment data
-        try {
-            logger.info("Bulk loading lightweight Comment data for {} tools", toolIds.size());
-            List<Object[]> commentData = toolCommentRepository.findCommentListDataByToolIds(toolIds);
-            logger.info("Found {} Comment records from lightweight query", commentData.size());
-            
-            for (Object[] row : commentData) {
-                Long commentId = (Long) row[0];
-                Object createdDate = row[1]; // LocalDateTime
-                String userName = (String) row[2];
-                String content = (String) row[3];
-                Long toolId = (Long) row[4];
-                
-                Map<String, Object> commentInfo = new HashMap<>();
-                commentInfo.put("id", commentId);
-                commentInfo.put("createdDate", createdDate);
-                commentInfo.put("userName", userName);
-                commentInfo.put("content", content);
-                
-                toolCommentsMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(commentInfo);
-            }
-            
-            logger.info("Processed {} Comment records across {} tools", commentData.size(), toolIds.size());
-        } catch (Exception e) {
-            logger.error("Error loading lightweight Comment data: {}", e.getMessage(), e);
-        }
-        
-        // Bulk load lightweight Track/Trend data
-        try {
-            logger.info("Bulk loading lightweight Track/Trend data for {} tools", toolIds.size());
-            List<Object[]> trackTrendData = trackTrendRepository.findTrackTrendListDataByToolIds(toolIds);
-            logger.info("Found {} Track/Trend records from lightweight query", trackTrendData.size());
-            
-            for (Object[] row : trackTrendData) {
-                Long trackTrendId = (Long) row[0];
-                String name = (String) row[1];
-                Long toolId = (Long) row[2];
-                
-                Map<String, Object> trackTrendInfo = new HashMap<>();
-                trackTrendInfo.put("id", trackTrendId);
-                trackTrendInfo.put("name", name);
-                
-                toolTrackTrendsMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(trackTrendInfo);
-            }
-            
-            logger.info("Processed {} Track/Trend records across {} tools", trackTrendData.size(), toolIds.size());
-        } catch (Exception e) {
-            logger.error("Error loading lightweight Track/Trend data: {}", e.getMessage(), e);
+            // Maps are already initialized above, so we just keep them empty
+            model.addAttribute("asyncEnabled", false);
+            model.addAttribute("asyncError", e.getMessage());
         }
         
         // Ensure all tools have entries in maps (even if empty)
@@ -263,7 +196,7 @@ public class ToolController {
         model.addAttribute("toolCommentsMap", toolCommentsMap);
         model.addAttribute("toolTrackTrendsMap", toolTrackTrendsMap);
         
-        logger.info("=== COMPLETED TOOLS LIST PAGE LOADING (OPTIMIZED) ===");
+        logger.info("=== COMPLETED TOOLS LIST PAGE LOADING (ASYNC OPTIMIZED) ===");
         logger.info("Final counts - Tools: {}, RMAs: {}, Passdowns: {}, Comments: {}, Track/Trends: {}", 
                    allTools.size(),
                    toolRmasMap.values().stream().mapToInt(List::size).sum(),

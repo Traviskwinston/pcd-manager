@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -15,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -114,5 +116,73 @@ public class DashboardService {
             
             return map;
         }).collect(Collectors.toList());
+    }
+
+    /**
+     * Asynchronously warm up dashboard caches
+     * This can be called during application startup or periodically
+     */
+    @Async("cacheExecutor")
+    public CompletableFuture<Void> warmUpDashboardCachesAsync() {
+        logger.info("Starting async dashboard cache warming");
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            // Warm up all dashboard caches in parallel
+            CompletableFuture<Map<String, Object>> dashboardDataFuture = 
+                CompletableFuture.supplyAsync(() -> getDashboardData());
+            CompletableFuture<List<Map<String, Object>>> gridDataFuture = 
+                CompletableFuture.supplyAsync(() -> getGridToolData());
+            CompletableFuture<List<Map<String, Object>>> filtersFuture = 
+                CompletableFuture.supplyAsync(() -> getTrackTrendFilters());
+            
+            // Wait for all cache warming operations to complete
+            CompletableFuture.allOf(dashboardDataFuture, gridDataFuture, filtersFuture).get();
+            
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("Completed async dashboard cache warming in {}ms", duration);
+            
+        } catch (Exception e) {
+            logger.error("Error during async dashboard cache warming: {}", e.getMessage(), e);
+        }
+        
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Asynchronously refresh specific dashboard cache
+     */
+    @Async("cacheExecutor")
+    public CompletableFuture<Void> refreshDashboardCacheAsync(String cacheType) {
+        logger.info("Starting async refresh of dashboard cache: {}", cacheType);
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            switch (cacheType.toLowerCase()) {
+                case "dashboard-data":
+                    getDashboardData();
+                    break;
+                case "grid-data":
+                    getGridToolData();
+                    break;
+                case "filters":
+                    getTrackTrendFilters();
+                    break;
+                case "all":
+                    warmUpDashboardCachesAsync().get();
+                    break;
+                default:
+                    logger.warn("Unknown cache type for refresh: {}", cacheType);
+                    return CompletableFuture.completedFuture(null);
+            }
+            
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("Completed async refresh of {} cache in {}ms", cacheType, duration);
+            
+        } catch (Exception e) {
+            logger.error("Error during async cache refresh for {}: {}", cacheType, e.getMessage(), e);
+        }
+        
+        return CompletableFuture.completedFuture(null);
     }
 } 

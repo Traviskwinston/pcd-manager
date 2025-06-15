@@ -24,6 +24,7 @@ import java.util.Set;
 
 /**
  * Service for handling file transfers between RMAs
+ * Core synchronous operations with async wrapper available via AsyncFileTransferService
  */
 @Service
 public class FileTransferService {
@@ -48,7 +49,8 @@ public class FileTransferService {
     }
     
     /**
-     * Transfer multiple files between RMAs
+     * Transfer multiple files between RMAs (SYNCHRONOUS VERSION)
+     * For async operations, use AsyncFileTransferService.transferMultipleFilesAsync()
      * 
      * @param fileIds List of file IDs to transfer
      * @param fileTypes List of file types (document/picture)
@@ -63,12 +65,33 @@ public class FileTransferService {
             Long sourceRmaId,
             List<Long> targetRmaIds) {
         
+        logger.info("Starting SYNC batch transfer of {} files from RMA ID: {}", 
+                fileIds.size(), sourceRmaId);
+        long startTime = System.currentTimeMillis();
+        
+        Map<String, Object> result = transferMultipleFilesSync(fileIds, fileTypes, sourceRmaId, targetRmaIds);
+        
+        long duration = System.currentTimeMillis() - startTime;
+        logger.info("Completed SYNC batch transfer in {}ms", duration);
+        
+        return result;
+    }
+    
+    /**
+     * Synchronous batch transfer implementation
+     */
+    private Map<String, Object> transferMultipleFilesSync(
+            List<Long> fileIds, 
+            List<String> fileTypes,
+            Long sourceRmaId,
+            List<Long> targetRmaIds) {
+        
         Map<String, Object> result = new HashMap<>();
         List<Map<String, Object>> transferResults = new ArrayList<>();
         int successCount = 0;
         int failureCount = 0;
         
-        logger.info("Starting batch transfer of {} files from RMA ID: {}", 
+        logger.info("Starting SYNC batch transfer of {} files from RMA ID: {}", 
                 fileIds.size(), sourceRmaId);
         
         // Create a Set to track already processed files to prevent duplicates
@@ -141,7 +164,7 @@ public class FileTransferService {
         result.put("failureCount", failureCount);
         result.put("transfers", transferResults);
         
-        logger.info("Batch transfer completed. Success: {}, Failures: {}", 
+        logger.info("SYNC batch transfer completed. Success: {}, Failures: {}", 
                 successCount, failureCount);
         
         return result;

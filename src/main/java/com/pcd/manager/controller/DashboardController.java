@@ -21,6 +21,8 @@ import com.pcd.manager.service.ToolService;
 import com.pcd.manager.service.TrackTrendService;
 import com.pcd.manager.service.NoteService;
 import com.pcd.manager.service.UserService;
+import com.pcd.manager.service.DashboardService;
+import com.pcd.manager.service.AsyncDataService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +45,7 @@ import java.util.stream.Collectors;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 
 @Controller
 @RequestMapping("/dashboard")
@@ -61,6 +64,8 @@ public class DashboardController {
     private final RmaRepository rmaRepository;
     private final ToolCommentRepository toolCommentRepository;
     private final TrackTrendRepository trackTrendRepository;
+    private final DashboardService dashboardService;
+    private final AsyncDataService asyncDataService;
 
     private static final Logger logger = LoggerFactory.getLogger(DashboardController.class);
 
@@ -77,7 +82,9 @@ public class DashboardController {
                              UserService userService,
                              RmaRepository rmaRepository,
                              ToolCommentRepository toolCommentRepository,
-                             TrackTrendRepository trackTrendRepository) {
+                             TrackTrendRepository trackTrendRepository,
+                             DashboardService dashboardService,
+                             AsyncDataService asyncDataService) {
         this.toolRepository = toolRepository;
         this.passdownRepository = passdownRepository;
         this.locationRepository = locationRepository;
@@ -91,6 +98,8 @@ public class DashboardController {
         this.rmaRepository = rmaRepository;
         this.toolCommentRepository = toolCommentRepository;
         this.trackTrendRepository = trackTrendRepository;
+        this.dashboardService = dashboardService;
+        this.asyncDataService = asyncDataService;
     }
 
     @GetMapping
@@ -150,56 +159,91 @@ public class DashboardController {
         long assignedToolCount = sortedTools.stream().filter(t -> !t.getCurrentTechnicians().isEmpty()).count();
         logger.info("Temporary Check: Number of tools with assigned technicians: {}", assignedToolCount);
 
-        // Get passdowns from the past 2 weeks
-        LocalDate twoWeeksAgo = LocalDate.now().minusWeeks(2);
-        LocalDate today = LocalDate.now();
-        List<Passdown> recentPassdowns = passdownRepository.findByDateBetweenOrderByDateDesc(twoWeeksAgo, today);
-        logger.info("Fetched {} passdowns from past 2 weeks ({} to {}) for dashboard.", recentPassdowns.size(), twoWeeksAgo, today);
-
-        // Prepare filter dropdown data: distinct users and tools
-        List<String> passdownUsers = recentPassdowns.stream()
-                .map(pd -> pd.getUser().getName())
-                .distinct()
-                .collect(Collectors.toList());
-        List<String> passdownTools = recentPassdowns.stream()
-                .map(pd -> pd.getTool() != null ? pd.getTool().getName() : null)
-                .filter(Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
-
-        // Prepare lightweight tool data for the grid using ultra-lightweight query
-        List<Object[]> gridToolData = toolRepository.findGridViewData();
-        List<Map<String, Object>> allToolsData = gridToolData.stream().map(row -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", row[0]); // t.id
-            map.put("name", row[1]); // t.name
-            map.put("model", row[2]); // t.model1
-            map.put("serial", row[3]); // t.serialNumber1
-            map.put("status", row[4] != null ? row[4].toString() : ""); // t.status
-            map.put("type", row[5] != null ? row[5].toString() : ""); // t.toolType
-            map.put("location", row[6]); // l.name
-            map.put("hasAssignedUsers", row[7]); // hasAssignedUsers boolean
-            return map;
-        }).collect(Collectors.toList());
+        // ASYNC OPTIMIZATION: Load dashboard data in parallel
+        long dashboardStartTime = System.currentTimeMillis();
         
-        // Fetch track trends for the filter dropdown
-        List<TrackTrend> allTrackTrends = trackTrendService.getAllTrackTrendsWithAffectedTools();
-        logger.info("Fetched {} track/trend items for filters.", allTrackTrends.size());
+        // Initialize variables outside try block to ensure they're accessible later
+        List<Passdown> recentPassdowns = new ArrayList<>();
+        List<String> passdownUsers = new ArrayList<>();
+        List<String> passdownTools = new ArrayList<>();
+        List<Map<String, Object>> allToolsData = new ArrayList<>();
+        List<Map<String, Object>> formattedTrackTrends = new ArrayList<>();
         
-        // Convert TrackTrend data for JavaScript, including affected tools
-        List<Map<String, Object>> formattedTrackTrends = allTrackTrends.stream().map(tt -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", tt.getId());
-            map.put("title", tt.getName());
+        try {
+            logger.info("Starting async dashboard data loading");
             
-            // Extract affected tool IDs for issue filtering
-            List<Long> affectedToolIds = tt.getAffectedTools().stream()
-                    .map(Tool::getId)
+            CompletableFuture<Map<String, Object>> dashboardDataFuture = 
+                asyncDataService.loadDashboardDataAsync();
+            
+            // Wait for async operations to complete
+            Map<String, Object> dashboardData = dashboardDataFuture.get();
+            
+            // Extract the data with proper casting
+            @SuppressWarnings("unchecked")
+            List<Passdown> asyncRecentPassdowns = (List<Passdown>) dashboardData.get("recentPassdowns");
+            @SuppressWarnings("unchecked")
+            List<String> asyncPassdownUsers = (List<String>) dashboardData.get("passdownUsers");
+            @SuppressWarnings("unchecked")
+            List<String> asyncPassdownTools = (List<String>) dashboardData.get("passdownTools");
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> asyncAllToolsData = (List<Map<String, Object>>) dashboardData.get("allToolsData");
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> asyncFormattedTrackTrends = (List<Map<String, Object>>) dashboardData.get("formattedTrackTrends");
+            
+            // Assign to our variables
+            recentPassdowns = asyncRecentPassdowns != null ? asyncRecentPassdowns : new ArrayList<>();
+            passdownUsers = asyncPassdownUsers != null ? asyncPassdownUsers : new ArrayList<>();
+            passdownTools = asyncPassdownTools != null ? asyncPassdownTools : new ArrayList<>();
+            allToolsData = asyncAllToolsData != null ? asyncAllToolsData : new ArrayList<>();
+            formattedTrackTrends = asyncFormattedTrackTrends != null ? asyncFormattedTrackTrends : new ArrayList<>();
+            
+            long dashboardDuration = System.currentTimeMillis() - dashboardStartTime;
+            logger.info("Completed async dashboard data loading in {}ms", dashboardDuration);
+            
+        } catch (Exception e) {
+            logger.error("Error in async dashboard data loading, using fallback: {}", e.getMessage(), e);
+            
+            // Fallback to synchronous loading if async fails
+            LocalDate twoWeeksAgo = LocalDate.now().minusWeeks(2);
+            LocalDate today = LocalDate.now();
+            recentPassdowns = passdownRepository.findByDateBetweenOrderByDateDesc(twoWeeksAgo, today);
+            
+            passdownUsers = recentPassdowns.stream()
+                    .map(pd -> pd.getUser().getName())
+                    .distinct()
                     .collect(Collectors.toList());
-            map.put("affectedTools", affectedToolIds);
+            passdownTools = recentPassdowns.stream()
+                    .map(pd -> pd.getTool() != null ? pd.getTool().getName() : null)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
             
-            return map;
-        }).collect(Collectors.toList());
+            List<Object[]> gridToolData = toolRepository.findGridViewData();
+            allToolsData = gridToolData.stream().map(row -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", row[0]);
+                map.put("name", row[1]);
+                map.put("model", row[2]);
+                map.put("serial", row[3]);
+                map.put("status", row[4] != null ? row[4].toString() : "");
+                map.put("type", row[5] != null ? row[5].toString() : "");
+                map.put("location", row[6]);
+                map.put("hasAssignedUsers", row[7]);
+                return map;
+            }).collect(Collectors.toList());
+            
+            List<TrackTrend> allTrackTrends = trackTrendService.getAllTrackTrendsWithAffectedTools();
+            formattedTrackTrends = allTrackTrends.stream().map(tt -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", tt.getId());
+                map.put("title", tt.getName());
+                List<Long> affectedToolIds = tt.getAffectedTools().stream()
+                        .map(Tool::getId)
+                        .collect(Collectors.toList());
+                map.put("affectedTools", affectedToolIds);
+                return map;
+            }).collect(Collectors.toList());
+        }
         
         // Load lightweight data for the 4 icon columns (same as optimized tools list)
         List<Long> toolIds = sortedTools.stream().map(Tool::getId).collect(Collectors.toList());
