@@ -4,6 +4,8 @@ import com.pcd.manager.model.Location;
 import com.pcd.manager.repository.LocationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +26,9 @@ public class LocationService {
         this.locationRepository = locationRepository;
     }
 
+    @Cacheable(value = "locations-list", key = "'all-locations'")
     public List<Location> getAllLocations() {
+        logger.debug("Fetching all locations (cacheable)");
         return locationRepository.findAll();
     }
 
@@ -53,17 +57,20 @@ public class LocationService {
         return location;
     }
 
+    @CacheEvict(value = {"locations-list", "dropdown-data"}, allEntries = true)
     public Location saveLocation(Location location) {
         if (location.isDefaultLocation()) {
             logger.debug("Clearing previous default locations");
             locationRepository.clearDefaultLocations();
         }
         Location saved = locationRepository.save(location);
-        logger.debug("Saved location: {} (default: {})", saved.getId(), saved.isDefaultLocation());
+        logger.debug("Saved location: {} (default: {}) and evicted caches", saved.getId(), saved.isDefaultLocation());
         return saved;
     }
 
+    @CacheEvict(value = {"locations-list", "dropdown-data"}, allEntries = true)
     public void deleteLocation(Long id) {
+        logger.debug("Deleting location {} and evicting caches", id);
         locationRepository.deleteById(id);
     }
 

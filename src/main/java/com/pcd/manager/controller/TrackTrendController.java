@@ -5,6 +5,9 @@ import com.pcd.manager.model.TrackTrendComment;
 import com.pcd.manager.model.Tool;
 import com.pcd.manager.service.TrackTrendService;
 import com.pcd.manager.service.ToolService;
+import com.pcd.manager.repository.RmaRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -20,51 +23,103 @@ import java.util.stream.Collectors;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/tracktrend")
 public class TrackTrendController {
 
+    private static final Logger logger = LoggerFactory.getLogger(TrackTrendController.class);
+    
     private final TrackTrendService trackTrendService;
     private final ToolService toolService;
+    private final RmaRepository rmaRepository;
 
     @Autowired
-    public TrackTrendController(TrackTrendService trackTrendService, ToolService toolService) {
+    public TrackTrendController(TrackTrendService trackTrendService, ToolService toolService, RmaRepository rmaRepository) {
         this.trackTrendService = trackTrendService;
         this.toolService = toolService;
+        this.rmaRepository = rmaRepository;
     }
 
     @GetMapping
     public String listTrackTrends(Model model) {
+        logger.info("=== LOADING TRACK/TREND LIST PAGE (OPTIMIZED) ===");
+        
+        // Use lightweight query for list view - only load essential fields
         List<TrackTrend> trackTrends = trackTrendService.getAllTrackTrends();
+        logger.info("Loaded {} track/trends for list view", trackTrends.size());
         
-        // Create a map to store related RMAs for each track trend
-        java.util.Map<Long, List<com.pcd.manager.model.Rma>> relatedRmasMap = new java.util.HashMap<>();
+        if (trackTrends.isEmpty()) {
+            model.addAttribute("trackTrends", trackTrends);
+            model.addAttribute("relatedRmasMap", new HashMap<>());
+            model.addAttribute("trackTrendCommentsMap", new HashMap<>());
+            return "tracktrend/list";
+        }
         
-        // Explicitly load collections for each track trend
-        for (TrackTrend tt : trackTrends) {
-            try {
-                // Load comments 
-                List<TrackTrendComment> comments = trackTrendService.getCommentsForTrackTrend(tt.getId());
-                tt.setComments(comments);
+        List<Long> trackTrendIds = trackTrends.stream().map(TrackTrend::getId).collect(Collectors.toList());
+        
+        // OPTIMIZATION: Bulk load related data using lightweight queries
+        Map<Long, List<Map<String, Object>>> relatedRmasMap = new HashMap<>();
+        Map<Long, Integer> trackTrendCommentsMap = new HashMap<>();
+        
+        // Bulk load lightweight RMA counts for each track/trend
+        try {
+            for (TrackTrend tt : trackTrends) {
+                if (tt.getAffectedTools() != null && !tt.getAffectedTools().isEmpty()) {
+                    List<Long> toolIds = tt.getAffectedTools().stream()
+                            .map(Tool::getId)
+                            .collect(Collectors.toList());
+                    
+                    List<Object[]> rmaData = rmaRepository.findRmaListDataByToolIds(toolIds);
+                    List<Map<String, Object>> rmaList = new ArrayList<>();
+                    
+                    for (Object[] row : rmaData) {
+                        Map<String, Object> rmaInfo = new HashMap<>();
+                        rmaInfo.put("id", row[0]);
+                        rmaInfo.put("rmaNumber", row[1]);
+                        rmaInfo.put("status", row[2]);
+                        rmaInfo.put("sapNotificationNumber", null); // Add this for template compatibility
+                        
+                        // Add tool information - create a nested map to match template expectations
+                        Long toolId = (Long) row[3]; // tool.id from the query
+                        if (toolId != null) {
+                            // Find the tool name from the affected tools
+                            String toolName = tt.getAffectedTools().stream()
+                                    .filter(tool -> tool.getId().equals(toolId))
+                                    .map(Tool::getName)
+                                    .findFirst()
+                                    .orElse("Unknown Tool");
+                            
+                            Map<String, Object> toolInfo = new HashMap<>();
+                            toolInfo.put("name", toolName);
+                            rmaInfo.put("tool", toolInfo);
+                        } else {
+                            rmaInfo.put("tool", null);
+                        }
+                        
+                        rmaList.add(rmaInfo);
+                    }
+                    
+                    relatedRmasMap.put(tt.getId(), rmaList);
+                } else {
+                    relatedRmasMap.put(tt.getId(), new ArrayList<>());
+                }
                 
-                // Explicitly initialize affected tools collection to prevent LazyInitializationException
-                tt.getAffectedTools().size(); // This forces initialization
-                
-                // Load related RMAs for this Track/Trend
-                List<com.pcd.manager.model.Rma> relatedRmas = trackTrendService.getRelatedRmas(tt.getId());
-                relatedRmasMap.put(tt.getId(), relatedRmas);
-                
-            } catch (Exception e) {
-                // Log the error but continue processing
-                System.err.println("Error loading data for TrackTrend ID " + tt.getId() + ": " + e.getMessage());
-                tt.setComments(new ArrayList<>());
-                relatedRmasMap.put(tt.getId(), new ArrayList<>());
+                // Set comment count (comments are eagerly loaded)
+                trackTrendCommentsMap.put(tt.getId(), tt.getComments() != null ? tt.getComments().size() : 0);
             }
+            logger.info("Loaded related RMA data for {} track/trends", trackTrends.size());
+        } catch (Exception e) {
+            logger.error("Error loading related RMA data: {}", e.getMessage(), e);
         }
         
         model.addAttribute("trackTrends", trackTrends);
         model.addAttribute("relatedRmasMap", relatedRmasMap);
+        model.addAttribute("trackTrendCommentsMap", trackTrendCommentsMap);
+        
+        logger.info("=== COMPLETED TRACK/TREND LIST PAGE LOADING (OPTIMIZED) ===");
         return "tracktrend/list";
     }
 

@@ -356,15 +356,15 @@ public class ToolController {
             model.addAttribute("trackTrendsForTool", trackTrendsForTool);
         });
         
-        // Add all RMAs for link functionality
-        List<Rma> allRmas = rmaService.getAllRmas();
+        // Add lightweight RMA data for link functionality (only id and rmaNumber needed)
+        List<Rma> allRmas = rmaRepository.findAllForListView();
         model.addAttribute("allRmas", allRmas);
         
         // Add recent passdowns for link functionality
         List<Passdown> recentPassdowns = passdownService.getRecentPassdowns(20);
         model.addAttribute("recentPassdowns", recentPassdowns);
         
-        // Add all TrackTrends for linking functionality
+        // Add lightweight TrackTrends for linking functionality (only id and name needed)
         List<TrackTrend> allTrackTrends = trackTrendService.getAllTrackTrends();
         model.addAttribute("allTrackTrends", allTrackTrends);
         

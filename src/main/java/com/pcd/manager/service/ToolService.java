@@ -21,6 +21,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -66,8 +69,19 @@ public class ToolService {
         this.passdownService = passdownService;
     }
 
+    @Cacheable(value = "tools-list", key = "'all-tools'")
     public List<Tool> getAllTools() {
+        logger.info("Fetching all tools (cacheable)");
         return toolRepository.findAll();
+    }
+    
+    /**
+     * Get lightweight tools for dropdowns/selects - only loads essential fields
+     */
+    @Cacheable(value = "dropdown-data", key = "'tools-dropdown'")
+    public List<Tool> getAllToolsForDropdown() {
+        logger.info("Fetching tools for dropdown (cacheable)");
+        return toolRepository.findAllForListView();
     }
 
     /**
@@ -77,15 +91,21 @@ public class ToolService {
         return toolRepository.findAllWithTechnicians();
     }
 
+    @Cacheable(value = "tool-details", key = "#id")
     public Optional<Tool> getToolById(Long id) {
+        logger.debug("Fetching tool by ID: {} (cacheable)", id);
         return toolRepository.findById(id);
     }
 
+    @CacheEvict(value = {"tools-list", "dropdown-data", "tool-details"}, allEntries = true)
     public Tool saveTool(Tool tool) {
+        logger.info("Saving tool and evicting caches");
         return toolRepository.save(tool);
     }
 
+    @CacheEvict(value = {"tools-list", "dropdown-data", "tool-details"}, allEntries = true)
     public void deleteTool(Long id) {
+        logger.info("Deleting tool {} and evicting caches", id);
         toolRepository.deleteById(id);
     }
 

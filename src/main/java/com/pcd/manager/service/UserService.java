@@ -7,6 +7,8 @@ import com.pcd.manager.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,18 +34,21 @@ public class UserService {
     /**
      * Create a new user with encoded password
      */
+    @CacheEvict(value = {"users-list", "dropdown-data"}, allEntries = true)
     public User createUser(User user) {
         // Encode the password before saving
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
             user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
         
+        logger.debug("Creating user and evicting caches");
         return userRepository.save(user);
     }
 
     /**
      * Update an existing user
      */
+    @CacheEvict(value = {"users-list", "dropdown-data"}, allEntries = true)
     public User updateUser(User user) {
         // Get the existing user to check if password needs updating
         Optional<User> existingUserOpt = userRepository.findById(user.getId());
@@ -65,7 +70,9 @@ public class UserService {
     /**
      * Get all users
      */
+    @Cacheable(value = "users-list", key = "'all-users'")
     public List<User> getAllUsers() {
+        logger.debug("Fetching all users (cacheable)");
         return userRepository.findAll();
     }
 
@@ -93,7 +100,9 @@ public class UserService {
     /**
      * Delete a user by id
      */
+    @CacheEvict(value = {"users-list", "dropdown-data"}, allEntries = true)
     public void deleteUser(Long id) {
+        logger.debug("Deleting user {} and evicting caches", id);
         userRepository.deleteById(id);
     }
 

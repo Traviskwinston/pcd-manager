@@ -183,7 +183,7 @@ public class DashboardController {
         }).collect(Collectors.toList());
         
         // Fetch track trends for the filter dropdown
-        List<TrackTrend> allTrackTrends = trackTrendService.getAllTrackTrends();
+        List<TrackTrend> allTrackTrends = trackTrendService.getAllTrackTrendsWithAffectedTools();
         logger.info("Fetched {} track/trend items for filters.", allTrackTrends.size());
         
         // Convert TrackTrend data for JavaScript, including affected tools

@@ -26,6 +26,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.web.multipart.MultipartFile;
 import org.hibernate.Hibernate;
 
@@ -80,8 +83,9 @@ public class RmaService {
         this.movingPartRepository = movingPartRepository;
     }
 
+    @Cacheable(value = "rma-list", key = "'all-rmas'")
     public List<Rma> getAllRmas() {
-        logger.info("Getting all RMAs ordered by written date descending");
+        logger.info("Getting all RMAs ordered by written date descending (cacheable)");
         List<Rma> rmas = rmaRepository.findAllOrderedByWrittenDateDesc();
         logger.info("Retrieved {} RMAs, first RMA written date: {}", 
             rmas.size(), 
@@ -100,13 +104,27 @@ public class RmaService {
         logger.info("Finding RMAs for tool ID: {}", toolId);
         List<Rma> rmas = rmaRepository.findByToolId(toolId);
         
+        // Only initialize collections if needed for detail views
+        // For list views, use lightweight queries instead
+        logger.info("Found {} RMAs for tool ID: {}", rmas.size(), toolId);
+        return rmas;
+    }
+    
+    /**
+     * Find RMAs associated with a tool with collections initialized (for detail views)
+     */
+    @Transactional(readOnly = true)
+    public List<Rma> findRmasByToolIdWithCollections(Long toolId) {
+        logger.info("Finding RMAs with collections for tool ID: {}", toolId);
+        List<Rma> rmas = rmaRepository.findByToolId(toolId);
+        
         // Initialize lazy-loaded collections
         for (Rma rma : rmas) {
             if (rma.getDocuments() != null) rma.getDocuments().size();
             if (rma.getPictures() != null) rma.getPictures().size();
         }
         
-        logger.info("Found {} RMAs for tool ID: {}", rmas.size(), toolId);
+        logger.info("Found {} RMAs with collections for tool ID: {}", rmas.size(), toolId);
         return rmas;
     }
 
@@ -136,8 +154,9 @@ public class RmaService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "rma-details", key = "#id")
     public Optional<Rma> getRmaById(Long id) {
-        logger.info("Getting RMA by ID: {}", id);
+        logger.info("Getting RMA by ID: {} (cacheable)", id);
         Optional<Rma> rmaOpt = rmaRepository.findById(id);
         
         rmaOpt.ifPresent(rma -> {
@@ -174,6 +193,7 @@ public class RmaService {
     }
 
     @Transactional
+    @CacheEvict(value = {"rma-list", "rma-details", "dashboard-data"}, allEntries = true)
     public Rma saveRma(Rma rmaToSave, MultipartFile[] fileUploads) {
         try {
             logger.info("=== SAVING RMA WITH FILES ===");
@@ -316,6 +336,7 @@ public class RmaService {
     }
 
     @Transactional
+    @CacheEvict(value = {"rma-list", "rma-details", "dashboard-data"}, allEntries = true)
     public void deleteRma(Long id) {
         logger.info("Attempting to delete RMA ID: {}", id);
         Rma rma = getRmaById(id).orElseThrow(() -> new RuntimeException("RMA not found: " + id));

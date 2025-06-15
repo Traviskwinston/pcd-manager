@@ -97,10 +97,8 @@ pcd-manager-client/.env.development.local
 pcd-manager-client/.env.test.local
 pcd-manager-client/.env.production.local
 
-# Application specific files
-application-dev.properties
+# Application specific files - keep dev properties but ignore local overrides
 application-local.properties
-**/*-dev.properties
-**/*-dev.yml
+**/*-local.properties
 **/*-local.yml
 *.log 

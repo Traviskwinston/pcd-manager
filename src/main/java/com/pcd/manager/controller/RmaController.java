@@ -66,6 +66,11 @@ public class RmaController {
     private final ExcelService excelService;
     private final MovingPartService movingPartService;
     private final TrackTrendService trackTrendService;
+    
+    // Repository dependencies for optimized queries
+    private final com.pcd.manager.repository.RmaRepository rmaRepository;
+    private final com.pcd.manager.repository.RmaCommentRepository rmaCommentRepository;
+    private final com.pcd.manager.repository.MovingPartRepository movingPartRepository;
 
     @Autowired
     public RmaController(RmaService rmaService,
@@ -77,7 +82,10 @@ public class RmaController {
                          PassdownService passdownService,
                          ExcelService excelService,
                          MovingPartService movingPartService,
-                         TrackTrendService trackTrendService) {
+                         TrackTrendService trackTrendService,
+                         com.pcd.manager.repository.RmaRepository rmaRepository,
+                         com.pcd.manager.repository.RmaCommentRepository rmaCommentRepository,
+                         com.pcd.manager.repository.MovingPartRepository movingPartRepository) {
         this.rmaService = rmaService;
         this.locationService = locationService;
         this.toolService = toolService;
@@ -88,38 +96,69 @@ public class RmaController {
         this.excelService = excelService;
         this.movingPartService = movingPartService;
         this.trackTrendService = trackTrendService;
+        this.rmaRepository = rmaRepository;
+        this.rmaCommentRepository = rmaCommentRepository;
+        this.movingPartRepository = movingPartRepository;
     }
 
     @GetMapping
     public String listRmas(Model model) {
-        List<Rma> rmas = rmaService.getAllRmas();
+        logger.info("=== LOADING RMA LIST PAGE (OPTIMIZED) ===");
+        // Use lightweight query for list view - only load essential fields
+        List<Rma> allRmas = rmaRepository.findAllForListView();
+        logger.info("Loaded {} RMAs for list view", allRmas.size());
         
-        // Explicitly load comments for each RMA
-        for (Rma rma : rmas) {
-            try {
-                List<RmaComment> comments = rmaService.getCommentsForRma(rma.getId());
-                rma.setComments(comments);
-            } catch (Exception e) {
-                // Log the error but continue processing
-                logger.error("Error loading comments for RMA ID " + rma.getId() + ": " + e.getMessage(), e);
-                rma.setComments(new ArrayList<>());
-            }
+        if (allRmas.isEmpty()) {
+            model.addAttribute("rmas", allRmas);
+            model.addAttribute("rmaCommentsMap", new HashMap<>());
+            model.addAttribute("movingPartsMap", new HashMap<>());
+            return "rma/list";
         }
         
-        // Load moving parts for each RMA and create a map
-        Map<Long, List<MovingPart>> movingPartsMap = new HashMap<>();
-        for (Rma rma : rmas) {
-            try {
-                List<MovingPart> movingParts = movingPartService.getMovingPartsByRmaId(rma.getId());
-                movingPartsMap.put(rma.getId(), movingParts);
-            } catch (Exception e) {
-                logger.error("Error loading moving parts for RMA ID " + rma.getId() + ": " + e.getMessage(), e);
-                movingPartsMap.put(rma.getId(), new ArrayList<>());
+        List<Long> rmaIds = allRmas.stream().map(Rma::getId).collect(Collectors.toList());
+        
+        // OPTIMIZATION: Load only essential data using lightweight queries
+        
+        // Initialize maps to ensure they're never null
+        Map<Long, Integer> rmaCommentsMap = new HashMap<>();
+        Map<Long, Integer> movingPartsMap = new HashMap<>();
+        
+        // Bulk load lightweight comment counts
+        try {
+            List<Object[]> commentCounts = rmaCommentRepository.findCommentCountsByRmaIds(rmaIds);
+            for (Object[] row : commentCounts) {
+                Long rmaId = (Long) row[0];
+                Long count = (Long) row[1];
+                rmaCommentsMap.put(rmaId, count.intValue());
             }
+            logger.info("Loaded comment counts for {} RMAs", commentCounts.size());
+        } catch (Exception e) {
+            logger.error("Error loading RMA comment counts: {}", e.getMessage(), e);
         }
         
-        model.addAttribute("rmas", rmas);
+        // Bulk load lightweight moving part counts
+        try {
+            List<Object[]> movingPartCounts = movingPartRepository.findMovingPartCountsByRmaIds(rmaIds);
+            for (Object[] row : movingPartCounts) {
+                Long rmaId = (Long) row[0];
+                Long count = (Long) row[1];
+                movingPartsMap.put(rmaId, count.intValue());
+            }
+            logger.info("Loaded moving part counts for {} RMAs", movingPartCounts.size());
+        } catch (Exception e) {
+            logger.error("Error loading RMA moving part counts: {}", e.getMessage(), e);
+        }
+        
+        model.addAttribute("rmas", allRmas);
+        model.addAttribute("rmaCommentsMap", rmaCommentsMap);
         model.addAttribute("movingPartsMap", movingPartsMap);
+        
+        logger.info("=== COMPLETED RMA LIST PAGE LOADING (OPTIMIZED) ===");
+        logger.info("Final counts - RMAs: {}, Comments: {}, Moving Parts: {}", 
+                   allRmas.size(),
+                   rmaCommentsMap.values().stream().mapToInt(Integer::intValue).sum(),
+                   movingPartsMap.values().stream().mapToInt(Integer::intValue).sum());
+        
         return "rma/list";
     }
 

@@ -56,4 +56,24 @@ public interface RmaRepository extends JpaRepository<Rma, Long> {
      */
     @Query("SELECT r.id, r.rmaNumber, r.status, r.tool.id FROM Rma r WHERE r.tool.id IN :toolIds ORDER BY r.id DESC")
     List<Object[]> findRmaListDataByToolIds(List<Long> toolIds);
+    
+    /**
+     * Lightweight query for RMA list view - only loads essential fields
+     * Avoids loading heavy relationships that will be bulk-loaded separately
+     */
+    @Query("SELECT DISTINCT r FROM Rma r " +
+           "LEFT JOIN FETCH r.location " +
+           "ORDER BY r.writtenDate DESC NULLS LAST, r.id DESC")
+    List<Rma> findAllForListView();
+    
+    /**
+     * Ultra-lightweight query for very large lists - only essential fields
+     * Returns: id, rmaNumber, status, writtenDate, location.name, tool.name
+     */
+    @Query("SELECT r.id, r.rmaNumber, r.status, r.writtenDate, " +
+           "CASE WHEN l.name IS NOT NULL THEN l.name ELSE '' END, " +
+           "CASE WHEN t.name IS NOT NULL THEN t.name ELSE '' END " +
+           "FROM Rma r LEFT JOIN r.location l LEFT JOIN r.tool t " +
+           "ORDER BY r.writtenDate DESC NULLS LAST, r.id DESC")
+    List<Object[]> findAllUltraLightweight();
 } 

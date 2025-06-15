@@ -13,6 +13,9 @@ import com.pcd.manager.model.Rma;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -52,10 +55,22 @@ public class TrackTrendService {
         this.rmaRepository = rmaRepository;
     }
 
+    @Cacheable(value = "tracktrend-list", key = "'all-tracktrends'")
     public List<TrackTrend> getAllTrackTrends() {
-        // Use custom method to fetch with join to eagerly load relationships
-        List<TrackTrend> trackTrends = trackTrendRepository.findAllWithAffectedTools();
+        logger.info("Getting all TrackTrends (lightweight, cacheable)");
+        // Use lightweight query for list views - only load essential fields
+        List<TrackTrend> trackTrends = trackTrendRepository.findAll();
         // Sort in memory
+        return trackTrends.stream()
+            .sorted(Comparator.comparing(TrackTrend::getName, String.CASE_INSENSITIVE_ORDER))
+            .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get all TrackTrends with affected tools eagerly loaded (for detail views only)
+     */
+    public List<TrackTrend> getAllTrackTrendsWithAffectedTools() {
+        List<TrackTrend> trackTrends = trackTrendRepository.findAllWithAffectedTools();
         return trackTrends.stream()
             .sorted(Comparator.comparing(TrackTrend::getName, String.CASE_INSENSITIVE_ORDER))
             .collect(Collectors.toList());
@@ -65,11 +80,15 @@ public class TrackTrendService {
         return trackTrendRepository.findById(id);
     }
 
+    @CacheEvict(value = {"tracktrend-list", "dashboard-data"}, allEntries = true)
     public TrackTrend saveTrackTrend(TrackTrend trackTrend) {
+        logger.info("Saving TrackTrend and evicting caches");
         return trackTrendRepository.save(trackTrend);
     }
 
+    @CacheEvict(value = {"tracktrend-list", "dashboard-data"}, allEntries = true)
     public void deleteTrackTrend(Long id) {
+        logger.info("Deleting TrackTrend {} and evicting caches", id);
         trackTrendRepository.deleteById(id);
     }
 
