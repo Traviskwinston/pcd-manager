@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.ArrayList;
 
 @Service
 public class ToolService {
@@ -381,5 +382,15 @@ public class ToolService {
      */
     public List<ToolComment> getCommentsForTool(Long toolId) {
         return toolCommentRepository.findByToolIdOrderByCreatedDateDesc(toolId);
+    }
+    
+    /**
+     * Bulk load comments for multiple tools (optimization for list views)
+     */
+    public List<ToolComment> getCommentsByToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return toolCommentRepository.findByToolIdInOrderByCreatedDateDesc(toolIds);
     }
 } 

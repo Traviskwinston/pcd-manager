@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.ArrayList;
 
 @Service
 public class MovingPartService {
@@ -48,6 +49,22 @@ public class MovingPartService {
         logger.debug("Searching for moving parts for tool ID: {}", toolId);
         List<MovingPart> results = movingPartRepository.findAllByToolId(toolId);
         logger.debug("Found {} moving parts for tool ID: {}", results.size(), toolId);
+        return results;
+    }
+    
+    /**
+     * OPTIMIZATION: Bulk gets moving parts for multiple tools to avoid N+1 queries
+     * @param toolIds The list of tool IDs
+     * @return List of moving parts for the specified tools
+     */
+    public List<MovingPart> getMovingPartsByToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        logger.debug("Bulk searching for moving parts for {} tool IDs", toolIds.size());
+        List<MovingPart> results = movingPartRepository.findAllByToolIds(toolIds);
+        logger.debug("Found {} moving parts for {} tool IDs", results.size(), toolIds.size());
         return results;
     }
     

@@ -221,9 +221,10 @@
                             </th>
                             <th style="width: 8%; display: none;">Moving Parts</th>
                             <th style="width: 8%;">RMAs</th>
+                            <th style="width: 8%;">Track/Trends</th>
                             <th style="width: 8%;">Passdown</th>
                             <th style="width: 8%;">Comments</th>
-                            <th style="width: 16%;">Technicians</th>
+                            <th style="width: 14%;">Technicians</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -320,6 +321,30 @@
                                 
                                 <!-- RMA count -->
                                 <span th:text="${toolRmasMap[tool.id] != null ? #lists.size(toolRmasMap[tool.id]) : 0}" class="ms-1 small"></span>
+                            </td>
+                            <td class="text-center">
+                                <!-- Track/Trends icon and count -->
+                                <th:block th:if="${toolTrackTrendsMap != null and toolTrackTrendsMap[tool.id] != null and not #lists.isEmpty(toolTrackTrendsMap[tool.id])}">
+                                    <i class="bi bi-graph-up-arrow info-icon-interactive"
+                                       data-bs-toggle="popover"
+                                       data-bs-placement="left"
+                                       data-bs-trigger="hover focus click"
+                                       data-bs-html="true"
+                                       th:attr="data-bs-title='Track/Trends (' + ${#lists.size(toolTrackTrendsMap[tool.id])} + ')'"
+                                       th:data-bs-content="${#strings.listJoin(toolTrackTrendsMap[tool.id].![
+                                           '<a href=&quot;/tracktrend/' + id + '&quot; class=&quot;text-decoration-none d-block mb-1&quot; onclick=&quot;event.stopPropagation();&quot;>' +
+                                           name + '</a>'
+                                       ], '')}"
+                                       onclick="event.stopPropagation();">
+                                    </i>
+                                    <span th:text="${#lists.size(toolTrackTrendsMap[tool.id])}" class="ms-1 small"></span>
+                                </th:block>
+                                
+                                <!-- Greyed out icon when no Track/Trends -->
+                                <th:block th:unless="${toolTrackTrendsMap != null and toolTrackTrendsMap[tool.id] != null and not #lists.isEmpty(toolTrackTrendsMap[tool.id])}">
+                                    <i class="bi bi-graph-up text-muted"></i>
+                                    <span class="ms-1 small">0</span>
+                                </th:block>
                             </td>
                             <td class="text-center">
                                 <!-- Interactive Passdown icon when passdowns exist -->

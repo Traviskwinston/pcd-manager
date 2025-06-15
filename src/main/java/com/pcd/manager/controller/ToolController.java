@@ -8,19 +8,15 @@ import com.pcd.manager.model.RmaDocument;
 import com.pcd.manager.model.Passdown;
 import com.pcd.manager.model.User;
 import com.pcd.manager.model.Note;
-import com.pcd.manager.model.MovingPart;
-import com.pcd.manager.model.TrackTrend;
 import com.pcd.manager.model.ToolComment;
+import com.pcd.manager.model.TrackTrend;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.service.ToolService;
 import com.pcd.manager.service.LocationService;
 import com.pcd.manager.service.RmaService;
 import com.pcd.manager.service.PassdownService;
 import com.pcd.manager.service.UserService;
-import com.pcd.manager.service.NoteService;
-import com.pcd.manager.service.MovingPartService;
 import com.pcd.manager.service.TrackTrendService;
-import com.pcd.manager.util.UploadUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -48,6 +44,7 @@ import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.security.Principal;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/tools")
@@ -59,29 +56,22 @@ public class ToolController {
     private final ToolRepository toolRepository;
     private final LocationService locationService;
     private final RmaService rmaService;
-    private final UploadUtils uploadUtils;
-    private final PassdownService passdownService;
     private final UserService userService;
-    private final NoteService noteService;
-    private final MovingPartService movingPartService;
     private final TrackTrendService trackTrendService;
+    private final PassdownService passdownService;
     
     @Value("${app.upload.dir:${user.home}/uploads}")
     private String uploadDir;
 
     @Autowired
-    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UploadUtils uploadUtils, PassdownService passdownService, UserService userService, NoteService noteService, MovingPartService movingPartService,
-                         TrackTrendService trackTrendService) {
+    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService) {
         this.toolService = toolService;
         this.toolRepository = toolRepository;
         this.locationService = locationService;
         this.rmaService = rmaService;
-        this.uploadUtils = uploadUtils;
-        this.passdownService = passdownService;
         this.userService = userService;
-        this.noteService = noteService;
-        this.movingPartService = movingPartService;
         this.trackTrendService = trackTrendService;
+        this.passdownService = passdownService;
     }
     
     @PostConstruct
@@ -108,49 +98,106 @@ public class ToolController {
 
     @GetMapping
     public String listTools(Model model) {
-        // Use optimized query to prevent N+1 queries 
-        List<Tool> allTools = toolRepository.findAllWithAllRelations();
+        logger.info("=== LOADING TOOLS LIST PAGE ===");
+        // Use lightweight query for list view - only load essential fields
+        List<Tool> allTools = toolRepository.findAllForListView();
+        logger.info("Loaded {} tools for list view", allTools.size());
         
-        // Explicitly load comments for each tool (following RMA pattern)
-        for (Tool tool : allTools) {
-            try {
-                List<ToolComment> comments = toolService.getCommentsForTool(tool.getId());
-                tool.setComments(comments);
-            } catch (Exception e) {
-                // Log the error but continue processing
-                logger.error("Error loading comments for Tool ID " + tool.getId() + ": " + e.getMessage(), e);
-                tool.setComments(new ArrayList<>());
+        if (allTools.isEmpty()) {
+            model.addAttribute("tools", allTools);
+            model.addAttribute("toolRmasMap", new HashMap<>());
+            model.addAttribute("toolPassdownsMap", new HashMap<>());
+            model.addAttribute("toolCommentsMap", new HashMap<>());
+            model.addAttribute("toolTrackTrendsMap", new HashMap<>());
+            return "tools/list";
+        }
+        
+        // Extract all towhat loading
+        List<Long> toolIds = allTools.stream().map(Tool::getId).collect(Collectors.toList());
+        
+        // OPTIMIZATION: Load all related data in bulk instead of N+1 queries
+        
+        // Initialize all maps to ensure they're never null
+        Map<Long, List<Rma>> toolRmasMap = new HashMap<>();
+        Map<Long, List<Passdown>> toolPassdownsMap = new HashMap<>();
+        Map<Long, List<ToolComment>> toolCommentsMap = new HashMap<>();
+        Map<Long, List<TrackTrend>> toolTrackTrendsMap = new HashMap<>();
+        
+        // Bulk load RMAs for all tools
+        try {
+            toolRmasMap = rmaService.findRmasByToolIds(toolIds).stream()
+                    .collect(Collectors.groupingBy(rma -> rma.getTool().getId()));
+        } catch (Exception e) {
+            logger.error("Error loading RMAs: {}", e.getMessage(), e);
+        }
+        
+        // Bulk load Passdowns for all tools
+        try {
+            logger.info("Bulk loading Passdowns for {} tools", toolIds.size());
+            List<Passdown> allPassdowns = passdownService.getPassdownsByToolIds(toolIds);
+            logger.info("Found {} total Passdowns from bulk query", allPassdowns.size());
+            
+            // Group Passdowns by tool ID
+            toolPassdownsMap = allPassdowns.stream()
+                    .filter(passdown -> passdown.getTool() != null)
+                    .collect(Collectors.groupingBy(passdown -> passdown.getTool().getId()));
+            
+            logger.info("Loaded {} Passdowns across {} tools", allPassdowns.size(), toolIds.size());
+        } catch (Exception e) {
+            logger.error("Error loading Passdowns: {}", e.getMessage(), e);
+            // Initialize empty map for all tools
+            for (Long toolId : toolIds) {
+                toolPassdownsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
+            }
+        }
+                
+        // Bulk load Comments for all tools
+        try {
+            logger.info("Bulk loading comments for {} tools", toolIds.size());
+            List<ToolComment> allComments = toolService.getCommentsByToolIds(toolIds);
+            logger.info("Found {} total comments from bulk query", allComments.size());
+            
+            // Group comments by tool ID
+            toolCommentsMap = allComments.stream()
+                    .collect(Collectors.groupingBy(comment -> comment.getTool().getId()));
+            
+            logger.info("Loaded {} comments across {} tools", allComments.size(), toolIds.size());
+        } catch (Exception e) {
+            logger.error("Error bulk loading comments: {}", e.getMessage(), e);
+            // Initialize empty map for all tools
+            for (Long toolId : toolIds) {
+                toolCommentsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
             }
         }
         
-        // Create maps for RMA, Passdown, and MovingPart data to avoid N+1 queries
-        Map<Long, List<Rma>> toolRmasMap = new HashMap<>();
-        Map<Long, List<Passdown>> toolPassdownsMap = new HashMap<>();
-        Map<Long, List<MovingPart>> toolMovingPartsMap = new HashMap<>();
-        
-        // Load RMAs, Passdowns, and MovingParts for all tools
-        for (Tool tool : allTools) {
-            List<Rma> rmas = rmaService.findRmasByToolId(tool.getId());
-            toolRmasMap.put(tool.getId(), rmas);
+        // Bulk load Track/Trends for all tools
+        try {
+            logger.info("Bulk loading Track/Trends for {} tools", toolIds.size());
+            List<TrackTrend> allTrackTrends = trackTrendService.getTrackTrendsByToolIds(toolIds);
+            logger.info("Found {} total Track/Trends from bulk query", allTrackTrends.size());
             
-            List<Passdown> passdowns = passdownService.getPassdownsByToolId(tool.getId());
-            toolPassdownsMap.put(tool.getId(), passdowns);
-            
-            // Check if movingPartService is null
-            if (movingPartService == null) {
-                logger.error("MovingPartService is NULL! Cannot load moving parts.");
-                toolMovingPartsMap.put(tool.getId(), new ArrayList<>());
-            } else {
-                try {
-                    logger.info("About to call movingPartService.getMovingPartsByToolId for tool ID: {}", tool.getId());
-                    List<MovingPart> movingParts = movingPartService.getMovingPartsByToolId(tool.getId());
-                    logger.info("Found {} Moving Parts for tool ID: {}", movingParts.size(), tool.getId());
-                    toolMovingPartsMap.put(tool.getId(), movingParts);
-                } catch (Exception e) {
-                    logger.error("Exception occurred while loading moving parts for tool ID {}: {}", tool.getId(), e.getMessage(), e);
-                    toolMovingPartsMap.put(tool.getId(), new ArrayList<>());
+            // Group Track/Trends by tool ID - need to handle many-to-many relationship
+            for (TrackTrend trackTrend : allTrackTrends) {
+                for (Tool affectedTool : trackTrend.getAffectedTools()) {
+                    toolTrackTrendsMap.computeIfAbsent(affectedTool.getId(), k -> new ArrayList<>()).add(trackTrend);
                 }
             }
+            
+            logger.info("Loaded {} Track/Trends across {} tools", allTrackTrends.size(), toolIds.size());
+        } catch (Exception e) {
+            logger.error("Error bulk loading Track/Trends: {}", e.getMessage(), e);
+            // Initialize empty map for all tools
+            for (Long toolId : toolIds) {
+                toolTrackTrendsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
+            }
+        }
+        
+        // Ensure all tools have entries in maps (even if empty)
+        for (Long toolId : toolIds) {
+            toolRmasMap.computeIfAbsent(toolId, k -> new ArrayList<>());
+            toolPassdownsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
+            toolCommentsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
+            toolTrackTrendsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
         }
         
         // Sort: tools with technicians first, then alphabetically by name and secondary name
@@ -169,7 +216,17 @@ public class ToolController {
         model.addAttribute("tools", allTools);
         model.addAttribute("toolRmasMap", toolRmasMap);
         model.addAttribute("toolPassdownsMap", toolPassdownsMap);
-        model.addAttribute("toolMovingPartsMap", toolMovingPartsMap);
+        model.addAttribute("toolCommentsMap", toolCommentsMap);
+        model.addAttribute("toolTrackTrendsMap", toolTrackTrendsMap);
+        
+        logger.info("=== COMPLETED TOOLS LIST PAGE LOADING ===");
+        logger.info("Final counts - Tools: {}, RMAs: {}, Passdowns: {}, Comments: {}, Track/Trends: {}", 
+                   allTools.size(),
+                   toolRmasMap.values().stream().mapToInt(List::size).sum(),
+                   toolPassdownsMap.values().stream().mapToInt(List::size).sum(),
+                   toolCommentsMap.values().stream().mapToInt(List::size).sum(),
+                   toolTrackTrendsMap.values().stream().mapToInt(List::size).sum());
+        
         return "tools/list";
     }
 
@@ -226,32 +283,26 @@ public class ToolController {
                 });
             }
             
-            // Get moving parts data
-            List<MovingPart> movingParts = movingPartService.getMovingPartsByToolId(id);
-            model.addAttribute("movingParts", movingParts);
-            
-            // Add the moving part service to the model so templates can use it
-            model.addAttribute("movingPartService", movingPartService);
-            
-            // Create destination chain display data for each moving part (similar to RMA controller)
-            Map<Long, List<Tool>> movingPartDestinationChains = new HashMap<>();
-            Map<Long, Tool> toolMap = new HashMap<>();
-            for (Tool t : allTools) {
-                toolMap.put(t.getId(), t);
-            }
-            
-            for (MovingPart movingPart : movingParts) {
-                List<Tool> chainTools = new ArrayList<>();
-                List<Long> destinationIds = movingPart.getDestinationToolIds();
-                for (Long toolId : destinationIds) {
-                    Tool destTool = toolMap.get(toolId);
-                    if (destTool != null) {
-                        chainTools.add(destTool);
-                    }
-                }
-                movingPartDestinationChains.put(movingPart.getId(), chainTools);
-            }
-            model.addAttribute("movingPartDestinationChains", movingPartDestinationChains);
+            // Create destination chain display data for each moving part (similar to RMA controller) - TEMPORARILY DISABLED
+            // Map<Long, List<Tool>> movingPartDestinationChains = new HashMap<>();
+            // Map<Long, Tool> toolMap = new HashMap<>();
+            // for (Tool t : allTools) {
+            //     toolMap.put(t.getId(), t);
+            // }
+            // 
+            // for (MovingPart movingPart : movingParts) {
+            //     List<Tool> chainTools = new ArrayList<>();
+            //     List<Long> destinationIds = movingPart.getDestinationToolIds();
+            //     for (Long toolId : destinationIds) {
+            //         Tool destTool = toolMap.get(toolId);
+            //         if (destTool != null) {
+            //             chainTools.add(destTool);
+            //         }
+            //     }
+            //     movingPartDestinationChains.put(movingPart.getId(), chainTools);
+            // }
+            // model.addAttribute("movingPartDestinationChains", movingPartDestinationChains);
+            model.addAttribute("movingPartDestinationChains", new HashMap<>());
             
             // Create a new Note object for the note creation form
             model.addAttribute("newNote", new Note());
@@ -269,9 +320,7 @@ public class ToolController {
         List<Passdown> recentPassdowns = passdownService.getRecentPassdowns(20);
         model.addAttribute("recentPassdowns", recentPassdowns);
         
-        // Add all TrackTrends for linking functionality (if not already covered by trackTrendsForTool)
-        // Ensure this doesn't cause issues if trackTrendsForTool is also used elsewhere in the template.
-        // For the modal, we need all possible linkable track trends.
+        // Add all TrackTrends for linking functionality
         List<TrackTrend> allTrackTrends = trackTrendService.getAllTrackTrends();
         model.addAttribute("allTrackTrends", allTrackTrends);
         
@@ -822,9 +871,8 @@ public class ToolController {
         return "redirect:/tools/" + id;
     }
 
-    /**
-     * Handles adding a new note to a tool
-     */
+    // TEMPORARILY DISABLED - Note methods require NoteService
+    /*
     @PostMapping("/{id}/notes/add")
     public String addNote(@PathVariable Long id, 
                          @RequestParam("content") String content,
@@ -859,9 +907,6 @@ public class ToolController {
         return "redirect:/tools/" + id;
     }
     
-    /**
-     * Handles deleting a note
-     */
     @PostMapping("/{toolId}/notes/{noteId}/delete")
     public String deleteNote(@PathVariable Long toolId, 
                            @PathVariable Long noteId,
@@ -905,6 +950,7 @@ public class ToolController {
         
         return "redirect:/tools/" + toolId;
     }
+    */
 
     @PostMapping("/{id}/post-comment")
     public String postComment(@PathVariable Long id, 

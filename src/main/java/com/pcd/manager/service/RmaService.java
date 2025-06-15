@@ -110,6 +110,31 @@ public class RmaService {
         return rmas;
     }
 
+    /**
+     * OPTIMIZATION: Bulk find RMAs for multiple tools to avoid N+1 queries
+     * 
+     * @param toolIds the list of tool IDs
+     * @return list of RMAs associated with any of the tools
+     */
+    @Transactional(readOnly = true)
+    public List<Rma> findRmasByToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        logger.info("Bulk finding RMAs for {} tool IDs", toolIds.size());
+        List<Rma> rmas = rmaRepository.findByToolIdIn(toolIds);
+        
+        // Initialize lazy-loaded collections
+        for (Rma rma : rmas) {
+            if (rma.getDocuments() != null) rma.getDocuments().size();
+            if (rma.getPictures() != null) rma.getPictures().size();
+        }
+        
+        logger.info("Found {} RMAs for {} tool IDs", rmas.size(), toolIds.size());
+        return rmas;
+    }
+
     @Transactional(readOnly = true)
     public Optional<Rma> getRmaById(Long id) {
         logger.info("Getting RMA by ID: {}", id);

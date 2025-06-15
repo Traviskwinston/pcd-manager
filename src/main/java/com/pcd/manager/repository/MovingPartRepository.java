@@ -22,6 +22,14 @@ public interface MovingPartRepository extends JpaRepository<MovingPart, Long> {
            "ORDER BY mp.moveDate DESC")
     List<MovingPart> findAllByToolId(Long toolId);
     
+    /**
+     * OPTIMIZATION: Bulk find moving parts for multiple tools to avoid N+1 queries
+     * This query finds moving parts where the tool is either the from_tool or in the destination chain
+     */
+    @Query("SELECT DISTINCT mp FROM MovingPart mp WHERE mp.fromTool.id IN :toolIds " +
+           "ORDER BY mp.moveDate DESC")
+    List<MovingPart> findAllByToolIds(List<Long> toolIds);
+    
     @Query("SELECT mp FROM MovingPart mp WHERE mp.fromTool = :tool OR " +
            "(mp.destinationChain IS NOT NULL AND " +
            "(mp.destinationChain LIKE CONCAT('[', :#{#tool.id}, ']') OR " +

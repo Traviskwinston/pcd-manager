@@ -10,4 +10,7 @@ import java.util.List;
 public interface ToolCommentRepository extends JpaRepository<ToolComment, Long> {
     List<ToolComment> findByToolId(Long toolId);
     List<ToolComment> findByToolIdOrderByCreatedDateDesc(Long toolId);
+    
+    // Bulk loading method for multiple tool IDs
+    List<ToolComment> findByToolIdInOrderByCreatedDateDesc(List<Long> toolIds);
 } 

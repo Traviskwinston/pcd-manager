@@ -54,4 +54,13 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
            "LEFT JOIN FETCH t.location " +
            "LEFT JOIN FETCH t.tags")
     List<Tool> findAllWithAllRelations();
+    
+    /**
+     * Lightweight query for tools list view - only loads essential fields
+     * Avoids loading heavy relationships that will be bulk-loaded separately
+     */
+    @Query("SELECT DISTINCT t FROM Tool t " +
+           "LEFT JOIN FETCH t.location " +
+           "LEFT JOIN FETCH t.currentTechnicians")
+    List<Tool> findAllForListView();
 } 

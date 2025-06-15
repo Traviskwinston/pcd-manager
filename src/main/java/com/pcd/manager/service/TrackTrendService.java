@@ -24,6 +24,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 @Transactional
@@ -86,6 +89,51 @@ public class TrackTrendService {
         return trackTrendRepository.findByAffectedToolsId(toolId).stream()
             .sorted(Comparator.comparing(TrackTrend::getName, String.CASE_INSENSITIVE_ORDER))
             .collect(Collectors.toList());
+    }
+    
+    /**
+     * Bulk load TrackTrends for multiple tools (optimization for list views)
+     */
+    public List<TrackTrend> getTrackTrendsByToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            logger.info("getTrackTrendsByToolIds called with null or empty toolIds");
+            return new ArrayList<>();
+        }
+        logger.info("getTrackTrendsByToolIds called with {} tool IDs: {}", toolIds.size(), toolIds);
+        
+        try {
+            // Use the new method that eagerly loads affectedTools to avoid lazy loading issues
+            List<TrackTrend> result = trackTrendRepository.findByAffectedToolsIdInWithAffectedTools(toolIds).stream()
+                .sorted(Comparator.comparing(TrackTrend::getName, String.CASE_INSENSITIVE_ORDER))
+                .collect(Collectors.toList());
+                
+            logger.info("Repository query returned {} TrackTrends", result.size());
+            for (TrackTrend tt : result) {
+                logger.info("TrackTrend: {} has {} affected tools", 
+                           tt.getName(), 
+                           tt.getAffectedTools() != null ? tt.getAffectedTools().size() : 0);
+            }
+            
+            return result;
+        } catch (Exception e) {
+            logger.error("Error in bulk query with eager loading, falling back to individual queries: {}", e.getMessage(), e);
+            
+            // Fallback: use individual queries (less efficient but should work)
+            Set<TrackTrend> allTrackTrends = new HashSet<>();
+            for (Long toolId : toolIds) {
+                try {
+                    List<TrackTrend> trackTrendsForTool = trackTrendRepository.findByAffectedToolsId(toolId);
+                    allTrackTrends.addAll(trackTrendsForTool);
+                } catch (Exception ex) {
+                    logger.error("Error loading track/trends for tool {}: {}", toolId, ex.getMessage());
+                }
+            }
+            
+            logger.info("Fallback method returned {} unique TrackTrends", allTrackTrends.size());
+            return allTrackTrends.stream()
+                .sorted(Comparator.comparing(TrackTrend::getName, String.CASE_INSENSITIVE_ORDER))
+                .collect(Collectors.toList());
+        }
     }
     
     /**

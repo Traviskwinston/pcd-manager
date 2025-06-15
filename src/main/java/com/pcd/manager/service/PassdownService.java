@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.HashSet;
 import java.util.HashMap;
+import java.util.ArrayList;
 
 @Service
 public class PassdownService {
@@ -460,5 +461,19 @@ public class PassdownService {
     public List<Passdown> getPassdownsByToolId(Long toolId) {
         logger.debug("Getting passdowns for tool ID: {}", toolId);
         return passdownRepository.findByToolIdOrderByDateDesc(toolId);
+    }
+    
+    /**
+     * OPTIMIZATION: Bulk gets passdowns for multiple tools to avoid N+1 queries
+     * @param toolIds The list of tool IDs
+     * @return List of passdowns for the specified tools
+     */
+    public List<Passdown> getPassdownsByToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        logger.debug("Bulk getting passdowns for {} tool IDs", toolIds.size());
+        return passdownRepository.findByToolIdInOrderByDateDesc(toolIds);
     }
 } 
