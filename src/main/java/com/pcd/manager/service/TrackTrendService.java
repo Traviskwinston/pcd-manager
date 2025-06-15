@@ -271,4 +271,21 @@ public class TrackTrendService {
             return false;
         }
     }
+
+    /**
+     * OPTIMIZATION: Bulk gets lightweight track/trend data for multiple tools to avoid loading full objects
+     * Returns only essential fields: id, name, toolId
+     * @param toolIds The list of tool IDs
+     * @return List of Object arrays with lightweight track/trend data
+     */
+    public List<Object[]> findTrackTrendListDataByToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        logger.debug("Bulk getting lightweight track/trend data for {} tool IDs", toolIds.size());
+        List<Object[]> trackTrendData = trackTrendRepository.findTrackTrendListDataByToolIds(toolIds);
+        logger.debug("Found {} lightweight track/trend records for {} tool IDs", trackTrendData.size(), toolIds.size());
+        return trackTrendData;
+    }
 } 

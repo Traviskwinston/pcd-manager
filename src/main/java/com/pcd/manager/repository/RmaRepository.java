@@ -49,4 +49,11 @@ public interface RmaRepository extends JpaRepository<Rma, Long> {
      * @return list of RMAs associated with any of the tools
      */
     List<Rma> findByToolIdIn(List<Long> toolIds);
+    
+    /**
+     * Lightweight query for tools list view - only loads essential RMA fields
+     * Returns: id, rmaNumber, status, tool.id
+     */
+    @Query("SELECT r.id, r.rmaNumber, r.status, r.tool.id FROM Rma r WHERE r.tool.id IN :toolIds ORDER BY r.id DESC")
+    List<Object[]> findRmaListDataByToolIds(List<Long> toolIds);
 } 

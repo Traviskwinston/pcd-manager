@@ -393,4 +393,21 @@ public class ToolService {
         }
         return toolCommentRepository.findByToolIdInOrderByCreatedDateDesc(toolIds);
     }
+
+    /**
+     * OPTIMIZATION: Bulk gets lightweight comment data for multiple tools to avoid loading full objects
+     * Returns only essential fields: id, createdDate, userName, content, toolId
+     * @param toolIds The list of tool IDs
+     * @return List of Object arrays with lightweight comment data
+     */
+    public List<Object[]> findCommentListDataByToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        logger.debug("Bulk getting lightweight comment data for {} tool IDs", toolIds.size());
+        List<Object[]> commentData = toolCommentRepository.findCommentListDataByToolIds(toolIds);
+        logger.debug("Found {} lightweight comment records for {} tool IDs", commentData.size(), toolIds.size());
+        return commentData;
+    }
 } 

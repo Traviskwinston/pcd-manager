@@ -476,4 +476,21 @@ public class PassdownService {
         logger.debug("Bulk getting passdowns for {} tool IDs", toolIds.size());
         return passdownRepository.findByToolIdInOrderByDateDesc(toolIds);
     }
+
+    /**
+     * OPTIMIZATION: Bulk gets lightweight passdown data for multiple tools to avoid loading full objects
+     * Returns only essential fields: id, date, userName, comment, toolId
+     * @param toolIds The list of tool IDs
+     * @return List of Object arrays with lightweight passdown data
+     */
+    public List<Object[]> findPassdownListDataByToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        logger.debug("Bulk getting lightweight passdown data for {} tool IDs", toolIds.size());
+        List<Object[]> passdownData = passdownRepository.findPassdownListDataByToolIds(toolIds);
+        logger.debug("Found {} lightweight passdown records for {} tool IDs", passdownData.size(), toolIds.size());
+        return passdownData;
+    }
 } 

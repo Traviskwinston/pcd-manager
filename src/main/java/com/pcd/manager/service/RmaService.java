@@ -1689,4 +1689,20 @@ public class RmaService {
         rmaRepository.save(rma);
         logger.info("Updated priority for RMA ID {} to {}", rmaId, newPriority);
     }
+
+    /**
+     * OPTIMIZATION: Bulk find lightweight RMA data for multiple tools to avoid loading full objects
+     * Returns only essential fields: id, rmaNumber, status, toolId
+     */
+    @Transactional(readOnly = true)
+    public List<Object[]> findRmaListDataByToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        logger.info("Bulk finding lightweight RMA data for {} tool IDs", toolIds.size());
+        List<Object[]> rmaData = rmaRepository.findRmaListDataByToolIds(toolIds);
+        logger.info("Found {} lightweight RMA records for {} tool IDs", rmaData.size(), toolIds.size());
+        return rmaData;
+    }
 } 

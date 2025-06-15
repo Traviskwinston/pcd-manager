@@ -11,6 +11,10 @@ import com.pcd.manager.model.Note;
 import com.pcd.manager.model.ToolComment;
 import com.pcd.manager.model.TrackTrend;
 import com.pcd.manager.repository.ToolRepository;
+import com.pcd.manager.repository.RmaRepository;
+import com.pcd.manager.repository.PassdownRepository;
+import com.pcd.manager.repository.ToolCommentRepository;
+import com.pcd.manager.repository.TrackTrendRepository;
 import com.pcd.manager.service.ToolService;
 import com.pcd.manager.service.LocationService;
 import com.pcd.manager.service.RmaService;
@@ -59,12 +63,16 @@ public class ToolController {
     private final UserService userService;
     private final TrackTrendService trackTrendService;
     private final PassdownService passdownService;
+    private final RmaRepository rmaRepository;
+    private final PassdownRepository passdownRepository;
+    private final ToolCommentRepository toolCommentRepository;
+    private final TrackTrendRepository trackTrendRepository;
     
     @Value("${app.upload.dir:${user.home}/uploads}")
     private String uploadDir;
 
     @Autowired
-    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService) {
+    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService, RmaRepository rmaRepository, PassdownRepository passdownRepository, ToolCommentRepository toolCommentRepository, TrackTrendRepository trackTrendRepository) {
         this.toolService = toolService;
         this.toolRepository = toolRepository;
         this.locationService = locationService;
@@ -72,6 +80,10 @@ public class ToolController {
         this.userService = userService;
         this.trackTrendService = trackTrendService;
         this.passdownService = passdownService;
+        this.rmaRepository = rmaRepository;
+        this.passdownRepository = passdownRepository;
+        this.toolCommentRepository = toolCommentRepository;
+        this.trackTrendRepository = trackTrendRepository;
     }
     
     @PostConstruct
@@ -98,7 +110,7 @@ public class ToolController {
 
     @GetMapping
     public String listTools(Model model) {
-        logger.info("=== LOADING TOOLS LIST PAGE ===");
+        logger.info("=== LOADING TOOLS LIST PAGE (OPTIMIZED) ===");
         // Use lightweight query for list view - only load essential fields
         List<Tool> allTools = toolRepository.findAllForListView();
         logger.info("Loaded {} tools for list view", allTools.size());
@@ -112,84 +124,116 @@ public class ToolController {
             return "tools/list";
         }
         
-        // Extract all towhat loading
         List<Long> toolIds = allTools.stream().map(Tool::getId).collect(Collectors.toList());
         
-        // OPTIMIZATION: Load all related data in bulk instead of N+1 queries
+        // OPTIMIZATION: Load only essential data using lightweight queries
         
         // Initialize all maps to ensure they're never null
-        Map<Long, List<Rma>> toolRmasMap = new HashMap<>();
-        Map<Long, List<Passdown>> toolPassdownsMap = new HashMap<>();
-        Map<Long, List<ToolComment>> toolCommentsMap = new HashMap<>();
-        Map<Long, List<TrackTrend>> toolTrackTrendsMap = new HashMap<>();
+        Map<Long, List<Map<String, Object>>> toolRmasMap = new HashMap<>();
+        Map<Long, List<Map<String, Object>>> toolPassdownsMap = new HashMap<>();
+        Map<Long, List<Map<String, Object>>> toolCommentsMap = new HashMap<>();
+        Map<Long, List<Map<String, Object>>> toolTrackTrendsMap = new HashMap<>();
         
-        // Bulk load RMAs for all tools
+        // Bulk load lightweight RMA data
         try {
-            toolRmasMap = rmaService.findRmasByToolIds(toolIds).stream()
-                    .collect(Collectors.groupingBy(rma -> rma.getTool().getId()));
-        } catch (Exception e) {
-            logger.error("Error loading RMAs: {}", e.getMessage(), e);
-        }
-        
-        // Bulk load Passdowns for all tools
-        try {
-            logger.info("Bulk loading Passdowns for {} tools", toolIds.size());
-            List<Passdown> allPassdowns = passdownService.getPassdownsByToolIds(toolIds);
-            logger.info("Found {} total Passdowns from bulk query", allPassdowns.size());
+            logger.info("Bulk loading lightweight RMA data for {} tools", toolIds.size());
+            List<Object[]> rmaData = rmaRepository.findRmaListDataByToolIds(toolIds);
+            logger.info("Found {} RMA records from lightweight query", rmaData.size());
             
-            // Group Passdowns by tool ID
-            toolPassdownsMap = allPassdowns.stream()
-                    .filter(passdown -> passdown.getTool() != null)
-                    .collect(Collectors.groupingBy(passdown -> passdown.getTool().getId()));
-            
-            logger.info("Loaded {} Passdowns across {} tools", allPassdowns.size(), toolIds.size());
-        } catch (Exception e) {
-            logger.error("Error loading Passdowns: {}", e.getMessage(), e);
-            // Initialize empty map for all tools
-            for (Long toolId : toolIds) {
-                toolPassdownsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
-            }
-        }
+            for (Object[] row : rmaData) {
+                Long rmaId = (Long) row[0];
+                String rmaNumber = (String) row[1];
+                Object status = row[2]; // RmaStatus enum
+                Long toolId = (Long) row[3];
                 
-        // Bulk load Comments for all tools
-        try {
-            logger.info("Bulk loading comments for {} tools", toolIds.size());
-            List<ToolComment> allComments = toolService.getCommentsByToolIds(toolIds);
-            logger.info("Found {} total comments from bulk query", allComments.size());
-            
-            // Group comments by tool ID
-            toolCommentsMap = allComments.stream()
-                    .collect(Collectors.groupingBy(comment -> comment.getTool().getId()));
-            
-            logger.info("Loaded {} comments across {} tools", allComments.size(), toolIds.size());
-        } catch (Exception e) {
-            logger.error("Error bulk loading comments: {}", e.getMessage(), e);
-            // Initialize empty map for all tools
-            for (Long toolId : toolIds) {
-                toolCommentsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
+                Map<String, Object> rmaInfo = new HashMap<>();
+                rmaInfo.put("id", rmaId);
+                rmaInfo.put("rmaNumber", rmaNumber);
+                rmaInfo.put("status", status);
+                
+                toolRmasMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(rmaInfo);
             }
+            
+            logger.info("Processed {} RMA records across {} tools", rmaData.size(), toolIds.size());
+        } catch (Exception e) {
+            logger.error("Error loading lightweight RMA data: {}", e.getMessage(), e);
         }
         
-        // Bulk load Track/Trends for all tools
+        // Bulk load lightweight Passdown data
         try {
-            logger.info("Bulk loading Track/Trends for {} tools", toolIds.size());
-            List<TrackTrend> allTrackTrends = trackTrendService.getTrackTrendsByToolIds(toolIds);
-            logger.info("Found {} total Track/Trends from bulk query", allTrackTrends.size());
+            logger.info("Bulk loading lightweight Passdown data for {} tools", toolIds.size());
+            List<Object[]> passdownData = passdownRepository.findPassdownListDataByToolIds(toolIds);
+            logger.info("Found {} Passdown records from lightweight query", passdownData.size());
             
-            // Group Track/Trends by tool ID - need to handle many-to-many relationship
-            for (TrackTrend trackTrend : allTrackTrends) {
-                for (Tool affectedTool : trackTrend.getAffectedTools()) {
-                    toolTrackTrendsMap.computeIfAbsent(affectedTool.getId(), k -> new ArrayList<>()).add(trackTrend);
-                }
+            for (Object[] row : passdownData) {
+                Long passdownId = (Long) row[0];
+                Object date = row[1]; // LocalDate
+                String userName = (String) row[2];
+                String comment = (String) row[3];
+                Long toolId = (Long) row[4];
+                
+                Map<String, Object> passdownInfo = new HashMap<>();
+                passdownInfo.put("id", passdownId);
+                passdownInfo.put("date", date);
+                passdownInfo.put("userName", userName);
+                passdownInfo.put("comment", comment);
+                
+                toolPassdownsMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(passdownInfo);
             }
             
-            logger.info("Loaded {} Track/Trends across {} tools", allTrackTrends.size(), toolIds.size());
+            logger.info("Processed {} Passdown records across {} tools", passdownData.size(), toolIds.size());
         } catch (Exception e) {
-            logger.error("Error bulk loading Track/Trends: {}", e.getMessage(), e);
-            // Initialize empty map for all tools
-            for (Long toolId : toolIds) {
-                toolTrackTrendsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
+            logger.error("Error loading lightweight Passdown data: {}", e.getMessage(), e);
+        }
+        
+        // Bulk load lightweight Comment data
+        try {
+            logger.info("Bulk loading lightweight Comment data for {} tools", toolIds.size());
+            List<Object[]> commentData = toolCommentRepository.findCommentListDataByToolIds(toolIds);
+            logger.info("Found {} Comment records from lightweight query", commentData.size());
+            
+            for (Object[] row : commentData) {
+                Long commentId = (Long) row[0];
+                Object createdDate = row[1]; // LocalDateTime
+                String userName = (String) row[2];
+                String content = (String) row[3];
+                Long toolId = (Long) row[4];
+                
+                Map<String, Object> commentInfo = new HashMap<>();
+                commentInfo.put("id", commentId);
+                commentInfo.put("createdDate", createdDate);
+                commentInfo.put("userName", userName);
+                commentInfo.put("content", content);
+                
+                toolCommentsMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(commentInfo);
             }
+            
+            logger.info("Processed {} Comment records across {} tools", commentData.size(), toolIds.size());
+        } catch (Exception e) {
+            logger.error("Error loading lightweight Comment data: {}", e.getMessage(), e);
+        }
+        
+        // Bulk load lightweight Track/Trend data
+        try {
+            logger.info("Bulk loading lightweight Track/Trend data for {} tools", toolIds.size());
+            List<Object[]> trackTrendData = trackTrendRepository.findTrackTrendListDataByToolIds(toolIds);
+            logger.info("Found {} Track/Trend records from lightweight query", trackTrendData.size());
+            
+            for (Object[] row : trackTrendData) {
+                Long trackTrendId = (Long) row[0];
+                String name = (String) row[1];
+                Long toolId = (Long) row[2];
+                
+                Map<String, Object> trackTrendInfo = new HashMap<>();
+                trackTrendInfo.put("id", trackTrendId);
+                trackTrendInfo.put("name", name);
+                
+                toolTrackTrendsMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(trackTrendInfo);
+            }
+            
+            logger.info("Processed {} Track/Trend records across {} tools", trackTrendData.size(), toolIds.size());
+        } catch (Exception e) {
+            logger.error("Error loading lightweight Track/Trend data: {}", e.getMessage(), e);
         }
         
         // Ensure all tools have entries in maps (even if empty)
@@ -219,7 +263,7 @@ public class ToolController {
         model.addAttribute("toolCommentsMap", toolCommentsMap);
         model.addAttribute("toolTrackTrendsMap", toolTrackTrendsMap);
         
-        logger.info("=== COMPLETED TOOLS LIST PAGE LOADING ===");
+        logger.info("=== COMPLETED TOOLS LIST PAGE LOADING (OPTIMIZED) ===");
         logger.info("Final counts - Tools: {}, RMAs: {}, Passdowns: {}, Comments: {}, Track/Trends: {}", 
                    allTools.size(),
                    toolRmasMap.values().stream().mapToInt(List::size).sum(),

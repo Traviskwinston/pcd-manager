@@ -25,4 +25,11 @@ public interface TrackTrendRepository extends JpaRepository<TrackTrend, Long> {
     // Find all track trends and eagerly load affected tools
     @Query("SELECT DISTINCT tt FROM TrackTrend tt LEFT JOIN FETCH tt.affectedTools")
     List<TrackTrend> findAllWithAffectedTools();
+    
+    /**
+     * Lightweight query for tools list view - only loads essential Track/Trend fields
+     * Returns: trackTrend.id, trackTrend.name, tool.id
+     */
+    @Query("SELECT tt.id, tt.name, t.id FROM TrackTrend tt JOIN tt.affectedTools t WHERE t.id IN :toolIds ORDER BY tt.name")
+    List<Object[]> findTrackTrendListDataByToolIds(List<Long> toolIds);
 } 
