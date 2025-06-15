@@ -30,4 +30,11 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
      * @return List of notes for the specified tool and user, ordered by creation time (newest first)
      */
     List<Note> findByToolIdAndUserIdOrderByCreatedAtDesc(Long toolId, Long userId);
+    
+    /**
+     * OPTIMIZATION: Bulk find notes for multiple tools to avoid N+1 queries
+     * @param toolIds The list of tool IDs
+     * @return List of notes for any of the specified tools, ordered by creation time (newest first)
+     */
+    List<Note> findByToolIdInOrderByCreatedAtDesc(List<Long> toolIds);
 } 

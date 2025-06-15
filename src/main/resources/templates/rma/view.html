@@ -101,6 +101,24 @@
             color: white;
             font-weight: bold;
         }
+        
+        /* Status select minimum width to prevent text cutoff */
+        #status-select {
+            min-width: 200px !important; /* Extra room to ensure "Shipping Memo Emailed" is fully visible */
+        }
+        
+        /* Additional width for smaller screens (like half-screen) */
+        @media (max-width: 1200px) {
+            #status-select {
+                min-width: 220px !important; /* Even more room for constrained screens */
+            }
+        }
+        
+        @media (max-width: 992px) {
+            #status-select {
+                min-width: 240px !important; /* Maximum room for very constrained screens */
+            }
+        }
     </style>
 </head>
 <body>

@@ -26,6 +26,17 @@
             border-bottom: 1px solid var(--bs-border-color, #dee2e6);
         }
         
+        /* Ensure date dividers are always blue in dark mode */
+        [data-bs-theme="dark"] .date-divider-row {
+            background-color: #0d6efd !important;
+            color: white !important;
+        }
+        
+        [data-bs-theme="dark"] .date-divider-row td {
+            background-color: #0d6efd !important;
+            color: white !important;
+        }
+        
         /* Left-align all table content */
         .data-table-compact td,
         .table td {

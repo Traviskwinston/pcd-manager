@@ -62,6 +62,19 @@ public class NoteService {
     }
     
     /**
+     * OPTIMIZATION: Bulk get notes for multiple tools to avoid N+1 queries
+     * @param toolIds The list of tool IDs
+     * @return List of notes for any of the specified tools
+     */
+    public List<Note> getNotesByToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return List.of();
+        }
+        logger.debug("Bulk loading notes for {} tools", toolIds.size());
+        return noteRepository.findByToolIdInOrderByCreatedAtDesc(toolIds);
+    }
+    
+    /**
      * Save a note
      */
     @Transactional

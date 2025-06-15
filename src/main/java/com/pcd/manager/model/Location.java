@@ -36,6 +36,9 @@ public class Location {
     @Column(nullable = true)
     private String fab;
     
+    @Column(name = "display_name", nullable = true)
+    private String displayName;
+    
     @Column(name = "default_location", nullable = true)
     private boolean defaultLocation = false;
 
@@ -51,6 +54,12 @@ public class Location {
 
     // Composite display name (e.g., "AZ F52")
     public String getDisplayName() {
+        // Return stored displayName if available
+        if (displayName != null && !displayName.trim().isEmpty()) {
+            return displayName;
+        }
+        
+        // Fall back to computed display name for backward compatibility
         if (state == null || state.isEmpty()) {
             return "Location";
         }

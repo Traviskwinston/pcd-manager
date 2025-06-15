@@ -35,7 +35,7 @@
             width: 100px;
         }
         .status-badge {
-            font-size: 0.9rem !important;
+            font-size: 0.75rem !important;
         }
         
         /* Moving Parts icon styling */
@@ -121,7 +121,14 @@
         
         /* Ensure status column doesn't get too narrow */
         .status-filter-header {
-            min-width: 190px !important;
+            min-width: 220px !important;
+            width: 15% !important;
+        }
+        
+        /* Make parts column same width as status column */
+        .parts-column {
+            min-width: 220px !important;
+            width: 15% !important;
         }
         
         /* Status cell content */
@@ -182,17 +189,7 @@
                 <table class="table table-striped data-table-compact">
                         <thead>
                             <tr>
-                                <th style="width: 15%;" class="sortable-header" data-sort="tool">
-                                    <div class="header-content">
-                                        <span class="header-text">Tool</span>
-                                        <span class="sort-arrows">
-                                            <i class="bi bi-caret-up sort-up"></i>
-                                            <i class="bi bi-caret-down sort-down"></i>
-                                        </span>
-                                    </div>
-                                </th>
-                                <th style="width: 12%;">Parts</th>
-                                <th style="width: 12%;" class="sortable-header" data-sort="rma-number">
+                                <th style="width: 11%;" class="sortable-header" data-sort="rma-number">
                                     <div class="header-content">
                                         <span class="header-text">RMA Number</span>
                                         <span class="sort-arrows">
@@ -201,7 +198,17 @@
                                         </span>
                                     </div>
                                 </th>
-                                <th style="width: 12%; min-width: 190px;" class="status-filter-header">
+                                <th style="width: 13%;" class="sortable-header" data-sort="tool">
+                                    <div class="header-content">
+                                        <span class="header-text">Tool</span>
+                                        <span class="sort-arrows">
+                                            <i class="bi bi-caret-up sort-up"></i>
+                                            <i class="bi bi-caret-down sort-down"></i>
+                                        </span>
+                                    </div>
+                                </th>
+                                <th style="width: 15%; min-width: 220px;" class="parts-column">Parts</th>
+                                <th style="width: 15%; min-width: 220px;" class="status-filter-header">
                                     Status
                                     <div class="dropdown d-inline-block ms-1">
                                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -279,7 +286,7 @@
                                         </ul>
                                     </div>
                                 </th>
-                                <th style="width: 8%;" class="sortable-header" data-sort="written-date">
+                                <th style="width: 7%;" class="sortable-header" data-sort="written-date">
                                     <div class="header-content">
                                         <span class="header-text">Written</span>
                                         <span class="sort-arrows">
@@ -288,7 +295,7 @@
                                         </span>
                                     </div>
                                 </th>
-                                <th style="width: 8%;" class="sortable-header" data-sort="rma-provided-date">
+                                <th style="width: 7%;" class="sortable-header" data-sort="rma-provided-date">
                                     <div class="header-content">
                                         <span class="header-text">RMA # Provided</span>
                                         <span class="sort-arrows">
@@ -297,7 +304,7 @@
                                         </span>
                                     </div>
                                 </th>
-                                <th style="width: 8%;" class="sortable-header" data-sort="shipping-memo-date">
+                                <th style="width: 7%;" class="sortable-header" data-sort="shipping-memo-date">
                                     <div class="header-content">
                                         <span class="header-text">Shipping Memo</span>
                                         <span class="sort-arrows">
@@ -361,6 +368,22 @@
                                          data-parts-installed-date=*{installedPartsDate != null ? #temporals.format(installedPartsDate, 'yyyy-MM-dd') : ''},
                                          data-failed-parts-ready-date=*{failedPartsPackedDate != null ? #temporals.format(failedPartsPackedDate, 'yyyy-MM-dd') : ''},
                                          data-failed-parts-shipped-date=*{failedPartsShippedDate != null ? #temporals.format(failedPartsShippedDate, 'yyyy-MM-dd') : ''}">
+                                <!-- RMA Number & Problem Description Popover -->
+                                <td>
+                                    <strong><span th:text="*{rmaNumber != null and rmaNumber != '' ? rmaNumber : (sapNotificationNumber != null and sapNotificationNumber != '' ? sapNotificationNumber : 'N/A')}"></span></strong>
+                                    <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
+                                       data-bs-toggle="popover"
+                                       data-bs-placement="right"
+                                       data-bs-trigger="hover focus click"
+                                       data-bs-html="true"
+                                       th:attr="data-bs-title='Problem Details for ' + (*{rmaNumber} != null ? *{rmaNumber} : '-'),
+                                                data-bs-content='<strong>Who:</strong> ' + (*{problemDiscoverer} ?: '-') + '<br>' +
+                                                                '<strong>When:</strong> ' + (*{problemDiscoveryDate != null ? #temporals.format(problemDiscoveryDate, 'MM/dd/yy') : '-'}) + '<br>' +
+                                                                '<strong>What:</strong> ' + (*{whatHappened} ?: '-') + '<br>' +
+                                                                '<strong>Why:</strong> ' + (*{whyAndHowItHappened} ?: '-') + '<br>' +
+                                                                '<strong>How:</strong> ' + (*{howContained} ?: '-') + '<br>' +
+                                                                '<strong>By:</strong> ' + (*{whoContained} ?: '-')"></i>
+                                </td>
                                 <!-- Tool -->
                                 <td>
                                     <a th:if="*{tool != null}" th:href="@{/tools/{id}(id=*{tool.id})}" th:text="*{tool.name}" class="text-decoration-hover-underline"></a>
@@ -382,24 +405,6 @@
                                     <ul th:unless="${#lists.isEmpty(rma.partLineItems)}" class="list-unstyled mb-0" style="font-size: 0.9em;">
                                         <li th:each="item : *{partLineItems}" th:text="${item.partName ?: item.partNumber ?: item.productDescription}"></li>
                                     </ul>
-                                </td>
-                                <!-- RMA Number & Problem Description Popover -->
-                                <td>
-                                    <a th:href="@{/rma/{id}(id=*{id})}"
-                                       th:text="*{rmaNumber != null and rmaNumber != '' ? rmaNumber : (sapNotificationNumber != null and sapNotificationNumber != '' ? sapNotificationNumber : 'N/A')}"
-                                       class="text-decoration-hover-underline"></a>
-                                    <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
-                                       data-bs-toggle="popover"
-                                       data-bs-placement="right"
-                                       data-bs-trigger="hover focus click"
-                                       data-bs-html="true"
-                                       th:attr="data-bs-title='Problem Details for ' + (*{rmaNumber} != null ? *{rmaNumber} : '-'),
-                                                data-bs-content='<strong>Who:</strong> ' + (*{problemDiscoverer} ?: '-') + '<br>' +
-                                                                '<strong>When:</strong> ' + (*{problemDiscoveryDate != null ? #temporals.format(problemDiscoveryDate, 'MM/dd/yy') : '-'}) + '<br>' +
-                                                                '<strong>What:</strong> ' + (*{whatHappened} ?: '-') + '<br>' +
-                                                                '<strong>Why:</strong> ' + (*{whyAndHowItHappened} ?: '-') + '<br>' +
-                                                                '<strong>How:</strong> ' + (*{howContained} ?: '-') + '<br>' +
-                                                                '<strong>By:</strong> ' + (*{whoContained} ?: '-')"></i>
                                 </td>
                                 <!-- Status -->
                                 <td class="text-center">

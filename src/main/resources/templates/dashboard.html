@@ -100,6 +100,25 @@
             background-color: #1e3a5f;
             border-left: 3px solid #6ea8fe;
         }
+        
+        /* Interactive icon styles for popovers */
+        .info-icon-interactive {
+            cursor: pointer;
+            color: #0d6efd !important;
+        }
+        
+        .info-icon-interactive:hover {
+            color: #0a58ca !important;
+        }
+        
+        /* Dark mode: Make interactive icons cyan for good contrast */
+        [data-bs-theme="dark"] .info-icon-interactive {
+            color: #17a2b8 !important; /* Cyan/teal - good contrast with grey */
+        }
+        
+        [data-bs-theme="dark"] .info-icon-interactive:hover {
+            color: #20c997 !important; /* Lighter teal on hover */
+        }
         /* Ensure full-height layout */
         html, body {
             height: 100%;
@@ -264,6 +283,23 @@
             color: white !important;
             font-weight: 600;
             border-top: 2px solid var(--bs-border-color, #dee2e6);
+        }
+        
+        .dashboard-date-divider-row td {
+            padding: 0.8rem 1rem;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+        }
+        
+        /* Ensure date dividers are always blue in dark mode */
+        [data-bs-theme="dark"] .dashboard-date-divider-row {
+            background-color: #0d6efd !important;
+            color: white !important;
+        }
+        
+        [data-bs-theme="dark"] .dashboard-date-divider-row td {
+            background-color: #0d6efd !important;
+            color: white !important;
         }
         
         .dashboard-comment-cell {
@@ -460,9 +496,125 @@
                                                       th:text="${' (' + toolMap.tool.secondaryName + ')'}" 
                                                       class="text-muted small">Alt Name</span>
                                             </a>
-                                            <span class="tool-assigned-icon" th:if="${toolMap.tool.currentTechnicians != null and !#lists.isEmpty(toolMap.tool.currentTechnicians)}">
-                                                <i class="bi bi-person-check"></i>
-                                            </span>
+                                            
+                                            <!-- 5 Icon Columns (Assigned User + 4 from tools list page) -->
+                                            <div class="d-flex align-items-center gap-2 me-2">
+                                                <!-- Assigned User Column (leftmost) -->
+                                                <div class="text-center" style="min-width: 24px;">
+                                                    <span th:if="${toolMap.tool.currentTechnicians != null and !#lists.isEmpty(toolMap.tool.currentTechnicians)}">
+                                                        <i class="bi bi-person-check info-icon-interactive"
+                                                           data-bs-toggle="popover"
+                                                           data-bs-placement="left"
+                                                           data-bs-trigger="hover focus click"
+                                                           data-bs-html="true"
+                                                           th:attr="data-bs-title='Assigned Technicians (' + ${#lists.size(toolMap.tool.currentTechnicians)} + ')'"
+                                                           th:data-bs-content="${#strings.listJoin(toolMap.tool.currentTechnicians.![
+                                                               '<div class=&quot;mb-1&quot;>' + name + '</div>'
+                                                           ], '')}"
+                                                           onclick="event.stopPropagation();">
+                                                        </i>
+                                                    </span>
+                                                    <span th:unless="${toolMap.tool.currentTechnicians != null and !#lists.isEmpty(toolMap.tool.currentTechnicians)}">
+                                                        <i class="bi bi-person text-muted"></i>
+                                                    </span>
+                                                </div>
+                                                
+                                                <!-- RMA Column -->
+                                                <div class="text-center" style="min-width: 24px;">
+                                                    <i th:class="${'bi bi-clipboard-data-fill ' + (toolRmasMap[toolMap.tool.id] != null and not #lists.isEmpty(toolRmasMap[toolMap.tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
+                                                       th:if="${toolRmasMap[toolMap.tool.id] != null and not #lists.isEmpty(toolRmasMap[toolMap.tool.id])}"
+                                                       data-bs-toggle="popover"
+                                                       data-bs-placement="left"
+                                                       data-bs-trigger="hover focus click"
+                                                       data-bs-html="true"
+                                                       th:attr="data-bs-title='RMAs (' + ${#lists.size(toolRmasMap[toolMap.tool.id])} + ')'"
+                                                       th:data-bs-content="${#strings.listJoin(toolRmasMap[toolMap.tool.id].![
+                                                           '<div class=&quot;mb-2&quot;><small class=&quot;text-muted&quot;>' + 
+                                                           '<a href=&quot;/rma/' + get('id') + '&quot; class=&quot;text-decoration-none&quot; onclick=&quot;event.stopPropagation();&quot;>' +
+                                                           (get('rmaNumber') != null ? get('rmaNumber') : get('id')) + '</a> ' +
+                                                           '<span class=&quot;badge bg-' + 
+                                                           (get('status').name() == 'COMPLETED' ? 'success' : 
+                                                            get('status').name() == 'IN_PROGRESS' ? 'primary' : 
+                                                            get('status').name() == 'SHIPPED' ? 'info' : 'secondary') + 
+                                                           '&quot;>' + get('status').name().replace('_', ' ') + '</span>' +
+                                                           '</small></div>'
+                                                       ], '<hr class=&quot;my-1&quot;/>')}"
+                                                       onclick="event.stopPropagation();">
+                                                    </i>
+                                                    <i th:if="${toolRmasMap[toolMap.tool.id] == null or #lists.isEmpty(toolRmasMap[toolMap.tool.id])}" 
+                                                       class="bi bi-clipboard-data text-muted">
+                                                    </i>
+                                                </div>
+                                                
+                                                <!-- Track/Trends Column -->
+                                                <div class="text-center" style="min-width: 24px;">
+                                                    <th:block th:if="${toolTrackTrendsMap != null and toolTrackTrendsMap[toolMap.tool.id] != null and not #lists.isEmpty(toolTrackTrendsMap[toolMap.tool.id])}">
+                                                        <i class="bi bi-graph-up-arrow info-icon-interactive"
+                                                           data-bs-toggle="popover"
+                                                           data-bs-placement="left"
+                                                           data-bs-trigger="hover focus click"
+                                                           data-bs-html="true"
+                                                           th:attr="data-bs-title='Track/Trends (' + ${#lists.size(toolTrackTrendsMap[toolMap.tool.id])} + ')'"
+                                                           th:data-bs-content="${#strings.listJoin(toolTrackTrendsMap[toolMap.tool.id].![
+                                                               '<a href=&quot;/tracktrend/' + get('id') + '&quot; class=&quot;text-decoration-none d-block mb-1&quot; onclick=&quot;event.stopPropagation();&quot;>' +
+                                                               get('name') + '</a>'
+                                                           ], '')}"
+                                                           onclick="event.stopPropagation();">
+                                                        </i>
+                                                    </th:block>
+                                                    <th:block th:unless="${toolTrackTrendsMap != null and toolTrackTrendsMap[toolMap.tool.id] != null and not #lists.isEmpty(toolTrackTrendsMap[toolMap.tool.id])}">
+                                                        <i class="bi bi-graph-up text-muted"></i>
+                                                    </th:block>
+                                                </div>
+                                                
+                                                <!-- Passdowns Column -->
+                                                <div class="text-center" style="min-width: 24px;">
+                                                    <i th:class="${'bi bi-journal-text ' + (toolPassdownsMap[toolMap.tool.id] != null and not #lists.isEmpty(toolPassdownsMap[toolMap.tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
+                                                       th:if="${toolPassdownsMap[toolMap.tool.id] != null and not #lists.isEmpty(toolPassdownsMap[toolMap.tool.id])}"
+                                                       data-bs-toggle="popover"
+                                                       data-bs-placement="left"
+                                                       data-bs-trigger="hover focus click"
+                                                       data-bs-html="true"
+                                                       th:attr="data-bs-title='Passdowns (' + ${#lists.size(toolPassdownsMap[toolMap.tool.id])} + ')'"
+                                                       th:data-bs-content="${#strings.listJoin(toolPassdownsMap[toolMap.tool.id].![
+                                                           '<div class=&quot;mb-2&quot;>' + 
+                                                           (get('comment') != null ? '<div class=&quot;mb-1&quot;>' + get('comment') + '</div>' : '') +
+                                                           '<small class=&quot;text-muted&quot;>' + 
+                                                           '<a href=&quot;/passdowns/' + get('id') + '&quot; class=&quot;text-decoration-none&quot; onclick=&quot;event.stopPropagation();&quot;>' +
+                                                           (get('date') != null ? #temporals.format(get('date'), 'MM/dd/yy') : get('id')) + '</a>' + 
+                                                           (get('userName') != null ? ' by ' + get('userName') : '') + 
+                                                           '</small></div>'
+                                                       ], '<hr class=&quot;my-1&quot;/>')}"
+                                                       onclick="event.stopPropagation();">
+                                                    </i>
+                                                    <i th:if="${toolPassdownsMap[toolMap.tool.id] == null or #lists.isEmpty(toolPassdownsMap[toolMap.tool.id])}" 
+                                                       class="bi bi-journal-text text-muted">
+                                                    </i>
+                                                </div>
+                                                
+                                                <!-- Comments Column -->
+                                                <div class="text-center" style="min-width: 24px;">
+                                                    <i th:class="${'bi bi-chat-dots-fill ' + (toolCommentsMap[toolMap.tool.id] != null and not #lists.isEmpty(toolCommentsMap[toolMap.tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
+                                                       th:if="${toolCommentsMap[toolMap.tool.id] != null and not #lists.isEmpty(toolCommentsMap[toolMap.tool.id])}"
+                                                       data-bs-toggle="popover"
+                                                       data-bs-placement="left"
+                                                       data-bs-trigger="hover focus click"
+                                                       data-bs-html="true"
+                                                       th:attr="data-bs-title='Comments (' + ${#lists.size(toolCommentsMap[toolMap.tool.id])} + ')'"
+                                                       th:data-bs-content="${#strings.listJoin(toolCommentsMap[toolMap.tool.id].![
+                                                           '<div class=&quot;mb-2&quot;><small class=&quot;text-muted&quot;>' + 
+                                                           #temporals.format(get('createdDate'), 'MM/dd/yy HH:mm') + 
+                                                           (get('userName') != null ? ' by ' + get('userName') : '') + 
+                                                           '</small><br/>' + 
+                                                           (get('content') != null ? get('content') : 'No content') + '</div>'
+                                                       ], '<hr class=&quot;my-1&quot;/>')}"
+                                                       onclick="event.stopPropagation();">
+                                                    </i>
+                                                    <i th:if="${toolCommentsMap[toolMap.tool.id] == null or #lists.isEmpty(toolCommentsMap[toolMap.tool.id])}" 
+                                                       class="bi bi-chat-dots text-muted">
+                                                    </i>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div class="small text-muted ps-3">
                                             <div th:if="${toolMap.tool.location != null && toolMap.tool.location.name != null}" class="pb-2">
@@ -485,11 +637,11 @@
                     
                     <!-- Controls -->
                     <div id="grid-controls">
-                        <div id="grid-controls-header">
-                            <span>Controls</span>
-                            <i class="bi bi-chevron-up toggle-grid-controls"></i>
-                        </div>
-                        <div id="grid-controls-body">
+                                            <div id="grid-controls-header">
+                        <span>Controls</span>
+                        <i class="bi bi-chevron-down toggle-grid-controls"></i>
+                    </div>
+                    <div id="grid-controls-body" style="display: none;">
                             <div class="d-flex mb-2">
                                 <button class="grid-control-btn active" data-mode="select" title="Select Mode">
                                     <i class="bi bi-cursor grid-tool-icon"></i>
@@ -1191,6 +1343,20 @@
 
     <!-- Dark Mode Theme Toggle Script -->
     <script th:src="@{/js/theme-toggle.js}"></script>
+    
+    <!-- Initialize Bootstrap Popovers for Tool Icons -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize all popovers for the tool icons
+            const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+            const popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+                return new bootstrap.Popover(popoverTriggerEl, {
+                    html: true,
+                    sanitize: false // Allow HTML content in popovers
+                });
+            });
+        });
+    </script>
 
 </body>
 </html> 

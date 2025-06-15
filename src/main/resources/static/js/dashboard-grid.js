@@ -6,8 +6,8 @@
 // Global variables for grid management
 let stage, gridLayer, toolLayer, gridGroup;
 let gridSize = 20; // Size of a single grid square
-let gridWidth = 120; // 120 units wide
-let gridHeight = 120; // 120 units high
+let gridWidth = 50; // 50 units wide
+let gridHeight = 50; // 50 units high
 let zoomLevel = 1; // Current zoom level
 let currentMode = 'select'; // Default mode
 let isDragging = false;

@@ -14,6 +14,8 @@ import com.pcd.manager.repository.PassdownRepository;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.repository.TrackTrendRepository;
 import com.pcd.manager.repository.UserRepository;
+import com.pcd.manager.repository.RmaRepository;
+import com.pcd.manager.repository.ToolCommentRepository;
 import com.pcd.manager.service.MapGridService;
 import com.pcd.manager.service.ToolService;
 import com.pcd.manager.service.TrackTrendService;
@@ -32,6 +34,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +42,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.ArrayList;
 
 @Controller
 @RequestMapping("/dashboard")
@@ -54,6 +58,9 @@ public class DashboardController {
     private final TrackTrendService trackTrendService;
     private final NoteService noteService;
     private final UserService userService;
+    private final RmaRepository rmaRepository;
+    private final ToolCommentRepository toolCommentRepository;
+    private final TrackTrendRepository trackTrendRepository;
 
     private static final Logger logger = LoggerFactory.getLogger(DashboardController.class);
 
@@ -67,7 +74,10 @@ public class DashboardController {
                              ToolService toolService,
                              TrackTrendService trackTrendService,
                              NoteService noteService,
-                             UserService userService) {
+                             UserService userService,
+                             RmaRepository rmaRepository,
+                             ToolCommentRepository toolCommentRepository,
+                             TrackTrendRepository trackTrendRepository) {
         this.toolRepository = toolRepository;
         this.passdownRepository = passdownRepository;
         this.locationRepository = locationRepository;
@@ -78,6 +88,9 @@ public class DashboardController {
         this.trackTrendService = trackTrendService;
         this.noteService = noteService;
         this.userService = userService;
+        this.rmaRepository = rmaRepository;
+        this.toolCommentRepository = toolCommentRepository;
+        this.trackTrendRepository = trackTrendRepository;
     }
 
     @GetMapping
@@ -122,8 +135,9 @@ public class DashboardController {
         List<MapGridItem> gridItems = mapGridService.getGridItemsByLocationId(currentLocationId);
         logger.info("Fetched {} grid items for facility map for location ID: {}", gridItems.size(), currentLocationId);
 
-        // Fetch all tools with ALL related entities eagerly loaded to prevent N+1 queries
-        List<Tool> allTools = toolRepository.findAllWithAllRelations();
+        // Fetch tools with optimized loading - only loads location and technicians (not heavy collections like tags)
+        // This is used for the dashboard list with 4 icon columns that need Tool objects
+        List<Tool> allTools = toolRepository.findAllForDashboardView();
 
         // Sort tools: Assigned tools first, then by name
         List<Tool> sortedTools = allTools.stream()
@@ -136,8 +150,11 @@ public class DashboardController {
         long assignedToolCount = sortedTools.stream().filter(t -> !t.getCurrentTechnicians().isEmpty()).count();
         logger.info("Temporary Check: Number of tools with assigned technicians: {}", assignedToolCount);
 
-        List<Passdown> recentPassdowns = passdownRepository.findAll(PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdDate"))).getContent();
-        logger.info("Fetched {} recent passdowns for dashboard.", recentPassdowns.size());
+        // Get passdowns from the past 2 weeks
+        LocalDate twoWeeksAgo = LocalDate.now().minusWeeks(2);
+        LocalDate today = LocalDate.now();
+        List<Passdown> recentPassdowns = passdownRepository.findByDateBetweenOrderByDateDesc(twoWeeksAgo, today);
+        logger.info("Fetched {} passdowns from past 2 weeks ({} to {}) for dashboard.", recentPassdowns.size(), twoWeeksAgo, today);
 
         // Prepare filter dropdown data: distinct users and tools
         List<String> passdownUsers = recentPassdowns.stream()
@@ -150,17 +167,18 @@ public class DashboardController {
                 .distinct()
                 .collect(Collectors.toList());
 
-        // Prepare tool data for the grid (using the original unsorted list for mapping)
-        List<Map<String, Object>> allToolsData = allTools.stream().map(tool -> {
+        // Prepare lightweight tool data for the grid using ultra-lightweight query
+        List<Object[]> gridToolData = toolRepository.findGridViewData();
+        List<Map<String, Object>> allToolsData = gridToolData.stream().map(row -> {
             Map<String, Object> map = new HashMap<>();
-            map.put("id", tool.getId());
-            map.put("name", tool.getName());
-            map.put("type", tool.getToolType() != null ? tool.getToolType().toString() : "");
-            map.put("status", tool.getStatus() != null ? tool.getStatus().toString() : "");
-            map.put("model", tool.getModel1());
-            map.put("serial", tool.getSerialNumber1());
-            map.put("location", tool.getLocation() != null ? tool.getLocation().getName() : "");
-            map.put("hasAssignedUsers", tool.getCurrentTechnicians() != null && !tool.getCurrentTechnicians().isEmpty());
+            map.put("id", row[0]); // t.id
+            map.put("name", row[1]); // t.name
+            map.put("model", row[2]); // t.model1
+            map.put("serial", row[3]); // t.serialNumber1
+            map.put("status", row[4] != null ? row[4].toString() : ""); // t.status
+            map.put("type", row[5] != null ? row[5].toString() : ""); // t.toolType
+            map.put("location", row[6]); // l.name
+            map.put("hasAssignedUsers", row[7]); // hasAssignedUsers boolean
             return map;
         }).collect(Collectors.toList());
         
@@ -183,11 +201,122 @@ public class DashboardController {
             return map;
         }).collect(Collectors.toList());
         
-        // Prepare tools for display with searchable notes
+        // Load lightweight data for the 4 icon columns (same as optimized tools list)
+        List<Long> toolIds = sortedTools.stream().map(Tool::getId).collect(Collectors.toList());
+        
+        // Initialize all maps to ensure they're never null
+        Map<Long, List<Map<String, Object>>> toolRmasMap = new HashMap<>();
+        Map<Long, List<Map<String, Object>>> toolPassdownsMap = new HashMap<>();
+        Map<Long, List<Map<String, Object>>> toolCommentsMap = new HashMap<>();
+        Map<Long, List<Map<String, Object>>> toolTrackTrendsMap = new HashMap<>();
+        
+        if (!toolIds.isEmpty()) {
+            // Bulk load lightweight RMA data
+            try {
+                List<Object[]> rmaData = rmaRepository.findRmaListDataByToolIds(toolIds);
+                for (Object[] row : rmaData) {
+                    Long rmaId = (Long) row[0];
+                    String rmaNumber = (String) row[1];
+                    Object status = row[2];
+                    Long toolId = (Long) row[3];
+                    
+                    Map<String, Object> rmaInfo = new HashMap<>();
+                    rmaInfo.put("id", rmaId);
+                    rmaInfo.put("rmaNumber", rmaNumber);
+                    rmaInfo.put("status", status);
+                    
+                    toolRmasMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(rmaInfo);
+                }
+            } catch (Exception e) {
+                logger.error("Error loading lightweight RMA data for dashboard: {}", e.getMessage(), e);
+            }
+            
+            // Bulk load lightweight Passdown data
+            try {
+                List<Object[]> passdownData = passdownRepository.findPassdownListDataByToolIds(toolIds);
+                for (Object[] row : passdownData) {
+                    Long passdownId = (Long) row[0];
+                    Object date = row[1];
+                    String userName = (String) row[2];
+                    String comment = (String) row[3];
+                    Long toolId = (Long) row[4];
+                    
+                    Map<String, Object> passdownInfo = new HashMap<>();
+                    passdownInfo.put("id", passdownId);
+                    passdownInfo.put("date", date);
+                    passdownInfo.put("userName", userName);
+                    passdownInfo.put("comment", comment);
+                    
+                    toolPassdownsMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(passdownInfo);
+                }
+            } catch (Exception e) {
+                logger.error("Error loading lightweight Passdown data for dashboard: {}", e.getMessage(), e);
+            }
+            
+            // Bulk load lightweight Comment data
+            try {
+                List<Object[]> commentData = toolCommentRepository.findCommentListDataByToolIds(toolIds);
+                for (Object[] row : commentData) {
+                    Long commentId = (Long) row[0];
+                    Object createdDate = row[1];
+                    String userName = (String) row[2];
+                    String content = (String) row[3];
+                    Long toolId = (Long) row[4];
+                    
+                    Map<String, Object> commentInfo = new HashMap<>();
+                    commentInfo.put("id", commentId);
+                    commentInfo.put("createdDate", createdDate);
+                    commentInfo.put("userName", userName);
+                    commentInfo.put("content", content);
+                    
+                    toolCommentsMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(commentInfo);
+                }
+            } catch (Exception e) {
+                logger.error("Error loading lightweight Comment data for dashboard: {}", e.getMessage(), e);
+            }
+            
+            // Bulk load lightweight Track/Trend data
+            try {
+                List<Object[]> trackTrendData = trackTrendRepository.findTrackTrendListDataByToolIds(toolIds);
+                for (Object[] row : trackTrendData) {
+                    Long trackTrendId = (Long) row[0];
+                    String name = (String) row[1];
+                    Long toolId = (Long) row[2];
+                    
+                    Map<String, Object> trackTrendInfo = new HashMap<>();
+                    trackTrendInfo.put("id", trackTrendId);
+                    trackTrendInfo.put("name", name);
+                    
+                    toolTrackTrendsMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(trackTrendInfo);
+                }
+            } catch (Exception e) {
+                logger.error("Error loading lightweight Track/Trend data for dashboard: {}", e.getMessage(), e);
+            }
+            
+            // Ensure all tools have entries in maps (even if empty)
+            for (Long toolId : toolIds) {
+                toolRmasMap.computeIfAbsent(toolId, k -> new ArrayList<>());
+                toolPassdownsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
+                toolCommentsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
+                toolTrackTrendsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
+            }
+        }
+        
+        // OPTIMIZATION: Bulk load all notes for all tools to avoid N+1 queries
+        List<Note> allNotes = noteService.getNotesByToolIds(toolIds);
+        logger.info("Bulk loaded {} notes for {} tools (avoiding N+1 queries)", allNotes.size(), toolIds.size());
+        
+        // Group notes by tool ID for efficient lookup
+        Map<Long, List<Note>> notesByToolId = allNotes.stream()
+                .collect(Collectors.groupingBy(note -> note.getTool().getId()));
+        
+        // Prepare tools for display with searchable notes using bulk-loaded data
         List<Map<String, Object>> toolDisplayList = sortedTools.stream().map(tool -> {
             Map<String, Object> toolMap = new HashMap<>();
             toolMap.put("tool", tool); 
-            List<Note> actualNotes = noteService.getNotesByToolId(tool.getId());
+            
+            // Get notes from bulk-loaded map instead of individual queries
+            List<Note> actualNotes = notesByToolId.getOrDefault(tool.getId(), List.of());
             String concatenatedNoteContent = actualNotes.stream()
                                                 .map(Note::getContent)
                                                 .filter(Objects::nonNull)
@@ -195,7 +324,6 @@ public class DashboardController {
             String toolOwnNotes = tool.getNotes() != null ? tool.getNotes() : "";
             String searchableNotes = (toolOwnNotes + " " + concatenatedNoteContent).trim();
             toolMap.put("searchableNotes", searchableNotes);
-            // logger.info("Tool ID: {}, Searchable Notes: {}", tool.getId(), searchableNotes.length() > 100 ? searchableNotes.substring(0,100) + "..." : searchableNotes );
             return toolMap;
         }).collect(Collectors.toList());
         
@@ -209,6 +337,11 @@ public class DashboardController {
         model.addAttribute("gridItems", gridItems);
         model.addAttribute("allToolsData", allToolsData);
         model.addAttribute("allTrackTrends", formattedTrackTrends);
+        // Add the 4 icon column data maps
+        model.addAttribute("toolRmasMap", toolRmasMap);
+        model.addAttribute("toolPassdownsMap", toolPassdownsMap);
+        model.addAttribute("toolCommentsMap", toolCommentsMap);
+        model.addAttribute("toolTrackTrendsMap", toolTrackTrendsMap);
 
         return "dashboard";
     }

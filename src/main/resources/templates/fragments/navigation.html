@@ -39,12 +39,12 @@
                     <li class="nav-item">
                         <a class="nav-link" th:classappend="${activeTab == 'rma' ? 'active' : ''}" href="/rma">RMA Matrix</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" th:classappend="${activeTab == 'passdown' ? 'active' : ''}" href="/passdown">Passdown</a>
-                    </li>
                     <!-- Track/Trend tab -->
                     <li class="nav-item">
                         <a class="nav-link" th:classappend="${activeTab == 'tracktrend' ? 'active' : ''}" href="/tracktrend">Track/Trend</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activeTab == 'passdown' ? 'active' : ''}" href="/passdown">Passdown</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" th:classappend="${activeTab == 'documents' ? 'active' : ''}" href="/documents">Documents</a>

@@ -63,4 +63,23 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
            "LEFT JOIN FETCH t.location " +
            "LEFT JOIN FETCH t.currentTechnicians")
     List<Tool> findAllForListView();
+    
+    /**
+     * Ultra-lightweight query for grid view - only loads essential fields needed for grid display
+     * Returns minimal data: id, name, model1, serialNumber1, status, toolType, location.name, hasAssignedUsers
+     */
+    @Query("SELECT t.id, t.name, t.model1, t.serialNumber1, t.status, t.toolType, " +
+           "CASE WHEN l.name IS NOT NULL THEN l.name ELSE '' END, " +
+           "CASE WHEN SIZE(t.currentTechnicians) > 0 THEN true ELSE false END " +
+           "FROM Tool t LEFT JOIN t.location l")
+    List<Object[]> findGridViewData();
+    
+    /**
+     * Optimized query for dashboard list view - loads only needed relationships
+     * Loads tools with location and technicians but avoids heavy collections like tags
+     */
+    @Query("SELECT DISTINCT t FROM Tool t " +
+           "LEFT JOIN FETCH t.location " +
+           "LEFT JOIN FETCH t.currentTechnicians")
+    List<Tool> findAllForDashboardView();
 } 

@@ -16,8 +16,12 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 
 import java.util.Optional;
+import java.util.Map;
+import java.util.HashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -153,6 +157,65 @@ public class LocationController {
         }
         
         return "redirect:/locations";
+    }
+
+    @PostMapping("/{id}/update")
+    @ResponseBody
+    public ResponseEntity<?> updateLocation(@PathVariable Long id, @RequestBody Map<String, String> updates) {
+        try {
+            Optional<Location> locationOpt = locationRepository.findById(id);
+            if (!locationOpt.isPresent()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            Location location = locationOpt.get();
+            
+            // Update fields if provided
+            if (updates.containsKey("state")) {
+                String state = updates.get("state").trim();
+                if (state.isEmpty()) {
+                    return ResponseEntity.badRequest().body("State cannot be empty");
+                }
+                location.setState(state);
+            }
+            
+            if (updates.containsKey("fab")) {
+                String fab = updates.get("fab").trim();
+                if (fab.isEmpty()) {
+                    return ResponseEntity.badRequest().body("Fab cannot be empty");
+                }
+                location.setFab(fab);
+            }
+            
+            if (updates.containsKey("displayName")) {
+                String displayName = updates.get("displayName").trim();
+                if (displayName.isEmpty()) {
+                    return ResponseEntity.badRequest().body("Display Name cannot be empty");
+                }
+                location.setDisplayName(displayName);
+            }
+            
+            // Save the updated location
+            Location savedLocation = locationRepository.save(location);
+            
+            // Return the updated location data
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", savedLocation.getId());
+            response.put("state", savedLocation.getState());
+            response.put("fab", savedLocation.getFab());
+            response.put("displayName", savedLocation.getDisplayName());
+            response.put("message", "Location updated successfully");
+            
+            logger.info("Updated location {}: state={}, fab={}, displayName={}", 
+                       id, savedLocation.getState(), savedLocation.getFab(), savedLocation.getDisplayName());
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Error updating location {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body("Error updating location: " + e.getMessage());
+        }
     }
 
     @PostMapping("/{id}/delete")

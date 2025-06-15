@@ -187,6 +187,7 @@ public class DataInitializer implements CommandLineRunner {
                 newF52.setName("Fab 52 Arizona");
                 newF52.setState("Arizona");
                 newF52.setFab("52");
+                newF52.setDisplayName("AZ F52");
                 logger.info("LocationType for new F52 location will be null as Location.LocationType enum needs to be defined with FAB.");
                 newF52.setDefaultLocation(false);
                 return locationRepository.save(newF52);
@@ -1313,6 +1314,7 @@ public class DataInitializer implements CommandLineRunner {
                         newLocation.setState("Arizona");
                         newLocation.setFab("52");
                         newLocation.setName("Fab 52 Arizona");
+                        newLocation.setDisplayName("AZ F52");
                         newLocation.setDefaultLocation(true);
                         return locationRepository.save(newLocation);
                     });
