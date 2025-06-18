@@ -49,7 +49,8 @@ public class CacheConfig {
                 "rma-details",         // Individual RMA details (5 min)
                 "dashboard-data",      // Dashboard aggregated data (2 min)
                 "lightweight-counts",  // Comment/RMA/etc counts (3 min)
-                "dropdown-data"        // Dropdown/select data (15 min)
+                "dropdown-data",       // Dropdown/select data (15 min)
+                "default-location"     // Default location (30 min - rarely changes)
             )
         );
         
@@ -71,7 +72,8 @@ public class CacheConfig {
         cacheManager.setCacheNames(
             Arrays.asList(
                 "tools-list", "rma-list", "tracktrend-list", "locations-list", "users-list",
-                "tool-details", "rma-details", "dashboard-data", "lightweight-counts", "dropdown-data"
+                "tool-details", "rma-details", "dashboard-data", "lightweight-counts", "dropdown-data",
+                "default-location"
             )
         );
         

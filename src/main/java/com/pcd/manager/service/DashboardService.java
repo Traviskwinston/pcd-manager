@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -41,15 +42,16 @@ public class DashboardService {
      * Get cached dashboard data including recent passdowns and filter data
      */
     @Cacheable(value = "dashboard-data", key = "'recent-passdowns-and-filters'")
+    @Transactional(readOnly = true)
     public Map<String, Object> getDashboardData() {
         logger.info("Fetching dashboard data (cacheable)");
         
         Map<String, Object> dashboardData = new HashMap<>();
         
-        // Get passdowns from the past 2 weeks
+        // Get passdowns from the past 2 weeks with user and tool eagerly loaded
         LocalDate twoWeeksAgo = LocalDate.now().minusWeeks(2);
         LocalDate today = LocalDate.now();
-        List<Passdown> recentPassdowns = passdownRepository.findByDateBetweenOrderByDateDesc(twoWeeksAgo, today);
+        List<Passdown> recentPassdowns = passdownRepository.findByDateBetweenWithUserAndToolOrderByDateDesc(twoWeeksAgo, today);
         logger.info("Fetched {} passdowns from past 2 weeks ({} to {}) for dashboard.", recentPassdowns.size(), twoWeeksAgo, today);
 
         // Prepare filter dropdown data: distinct users and tools
@@ -74,6 +76,7 @@ public class DashboardService {
      * Get cached lightweight tool data for grid display
      */
     @Cacheable(value = "dashboard-data", key = "'grid-tool-data'")
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> getGridToolData() {
         logger.info("Fetching grid tool data (cacheable)");
         
@@ -96,6 +99,7 @@ public class DashboardService {
      * Get cached track trend data for filters
      */
     @Cacheable(value = "dashboard-data", key = "'track-trend-filters'")
+    @Transactional(readOnly = true)
     public List<Map<String, Object>> getTrackTrendFilters() {
         logger.info("Fetching track trend filters (cacheable)");
         
@@ -123,21 +127,17 @@ public class DashboardService {
      * This can be called during application startup or periodically
      */
     @Async("cacheExecutor")
+    @Transactional(readOnly = true)
     public CompletableFuture<Void> warmUpDashboardCachesAsync() {
         logger.info("Starting async dashboard cache warming");
         long startTime = System.currentTimeMillis();
         
         try {
-            // Warm up all dashboard caches in parallel
-            CompletableFuture<Map<String, Object>> dashboardDataFuture = 
-                CompletableFuture.supplyAsync(() -> getDashboardData());
-            CompletableFuture<List<Map<String, Object>>> gridDataFuture = 
-                CompletableFuture.supplyAsync(() -> getGridToolData());
-            CompletableFuture<List<Map<String, Object>>> filtersFuture = 
-                CompletableFuture.supplyAsync(() -> getTrackTrendFilters());
-            
-            // Wait for all cache warming operations to complete
-            CompletableFuture.allOf(dashboardDataFuture, gridDataFuture, filtersFuture).get();
+            // Warm up all dashboard caches sequentially within the same transaction
+            // This ensures proper Hibernate session management
+            getDashboardData();
+            getGridToolData();
+            getTrackTrendFilters();
             
             long duration = System.currentTimeMillis() - startTime;
             logger.info("Completed async dashboard cache warming in {}ms", duration);
@@ -153,6 +153,7 @@ public class DashboardService {
      * Asynchronously refresh specific dashboard cache
      */
     @Async("cacheExecutor")
+    @Transactional(readOnly = true)
     public CompletableFuture<Void> refreshDashboardCacheAsync(String cacheType) {
         logger.info("Starting async refresh of dashboard cache: {}", cacheType);
         long startTime = System.currentTimeMillis();
@@ -169,7 +170,7 @@ public class DashboardService {
                     getTrackTrendFilters();
                     break;
                 case "all":
-                    warmUpDashboardCachesAsync().get();
+                    warmUpDashboardCachesAsync();
                     break;
                 default:
                     logger.warn("Unknown cache type for refresh: {}", cacheType);

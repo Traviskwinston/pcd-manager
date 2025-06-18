@@ -65,6 +65,26 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
     List<Tool> findAllForListView();
     
     /**
+     * Ultra-lightweight query for tools list view - only loads core tool data
+     * Returns: id, name, secondaryName, toolType, serialNumber1, serialNumber2, 
+     *          model1, model2, status, location.id, location.name
+     */
+    @Query("SELECT t.id, t.name, t.secondaryName, t.toolType, t.serialNumber1, t.serialNumber2, " +
+           "t.model1, t.model2, t.status, " +
+           "CASE WHEN l.id IS NOT NULL THEN l.id ELSE 0 END, " +
+           "CASE WHEN l.name IS NOT NULL THEN l.name ELSE '' END " +
+           "FROM Tool t LEFT JOIN t.location l " +
+           "ORDER BY t.name")
+    List<Object[]> findAllForAsyncListView();
+    
+    /**
+     * Get technician assignments for multiple tools
+     * Returns: toolId, userId, userName
+     */
+    @Query("SELECT t.id, u.id, u.name FROM Tool t JOIN t.currentTechnicians u WHERE t.id IN :toolIds")
+    List<Object[]> findTechniciansByToolIds(@Param("toolIds") List<Long> toolIds);
+    
+    /**
      * Ultra-lightweight query for grid view - only loads essential fields needed for grid display
      * Returns minimal data: id, name, model1, serialNumber1, status, toolType, location.name, hasAssignedUsers
      */

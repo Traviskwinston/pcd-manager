@@ -83,9 +83,32 @@
 
 /* Enhanced horizontal scrolling */
 .data-table-responsive {
-    cursor: grab;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    /* Remove permanent grab cursor - it should only show when actually dragging */
+}
+
+/* Only show grab cursor when hovering over non-interactive areas and table can scroll horizontally */
+.data-table-responsive:hover {
+    cursor: grab;
+}
+
+/* Don't show grab cursor if table doesn't overflow horizontally */
+.data-table-responsive:not([data-scrollable="true"]):hover {
+    cursor: default;
+}
+
+/* Override grab cursor for interactive elements */
+.data-table-responsive:hover .sortable-header,
+.data-table-responsive:hover .data-table-row a,
+.data-table-responsive:hover .data-table-row button,
+.data-table-responsive:hover .data-table-row input,
+.data-table-responsive:hover .data-table-row [data-bs-toggle],
+.data-table-responsive:hover .data-table-row .dropdown,
+.data-table-responsive:hover .data-table-row .interactive-icon,
+.data-table-responsive:hover .problem-popover-icon,
+.data-table-responsive:hover .moving-parts-icon {
+    cursor: pointer !important;
 }
 
 .data-table-responsive.dragging {
@@ -101,14 +124,14 @@
     cursor: grabbing !important;
 }
 
-/* Clickable rows */
+/* Clickable rows - remove permanent pointer cursor, let it be default */
 .data-table-row {
-    cursor: pointer;
     transition: background-color 0.2s ease;
+    /* Remove cursor: pointer - let it be default unless hovering over interactive elements */
 }
 
 .data-table-row td {
-    cursor: pointer;
+    /* Remove cursor: pointer - let it be default */
 }
 
 .data-table-row:hover {
@@ -121,8 +144,10 @@
 .data-table-row input,
 .data-table-row [data-bs-toggle],
 .data-table-row .dropdown,
-.data-table-row .interactive-icon {
-    cursor: pointer;
+.data-table-row .interactive-icon,
+.problem-popover-icon,
+.moving-parts-icon {
+    cursor: pointer !important;
 }
 
 /* Filter dropdown styling */
@@ -190,6 +215,90 @@
 .search-highlight {
     background-color: #ffc107;
     font-weight: bold;
+}
+
+/* Enhanced Popover Styling - Global */
+.popover {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-width: 350px;
+    font-size: 0.875rem;
+}
+
+.popover-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 7px 7px 0 0;
+    padding: 12px 16px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.popover-body {
+    padding: 12px 16px;
+    line-height: 1.5;
+    font-size: 0.85rem;
+}
+
+/* Enhanced Arrow Styling */
+.popover .popover-arrow {
+    width: 16px;
+    height: 8px;
+}
+
+.popover .popover-arrow::before,
+.popover .popover-arrow::after {
+    position: absolute;
+    display: block;
+    content: "";
+    border-color: transparent;
+    border-style: solid;
+    border-width: 8px;
+}
+
+/* Right placement arrow (most common for data tables) */
+.popover.bs-popover-end .popover-arrow::before {
+    left: -1px;
+    border-right-color: #dee2e6;
+}
+
+.popover.bs-popover-end .popover-arrow::after {
+    left: 0;
+    border-right-color: #fff;
+}
+
+/* Left placement arrow */
+.popover.bs-popover-start .popover-arrow::before {
+    right: -1px;
+    border-left-color: #dee2e6;
+}
+
+.popover.bs-popover-start .popover-arrow::after {
+    right: 0;
+    border-left-color: #fff;
+}
+
+/* Top placement arrow */
+.popover.bs-popover-top .popover-arrow::before {
+    bottom: -1px;
+    border-top-color: #dee2e6;
+}
+
+.popover.bs-popover-top .popover-arrow::after {
+    bottom: 0;
+    border-top-color: #fff;
+}
+
+/* Bottom placement arrow */
+.popover.bs-popover-bottom .popover-arrow::before {
+    top: -1px;
+    border-bottom-color: #dee2e6;
+}
+
+.popover.bs-popover-bottom .popover-arrow::after {
+    top: 0;
+    border-bottom-color: #fff;
 }
 
 /* Action icons */
@@ -380,4 +489,92 @@
     background: #2d3748;
     color: #f7fafc;
     border: 1px solid #4a5568;
+}
+
+/* Enhanced Popovers in Dark Mode - Global */
+[data-bs-theme="dark"] .popover {
+    background-color: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    max-width: 350px;
+    font-size: 0.875rem;
+}
+
+[data-bs-theme="dark"] .popover-header {
+    background-color: var(--bs-tertiary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+    border-radius: 7px 7px 0 0;
+    color: var(--bs-body-color);
+    padding: 12px 16px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+[data-bs-theme="dark"] .popover-body {
+    background-color: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+    padding: 12px 16px;
+    line-height: 1.5;
+    font-size: 0.85rem;
+}
+
+/* Enhanced Arrow Styling for Dark Mode - Global */
+[data-bs-theme="dark"] .popover .popover-arrow {
+    width: 16px;
+    height: 8px;
+}
+
+[data-bs-theme="dark"] .popover .popover-arrow::before,
+[data-bs-theme="dark"] .popover .popover-arrow::after {
+    position: absolute;
+    display: block;
+    content: "";
+    border-color: transparent;
+    border-style: solid;
+    border-width: 8px;
+}
+
+/* Right placement arrow (most common) */
+[data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::before {
+    left: -1px;
+    border-right-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::after {
+    left: 0;
+    border-right-color: var(--bs-secondary-bg);
+}
+
+/* Left placement arrow */
+[data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::before {
+    right: -1px;
+    border-left-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::after {
+    right: 0;
+    border-left-color: var(--bs-secondary-bg);
+}
+
+/* Top placement arrow */
+[data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::before {
+    bottom: -1px;
+    border-top-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::after {
+    bottom: 0;
+    border-top-color: var(--bs-secondary-bg);
+}
+
+/* Bottom placement arrow */
+[data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::before {
+    top: -1px;
+    border-bottom-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::after {
+    top: 0;
+    border-bottom-color: var(--bs-secondary-bg);
 }

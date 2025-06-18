@@ -732,29 +732,88 @@
     color: var(--bs-body-color);
 }
 
-/* Popovers in Dark Mode */
+/* Enhanced Popovers in Dark Mode */
 [data-bs-theme="dark"] .popover {
     background-color: var(--bs-secondary-bg);
-    border-color: var(--bs-border-color);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    max-width: 350px;
 }
 
 [data-bs-theme="dark"] .popover-header {
     background-color: var(--bs-tertiary-bg);
-    border-color: var(--bs-border-color);
+    border-bottom: 1px solid var(--bs-border-color);
+    border-radius: 7px 7px 0 0;
     color: var(--bs-body-color);
+    padding: 12px 16px;
 }
 
 [data-bs-theme="dark"] .popover-body {
     background-color: var(--bs-secondary-bg);
     color: var(--bs-body-color);
+    padding: 12px 16px;
+    line-height: 1.4;
 }
 
-[data-bs-theme="dark"] .popover .popover-arrow::before {
-    border-color: var(--bs-border-color);
+/* Enhanced Arrow Styling for Dark Mode */
+[data-bs-theme="dark"] .popover .popover-arrow {
+    width: 16px;
+    height: 8px;
 }
 
+[data-bs-theme="dark"] .popover .popover-arrow::before,
 [data-bs-theme="dark"] .popover .popover-arrow::after {
-    border-color: var(--bs-secondary-bg);
+    position: absolute;
+    display: block;
+    content: "";
+    border-color: transparent;
+    border-style: solid;
+    border-width: 8px;
+}
+
+/* Right placement arrow (most common) */
+[data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::before {
+    left: -1px;
+    border-right-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::after {
+    left: 0;
+    border-right-color: var(--bs-secondary-bg);
+}
+
+/* Left placement arrow */
+[data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::before {
+    right: -1px;
+    border-left-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::after {
+    right: 0;
+    border-left-color: var(--bs-secondary-bg);
+}
+
+/* Top placement arrow */
+[data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::before {
+    bottom: -1px;
+    border-top-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::after {
+    bottom: 0;
+    border-top-color: var(--bs-secondary-bg);
+}
+
+/* Bottom placement arrow */
+[data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::before {
+    top: -1px;
+    border-bottom-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::after {
+    top: 0;
+    border-bottom-color: var(--bs-secondary-bg);
 }
 
 /* Action Icons */

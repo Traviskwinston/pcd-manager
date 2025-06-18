@@ -63,6 +63,8 @@ public class TrackTrendController {
         // OPTIMIZATION: Bulk load related data using lightweight queries
         Map<Long, List<Map<String, Object>>> relatedRmasMap = new HashMap<>();
         Map<Long, Integer> trackTrendCommentsMap = new HashMap<>();
+        Map<Long, List<Map<String, Object>>> affectedToolsMap = new HashMap<>();
+        Map<Long, List<Map<String, Object>>> commentsDataMap = new HashMap<>();
         
         // Bulk load lightweight RMA counts for each track/trend
         try {
@@ -107,8 +109,41 @@ public class TrackTrendController {
                     relatedRmasMap.put(tt.getId(), new ArrayList<>());
                 }
                 
-                // Set comment count (comments are eagerly loaded)
-                trackTrendCommentsMap.put(tt.getId(), tt.getComments() != null ? tt.getComments().size() : 0);
+                // Pre-compute affected tools data to avoid template accessing full Tool objects
+                List<Map<String, Object>> toolsData = new ArrayList<>();
+                if (tt.getAffectedTools() != null) {
+                    for (Tool tool : tt.getAffectedTools()) {
+                        Map<String, Object> toolData = new HashMap<>();
+                        toolData.put("id", tool.getId());
+                        toolData.put("name", tool.getName());
+                        toolData.put("secondaryName", tool.getSecondaryName());
+                        toolsData.add(toolData);
+                    }
+                }
+                affectedToolsMap.put(tt.getId(), toolsData);
+                
+                // Pre-compute comments data to avoid template accessing full Comment objects
+                List<Map<String, Object>> commentsData = new ArrayList<>();
+                try {
+                    if (tt.getComments() != null) {
+                        for (TrackTrendComment comment : tt.getComments()) {
+                            Map<String, Object> commentData = new HashMap<>();
+                            commentData.put("id", comment.getId());
+                            commentData.put("content", comment.getContent());
+                            commentData.put("createdDate", comment.getCreatedDate());
+                            if (comment.getUser() != null) {
+                                commentData.put("userName", comment.getUser().getName());
+                            }
+                            commentsData.add(commentData);
+                        }
+                    }
+                    trackTrendCommentsMap.put(tt.getId(), commentsData.size());
+                } catch (Exception e) {
+                    // If lazy loading fails, set empty data
+                    trackTrendCommentsMap.put(tt.getId(), 0);
+                    logger.warn("Failed to load comments for TrackTrend {}: {}", tt.getId(), e.getMessage());
+                }
+                commentsDataMap.put(tt.getId(), commentsData);
             }
             logger.info("Loaded related RMA data for {} track/trends", trackTrends.size());
         } catch (Exception e) {
@@ -118,6 +153,8 @@ public class TrackTrendController {
         model.addAttribute("trackTrends", trackTrends);
         model.addAttribute("relatedRmasMap", relatedRmasMap);
         model.addAttribute("trackTrendCommentsMap", trackTrendCommentsMap);
+        model.addAttribute("affectedToolsMap", affectedToolsMap);
+        model.addAttribute("commentsDataMap", commentsDataMap);
         
         logger.info("=== COMPLETED TRACK/TREND LIST PAGE LOADING (OPTIMIZED) ===");
         return "tracktrend/list";

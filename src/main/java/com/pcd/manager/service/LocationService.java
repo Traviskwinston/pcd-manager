@@ -36,28 +36,25 @@ public class LocationService {
         return locationRepository.findById(id);
     }
 
+    @Cacheable(value = "default-location", key = "'default'")
     public Optional<Location> getDefaultLocation() {
-        Long defaultId = locationRepository.findDefaultLocationId();
-        logger.debug("Default location ID from repository: {}", defaultId);
+        logger.debug("Fetching default location from database (cacheable)");
         
-        if (defaultId == null) {
-            logger.warn("No default location ID found");
-            return Optional.empty();
-        }
+        // Use the more efficient single query method
+        Optional<Location> location = locationRepository.findByDefaultLocationIsTrue();
         
-        Optional<Location> location = locationRepository.findById(defaultId);
         if (location.isPresent()) {
             logger.debug("Found default location: {} (displayName: {})", 
                         location.get().getId(), 
                         location.get().getDisplayName());
         } else {
-            logger.warn("Default location with ID {} not found", defaultId);
+            logger.warn("No default location found");
         }
         
         return location;
     }
 
-    @CacheEvict(value = {"locations-list", "dropdown-data"}, allEntries = true)
+    @CacheEvict(value = {"locations-list", "dropdown-data", "default-location"}, allEntries = true)
     public Location saveLocation(Location location) {
         if (location.isDefaultLocation()) {
             logger.debug("Clearing previous default locations");
@@ -68,14 +65,15 @@ public class LocationService {
         return saved;
     }
 
-    @CacheEvict(value = {"locations-list", "dropdown-data"}, allEntries = true)
+    @CacheEvict(value = {"locations-list", "dropdown-data", "default-location"}, allEntries = true)
     public void deleteLocation(Long id) {
         logger.debug("Deleting location {} and evicting caches", id);
         locationRepository.deleteById(id);
     }
 
+    @CacheEvict(value = {"locations-list", "dropdown-data", "default-location"}, allEntries = true)
     public void setDefaultLocation(Long id) {
-        logger.debug("Setting location {} as default", id);
+        logger.debug("Setting location {} as default and evicting caches", id);
         locationRepository.clearDefaultLocations();
         locationRepository.findById(id).ifPresent(location -> {
             location.setDefaultLocation(true);

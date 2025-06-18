@@ -91,11 +91,6 @@ public class WebConfig implements WebMvcConfigurer {
                     .addResourceLocations("file:" + uploadAbsolutePath)
                     .setCachePeriod(cachePeriod);
             
-            // Add specific mapping for RMA files
-            registry.addResourceHandler("/rma/files/**")
-                    .addResourceLocations("file:" + uploadAbsolutePath)
-                    .setCachePeriod(cachePeriod);
-            
             logger.info("Resource handlers configured with cache period: {} seconds", cachePeriod);
         } catch (Exception e) {
             logger.error("Error configuring upload directory resource handler", e);

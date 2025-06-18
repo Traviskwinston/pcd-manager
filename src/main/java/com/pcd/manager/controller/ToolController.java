@@ -114,15 +114,15 @@ public class ToolController {
 
     @GetMapping
     public String listTools(Model model) {
-        logger.info("=== LOADING TOOLS LIST PAGE (ASYNC OPTIMIZED) ===");
+        logger.info("=== LOADING TOOLS LIST PAGE (ULTRA-OPTIMIZED) ===");
         long startTime = System.currentTimeMillis();
         
-        // Use lightweight query for list view - only load essential fields
-        List<Tool> allTools = toolRepository.findAllForListView();
-        logger.info("Loaded {} tools for async list view", allTools.size());
+        // Use ultra-lightweight query for list view - only load essential fields as Object[]
+        List<Object[]> toolData = toolRepository.findAllForAsyncListView();
+        logger.info("Loaded {} tools for ultra-optimized list view", toolData.size());
         
-        if (allTools.isEmpty()) {
-            model.addAttribute("tools", allTools);
+        if (toolData.isEmpty()) {
+            model.addAttribute("tools", new ArrayList<>());
             model.addAttribute("toolRmasMap", new HashMap<>());
             model.addAttribute("toolPassdownsMap", new HashMap<>());
             model.addAttribute("toolCommentsMap", new HashMap<>());
@@ -130,7 +130,57 @@ public class ToolController {
             return "tools/list";
         }
         
-        List<Long> toolIds = allTools.stream().map(Tool::getId).collect(Collectors.toList());
+        // Build lightweight Tool objects from the raw data
+        List<Tool> allTools = new ArrayList<>();
+        List<Long> toolIds = new ArrayList<>();
+        
+        for (Object[] row : toolData) {
+            Tool tool = new Tool();
+            tool.setId((Long) row[0]);
+            tool.setName((String) row[1]);
+            tool.setSecondaryName((String) row[2]);
+            tool.setToolType((Tool.ToolType) row[3]);
+            tool.setSerialNumber1((String) row[4]);
+            tool.setSerialNumber2((String) row[5]);
+            tool.setModel1((String) row[6]);
+            tool.setModel2((String) row[7]);
+            tool.setStatus((Tool.ToolStatus) row[8]);
+            
+            // Create minimal location object if location exists
+            Long locationId = (Long) row[9];
+            String locationName = (String) row[10];
+            if (locationId != null && locationId > 0) {
+                Location location = new Location();
+                location.setId(locationId);
+                location.setName(locationName);
+                tool.setLocation(location);
+            }
+            
+            allTools.add(tool);
+            toolIds.add(tool.getId());
+        }
+        
+        // Load technician assignments separately
+        List<Object[]> technicianData = toolRepository.findTechniciansByToolIds(toolIds);
+        Map<Long, List<User>> toolTechniciansMap = new HashMap<>();
+        
+        for (Object[] row : technicianData) {
+            Long toolId = (Long) row[0];
+            Long userId = (Long) row[1];
+            String userName = (String) row[2];
+            
+            User user = new User();
+            user.setId(userId);
+            user.setName(userName);
+            
+            toolTechniciansMap.computeIfAbsent(toolId, k -> new ArrayList<>()).add(user);
+        }
+        
+        // Assign technicians to tools
+        for (Tool tool : allTools) {
+            List<User> technicians = toolTechniciansMap.getOrDefault(tool.getId(), new ArrayList<>());
+            tool.setCurrentTechnicians(new HashSet<>(technicians));
+        }
         
         // Initialize all maps to ensure they're never null
         Map<Long, List<Map<String, Object>>> toolRmasMap = new HashMap<>();
@@ -196,7 +246,7 @@ public class ToolController {
         model.addAttribute("toolCommentsMap", toolCommentsMap);
         model.addAttribute("toolTrackTrendsMap", toolTrackTrendsMap);
         
-        logger.info("=== COMPLETED TOOLS LIST PAGE LOADING (ASYNC OPTIMIZED) ===");
+        logger.info("=== COMPLETED TOOLS LIST PAGE LOADING (ULTRA-OPTIMIZED) ===");
         logger.info("Final counts - Tools: {}, RMAs: {}, Passdowns: {}, Comments: {}, Track/Trends: {}", 
                    allTools.size(),
                    toolRmasMap.values().stream().mapToInt(List::size).sum(),

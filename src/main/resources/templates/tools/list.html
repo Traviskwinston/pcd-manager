@@ -245,6 +245,22 @@
                                 <span th:if="${tool.secondaryName != null}" 
                                       class="text-muted ms-1" 
                                       th:text="'(' + ${tool.secondaryName} + ')'"></span>
+                                <!-- Tool details tooltip -->
+                                <th:block th:with="toolType=${tool.toolType != null ? tool.toolType.displayName : 'Not specified'},
+                                                   modelInfo=${(tool.model1 != null ? tool.model1 : '') + (tool.model2 != null ? (tool.model1 != null ? '/' : '') + tool.model2 : '')},
+                                                   modelDisplay=${modelInfo != '' ? modelInfo : 'Not specified'},
+                                                   serialInfo=${(tool.serialNumber1 != null ? tool.serialNumber1 : '') + (tool.serialNumber2 != null ? (tool.serialNumber1 != null ? '/' : '') + tool.serialNumber2 : '')},
+                                                   serialDisplay=${serialInfo != '' ? serialInfo : 'Not specified'}">
+                                    <i class="bi bi-info-circle-fill info-icon-interactive ms-1"
+                                       data-bs-toggle="popover"
+                                       data-bs-placement="right"
+                                       data-bs-trigger="hover focus click"
+                                       data-bs-html="true"
+                                       data-bs-title="Tool Details"
+                                       th:attr="data-bs-content='<div class=&quot;mb-2&quot;><strong>Type:</strong> ' + ${toolType} + '</div><div class=&quot;mb-2&quot;><strong>Model:</strong> ' + ${modelDisplay} + '</div><div><strong>Serial Number:</strong> ' + ${serialDisplay} + '</div>'"
+                                       onclick="event.stopPropagation();">
+                                    </i>
+                                </th:block>
                             </td>
                             <td style="text-align: left;">
                                 <span th:if="${tool.serialNumber1 != null}" th:text="${tool.serialNumber1}">Serial Number 1</span><span th:if="${tool.serialNumber1 != null and tool.serialNumber2 != null}">/</span><span th:if="${tool.serialNumber2 != null}" th:text="${tool.serialNumber2}">Serial Number 2</span>

@@ -52,7 +52,7 @@ public class TrackTrend {
     @JsonIgnoreProperties({"affectedTools", "relatedTrackTrends"})
     private Set<TrackTrend> relatedTrackTrends = new HashSet<>();
     
-    @OneToMany(mappedBy = "trackTrend", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "trackTrend", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonIgnoreProperties("trackTrend")
     private List<TrackTrendComment> comments = new ArrayList<>();
     

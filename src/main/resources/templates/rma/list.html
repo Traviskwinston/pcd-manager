@@ -18,10 +18,51 @@
             font-size: 0.9rem;
         }
 
-        /* Popover for Problem Description */
-        .problem-popover-icon {
-            cursor: pointer;
-            color: #17a2b8; /* Bootstrap info color */
+        /* Popover for Problem Description - now handled by unified tooltip styling above */
+        
+        /* All tooltip icons - match tools list blue color */
+        .tool-tooltip,
+        .problem-popover-icon,
+        .comment-icon.info-icon-interactive,
+        .moving-parts-icon {
+            cursor: pointer !important;
+            color: #0d6efd !important; /* Bootstrap primary blue - same as tools list */
+            transition: transform 0.2s;
+        }
+        
+        .tool-tooltip:hover,
+        .problem-popover-icon:hover,
+        .comment-icon.info-icon-interactive:hover,
+        .moving-parts-icon:hover {
+            transform: scale(1.1);
+            color: #0a58ca !important; /* Darker blue on hover - same as tools list */
+        }
+        
+        /* RMA number styling - match tool name formatting exactly */
+        .rma-number {
+            font-weight: bold !important;
+            /* No custom color - inherit theme default like tool names */
+            text-decoration: none !important;
+        }
+        
+        /* Clickable row styling */
+        .rma-row {
+            cursor: pointer !important;
+            transition: background-color 0.2s ease;
+        }
+        
+        .rma-row:hover {
+            background-color: var(--bs-table-hover-bg) !important;
+        }
+        
+        /* Prevent clicks on interactive elements from bubbling */
+        .rma-row .problem-popover-icon,
+        .rma-row .tool-tooltip,
+        .rma-row .comment-icon,
+        .rma-row .moving-parts-icon,
+        .rma-row a {
+            position: relative;
+            z-index: 10;
         }
         .popover-header {
             font-size: 1rem;
@@ -34,13 +75,93 @@
             display: inline-block;
             width: 100px;
         }
+        
+        /* Enhanced Popover Styling with Pointed Arrows */
+        .popover {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            max-width: 350px;
+        }
+        
+        .popover-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            border-radius: 7px 7px 0 0;
+            padding: 12px 16px;
+        }
+        
+        .popover-body {
+            padding: 12px 16px;
+            line-height: 1.4;
+        }
+        
+        /* Improved Arrow Styling */
+        .popover .popover-arrow {
+            width: 16px;
+            height: 8px;
+        }
+        
+        .popover .popover-arrow::before,
+        .popover .popover-arrow::after {
+            position: absolute;
+            display: block;
+            content: "";
+            border-color: transparent;
+            border-style: solid;
+            border-width: 8px;
+        }
+        
+        /* Right placement arrow (most common for your tooltips) */
+        .popover.bs-popover-end .popover-arrow::before {
+            left: -1px;
+            border-right-color: #dee2e6;
+        }
+        
+        .popover.bs-popover-end .popover-arrow::after {
+            left: 0;
+            border-right-color: #fff;
+        }
+        
+        /* Left placement arrow */
+        .popover.bs-popover-start .popover-arrow::before {
+            right: -1px;
+            border-left-color: #dee2e6;
+        }
+        
+        .popover.bs-popover-start .popover-arrow::after {
+            right: 0;
+            border-left-color: #fff;
+        }
+        
+        /* Top placement arrow */
+        .popover.bs-popover-top .popover-arrow::before {
+            bottom: -1px;
+            border-top-color: #dee2e6;
+        }
+        
+        .popover.bs-popover-top .popover-arrow::after {
+            bottom: 0;
+            border-top-color: #fff;
+        }
+        
+        /* Bottom placement arrow */
+        .popover.bs-popover-bottom .popover-arrow::before {
+            top: -1px;
+            border-bottom-color: #dee2e6;
+        }
+        
+        .popover.bs-popover-bottom .popover-arrow::after {
+            top: 0;
+            border-bottom-color: #fff;
+        }
         .status-badge {
             font-size: 0.75rem !important;
         }
         
         /* Moving Parts icon styling */
         .moving-parts-icon {
-            cursor: pointer;
+            cursor: pointer !important;
             transition: transform 0.2s;
             display: inline-flex;
             align-items: center;
@@ -138,6 +259,25 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        /* Empty message styling */
+        #empty-message-row td {
+            font-size: 1.1rem;
+            padding: 3rem 1rem !important;
+        }
+
+        #empty-message-row .bi-inbox {
+            opacity: 0.5;
+        }
+
+        /* Comment icon cursor styling */
+        .comment-icon {
+            cursor: pointer;
+        }
+
+        .comment-icon.info-icon-interactive {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -234,6 +374,7 @@
                                             <li class="dropdown-item-text">
                                                 <small class="text-muted">Filter by Status:</small>
                                                 <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="showAllStatuses">Show All</button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="selectNoneStatuses">Select None</button>
                                             </li>
                                             <li><hr class="dropdown-divider"></li>
                                             <li class="dropdown-item-text">
@@ -367,7 +508,6 @@
                                 </th>
                                 <th style="width: 5%;">Moving Parts</th>
                                 <th style="width: 5%;">Comments</th>
-                                <th style="width: 3%;"></th> <!-- View Action -->
                             </tr>
                         </thead>
                         <tbody>
@@ -386,32 +526,34 @@
                                          data-failed-parts-shipped-date=*{failedPartsShippedDate != null ? #temporals.format(failedPartsShippedDate, 'yyyy-MM-dd') : ''}">
                                 <!-- RMA Number & Problem Description Popover -->
                                 <td>
-                                    <strong><span th:text="*{rmaNumber != null and rmaNumber != '' ? rmaNumber : (sapNotificationNumber != null and sapNotificationNumber != '' ? sapNotificationNumber : 'N/A')}"></span></strong>
+                                    <span class="rma-number" th:text="*{rmaNumber != null and rmaNumber != '' ? rmaNumber : (sapNotificationNumber != null and sapNotificationNumber != '' ? sapNotificationNumber : 'N/A')}"></span>
+                                    <!-- Problem details icon with lazy loading -->
                                     <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
+                                       th:attr="data-rma-id=*{id},
+                                                data-rma-number=(*{rmaNumber} != null ? *{rmaNumber} : (*{sapNotificationNumber} != null ? *{sapNotificationNumber} : 'RMA-' + *{id}))"
                                        data-bs-toggle="popover"
                                        data-bs-placement="right"
                                        data-bs-trigger="hover focus click"
                                        data-bs-html="true"
-                                       th:attr="data-bs-title='Problem Details for ' + (*{rmaNumber} != null ? *{rmaNumber} : '-'),
-                                                data-bs-content='<strong>Who:</strong> ' + (*{problemDiscoverer} ?: '-') + '<br>' +
-                                                                '<strong>When:</strong> ' + (*{problemDiscoveryDate != null ? #temporals.format(problemDiscoveryDate, 'MM/dd/yy') : '-'}) + '<br>' +
-                                                                '<strong>What:</strong> ' + (*{whatHappened} ?: '-') + '<br>' +
-                                                                '<strong>Why:</strong> ' + (*{whyAndHowItHappened} ?: '-') + '<br>' +
-                                                                '<strong>How:</strong> ' + (*{howContained} ?: '-') + '<br>' +
-                                                                '<strong>By:</strong> ' + (*{whoContained} ?: '-')"></i>
+                                       th:data-bs-title="'Problem Details for ' + (*{rmaNumber} != null ? *{rmaNumber} : (*{sapNotificationNumber} != null ? *{sapNotificationNumber} : 'RMA-' + *{id}))"
+                                       data-bs-content="Loading problem details..."
+                                       title="Hover to load problem details"></i>
                                 </td>
                                 <!-- Tool -->
                                 <td>
                                     <a th:if="*{tool != null}" th:href="@{/tools/{id}(id=*{tool.id})}" th:text="*{tool.name}" class="text-decoration-hover-underline"></a>
                                     <span th:if="*{tool == null}">N/A</span>
                                     <span th:if="*{tool != null}">
-                                        <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
+                                        <i class="bi bi-info-circle-fill ms-1 tool-tooltip"
+                                           th:attr="data-rma-id=*{id},
+                                                    data-tool-name=*{tool.name}"
                                            data-bs-toggle="popover"
                                            data-bs-placement="right"
-                                           data-bs-trigger="hover focus click"
+                                           data-bs-trigger="hover focus"
                                            data-bs-html="true"
                                            th:data-bs-title="*{tool.name}"
-                                           th:data-bs-content="|*{tool.toolType ?: 'Unknown Type'}*{tool.model1 != null ? '<br>Model: ' + tool.model1 : ''}*{tool.serialNumber1 != null ? '<br>Serial: ' + tool.serialNumber1 : ''}|">
+                                           data-bs-content="Loading tool details..."
+                                           title="Hover to load tool details">
                                         </i>
                                     </span>
                                 </td>
@@ -477,37 +619,23 @@
 
                                 <!-- Comments -->
                                 <td class="text-center">
-                                    <!-- Always show comment icon -->
-                                    <i th:class="${'bi bi-chat-dots-fill ' + (not #lists.isEmpty(rma.comments) ? 'info-icon-interactive' : 'text-muted')}"
-                                       th:if="${not #lists.isEmpty(rma.comments)}"
-                                       data-bs-toggle="popover"
+                                    <!-- Comments icon with lazy loading -->
+                                    <i class="bi bi-chat-dots-fill comment-icon"
+                                       th:classappend="${rmaCommentsMap.get(rma.id) != null and rmaCommentsMap.get(rma.id) > 0 ? 'info-icon-interactive' : 'text-muted'}"
+                                       th:attr="data-rma-id=*{id},
+                                                data-comment-count=${rmaCommentsMap.get(rma.id) ?: 0},
+                                                data-bs-toggle=${rmaCommentsMap.get(rma.id) != null and rmaCommentsMap.get(rma.id) > 0 ? 'popover' : null}"
                                        data-bs-placement="left"
                                        data-bs-trigger="hover focus click"
                                        data-bs-html="true"
-                                       th:attr="data-bs-title='Comments (' + ${#lists.size(rma.comments)} + ')'"
-                                       th:data-bs-content="${#strings.listJoin(rma.comments.![
-                                           '<div class=&quot;mb-2&quot;><small class=&quot;text-muted&quot;>' + 
-                                           #temporals.format(createdDate, 'MM/dd/yy HH:mm') + 
-                                           (user != null ? ' by ' + (user.name ?: 'Unknown') : '') + 
-                                           '</small><br/>' + 
-                                           (content ?: 'No content') + '</div>'
-                                       ], '<hr class=&quot;my-1&quot;/>')}"
-                                    ></i>
-                                    
-                                    <!-- Greyed out icon when no comments -->
-                                    <i th:if="${#lists.isEmpty(rma.comments)}" 
-                                       class="bi bi-chat-dots text-muted">
-                                    </i>
+                                       th:data-bs-title="'Comments (' + ${rmaCommentsMap.get(rma.id) ?: 0} + ')'"
+                                       data-bs-content="Loading comments..."
+                                       th:title="${rmaCommentsMap.get(rma.id) != null and rmaCommentsMap.get(rma.id) > 0 ? 'Hover to load comments' : null}"></i>
                                     
                                     <!-- Comment count -->
-                                    <span th:text="${#lists.size(rma.comments)}" class="ms-1 small"></span>
+                                    <span th:text="${rmaCommentsMap.get(rma.id) ?: 0}" class="ms-1 small"></span>
                                 </td>
-                                <!-- View Action -->
-                                <td class="text-center">
-                                    <a th:href="@{/rma/{id}(id=*{id})}" class="action-icon" title="View RMA">
-                                        <i class="bi bi-eye-fill"></i>
-                                    </a>
-                                </td>
+
                             </tr>
                         </tbody>
                     </table>
@@ -564,6 +692,15 @@
                 this.visibleStatuses = new Set(['RMA_WRITTEN_EMAILED', 'NUMBER_PROVIDED', 'MEMO_EMAILED', 'RECEIVED_PARTS', 'WAITING_CUSTOMER', 'WAITING_FSE', 'COMPLETED']);
                 this.totalStatusCounts = {}; // Track total counts across all RMAs
                 
+                // Global caches for tooltip data that persist across DOM changes
+                this.tooltipCache = {
+                    comments: new Map(),        // rmaId -> {data, isLoaded, isLoading}
+                    problemDetails: new Map(),  // rmaId -> {data, isLoaded, isLoading}
+                    toolDetails: new Map(),     // rmaId -> {data, isLoaded, isLoading}
+                    movingParts: new Map()      // rmaId -> {data, isLoaded, isLoading}
+                };
+
+                
                 this.init();
                 this.calculateTotalStatusCounts();
                 this.updateStatusCounts();
@@ -611,12 +748,6 @@
                         if (e.target.checked) {
                             this.visibleStatuses.add(status);
                         } else {
-                            // Prevent unchecking all statuses (keep at least one visible)
-                            if (this.visibleStatuses.size === 1) {
-                                e.preventDefault();
-                                e.target.checked = true;
-                                return;
-                            }
                             this.visibleStatuses.delete(status);
                         }
                         this.filterTable();
@@ -631,6 +762,19 @@
                         document.querySelectorAll('.status-filter').forEach(checkbox => {
                             checkbox.checked = true;
                             this.visibleStatuses.add(checkbox.value);
+                        });
+                        this.filterTable();
+                    });
+                }
+
+                // Select None button
+                const selectNoneButton = document.getElementById('selectNoneStatuses');
+                if (selectNoneButton) {
+                    selectNoneButton.addEventListener('click', () => {
+                        // Uncheck all checkboxes
+                        document.querySelectorAll('.status-filter').forEach(checkbox => {
+                            checkbox.checked = false;
+                            this.visibleStatuses.delete(checkbox.value);
                         });
                         this.filterTable();
                     });
@@ -703,6 +847,20 @@
 
             filterTable() {
                 const rows = document.querySelectorAll('.rma-row');
+                const tbody = document.querySelector('tbody');
+                
+                // Check if no statuses are selected
+                if (this.visibleStatuses.size === 0) {
+                    // Hide all rows
+                    rows.forEach(row => {
+                        row.style.display = 'none';
+                    });
+                    
+                    // Show empty message
+                    this.showEmptyMessage();
+                } else {
+                    // Remove empty message if it exists
+                    this.removeEmptyMessage();
                 
                 rows.forEach(row => {
                     const tool = row.getAttribute('data-tool').toLowerCase();
@@ -727,6 +885,7 @@
                         row.style.display = 'none';
                     }
                 });
+                }
 
                 this.updateStatusCounts();
                 this.updateRmaCount();
@@ -737,6 +896,35 @@
                 const count = visibleRows.length;
                 document.getElementById('rma-count').textContent = count;
                 document.getElementById('rma-count-text').textContent = count === 1 ? 'RMA' : 'RMAs';
+            }
+
+            showEmptyMessage() {
+                const tbody = document.querySelector('tbody');
+                const existingEmptyRow = document.getElementById('empty-message-row');
+                
+                if (!existingEmptyRow) {
+                    // Count the number of columns in the header to span correctly
+                    const headerCells = document.querySelectorAll('thead th');
+                    const colSpan = headerCells.length;
+                    
+                    const emptyRow = document.createElement('tr');
+                    emptyRow.id = 'empty-message-row';
+                    emptyRow.innerHTML = `
+                        <td colspan="${colSpan}" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                            <div class="mt-2">Empty</div>
+                            <small>No status filters selected</small>
+                        </td>
+                    `;
+                    tbody.appendChild(emptyRow);
+                }
+            }
+
+            removeEmptyMessage() {
+                const existingEmptyRow = document.getElementById('empty-message-row');
+                if (existingEmptyRow) {
+                    existingEmptyRow.remove();
+                }
             }
 
             calculateTotalStatusCounts() {
@@ -767,6 +955,653 @@
                     writtenDateHeader.classList.add('sort-desc');
                     this.sortTable('written-date', 'desc');
                 }
+            }
+
+            initializeInteractions() {
+                // Re-initialize popovers for dynamically loaded content
+                const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+                popoverTriggerList.map(function (popoverTriggerEl) {
+                    return new bootstrap.Popover(popoverTriggerEl, {
+                        sanitize: false,
+                        fallbackPlacements: ['left', 'top', 'bottom'],
+                        container: 'body'
+                    });
+                });
+
+                // Add click handlers for closing popovers
+                document.addEventListener('click', function (event) {
+                    const popovers = document.querySelectorAll('.popover');
+                    popovers.forEach(function (popover) {
+                        const trigger = document.querySelector(`[aria-describedby="${popover.id}"]`);
+                        if (trigger && !trigger.contains(event.target) && !popover.contains(event.target)) {
+                            const instance = bootstrap.Popover.getInstance(trigger);
+                            if (instance) instance.hide();
+                        }
+                    });
+                });
+                
+                // Initialize lazy loading for comments, problem details, tool details, and moving parts
+                this.initLazyCommentLoading();
+                this.initLazyProblemDetailsLoading();
+                this.initLazyToolDetailsLoading();
+                this.initLazyMovingPartsLoading();
+                
+                // Initialize clickable table rows
+                this.initializeClickableRows();
+            }
+            
+            initializeClickableRows() {
+                // Add click handlers to all RMA rows
+                document.querySelectorAll('.rma-row').forEach(row => {
+                    // Remove any existing click handlers first
+                    row.removeEventListener('click', this.handleRowClick);
+                    
+                    // Add new click handler
+                    row.addEventListener('click', (event) => this.handleRowClick(event, row));
+                });
+            }
+            
+            handleRowClick(event, row) {
+                // Don't navigate if we just finished dragging
+                const tableContainer = document.querySelector('.rma-table-container');
+                if (tableContainer && tableContainer.hasDragged) {
+                    return;
+                }
+                
+                // Check if the click was on an interactive element (icon, link, etc.)
+                const target = event.target;
+                const isInteractiveElement = target.closest('.problem-popover-icon, .tool-tooltip, .comment-icon, .moving-parts-icon, a, [data-bs-toggle]');
+                
+                // If clicking on an interactive element, don't navigate
+                if (isInteractiveElement) {
+                    return;
+                }
+                
+                // Get the RMA ID from the row
+                const rmaId = this.getRmaIdFromRow(row);
+                if (rmaId) {
+                    // Navigate to RMA details page
+                    window.location.href = `/rma/${rmaId}`;
+                }
+            }
+            
+            getRmaIdFromRow(row) {
+                // First try to get RMA ID from the row's data attribute (for dynamic rows)
+                const rmaId = row.getAttribute('data-rma-id');
+                if (rmaId) {
+                    return rmaId;
+                }
+                
+                // Fallback to getting RMA ID from icon elements (for server-rendered rows)
+                const problemIcon = row.querySelector('.problem-popover-icon');
+                if (problemIcon) {
+                    return problemIcon.getAttribute('data-rma-id');
+                }
+                
+                const commentIcon = row.querySelector('.comment-icon');
+                if (commentIcon) {
+                    return commentIcon.getAttribute('data-rma-id');
+                }
+                
+                const toolIcon = row.querySelector('.tool-tooltip');
+                if (toolIcon) {
+                    return toolIcon.getAttribute('data-rma-id');
+                }
+                
+                return null;
+            }
+
+            initLazyCommentLoading() {
+                const self = this; // Capture 'this' reference
+                const commentIcons = document.querySelectorAll('.comment-icon');
+                console.log(`Found ${commentIcons.length} comment icons`);
+                
+                commentIcons.forEach(icon => {
+                    const rmaId = icon.getAttribute('data-rma-id');
+                    if (!rmaId) return;
+                    
+                    // Check comment count first - don't initialize popover for 0 comments
+                    const commentCount = parseInt(icon.getAttribute('data-comment-count') || '0');
+                    if (commentCount === 0) {
+                        return; // Skip initialization entirely for 0 comments
+                    }
+                    
+                    // Get or create cache entry for this RMA
+                    if (!self.tooltipCache.comments.has(rmaId)) {
+                        self.tooltipCache.comments.set(rmaId, {
+                            data: null,
+                            isLoaded: false,
+                            isLoading: false,
+                            currentRequest: null
+                        });
+                    }
+                    
+                    const cacheEntry = self.tooltipCache.comments.get(rmaId);
+                    
+                    // Ensure popover is initialized with the original content
+                    const popover = bootstrap.Popover.getInstance(icon);
+                    if (!popover) {
+                        new bootstrap.Popover(icon, {
+                            html: true,
+                            placement: 'left',
+                            trigger: 'hover focus click',
+                            title: icon.getAttribute('data-bs-title') || 'Comments',
+                            content: icon.getAttribute('data-bs-content') || 'Loading comments...',
+                            sanitize: false,
+                            fallbackPlacements: ['left', 'top', 'bottom'],
+                            container: 'body'
+                        });
+                    }
+                    
+                    icon.addEventListener('mouseenter', async () => {
+                        const commentCount = parseInt(icon.getAttribute('data-comment-count') || '0');
+                        
+                        // Don't load if no comments
+                        if (commentCount === 0) return;
+                        
+                        // If already loaded, show cached data immediately
+                        if (cacheEntry.isLoaded && cacheEntry.data) {
+                            console.log(`Using cached comments for RMA ${rmaId}`);
+                            const formattedComments = self.formatCommentsForPopover(cacheEntry.data.comments);
+                            
+                            // Always dispose and recreate popover to ensure fresh content
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                currentPopover.dispose();
+                            }
+                            
+                            // Create new popover with cached content and show it immediately
+                            const newPopover = new bootstrap.Popover(icon, {
+                                html: true,
+                                placement: 'left',
+                                trigger: 'hover focus click',
+                                title: `Comments (${cacheEntry.data.count})`,
+                                content: formattedComments,
+                                sanitize: false,
+                                fallbackPlacements: ['left', 'top', 'bottom'],
+                                container: 'body'
+                            });
+                            newPopover.show();
+                            return;
+                        }
+                        
+                        // Cancel any existing request
+                        if (cacheEntry.currentRequest && !cacheEntry.currentRequest.signal.aborted) {
+                            cacheEntry.currentRequest.abort();
+                            cacheEntry.isLoading = false; // Reset loading state when we abort
+                        }
+                        
+                        // Don't start new request if already loading
+                        if (cacheEntry.isLoading) {
+                            return;
+                        }
+                        
+                        // Create new AbortController for this request
+                        const abortController = new AbortController();
+                        cacheEntry.currentRequest = abortController;
+                        cacheEntry.isLoading = true;
+                        
+                        try {
+                            console.log(`Loading comments for RMA ${rmaId} (cache miss)`);
+                            const response = await fetch(`/rma/api/rma/${rmaId}/comments`, {
+                                signal: abortController.signal
+                            });
+                            console.log('Response status:', response.status);
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            
+                            const data = await response.json();
+                            console.log('Response data:', data);
+                            
+                            if (data.success && data.comments) {
+                                // Cache the data
+                                cacheEntry.data = data;
+                                cacheEntry.isLoaded = true;
+                                
+                                const formattedComments = self.formatCommentsForPopover(data.comments);
+                                
+                                // Update the existing popover's content
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    // Update the popover's tip content if it's already shown
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = formattedComments;
+                                        }
+                                        const popoverHeader = popoverTip.querySelector('.popover-header');
+                                        if (popoverHeader) {
+                                            popoverHeader.textContent = `Comments (${data.count})`;
+                                        }
+                                    }
+                                    
+                                    // Also update the data attributes for future shows
+                                    icon.setAttribute('data-bs-content', formattedComments);
+                                    icon.setAttribute('data-bs-title', `Comments (${data.count})`);
+                                }
+                            } else {
+                                console.error('Failed to load comments:', data.error);
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = 'Error loading comments';
+                                        }
+                                    }
+                                    icon.setAttribute('data-bs-content', 'Error loading comments');
+                                }
+                            }
+                        } catch (error) {
+                            // Don't show error if request was aborted (user moved mouse away quickly)
+                            if (error.name === 'AbortError') {
+                                console.log('Request aborted for comments loading');
+                                return;
+                            }
+                            
+                            console.error('Error loading comments:', error);
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                const popoverTip = currentPopover.tip;
+                                if (popoverTip) {
+                                    const popoverBody = popoverTip.querySelector('.popover-body');
+                                    if (popoverBody) {
+                                        popoverBody.innerHTML = 'Error loading comments';
+                                    }
+                                }
+                                icon.setAttribute('data-bs-content', 'Error loading comments');
+                            }
+                        } finally {
+                            // Only reset loading state if this request wasn't aborted
+                            if (!abortController.signal.aborted) {
+                                cacheEntry.isLoading = false;
+                            }
+                        }
+                    });
+                });
+            }
+
+            initLazyProblemDetailsLoading() {
+                const self = this;
+                const problemIcons = document.querySelectorAll('.problem-popover-icon');
+                console.log(`Found ${problemIcons.length} problem detail icons`);
+                
+                problemIcons.forEach(icon => {
+                    const rmaId = icon.getAttribute('data-rma-id');
+                    if (!rmaId) return;
+                    
+                    // Get or create cache entry for this RMA
+                    if (!self.tooltipCache.problemDetails.has(rmaId)) {
+                        self.tooltipCache.problemDetails.set(rmaId, {
+                            data: null,
+                            isLoaded: false,
+                            isLoading: false,
+                            currentRequest: null
+                        });
+                    }
+                    
+                    const cacheEntry = self.tooltipCache.problemDetails.get(rmaId);
+                    
+                    icon.addEventListener('mouseenter', async () => {
+                        // If already loaded, show cached data immediately
+                        if (cacheEntry.isLoaded && cacheEntry.data) {
+                            console.log(`Using cached problem details for RMA ${rmaId}`);
+                            const formattedDetails = self.formatProblemDetailsForPopover(cacheEntry.data.problemDetails);
+                            icon.setAttribute('data-bs-content', formattedDetails);
+                            
+                            // Always dispose and recreate popover to ensure fresh content
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                currentPopover.dispose();
+                            }
+                            
+                            // Create new popover with cached content and show it immediately
+                            const newPopover = new bootstrap.Popover(icon, {
+                                html: true,
+                                placement: 'right',
+                                trigger: 'hover focus click',
+                                title: icon.getAttribute('data-bs-title') || 'Problem Details',
+                                content: formattedDetails,
+                                sanitize: false,
+                                fallbackPlacements: ['left', 'top', 'bottom'],
+                                container: 'body'
+                            });
+                            newPopover.show();
+                            return;
+                        }
+                        
+                        // Cancel any existing request
+                        if (cacheEntry.currentRequest && !cacheEntry.currentRequest.signal.aborted) {
+                            cacheEntry.currentRequest.abort();
+                            cacheEntry.isLoading = false;
+                        }
+                        
+                        if (cacheEntry.isLoading) return;
+                        
+                        const abortController = new AbortController();
+                        cacheEntry.currentRequest = abortController;
+                        cacheEntry.isLoading = true;
+                        
+                        try {
+                            console.log(`Loading problem details for RMA ${rmaId} (cache miss)`);
+                            const response = await fetch(`/rma/api/rma/${rmaId}/problem-details`, {
+                                signal: abortController.signal
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            
+                            const data = await response.json();
+                            
+                            if (data.success && data.problemDetails) {
+                                cacheEntry.data = data;
+                                cacheEntry.isLoaded = true;
+                                
+                                const formattedDetails = self.formatProblemDetailsForPopover(data.problemDetails);
+                                icon.setAttribute('data-bs-content', formattedDetails);
+                                
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = formattedDetails;
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (error.name === 'AbortError') return;
+                            console.error('Error loading problem details:', error);
+                        } finally {
+                            if (!abortController.signal.aborted) {
+                                cacheEntry.isLoading = false;
+                            }
+                        }
+                    });
+                });
+            }
+
+            initLazyToolDetailsLoading() {
+                const self = this;
+                const toolIcons = document.querySelectorAll('.tool-tooltip');
+                console.log(`Found ${toolIcons.length} tool detail icons`);
+                
+                toolIcons.forEach(icon => {
+                    const rmaId = icon.getAttribute('data-rma-id');
+                    if (!rmaId) return;
+                    
+                    if (!self.tooltipCache.toolDetails.has(rmaId)) {
+                        self.tooltipCache.toolDetails.set(rmaId, {
+                            data: null,
+                            isLoaded: false,
+                            isLoading: false,
+                            currentRequest: null
+                        });
+                    }
+                    
+                    const cacheEntry = self.tooltipCache.toolDetails.get(rmaId);
+                    
+                    icon.addEventListener('mouseenter', async () => {
+                        if (cacheEntry.isLoaded && cacheEntry.data) {
+                            console.log(`Using cached tool details for RMA ${rmaId}`);
+                            const formattedDetails = self.formatToolDetailsForPopover(cacheEntry.data.toolDetails);
+                            icon.setAttribute('data-bs-content', formattedDetails);
+                            
+                            // Always dispose and recreate popover to ensure fresh content
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                currentPopover.dispose();
+                            }
+                            
+                            // Create new popover with cached content and show it immediately
+                            const newPopover = new bootstrap.Popover(icon, {
+                                html: true,
+                                placement: 'right',
+                                trigger: 'hover focus click',
+                                title: icon.getAttribute('data-bs-title') || 'Tool Details',
+                                content: formattedDetails,
+                                sanitize: false,
+                                fallbackPlacements: ['left', 'top', 'bottom'],
+                                container: 'body'
+                            });
+                            newPopover.show();
+                            return;
+                        }
+                        
+                        if (cacheEntry.currentRequest && !cacheEntry.currentRequest.signal.aborted) {
+                            cacheEntry.currentRequest.abort();
+                            cacheEntry.isLoading = false;
+                        }
+                        
+                        if (cacheEntry.isLoading) return;
+                        
+                        const abortController = new AbortController();
+                        cacheEntry.currentRequest = abortController;
+                        cacheEntry.isLoading = true;
+                        
+                        try {
+                            console.log(`Loading tool details for RMA ${rmaId} (cache miss)`);
+                            const response = await fetch(`/rma/api/rma/${rmaId}/tool-details`, {
+                                signal: abortController.signal
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            
+                            const data = await response.json();
+                            
+                            if (data.success && data.hasTool && data.toolDetails) {
+                                cacheEntry.data = data;
+                                cacheEntry.isLoaded = true;
+                                
+                                const formattedDetails = self.formatToolDetailsForPopover(data.toolDetails);
+                                icon.setAttribute('data-bs-content', formattedDetails);
+                                
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = formattedDetails;
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (error.name === 'AbortError') return;
+                            console.error('Error loading tool details:', error);
+                        } finally {
+                            if (!abortController.signal.aborted) {
+                                cacheEntry.isLoading = false;
+                            }
+                        }
+                    });
+                });
+            }
+
+            initLazyMovingPartsLoading() {
+                const self = this;
+                const movingPartsIcons = document.querySelectorAll('.moving-parts-icon');
+                console.log(`Found ${movingPartsIcons.length} moving parts icons`);
+                
+                movingPartsIcons.forEach(icon => {
+                    const rmaId = icon.closest('tr').querySelector('a[href*="/rma/"]').href.split('/').pop();
+                    if (!rmaId) return;
+                    
+                    if (!self.tooltipCache.movingParts.has(rmaId)) {
+                        self.tooltipCache.movingParts.set(rmaId, {
+                            data: null,
+                            isLoaded: false,
+                            isLoading: false,
+                            currentRequest: null
+                        });
+                    }
+                    
+                    const cacheEntry = self.tooltipCache.movingParts.get(rmaId);
+                    
+                    const popover = bootstrap.Popover.getInstance(icon);
+                    if (!popover) {
+                        new bootstrap.Popover(icon, {
+                            html: true,
+                            placement: 'left',
+                            trigger: 'hover focus click',
+                            title: 'Moving Parts',
+                            content: 'Loading moving parts...',
+                            sanitize: false,
+                            fallbackPlacements: ['right', 'top', 'bottom'],
+                            container: 'body'
+                        });
+                    }
+                    
+                    icon.addEventListener('mouseenter', async () => {
+                        if (cacheEntry.isLoaded && cacheEntry.data) {
+                            console.log(`Using cached moving parts for RMA ${rmaId}`);
+                            const formattedParts = self.formatMovingPartsForPopover(cacheEntry.data.movingParts);
+                            icon.setAttribute('data-bs-content', formattedParts);
+                            
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                const popoverTip = currentPopover.tip;
+                                if (popoverTip && document.body.contains(popoverTip)) {
+                                    const popoverBody = popoverTip.querySelector('.popover-body');
+                                    if (popoverBody) {
+                                        popoverBody.innerHTML = formattedParts;
+                                    }
+                                }
+                            }
+                            return;
+                        }
+                        
+                        if (cacheEntry.currentRequest && !cacheEntry.currentRequest.signal.aborted) {
+                            cacheEntry.currentRequest.abort();
+                            cacheEntry.isLoading = false;
+                        }
+                        
+                        if (cacheEntry.isLoading) return;
+                        
+                        const abortController = new AbortController();
+                        cacheEntry.currentRequest = abortController;
+                        cacheEntry.isLoading = true;
+                        
+                        try {
+                            console.log(`Loading moving parts for RMA ${rmaId} (cache miss)`);
+                            const response = await fetch(`/rma/api/rma/${rmaId}/moving-parts`, {
+                                signal: abortController.signal
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            
+                            const data = await response.json();
+                            
+                            if (data.success && data.movingParts) {
+                                cacheEntry.data = data;
+                                cacheEntry.isLoaded = true;
+                                
+                                const formattedParts = self.formatMovingPartsForPopover(data.movingParts);
+                                icon.setAttribute('data-bs-content', formattedParts);
+                                
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = formattedParts;
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (error.name === 'AbortError') return;
+                            console.error('Error loading moving parts:', error);
+                        } finally {
+                            if (!abortController.signal.aborted) {
+                                cacheEntry.isLoading = false;
+                            }
+                        }
+                    });
+                });
+            }
+
+            formatCommentsForPopover(comments) {
+                if (!comments || comments.length === 0) return 'No comments available';
+                return comments.map(comment => {
+                    const date = comment.createdDate ? new Date(comment.createdDate).toLocaleDateString() : '';
+                    const user = comment.user?.name || 'Unknown';
+                    return `<div class="mb-2"><small class="text-muted">${date} by ${user}</small><br/>${comment.content || 'No content'}</div>`;
+                }).join('<hr class="my-1"/>');
+            }
+
+            formatProblemDetailsForPopover(problemDetails) {
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '-';
+                    try {
+                        const date = new Date(dateStr);
+                        return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+                    } catch {
+                        return '-';
+                    }
+                };
+
+                return `<strong>Who:</strong> ${problemDetails.problemDiscoverer || '-'}<br>` +
+                       `<strong>When:</strong> ${formatDate(problemDetails.problemDiscoveryDate)}<br>` +
+                       `<strong>What:</strong> ${problemDetails.whatHappened || '-'}<br>` +
+                       `<strong>Why:</strong> ${problemDetails.whyAndHowItHappened || '-'}<br>` +
+                       `<strong>How:</strong> ${problemDetails.howContained || '-'}<br>` +
+                       `<strong>By:</strong> ${problemDetails.whoContained || '-'}`;
+            }
+
+            formatToolDetailsForPopover(toolDetails) {
+                let result = `<strong>Type:</strong> ${toolDetails.toolType || 'Unknown Type'}<br>`;
+                
+                // Handle model display
+                const models = [toolDetails.model1, toolDetails.model2].filter(Boolean);
+                if (models.length > 0) {
+                    result += `<strong>Model:</strong> ${models.join('/')}<br>`;
+                }
+                
+                // Handle serial number display
+                const serials = [toolDetails.serialNumber1, toolDetails.serialNumber2].filter(Boolean);
+                if (serials.length > 0) {
+                    result += `<strong>Serial:</strong> ${serials.join('/')}`;
+                }
+                
+                return result;
+            }
+
+            formatMovingPartsForPopover(movingParts) {
+                if (!movingParts || movingParts.length === 0) return 'No moving parts';
+                
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '-';
+                    try {
+                        const date = new Date(dateStr);
+                        return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+                    } catch {
+                        return '-';
+                    }
+                };
+                
+                return movingParts.map(part => {
+                    return `<div class="mb-2">
+                        <strong>${part.partName || 'Unknown Part'}</strong><br>
+                        <small class="text-muted">
+                            From: ${part.fromLocationName || 'Unknown'} → To: ${part.toLocationName || 'Unknown'}<br>
+                            Date: ${formatDate(part.movementDate)}
+                        </small>
+                    </div>`;
+                }).join('<hr class="my-1"/>');
             }
         }
 
@@ -808,8 +1643,12 @@
                                     tableContainer.style.display = 'block';
                                     
                                     // Initialize RMA Manager after loading data
-                                    window.rmaManager = new RMAManager();
-                                    this.initializeInteractions();
+                                    try {
+                                        window.rmaManager = new RMAManager();
+                                        window.rmaManager.initializeInteractions();
+                                    } catch (error) {
+                                        console.error('Error initializing RMAManager:', error);
+                                    }
                                 }, 200);
                             }, 300);
                         } else {
@@ -860,12 +1699,22 @@
 
             createTableRow(rma, commentsMap, movingPartsMap) {
                 const row = document.createElement('tr');
-                row.className = 'rma-row';
+                row.className = 'data-table-row rma-row';
+                row.setAttribute('data-rma-id', rma.id); // Add RMA ID for click handler
                 row.setAttribute('data-tool', rma.tool?.name?.toLowerCase() || '');
                 row.setAttribute('data-parts', this.formatPartsForSearch(rma.partLineItems));
                 row.setAttribute('data-part-numbers', this.formatPartNumbersForSearch(rma.partLineItems));
                 row.setAttribute('data-rma-number', (rma.rmaNumber || rma.sapNotificationNumber || '').toLowerCase());
                 row.setAttribute('data-status', rma.status || '');
+                
+                // Add date attributes for sorting (in ISO format for proper date comparison)
+                row.setAttribute('data-written-date', rma.writtenDate || '');
+                row.setAttribute('data-rma-provided-date', rma.rmaNumberProvidedDate || '');
+                row.setAttribute('data-shipping-memo-date', rma.shippingMemoEmailedDate || '');
+                row.setAttribute('data-parts-received-date', rma.partsReceivedDate || '');
+                row.setAttribute('data-parts-installed-date', rma.installedPartsDate || '');
+                row.setAttribute('data-failed-parts-ready-date', rma.failedPartsPackedDate || '');
+                row.setAttribute('data-failed-parts-shipped-date', rma.failedPartsShippedDate || '');
                 
                 const formatDate = (dateStr) => {
                     if (!dateStr) return '-';
@@ -909,14 +1758,22 @@
 
                 row.innerHTML = `
                     <td>
-                        <a href="/rma/${rma.id}">
+                        <span class="rma-number">
                             ${rma.rmaNumber || rma.sapNotificationNumber || `RMA-${rma.id}`}
-                        </a>
-                        ${rma.priority > 1 ? `<span class="badge bg-danger ms-1">P${rma.priority}</span>` : ''}
+                        </span>
+
+                        <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
+                           data-rma-id="${rma.id}"
+                           data-rma-number="${rma.rmaNumber || rma.sapNotificationNumber || 'RMA-' + rma.id}"
+                           data-bs-toggle="popover"
+                           data-bs-placement="right"
+                           data-bs-trigger="hover focus click"
+                           data-bs-html="true"
+                           data-bs-title="Problem Details for ${rma.rmaNumber || rma.sapNotificationNumber || 'RMA-' + rma.id}"
+                           data-bs-content="Loading problem details..."
+                           title="Hover to load problem details"></i>
                     </td>
-                    <td>${rma.tool?.name || '-'}</td>
-                    <td>${rma.location?.name || '-'}</td>
-                    <td>${rma.customerName || '-'}</td>
+                    <td>${rma.tool ? `<a href="/tools/${rma.tool.id}" class="text-decoration-hover-underline">${rma.tool.name}</a> <i class="bi bi-info-circle-fill ms-1 tool-tooltip" data-rma-id="${rma.id}" data-tool-name="${rma.tool.name}" data-bs-toggle="popover" data-bs-placement="right" data-bs-trigger="hover focus click" data-bs-html="true" data-bs-title="${rma.tool.name}" data-bs-content="Loading tool details..." title="Hover to load tool details"></i>` : '-'}</td>
                     <td class="allow-wrap">${formatParts(rma.partLineItems)}</td>
                     <td class="text-center">
                         <span class="badge rounded-pill status-badge ${getStatusBadgeClass(rma.status)}">
@@ -936,16 +1793,17 @@
                         </span>
                     </td>
                     <td class="text-center">
-                        <i class="bi bi-chat-dots${commentCount > 0 ? '-fill info-icon-interactive' : ' text-muted'}" 
-                           ${commentCount > 0 ? `data-bs-toggle="popover" data-bs-placement="left" data-bs-trigger="hover focus click" 
-                                                 data-bs-html="true" data-bs-title="Comments (${commentCount})" 
-                                                 data-bs-content="${formatComments(rma.comments).replace(/"/g, '&quot;')}"` : ''}></i>
+                        <i class="bi bi-chat-dots-fill comment-icon ${commentCount > 0 ? 'info-icon-interactive' : 'text-muted'}"
+                           data-rma-id="${rma.id}"
+                           data-comment-count="${commentCount}"
+                           ${commentCount > 0 ? 'data-bs-toggle="popover"' : ''}
+                           data-bs-placement="left"
+                           data-bs-trigger="hover focus click"
+                           data-bs-html="true"
+                           data-bs-title="Comments (${commentCount})"
+                           data-bs-content="Loading comments..."
+                           ${commentCount > 0 ? 'title="Hover to load comments"' : ''}></i>
                         <span class="ms-1 small">${commentCount}</span>
-                    </td>
-                    <td class="text-center">
-                        <a href="/rma/${rma.id}" class="action-icon" title="View RMA">
-                            <i class="bi bi-eye-fill"></i>
-                        </a>
                     </td>
                 `;
 
@@ -962,6 +1820,32 @@
             formatPartNumbersForSearch(partLineItems) {
                 if (!partLineItems || partLineItems.length === 0) return '';
                 return partLineItems.map(item => item.partNumber || '').filter(Boolean).join(' ').toLowerCase();
+            },
+
+
+
+            hasProblemDetails(rma) {
+                return rma.problemDiscoverer || rma.problemDiscoveryDate || rma.whatHappened || 
+                       rma.whyAndHowItHappened || rma.howContained || rma.whoContained;
+            },
+
+            formatProblemDetails(rma) {
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '-';
+                    try {
+                        const date = new Date(dateStr);
+                        return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+                    } catch {
+                        return '-';
+                    }
+                };
+
+                return `<strong>Who:</strong> ${rma.problemDiscoverer || '-'}<br>` +
+                       `<strong>When:</strong> ${formatDate(rma.problemDiscoveryDate)}<br>` +
+                       `<strong>What:</strong> ${rma.whatHappened || '-'}<br>` +
+                       `<strong>Why:</strong> ${rma.whyAndHowItHappened || '-'}<br>` +
+                       `<strong>How:</strong> ${rma.howContained || '-'}<br>` +
+                       `<strong>By:</strong> ${rma.whoContained || '-'}`;
             },
 
             updateCounts(rmaCount) {
@@ -994,8 +1878,953 @@
                         }
                     });
                 });
+                
+                // Initialize lazy loading for comments, problem details, tool details, and moving parts
+                this.initLazyCommentLoading();
+                this.initLazyProblemDetailsLoading();
+                this.initLazyToolDetailsLoading();
+                this.initLazyMovingPartsLoading();
+                
+                // Initialize clickable table rows
+                initializeClickableRows();
+            },
+            
+            initLazyCommentLoading() {
+                const self = this; // Capture 'this' reference
+                const commentIcons = document.querySelectorAll('.comment-icon');
+                console.log(`Found ${commentIcons.length} comment icons`);
+                
+                commentIcons.forEach(icon => {
+                    const rmaId = icon.getAttribute('data-rma-id');
+                    if (!rmaId) return;
+                    
+                    // Check comment count first - don't initialize popover for 0 comments
+                    const commentCount = parseInt(icon.getAttribute('data-comment-count') || '0');
+                    if (commentCount === 0) {
+                        return; // Skip initialization entirely for 0 comments
+                    }
+                    
+                    // Get or create cache entry for this RMA
+                    if (!self.tooltipCache.comments.has(rmaId)) {
+                        self.tooltipCache.comments.set(rmaId, {
+                            data: null,
+                            isLoaded: false,
+                            isLoading: false,
+                            currentRequest: null
+                        });
+                    }
+                    
+                    const cacheEntry = self.tooltipCache.comments.get(rmaId);
+                    
+                    // Ensure popover is initialized with the original content
+                    const popover = bootstrap.Popover.getInstance(icon);
+                    if (!popover) {
+                        new bootstrap.Popover(icon, {
+                            html: true,
+                            placement: 'left',
+                            trigger: 'hover focus click',
+                            title: icon.getAttribute('data-bs-title') || 'Comments',
+                            content: icon.getAttribute('data-bs-content') || 'Loading comments...',
+                            sanitize: false,
+                            fallbackPlacements: ['left', 'top', 'bottom'],
+                            container: 'body'
+                        });
+                    }
+                    
+                    icon.addEventListener('mouseenter', async () => {
+                        const commentCount = parseInt(icon.getAttribute('data-comment-count') || '0');
+                        
+                        // Don't load if no comments
+                        if (commentCount === 0) return;
+                        
+                        // If already loaded, show cached data immediately
+                        if (cacheEntry.isLoaded && cacheEntry.data) {
+                            console.log(`Using cached comments for RMA ${rmaId}`);
+                            const formattedComments = self.formatCommentsForPopover(cacheEntry.data.comments);
+                            
+                            // Always dispose and recreate popover to ensure fresh content
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                currentPopover.dispose();
+                            }
+                            
+                            // Create new popover with cached content and show it immediately
+                            const newPopover = new bootstrap.Popover(icon, {
+                                html: true,
+                                placement: 'left',
+                                trigger: 'hover focus click',
+                                title: `Comments (${cacheEntry.data.count})`,
+                                content: formattedComments,
+                                sanitize: false,
+                                fallbackPlacements: ['left', 'top', 'bottom'],
+                                container: 'body'
+                            });
+                            newPopover.show();
+                            return;
+                        }
+                        
+                        // Cancel any existing request
+                        if (cacheEntry.currentRequest && !cacheEntry.currentRequest.signal.aborted) {
+                            cacheEntry.currentRequest.abort();
+                            cacheEntry.isLoading = false; // Reset loading state when we abort
+                        }
+                        
+                        // Don't start new request if already loading
+                        if (cacheEntry.isLoading) {
+                            return;
+                        }
+                        
+                        // Create new AbortController for this request
+                        const abortController = new AbortController();
+                        cacheEntry.currentRequest = abortController;
+                        cacheEntry.isLoading = true;
+                        
+                        try {
+                            console.log(`Loading comments for RMA ${rmaId} (cache miss)`);
+                            const response = await fetch(`/rma/api/rma/${rmaId}/comments`, {
+                                signal: abortController.signal
+                            });
+                            console.log('Response status:', response.status);
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            
+                            const data = await response.json();
+                            console.log('Response data:', data);
+                            
+                            if (data.success && data.comments) {
+                                // Cache the data
+                                cacheEntry.data = data;
+                                cacheEntry.isLoaded = true;
+                                
+                                const formattedComments = self.formatCommentsForPopover(data.comments);
+                                
+                                // Update the existing popover's content
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    // Update the popover's tip content if it's already shown
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = formattedComments;
+                                        }
+                                        const popoverHeader = popoverTip.querySelector('.popover-header');
+                                        if (popoverHeader) {
+                                            popoverHeader.textContent = `Comments (${data.count})`;
+                                        }
+                                    }
+                                    
+                                    // Also update the data attributes for future shows
+                                    icon.setAttribute('data-bs-content', formattedComments);
+                                    icon.setAttribute('data-bs-title', `Comments (${data.count})`);
+                                }
+                            } else {
+                                console.error('Failed to load comments:', data.error);
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = 'Error loading comments';
+                                        }
+                                    }
+                                    icon.setAttribute('data-bs-content', 'Error loading comments');
+                                }
+                            }
+                        } catch (error) {
+                            // Don't show error if request was aborted (user moved mouse away quickly)
+                            if (error.name === 'AbortError') {
+                                console.log('Request aborted for comments loading');
+                                return;
+                            }
+                            
+                            console.error('Error loading comments:', error);
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                const popoverTip = currentPopover.tip;
+                                if (popoverTip) {
+                                    const popoverBody = popoverTip.querySelector('.popover-body');
+                                    if (popoverBody) {
+                                        popoverBody.innerHTML = 'Error loading comments';
+                                    }
+                                }
+                                icon.setAttribute('data-bs-content', 'Error loading comments');
+                            }
+                        } finally {
+                            // Only reset loading state if this request wasn't aborted
+                            if (!abortController.signal.aborted) {
+                                cacheEntry.isLoading = false;
+                            }
+                        }
+                    });
+                });
+            },
+            
+            formatCommentsForPopover(comments) {
+                if (!comments || comments.length === 0) {
+                    return 'No comments available';
+                }
+                
+                return comments.map(comment => {
+                    const formatDate = (dateStr) => {
+                        if (!dateStr) return 'Unknown date';
+                        try {
+                            const date = new Date(dateStr);
+                            return date.toLocaleDateString('en-US', { 
+                                month: '2-digit', 
+                                day: '2-digit', 
+                                year: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        } catch {
+                            return 'Unknown date';
+                        }
+                    };
+                    
+                    return `<div class="mb-2">
+                        <small class="text-muted">${formatDate(comment.createdDate)} by ${comment.author || 'Unknown'}</small><br/>
+                        <span>${comment.content || 'No content'}</span>
+                    </div>`;
+                }).join('<hr class="my-1"/>');
+            },
+            
+            initLazyProblemDetailsLoading() {
+                const self = this; // Capture 'this' reference
+                const problemIcons = document.querySelectorAll('.problem-popover-icon');
+                console.log(`Found ${problemIcons.length} problem detail icons`);
+                
+                problemIcons.forEach(icon => {
+                    const rmaId = icon.getAttribute('data-rma-id');
+                    if (!rmaId) return;
+                    
+                    // Get or create cache entry for this RMA
+                    if (!self.tooltipCache.problemDetails.has(rmaId)) {
+
+                        self.tooltipCache.problemDetails.set(rmaId, {
+                            data: null,
+                            isLoaded: false,
+                            isLoading: false,
+                            currentRequest: null
+                        });
+                    }
+                    
+                    const cacheEntry = self.tooltipCache.problemDetails.get(rmaId);
+                    
+                    // Ensure popover is initialized with the original content
+                    const popover = bootstrap.Popover.getInstance(icon);
+                    if (!popover) {
+                        new bootstrap.Popover(icon, {
+                            html: true,
+                            placement: 'right',
+                            trigger: 'hover focus click',
+                            title: icon.getAttribute('data-bs-title') || 'Problem Details',
+                            content: icon.getAttribute('data-bs-content') || 'Loading problem details...',
+                            sanitize: false,
+                            fallbackPlacements: ['right', 'top', 'bottom'],
+                            container: 'body'
+                        });
+                    }
+                    
+                    icon.addEventListener('mouseenter', async () => {
+                        // If already loaded, show cached data immediately
+                        if (cacheEntry.isLoaded && cacheEntry.data) {
+                            console.log(`Using cached problem details for RMA ${rmaId}`);
+                            const formattedDetails = self.formatProblemDetailsForPopover(cacheEntry.data.problemDetails);
+                            icon.setAttribute('data-bs-content', formattedDetails);
+                            
+                            // Always dispose and recreate popover to ensure fresh content
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                currentPopover.dispose();
+                            }
+                            
+                            // Create new popover with cached content and show it immediately
+                            const newPopover = new bootstrap.Popover(icon, {
+                                html: true,
+                                placement: 'right',
+                                trigger: 'hover focus click',
+                                title: icon.getAttribute('data-bs-title') || 'Problem Details',
+                                content: formattedDetails,
+                                sanitize: false,
+                                fallbackPlacements: ['left', 'top', 'bottom'],
+                                container: 'body'
+                            });
+                            newPopover.show();
+                            return;
+                        }
+                        
+                        // Cancel any existing request
+                        if (cacheEntry.currentRequest && !cacheEntry.currentRequest.signal.aborted) {
+                            cacheEntry.currentRequest.abort();
+                            cacheEntry.isLoading = false; // Reset loading state when we abort
+                        }
+                        
+                        // Don't start new request if already loading
+                        if (cacheEntry.isLoading) {
+                            return;
+                        }
+                        
+                        // Create new AbortController for this request
+                        const abortController = new AbortController();
+                        cacheEntry.currentRequest = abortController;
+                        cacheEntry.isLoading = true;
+                        
+                        try {
+                            console.log(`Loading problem details for RMA ${rmaId} (cache miss)`);
+                            const response = await fetch(`/rma/api/rma/${rmaId}/problem-details`, {
+                                signal: abortController.signal
+                            });
+                            console.log('Response status:', response.status);
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            
+                            const data = await response.json();
+                            console.log('Response data:', data);
+                            
+                            if (data.success && data.problemDetails) {
+                                // Cache the data
+                                cacheEntry.data = data;
+                                cacheEntry.isLoaded = true;
+                                
+                                const formattedDetails = self.formatProblemDetailsForPopover(data.problemDetails);
+                                
+                                // Update the data attributes first
+                                icon.setAttribute('data-bs-content', formattedDetails);
+                                
+                                // Update the existing popover's content
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    // Check if popover is currently visible
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                        // Popover is visible, update content and refresh
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = formattedDetails;
+                                        }
+                                    } else {
+                                        // Popover is not visible, dispose and recreate to ensure fresh content
+                                        currentPopover.dispose();
+                                        new bootstrap.Popover(icon, {
+                                            html: true,
+                                            placement: 'right',
+                                            trigger: 'hover focus click',
+                                            title: icon.getAttribute('data-bs-title') || 'Problem Details',
+                                            content: formattedDetails,
+                                            sanitize: false,
+                                            fallbackPlacements: ['left', 'top', 'bottom'],
+                                            container: 'body'
+                                        });
+                                    }
+                                }
+                            } else {
+                                console.error('Failed to load problem details:', data.error);
+                                const errorMessage = data.hasDetails === false ? 'No problem details available' : 'Error loading problem details';
+                                
+                                // Update the data attributes first
+                                icon.setAttribute('data-bs-content', errorMessage);
+                                
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = errorMessage;
+                                        }
+                                    } else {
+                                        // Recreate popover with error message
+                                        currentPopover.dispose();
+                                        new bootstrap.Popover(icon, {
+                                            html: true,
+                                            placement: 'right',
+                                            trigger: 'hover focus click',
+                                            title: icon.getAttribute('data-bs-title') || 'Problem Details',
+                                            content: errorMessage,
+                                            sanitize: false,
+                                            fallbackPlacements: ['left', 'top', 'bottom'],
+                                            container: 'body'
+                                        });
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            // Don't show error if request was aborted (user moved mouse away quickly)
+                            if (error.name === 'AbortError') {
+                                console.log('Request aborted for problem details loading');
+                                return;
+                            }
+                            
+                            console.error('Error loading problem details:', error);
+                            const errorMessage = 'Error loading problem details';
+                            
+                            // Update the data attributes first
+                            icon.setAttribute('data-bs-content', errorMessage);
+                            
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                const popoverTip = currentPopover.tip;
+                                if (popoverTip && document.body.contains(popoverTip)) {
+                                    const popoverBody = popoverTip.querySelector('.popover-body');
+                                    if (popoverBody) {
+                                        popoverBody.innerHTML = errorMessage;
+                                    }
+                                } else {
+                                    // Recreate popover with error message
+                                    currentPopover.dispose();
+                                    new bootstrap.Popover(icon, {
+                                        html: true,
+                                        placement: 'right',
+                                        trigger: 'hover focus click',
+                                        title: icon.getAttribute('data-bs-title') || 'Problem Details',
+                                        content: errorMessage,
+                                        sanitize: false,
+                                        fallbackPlacements: ['left', 'top', 'bottom'],
+                                        container: 'body'
+                                    });
+                                }
+                            }
+                        } finally {
+                            // Only reset loading state if this request wasn't aborted
+                            if (!abortController.signal.aborted) {
+                                cacheEntry.isLoading = false;
+                            }
+                        }
+                    });
+                });
+            },
+            
+            formatProblemDetailsForPopover(problemDetails) {
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '-';
+                    try {
+                        const date = new Date(dateStr);
+                        return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+                    } catch {
+                        return '-';
+                    }
+                };
+
+                return `<strong>Who:</strong> ${problemDetails.problemDiscoverer || '-'}<br>` +
+                       `<strong>When:</strong> ${formatDate(problemDetails.problemDiscoveryDate)}<br>` +
+                       `<strong>What:</strong> ${problemDetails.whatHappened || '-'}<br>` +
+                       `<strong>Why:</strong> ${problemDetails.whyAndHowItHappened || '-'}<br>` +
+                       `<strong>How:</strong> ${problemDetails.howContained || '-'}<br>` +
+                       `<strong>By:</strong> ${problemDetails.whoContained || '-'}`;
+            },
+
+            initLazyToolDetailsLoading() {
+                const self = this; // Capture 'this' reference
+                const toolIcons = document.querySelectorAll('.tool-tooltip');
+                console.log(`Found ${toolIcons.length} tool detail icons`);
+                
+                toolIcons.forEach(icon => {
+                    const rmaId = icon.getAttribute('data-rma-id');
+                    if (!rmaId) return;
+                    
+                    // Get or create cache entry for this RMA
+                    if (!self.tooltipCache.toolDetails.has(rmaId)) {
+                        self.tooltipCache.toolDetails.set(rmaId, {
+                            data: null,
+                            isLoaded: false,
+                            isLoading: false,
+                            currentRequest: null
+                        });
+                    }
+                    
+                    const cacheEntry = self.tooltipCache.toolDetails.get(rmaId);
+                    
+                    // Ensure popover is initialized with the original content
+                    const popover = bootstrap.Popover.getInstance(icon);
+                    if (!popover) {
+                        new bootstrap.Popover(icon, {
+                            html: true,
+                            placement: 'right',
+                            trigger: 'hover focus click',
+                            title: icon.getAttribute('data-bs-title') || 'Tool Details',
+                            content: icon.getAttribute('data-bs-content') || 'Loading tool details...',
+                            sanitize: false,
+                            fallbackPlacements: ['left', 'top', 'bottom'],
+                            container: 'body'
+                        });
+                    }
+                    
+                    icon.addEventListener('mouseenter', async () => {
+                        // If already loaded, show cached data immediately
+                        if (cacheEntry.isLoaded && cacheEntry.data) {
+                            console.log(`Using cached tool details for RMA ${rmaId}`);
+                            const formattedDetails = self.formatToolDetailsForPopover(cacheEntry.data.toolDetails);
+                            icon.setAttribute('data-bs-content', formattedDetails);
+                            
+                            // Update popover if currently visible
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                const popoverTip = currentPopover.tip;
+                                if (popoverTip && document.body.contains(popoverTip)) {
+                                    const popoverBody = popoverTip.querySelector('.popover-body');
+                                    if (popoverBody) {
+                                        popoverBody.innerHTML = formattedDetails;
+                                    }
+                                }
+                            }
+                            return;
+                        }
+                        
+                        // Cancel any existing request
+                        if (cacheEntry.currentRequest && !cacheEntry.currentRequest.signal.aborted) {
+                            cacheEntry.currentRequest.abort();
+                            cacheEntry.isLoading = false; // Reset loading state when we abort
+                        }
+                        
+                        // Don't start new request if already loading
+                        if (cacheEntry.isLoading) {
+                            return;
+                        }
+                        
+                        // Create new AbortController for this request
+                        const abortController = new AbortController();
+                        cacheEntry.currentRequest = abortController;
+                        cacheEntry.isLoading = true;
+                        
+                        try {
+                            console.log(`Loading tool details for RMA ${rmaId} (cache miss)`);
+                            const response = await fetch(`/rma/api/rma/${rmaId}/tool-details`, {
+                                signal: abortController.signal
+                            });
+                            console.log('Tool details response status:', response.status);
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            
+                            const data = await response.json();
+                            console.log('Tool details response data:', data);
+                            
+                            if (data.success && data.hasTool && data.toolDetails) {
+                                // Cache the data
+                                cacheEntry.data = data;
+                                cacheEntry.isLoaded = true;
+                                
+                                const formattedToolDetails = self.formatToolDetailsForPopover(data.toolDetails);
+                                
+                                // Update the data attributes first
+                                icon.setAttribute('data-bs-content', formattedToolDetails);
+                                
+                                // Update the existing popover's content
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    // Check if popover is currently visible
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                        // Popover is visible, update content
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = formattedToolDetails;
+                                        }
+                                    } else {
+                                        // Popover is not visible, dispose and recreate
+                                        currentPopover.dispose();
+                                        new bootstrap.Popover(icon, {
+                                            html: true,
+                                            placement: 'right',
+                                            trigger: 'hover focus click',
+                                            title: icon.getAttribute('data-bs-title') || 'Tool Details',
+                                            content: formattedToolDetails,
+                                            sanitize: false,
+                                            fallbackPlacements: ['left', 'top', 'bottom'],
+                                            container: 'body'
+                                        });
+                                    }
+                                }
+                            } else if (data.success && !data.hasTool) {
+                                const noToolMessage = 'No tool assigned to this RMA';
+                                
+                                // Update the data attributes first
+                                icon.setAttribute('data-bs-content', noToolMessage);
+                                
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = noToolMessage;
+                                        }
+                                    } else {
+                                        // Recreate popover
+                                        currentPopover.dispose();
+                                        new bootstrap.Popover(icon, {
+                                            html: true,
+                                            placement: 'right',
+                                            trigger: 'hover focus click',
+                                            title: icon.getAttribute('data-bs-title') || 'Tool Details',
+                                            content: noToolMessage,
+                                            sanitize: false,
+                                            fallbackPlacements: ['left', 'top', 'bottom'],
+                                            container: 'body'
+                                        });
+                                    }
+                                }
+                            } else {
+                                console.error('Failed to load tool details:', data.error);
+                                const errorMessage = 'Error loading tool details';
+                                
+                                // Update the data attributes first
+                                icon.setAttribute('data-bs-content', errorMessage);
+                                
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = errorMessage;
+                                        }
+                                    } else {
+                                        // Recreate popover with error message
+                                        currentPopover.dispose();
+                                        new bootstrap.Popover(icon, {
+                                            html: true,
+                                            placement: 'right',
+                                            trigger: 'hover focus click',
+                                            title: icon.getAttribute('data-bs-title') || 'Tool Details',
+                                            content: errorMessage,
+                                            sanitize: false,
+                                            fallbackPlacements: ['left', 'top', 'bottom'],
+                                            container: 'body'
+                                        });
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            // Don't show error if request was aborted (user moved mouse away quickly)
+                            if (error.name === 'AbortError') {
+                                console.log('Request aborted for tool details loading');
+                                return;
+                            }
+                            
+                            console.error('Error loading tool details:', error);
+                            const errorMessage = 'Error loading tool details';
+                            
+                            // Update the data attributes first
+                            icon.setAttribute('data-bs-content', errorMessage);
+                            
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                const popoverTip = currentPopover.tip;
+                                if (popoverTip && document.body.contains(popoverTip)) {
+                                    const popoverBody = popoverTip.querySelector('.popover-body');
+                                    if (popoverBody) {
+                                        popoverBody.innerHTML = errorMessage;
+                                    }
+                                } else {
+                                    // Recreate popover with error message
+                                    currentPopover.dispose();
+                                    new bootstrap.Popover(icon, {
+                                        html: true,
+                                        placement: 'right',
+                                        trigger: 'hover focus click',
+                                        title: icon.getAttribute('data-bs-title') || 'Tool Details',
+                                        content: errorMessage,
+                                        sanitize: false,
+                                        fallbackPlacements: ['left', 'top', 'bottom'],
+                                        container: 'body'
+                                    });
+                                }
+                            }
+                        } finally {
+                            // Only reset loading state if this request wasn't aborted
+                            if (!abortController.signal.aborted) {
+                                cacheEntry.isLoading = false;
+                            }
+                        }
+                    });
+                });
+            },
+            
+            formatToolDetailsForPopover(toolDetails) {
+                let result = `<strong>Type:</strong> ${toolDetails.toolType || 'Unknown Type'}<br>`;
+                
+                // Handle model display
+                const models = [toolDetails.model1, toolDetails.model2].filter(Boolean);
+                if (models.length > 0) {
+                    result += `<strong>Model:</strong> ${models.join('/')}<br>`;
+                }
+                
+                // Handle serial number display
+                const serials = [toolDetails.serialNumber1, toolDetails.serialNumber2].filter(Boolean);
+                if (serials.length > 0) {
+                    result += `<strong>Serial:</strong> ${serials.join('/')}`;
+                }
+                
+                return result;
+            },
+
+            initLazyMovingPartsLoading() {
+                const self = this; // Capture 'this' reference
+                const movingPartsIcons = document.querySelectorAll('.moving-parts-icon');
+                
+                movingPartsIcons.forEach(icon => {
+                    let isLoaded = false;
+                    let isLoading = false;
+                    let currentRequest = null;
+                    
+                    // Initialize popover if not already done
+                    let popover = bootstrap.Popover.getInstance(icon);
+                    if (!popover) {
+                        popover = new bootstrap.Popover(icon, {
+                            html: true,
+                            placement: 'left',
+                            trigger: 'hover focus click',
+                            title: 'Moving Parts',
+                            content: 'Loading moving parts...',
+                            sanitize: false,
+                            fallbackPlacements: ['right', 'top', 'bottom'],
+                            container: 'body'
+                        });
+                    }
+                    
+                    icon.addEventListener('mouseenter', async () => {
+                        // Don't load if already loaded
+                        if (isLoaded) return;
+                        
+                        // Cancel any existing request
+                        if (currentRequest && !currentRequest.signal.aborted) {
+                            currentRequest.abort();
+                            isLoading = false; // Reset loading state when we abort
+                        }
+                        
+                        // Don't start new request if already loading
+                        if (isLoading) {
+                            return;
+                        }
+                        
+                        // Get RMA ID from closest row
+                        const row = icon.closest('.rma-row');
+                        if (!row) return;
+                        
+                        const viewLink = row.querySelector('a[href*="/rma/"]');
+                        if (!viewLink) return;
+                        
+                        const rmaId = viewLink.getAttribute('href').split('/').pop();
+                        if (!rmaId) return;
+                        
+                        // Create new AbortController for this request
+                        const abortController = new AbortController();
+                        currentRequest = abortController;
+                        isLoading = true;
+                        
+                        try {
+                            console.log(`Loading moving parts for RMA ${rmaId}`);
+                            const response = await fetch(`/rma/api/rma/${rmaId}/moving-parts`, {
+                                signal: abortController.signal
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            
+                            const data = await response.json();
+                            
+                            if (data.success && data.movingParts) {
+                                const formattedMovingParts = self.formatMovingPartsForPopover(data.movingParts);
+                                
+                                // Update the popover content
+                                icon.setAttribute('data-bs-content', formattedMovingParts);
+                                icon.setAttribute('data-bs-title', `Moving Parts (${data.movingParts.length})`);
+                                
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = formattedMovingParts;
+                                        }
+                                        const popoverHeader = popoverTip.querySelector('.popover-header');
+                                        if (popoverHeader) {
+                                            popoverHeader.textContent = `Moving Parts (${data.movingParts.length})`;
+                                        }
+                                    } else {
+                                        // Recreate popover with new content
+                                        currentPopover.dispose();
+                                        new bootstrap.Popover(icon, {
+                                            html: true,
+                                            placement: 'left',
+                                            trigger: 'hover focus click',
+                                            title: `Moving Parts (${data.movingParts.length})`,
+                                            content: formattedMovingParts,
+                                            sanitize: false,
+                                            fallbackPlacements: ['right', 'top', 'bottom'],
+                                            container: 'body'
+                                        });
+                                    }
+                                }
+                                
+                                isLoaded = true;
+                            } else {
+                                console.error('Failed to load moving parts:', data.error);
+                                const errorMessage = 'Error loading moving parts';
+                                
+                                icon.setAttribute('data-bs-content', errorMessage);
+                                
+                                const currentPopover = bootstrap.Popover.getInstance(icon);
+                                if (currentPopover) {
+                                    const popoverTip = currentPopover.tip;
+                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                        const popoverBody = popoverTip.querySelector('.popover-body');
+                                        if (popoverBody) {
+                                            popoverBody.innerHTML = errorMessage;
+                                        }
+                                    } else {
+                                        currentPopover.dispose();
+                                        new bootstrap.Popover(icon, {
+                                            html: true,
+                                            placement: 'left',
+                                            trigger: 'hover focus click',
+                                            title: 'Moving Parts',
+                                            content: errorMessage,
+                                            sanitize: false,
+                                            fallbackPlacements: ['right', 'top', 'bottom'],
+                                            container: 'body'
+                                        });
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            // Don't show error if request was aborted (user moved mouse away quickly)
+                            if (error.name === 'AbortError') {
+                                console.log('Request aborted for moving parts loading');
+                                return;
+                            }
+                            
+                            console.error('Error loading moving parts:', error);
+                            const errorMessage = 'Error loading moving parts';
+                            
+                            icon.setAttribute('data-bs-content', errorMessage);
+                            
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                const popoverTip = currentPopover.tip;
+                                if (popoverTip && document.body.contains(popoverTip)) {
+                                    const popoverBody = popoverTip.querySelector('.popover-body');
+                                    if (popoverBody) {
+                                        popoverBody.innerHTML = errorMessage;
+                                    }
+                                } else {
+                                    currentPopover.dispose();
+                                    new bootstrap.Popover(icon, {
+                                        html: true,
+                                        placement: 'left',
+                                        trigger: 'hover focus click',
+                                        title: 'Moving Parts',
+                                        content: errorMessage,
+                                        sanitize: false,
+                                        fallbackPlacements: ['right', 'top', 'bottom'],
+                                        container: 'body'
+                                    });
+                                }
+                            }
+                        } finally {
+                            // Only reset loading state if this request wasn't aborted
+                            if (!abortController.signal.aborted) {
+                                isLoading = false;
+                            }
+                        }
+                    });
+                });
+            },
+
+            formatMovingPartsForPopover(movingParts) {
+                if (!movingParts || movingParts.length === 0) {
+                    return 'No moving parts available';
+                }
+                
+                return movingParts.map(part => {
+                    const formatDate = (dateStr) => {
+                        if (!dateStr) return 'Unknown date';
+                        try {
+                            const date = new Date(dateStr);
+                            return date.toLocaleDateString('en-US', { 
+                                month: '2-digit', 
+                                day: '2-digit', 
+                                year: '2-digit'
+                            });
+                        } catch {
+                            return 'Unknown date';
+                        }
+                    };
+                    
+                    return `<div class="mb-2">
+                        <strong>${part.partName || part.partNumber || 'Unknown Part'}</strong><br/>
+                        <small class="text-muted">
+                            From: ${part.fromLocation || 'Unknown'} → To: ${part.toLocation || 'Unknown'}<br/>
+                            Date: ${formatDate(part.movementDate)}
+                        </small>
+                    </div>`;
+                }).join('<hr class="my-1"/>');
             }
         };
+
+        // Function to initialize clickable table rows
+        function initializeClickableRows() {
+            const rmaRows = document.querySelectorAll('.rma-row');
+            rmaRows.forEach(row => {
+                // Check if already has click handler to avoid duplicates
+                if (row.hasAttribute('data-click-initialized')) {
+                    return;
+                }
+                
+                row.setAttribute('data-click-initialized', 'true');
+                row.addEventListener('click', function(e) {
+                    // Don't navigate if we just finished dragging
+                    const tableContainer = document.querySelector('.rma-table-container');
+                    if (tableContainer && tableContainer.hasDragged) {
+                        return;
+                    }
+                    
+                    // Don't navigate if clicking on interactive elements
+                    if (e.target.closest('a, button, input, .dropdown, [data-bs-toggle], .moving-parts-icon, .problem-popover-icon, .info-icon-interactive, .interactive-icon, .tool-tooltip, .comment-icon')) {
+                        return;
+                    }
+                    
+                    // Get the RMA ID from the row's data attribute or from icon elements
+                    let rmaId = row.getAttribute('data-rma-id');
+                    
+                    if (!rmaId) {
+                        // Fallback to getting RMA ID from icon elements (for server-rendered rows)
+                        const problemIcon = row.querySelector('.problem-popover-icon');
+                        if (problemIcon) {
+                            rmaId = problemIcon.getAttribute('data-rma-id');
+                        }
+                        
+                        if (!rmaId) {
+                            const commentIcon = row.querySelector('.comment-icon');
+                            if (commentIcon) {
+                                rmaId = commentIcon.getAttribute('data-rma-id');
+                            }
+                        }
+                        
+                        if (!rmaId) {
+                            const toolIcon = row.querySelector('.tool-tooltip');
+                            if (toolIcon) {
+                                rmaId = toolIcon.getAttribute('data-rma-id');
+                            }
+                        }
+                    }
+                    
+                    if (rmaId) {
+                        window.location.href = `/rma/${rmaId}`;
+                    }
+                });
+            });
+        }
 
         // Initialize async loading or regular RMA manager
         document.addEventListener('DOMContentLoaded', function() {
@@ -1027,6 +2856,9 @@
                 let scrollLeft;
                 let hasDragged = false;
                 
+                // Make hasDragged accessible to row click handlers
+                tableContainer.hasDragged = false;
+                
                 tableContainer.addEventListener('mousedown', function(e) {
                     // Only start drag if clicking on the container itself, not interactive elements
                     if (e.target.closest('a, button, input, .dropdown, [data-bs-toggle]')) {
@@ -1035,6 +2867,7 @@
                     
                     isDown = true;
                     hasDragged = false;
+                    tableContainer.hasDragged = false;
                     tableContainer.classList.add('dragging');
                     startX = e.pageX - tableContainer.offsetLeft;
                     scrollLeft = tableContainer.scrollLeft;
@@ -1043,15 +2876,21 @@
                 tableContainer.addEventListener('mouseleave', function() {
                     isDown = false;
                     tableContainer.classList.remove('dragging');
-                    // Reset drag flag after a short delay
-                    setTimeout(() => { hasDragged = false; }, 100);
+                    // Reset drag flag after a longer delay
+                    setTimeout(() => { 
+                        hasDragged = false; 
+                        tableContainer.hasDragged = false;
+                    }, 200);
                 });
                 
                 tableContainer.addEventListener('mouseup', function() {
                     isDown = false;
                     tableContainer.classList.remove('dragging');
-                    // Reset drag flag after a short delay to allow click detection
-                    setTimeout(() => { hasDragged = false; }, 100);
+                    // Reset drag flag after a longer delay to allow click detection
+                    setTimeout(() => { 
+                        hasDragged = false; 
+                        tableContainer.hasDragged = false;
+                    }, 200);
                 });
                 
                 tableContainer.addEventListener('mousemove', function(e) {
@@ -1060,9 +2899,10 @@
                     const x = e.pageX - tableContainer.offsetLeft;
                     const walk = (x - startX) * 2; // Scroll speed multiplier
                     
-                    // Mark as dragged if mouse moved more than 5 pixels
-                    if (Math.abs(walk) > 5) {
+                    // Mark as dragged if mouse moved more than 3 pixels (more sensitive)
+                    if (Math.abs(walk) > 3) {
                         hasDragged = true;
+                        tableContainer.hasDragged = true;
                     }
                     
                     tableContainer.scrollLeft = scrollLeft - walk;
@@ -1081,30 +2921,8 @@
                                          }
                  });
                  
-                                 // Clickable table rows
-                const rmaRows = document.querySelectorAll('.rma-row');
-                rmaRows.forEach(row => {
-                    row.addEventListener('click', function(e) {
-                        // Don't navigate if we just finished dragging
-                        if (hasDragged) {
-                            return;
-                        }
-                        
-                        // Don't navigate if clicking on interactive elements
-                        if (e.target.closest('a, button, input, .dropdown, [data-bs-toggle], .moving-parts-icon, .problem-popover-icon, .info-icon-interactive')) {
-                            return;
-                        }
-                        
-                        // Get the RMA ID from the view action link
-                        const viewLink = row.querySelector('a[href*="/rma/"]');
-                        if (viewLink) {
-                            const href = viewLink.getAttribute('href');
-                            if (href) {
-                                window.location.href = href;
-                            }
-                        }
-                    });
-                });
+                                 // Initialize clickable table rows
+                initializeClickableRows();
              }
         });
     </script>
@@ -1138,6 +2956,33 @@
                     dropdownInstance.toggle();
                 });
             }
+            
+            // Make status filter rows clickable to toggle checkboxes
+            document.querySelectorAll('.status-filter-item').forEach(function(item) {
+                item.style.cursor = 'pointer';
+                item.addEventListener('click', function(e) {
+                    // Don't trigger if clicking directly on the checkbox
+                    if (e.target.type === 'checkbox') {
+                        return;
+                    }
+                    
+                    // Find the checkbox within this item
+                    const checkbox = item.querySelector('.status-filter');
+                    if (checkbox) {
+                        // Toggle the checkbox
+                        checkbox.checked = !checkbox.checked;
+                        
+                        // Trigger the change event to update the filtering
+                        const event = new Event('change', { bubbles: true });
+                        checkbox.dispatchEvent(event);
+                    }
+                    
+                    // Prevent the dropdown from closing
+                    e.stopPropagation();
+                });
+            });
+
+
         });
     </script>
 </body>

@@ -51,6 +51,7 @@ class DataTable {
         if (this.config.enableHorizontalScroll) this.initHorizontalScroll();
         if (this.config.enableRowClick) this.initRowClick();
         this.initDropdownFix();
+        this.updateScrollableState();
     }
 
     // Search functionality
@@ -108,7 +109,10 @@ class DataTable {
         let hasDragged = false;
 
         this.container.addEventListener('mousedown', (e) => {
-            if (e.target.closest(this.config.interactiveElements)) {
+            // Don't start dragging if clicking on interactive elements
+            if (e.target.closest(this.config.interactiveElements) || 
+                e.target.closest('.problem-popover-icon') || 
+                e.target.closest('.moving-parts-icon')) {
                 return;
             }
 
@@ -159,6 +163,11 @@ class DataTable {
 
         // Store hasDragged state for row click detection
         this.hasDragged = () => hasDragged;
+
+        // Update scrollable state on window resize
+        window.addEventListener('resize', () => {
+            this.updateScrollableState();
+        });
     }
 
     // Clickable row functionality
@@ -275,6 +284,9 @@ class DataTable {
             row.style.display = matchesSearch ? '' : 'none';
         });
 
+        // Update scrollable state after filtering
+        this.updateScrollableState();
+
         // Trigger custom event for search results
         const event = new CustomEvent('dataTableFiltered', {
             detail: { searchTerm: this.currentSearch, visibleRows: document.querySelectorAll(`${this.config.rowSelector}:not([style*="display: none"])`) }
@@ -282,9 +294,18 @@ class DataTable {
         document.dispatchEvent(event);
     }
 
+    // Update scrollable state based on actual scroll width
+    updateScrollableState() {
+        if (this.container) {
+            const isScrollable = this.container.scrollWidth > this.container.clientWidth;
+            this.container.setAttribute('data-scrollable', isScrollable.toString());
+        }
+    }
+
     // Public API methods
     refresh() {
         this.init();
+        this.updateScrollableState();
     }
 
     setSearchTerm(term) {

@@ -165,7 +165,7 @@
                             th:attr="data-track-trend-id=${tt.id},
                                      data-name=${tt.name},
                                      data-description=${tt.description ?: ''},
-                                     data-tools=${#strings.listJoin(tt.affectedTools.![name], ' ')},
+                                     data-tools=${#strings.listJoin(affectedToolsMap.get(tt.id).![name], ' ')},
                                      data-rmas=${#strings.listJoin(relatedRmasMap.get(tt.id).![rmaNumber ?: sapNotificationNumber ?: ('RMA-' + id)], ' ')}">
                             <td style="text-align: left;">
                                 <strong th:text="${tt.name}">Track/Trend Name</strong>
@@ -176,14 +176,14 @@
                             </td>
                             <td class="text-center">
                                 <!-- Interactive Tools icon when tools exist -->
-                                <i th:class="${'bi bi-tools ' + (!tt.affectedTools.empty ? 'info-icon-interactive' : 'text-muted')}"
-                                   th:if="${!tt.affectedTools.empty}"
+                                <i th:class="${'bi bi-tools ' + (!affectedToolsMap.get(tt.id).empty ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${!affectedToolsMap.get(tt.id).empty}"
                                    data-bs-toggle="popover"
                                    data-bs-placement="left"
                                    data-bs-trigger="hover focus click"
                                    data-bs-html="true"
-                                   th:attr="data-bs-title='Affected Tools (' + ${#lists.size(tt.affectedTools)} + ')'"
-                                   th:data-bs-content="${#strings.listJoin(tt.affectedTools.![
+                                   th:attr="data-bs-title='Affected Tools (' + ${#lists.size(affectedToolsMap.get(tt.id))} + ')'"
+                                   th:data-bs-content="${#strings.listJoin(affectedToolsMap.get(tt.id).![
                                        '<a href=&quot;/tools/' + id + '&quot; class=&quot;text-decoration-none d-block mb-1&quot; onclick=&quot;event.stopPropagation();&quot;>' +
                                        name + (secondaryName != null ? ' (' + secondaryName + ')' : '') + '</a>'
                                    ], '')}"
@@ -191,12 +191,12 @@
                                 </i>
                                 
                                 <!-- Greyed out icon when no tools -->
-                                <i th:if="${tt.affectedTools.empty}" 
+                                <i th:if="${affectedToolsMap.get(tt.id).empty}" 
                                    class="bi bi-tools text-muted">
                                 </i>
                                 
                                 <!-- Tools count -->
-                                <span th:text="${#lists.size(tt.affectedTools)}" class="ms-1 small"></span>
+                                <span th:text="${#lists.size(affectedToolsMap.get(tt.id))}" class="ms-1 small"></span>
                             </td>
                             <td class="text-center">
                                 <!-- Interactive RMA icon when RMAs exist -->
@@ -227,17 +227,17 @@
                             </td>
                             <td class="text-center">
                                 <!-- Interactive comments icon when comments exist -->
-                                <i th:class="${'bi bi-chat-dots-fill ' + (!tt.comments.empty ? 'info-icon-interactive' : 'text-muted')}"
-                                   th:if="${!tt.comments.empty}"
+                                <i th:class="${'bi bi-chat-dots-fill ' + (!commentsDataMap.get(tt.id).empty ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${!commentsDataMap.get(tt.id).empty}"
                                    data-bs-toggle="popover"
                                    data-bs-placement="left"
                                    data-bs-trigger="hover focus click"
                                    data-bs-html="true"
-                                   th:attr="data-bs-title='Comments (' + ${#lists.size(tt.comments)} + ')'"
-                                   th:data-bs-content="${#strings.listJoin(tt.comments.![
+                                   th:attr="data-bs-title='Comments (' + ${#lists.size(commentsDataMap.get(tt.id))} + ')'"
+                                   th:data-bs-content="${#strings.listJoin(commentsDataMap.get(tt.id).![
                                        '<div class=&quot;mb-2&quot;><small class=&quot;text-muted&quot;>' + 
                                        #temporals.format(createdDate, 'MM/dd/yy HH:mm') + 
-                                       (user != null ? ' by ' + user.name : '') + 
+                                       (userName != null ? ' by ' + userName : '') + 
                                        '</small><br/>' + 
                                        (content != null ? content : 'No content') + '</div>'
                                    ], '<hr class=&quot;my-1&quot;/>')}"
@@ -245,12 +245,12 @@
                                 </i>
                                 
                                 <!-- Greyed out icon when no comments -->
-                                <i th:if="${tt.comments.empty}" 
+                                <i th:if="${commentsDataMap.get(tt.id).empty}" 
                                    class="bi bi-chat-dots text-muted">
                                 </i>
                                 
                                 <!-- Comment count -->
-                                <span th:text="${#lists.size(tt.comments)}" class="ms-1 small"></span>
+                                <span th:text="${#lists.size(commentsDataMap.get(tt.id))}" class="ms-1 small"></span>
                             </td>
                         </tr>
                     </tbody>

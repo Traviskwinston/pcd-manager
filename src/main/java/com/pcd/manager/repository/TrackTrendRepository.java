@@ -3,6 +3,7 @@ package com.pcd.manager.repository;
 import com.pcd.manager.model.TrackTrend;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -31,5 +32,5 @@ public interface TrackTrendRepository extends JpaRepository<TrackTrend, Long> {
      * Returns: trackTrend.id, trackTrend.name, tool.id
      */
     @Query("SELECT tt.id, tt.name, t.id FROM TrackTrend tt JOIN tt.affectedTools t WHERE t.id IN :toolIds ORDER BY tt.name")
-    List<Object[]> findTrackTrendListDataByToolIds(List<Long> toolIds);
+    List<Object[]> findTrackTrendListDataByToolIds(@Param("toolIds") List<Long> toolIds);
 } 

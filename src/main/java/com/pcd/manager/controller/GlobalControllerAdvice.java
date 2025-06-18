@@ -31,13 +31,12 @@ public class GlobalControllerAdvice {
 
     @ModelAttribute
     public void addDefaultLocation(Model model) {
+        // Cache the default location - this is now cached at service level
         Location defaultLocation = locationService.getDefaultLocation().orElse(null);
         model.addAttribute("defaultLocation", defaultLocation);
-        
-        // Add a debug attribute to help troubleshoot
         model.addAttribute("defaultLocationExists", defaultLocation != null);
         
-        // Auto-set current location if user doesn't have an active site
+        // Only process user location logic for authenticated users
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
             String username = auth.getName();
@@ -46,22 +45,30 @@ public class GlobalControllerAdvice {
             if (userOpt.isPresent()) {
                 User user = userOpt.get();
                 
-                // If user doesn't have an active site, set it to the default location
+                // Only auto-set active site if user doesn't have one AND we have a default location
+                // This prevents unnecessary database writes on every request
                 if (user.getActiveSite() == null && defaultLocation != null) {
-                    user.setActiveSite(defaultLocation);
-                    userService.updateUser(user);
-                    logger.info("GlobalControllerAdvice: Auto-set user {} active site to default location: {}", 
-                               username, defaultLocation.getDisplayName());
+                    try {
+                        user.setActiveSite(defaultLocation);
+                        userService.updateUser(user);
+                        logger.debug("GlobalControllerAdvice: Auto-set user {} active site to default location: {}", 
+                                   username, defaultLocation.getDisplayName());
+                    } catch (Exception e) {
+                        logger.warn("Failed to auto-set active site for user {}: {}", username, e.getMessage());
+                    }
                 }
                 
                 // Set model attributes for current location
-                if (user.getActiveSite() != null) {
-                    model.addAttribute("currentLocation", user.getActiveSite());
-                    model.addAttribute("currentLocationExists", true);
-                } else {
-                    model.addAttribute("currentLocationExists", false);
-                }
+                Location currentLocation = user.getActiveSite();
+                model.addAttribute("currentLocation", currentLocation);
+                model.addAttribute("currentLocationExists", currentLocation != null);
+            } else {
+                // User not found - set safe defaults
+                model.addAttribute("currentLocationExists", false);
             }
+        } else {
+            // Not authenticated - set safe defaults
+            model.addAttribute("currentLocationExists", false);
         }
     }
 } 

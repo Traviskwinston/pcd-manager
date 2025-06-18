@@ -4,6 +4,7 @@ import com.pcd.manager.model.Rma;
 import com.pcd.manager.model.RmaStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -55,7 +56,7 @@ public interface RmaRepository extends JpaRepository<Rma, Long> {
      * Returns: id, rmaNumber, status, tool.id
      */
     @Query("SELECT r.id, r.rmaNumber, r.status, r.tool.id FROM Rma r WHERE r.tool.id IN :toolIds ORDER BY r.id DESC")
-    List<Object[]> findRmaListDataByToolIds(List<Long> toolIds);
+    List<Object[]> findRmaListDataByToolIds(@Param("toolIds") List<Long> toolIds);
     
     /**
      * Lightweight query for RMA list view - only loads essential fields
@@ -76,4 +77,31 @@ public interface RmaRepository extends JpaRepository<Rma, Long> {
            "FROM Rma r LEFT JOIN r.location l LEFT JOIN r.tool t " +
            "ORDER BY r.writtenDate DESC NULLS LAST, r.id DESC")
     List<Object[]> findAllUltraLightweight();
+    
+    /**
+     * Optimized query for async list view - fetches all fields needed for the list display
+     * Returns: id, rmaNumber, sapNotificationNumber, status, priority, customerName,
+     *          writtenDate, rmaNumberProvidedDate, shippingMemoEmailedDate, partsReceivedDate,
+     *          installedPartsDate, failedPartsPackedDate, failedPartsShippedDate,
+     *          tool.id, tool.name, location.id, location.name
+     */
+    @Query("SELECT r.id, r.rmaNumber, r.sapNotificationNumber, r.status, r.priority, r.customerName, " +
+           "r.writtenDate, r.rmaNumberProvidedDate, r.shippingMemoEmailedDate, r.partsReceivedDate, " +
+           "r.installedPartsDate, r.failedPartsPackedDate, r.failedPartsShippedDate, " +
+           "t.id, t.name, l.id, l.name, " +
+           "r.problemDiscoverer, r.problemDiscoveryDate, r.whatHappened, r.whyAndHowItHappened, r.howContained, r.whoContained " +
+           "FROM Rma r " +
+           "LEFT JOIN r.tool t " +
+           "LEFT JOIN r.location l " +
+           "ORDER BY r.writtenDate DESC NULLS LAST, r.id DESC")
+    List<Object[]> findAllForAsyncListView();
+    
+    /**
+     * Fetch part line items for specific RMA IDs
+     * Returns: rmaId, partName, partNumber, productDescription
+     */
+    @Query("SELECT r.id, pli.partName, pli.partNumber, pli.productDescription " +
+           "FROM Rma r JOIN r.partLineItems pli " +
+           "WHERE r.id IN :rmaIds")
+    List<Object[]> findPartLineItemsByRmaIds(@Param("rmaIds") List<Long> rmaIds);
 } 

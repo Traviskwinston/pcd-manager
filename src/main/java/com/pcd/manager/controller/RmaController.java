@@ -116,41 +116,116 @@ public class RmaController {
     }
 
     /**
-     * Async endpoint for loading RMA data
+     * Async endpoint for loading RMA data - OPTIMIZED VERSION
      */
     @GetMapping("/api/data")
     @ResponseBody
     public Map<String, Object> loadRmaDataAsync() {
-        logger.info("=== LOADING RMA DATA ASYNC ===");
+        logger.info("=== LOADING RMA DATA ASYNC (OPTIMIZED) ===");
         long startTime = System.currentTimeMillis();
         
         Map<String, Object> result = new HashMap<>();
         
         try {
-            // Use basic findAll to avoid query issues - we'll optimize later
-            List<Rma> allRmas = rmaRepository.findAll();
-            logger.info("Loaded {} RMAs for async loading", allRmas.size());
+            // Use optimized query that fetches only required fields in a single query
+            List<Object[]> rmaRows = rmaRepository.findAllForAsyncListView();
+            logger.info("Loaded {} RMA rows with optimized query", rmaRows.size());
             
-            Map<Long, Integer> rmaCommentsMap = new HashMap<>();
-            Map<Long, Integer> movingPartsMap = new HashMap<>();
+            List<Map<String, Object>> rmaData = new ArrayList<>();
+            List<Long> rmaIds = new ArrayList<>();
             
-            if (!allRmas.isEmpty()) {
-                List<Long> rmaIds = allRmas.stream().map(Rma::getId).collect(Collectors.toList());
+            // Process the optimized query results
+            for (Object[] row : rmaRows) {
+                Long rmaId = (Long) row[0];
+                rmaIds.add(rmaId);
                 
-                // Bulk load lightweight comment counts
+                Map<String, Object> rmaMap = new HashMap<>();
+                rmaMap.put("id", rmaId);
+                rmaMap.put("rmaNumber", (String) row[1]);
+                rmaMap.put("sapNotificationNumber", (String) row[2]);
+                rmaMap.put("status", row[3] != null ? row[3].toString() : null);
+                rmaMap.put("statusDisplayName", row[3] != null ? ((RmaStatus) row[3]).getDisplayName() : null);
+                rmaMap.put("priority", row[4] != null ? ((RmaPriority) row[4]).ordinal() + 1 : 1);
+                rmaMap.put("customerName", (String) row[5]);
+                rmaMap.put("writtenDate", row[6] != null ? row[6].toString() : null);
+                rmaMap.put("rmaNumberProvidedDate", row[7] != null ? row[7].toString() : null);
+                rmaMap.put("shippingMemoEmailedDate", row[8] != null ? row[8].toString() : null);
+                rmaMap.put("partsReceivedDate", row[9] != null ? row[9].toString() : null);
+                rmaMap.put("installedPartsDate", row[10] != null ? row[10].toString() : null);
+                rmaMap.put("failedPartsPackedDate", row[11] != null ? row[11].toString() : null);
+                rmaMap.put("failedPartsShippedDate", row[12] != null ? row[12].toString() : null);
+                
+                // Handle tool data (row[13] = tool.id, row[14] = tool.name)
+                if (row[13] != null) {
+                    Map<String, Object> toolMap = new HashMap<>();
+                    toolMap.put("id", (Long) row[13]);
+                    toolMap.put("name", row[14] != null ? (String) row[14] : "");
+                    rmaMap.put("tool", toolMap);
+                } else {
+                    rmaMap.put("tool", null);
+                }
+                
+                // Handle location data (row[15] = location.id, row[16] = location.name)
+                if (row[15] != null) {
+                    Map<String, Object> locationMap = new HashMap<>();
+                    locationMap.put("id", (Long) row[15]);
+                    locationMap.put("name", row[16] != null ? (String) row[16] : "");
+                    rmaMap.put("location", locationMap);
+                } else {
+                    rmaMap.put("location", null);
+                }
+                
+                // Handle problem details for tooltip (row[17-22])
+                rmaMap.put("problemDiscoverer", (String) row[17]);
+                rmaMap.put("problemDiscoveryDate", row[18] != null ? row[18].toString() : null);
+                rmaMap.put("whatHappened", (String) row[19]);
+                rmaMap.put("whyAndHowItHappened", (String) row[20]);
+                rmaMap.put("howContained", (String) row[21]);
+                rmaMap.put("whoContained", (String) row[22]);
+                
+                rmaData.add(rmaMap);
+            }
+            
+            // Bulk load part line items for all RMAs
+            Map<Long, List<Map<String, Object>>> partLineItemsMap = new HashMap<>();
+            if (!rmaIds.isEmpty()) {
                 try {
+                    List<Object[]> partRows = rmaRepository.findPartLineItemsByRmaIds(rmaIds);
+                    for (Object[] partRow : partRows) {
+                        Long rmaId = (Long) partRow[0];
+                        Map<String, Object> partMap = new HashMap<>();
+                        partMap.put("partName", (String) partRow[1]);
+                        partMap.put("partNumber", (String) partRow[2]);
+                        partMap.put("productDescription", (String) partRow[3]);
+                        
+                        partLineItemsMap.computeIfAbsent(rmaId, k -> new ArrayList<>()).add(partMap);
+                    }
+                    logger.info("Loaded part line items for {} RMAs", partLineItemsMap.size());
+                } catch (Exception e) {
+                    logger.error("Error loading part line items: {}", e.getMessage(), e);
+                }
+            }
+            
+            // Load only comment counts (not content) for performance
+            Map<Long, Integer> rmaCommentsMap = new HashMap<>();
+            if (!rmaIds.isEmpty()) {
+                try {
+                    // Load comment counts only - content will be loaded on demand
                     List<Object[]> commentCounts = rmaCommentRepository.findCommentCountsByRmaIds(rmaIds);
                     for (Object[] row : commentCounts) {
                         Long rmaId = (Long) row[0];
                         Long count = (Long) row[1];
                         rmaCommentsMap.put(rmaId, count.intValue());
                     }
-                    logger.info("Loaded comment counts for {} RMAs", commentCounts.size());
+                    logger.info("Loaded comment counts for {} RMAs (content will be lazy-loaded)", commentCounts.size());
                 } catch (Exception e) {
                     logger.error("Error loading RMA comment counts: {}", e.getMessage(), e);
                 }
-                
-                // Bulk load lightweight moving part counts
+            }
+            
+            // Bulk load moving part counts
+            Map<Long, Integer> movingPartsMap = new HashMap<>();
+            if (!rmaIds.isEmpty()) {
                 try {
                     List<Object[]> movingPartCounts = movingPartRepository.findMovingPartCountsByRmaIds(rmaIds);
                     for (Object[] row : movingPartCounts) {
@@ -164,78 +239,12 @@ public class RmaController {
                 }
             }
             
-            // Convert RMA data to a format suitable for JSON response
-            List<Map<String, Object>> rmaData = allRmas.stream().map(rma -> {
-                Map<String, Object> rmaMap = new HashMap<>();
-                rmaMap.put("id", rma.getId());
-                rmaMap.put("rmaNumber", rma.getRmaNumber());
-                rmaMap.put("sapNotificationNumber", rma.getSapNotificationNumber());
-                rmaMap.put("status", rma.getStatus() != null ? rma.getStatus().name() : null);
-                rmaMap.put("statusDisplayName", rma.getStatus() != null ? rma.getStatus().getDisplayName() : null);
-                // Handle tool data safely
-                if (rma.getTool() != null) {
-                    Map<String, Object> toolMap = new HashMap<>();
-                    toolMap.put("id", rma.getTool().getId());
-                    toolMap.put("name", rma.getTool().getName() != null ? rma.getTool().getName() : "");
-                    rmaMap.put("tool", toolMap);
-                } else {
-                    rmaMap.put("tool", null);
-                }
-                
-                // Handle location data safely
-                if (rma.getLocation() != null) {
-                    Map<String, Object> locationMap = new HashMap<>();
-                    locationMap.put("id", rma.getLocation().getId());
-                    locationMap.put("name", rma.getLocation().getName() != null ? rma.getLocation().getName() : "");
-                    rmaMap.put("location", locationMap);
-                } else {
-                    rmaMap.put("location", null);
-                }
-                rmaMap.put("customerName", rma.getCustomerName());
-                rmaMap.put("priority", rma.getPriority());
-                rmaMap.put("writtenDate", rma.getWrittenDate() != null ? rma.getWrittenDate().toString() : null);
-                rmaMap.put("rmaNumberProvidedDate", rma.getRmaNumberProvidedDate() != null ? rma.getRmaNumberProvidedDate().toString() : null);
-                rmaMap.put("shippingMemoEmailedDate", rma.getShippingMemoEmailedDate() != null ? rma.getShippingMemoEmailedDate().toString() : null);
-                rmaMap.put("partsReceivedDate", rma.getPartsReceivedDate() != null ? rma.getPartsReceivedDate().toString() : null);
-                rmaMap.put("installedPartsDate", rma.getInstalledPartsDate() != null ? rma.getInstalledPartsDate().toString() : null);
-                rmaMap.put("failedPartsPackedDate", rma.getFailedPartsPackedDate() != null ? rma.getFailedPartsPackedDate().toString() : null);
-                rmaMap.put("failedPartsShippedDate", rma.getFailedPartsShippedDate() != null ? rma.getFailedPartsShippedDate().toString() : null);
-                
-                // Add part line items
-                List<Map<String, Object>> partLineItems = new ArrayList<>();
-                if (rma.getPartLineItems() != null) {
-                    for (var item : rma.getPartLineItems()) {
-                        Map<String, Object> partMap = new HashMap<>();
-                        partMap.put("partName", item.getPartName());
-                        partMap.put("partNumber", item.getPartNumber());
-                        partMap.put("productDescription", item.getProductDescription());
-                        partLineItems.add(partMap);
-                    }
-                }
-                rmaMap.put("partLineItems", partLineItems);
-                
-                // Add comments data
-                List<Map<String, Object>> comments = new ArrayList<>();
-                if (rma.getComments() != null) {
-                    for (var comment : rma.getComments()) {
-                        Map<String, Object> commentMap = new HashMap<>();
-                        commentMap.put("id", comment.getId());
-                        commentMap.put("content", comment.getContent());
-                        commentMap.put("createdDate", comment.getCreatedDate() != null ? comment.getCreatedDate().toString() : null);
-                        if (comment.getUser() != null) {
-                            Map<String, Object> userMap = new HashMap<>();
-                            userMap.put("name", comment.getUser().getName() != null ? comment.getUser().getName() : "Unknown");
-                            commentMap.put("user", userMap);
-                        } else {
-                            commentMap.put("user", null);
-                        }
-                        comments.add(commentMap);
-                    }
-                }
-                rmaMap.put("comments", comments);
-                
-                return rmaMap;
-            }).collect(Collectors.toList());
+            // Add part line items to RMA data (comments will be loaded on demand)
+            for (Map<String, Object> rmaMap : rmaData) {
+                Long rmaId = (Long) rmaMap.get("id");
+                rmaMap.put("partLineItems", partLineItemsMap.getOrDefault(rmaId, new ArrayList<>()));
+                // Comments are no longer pre-loaded - they'll be fetched on hover
+            }
             
             result.put("success", true);
             result.put("rmas", rmaData);
@@ -243,9 +252,9 @@ public class RmaController {
             result.put("movingPartsMap", movingPartsMap);
             
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("=== COMPLETED ASYNC RMA DATA LOADING in {}ms ===", duration);
+            logger.info("=== COMPLETED OPTIMIZED ASYNC RMA DATA LOADING in {}ms ===", duration);
             logger.info("Final counts - RMAs: {}, Comments: {}, Moving Parts: {}", 
-                       allRmas.size(),
+                       rmaData.size(),
                        rmaCommentsMap.values().stream().mapToInt(Integer::intValue).sum(),
                        movingPartsMap.values().stream().mapToInt(Integer::intValue).sum());
                        
@@ -415,10 +424,23 @@ public class RmaController {
         // Add all necessary model attributes
         model.addAttribute("rma", rma);
         model.addAttribute("allRmas", rmaService.getAllRmas());
-        model.addAttribute("allTools", toolService.getAllTools());
+        List<Tool> allTools = toolService.getAllTools();
+        model.addAttribute("allTools", allTools);
         model.addAttribute("locations", locationService.getAllLocations());
         model.addAttribute("technicians", userService.getAllUsers());
         model.addAttribute("comments", rma.getComments());
+        
+        // Generate HTML options for tools for JavaScript use
+        StringBuilder toolOptionsHtml = new StringBuilder();
+        for (Tool tool : allTools) {
+            String displayName = tool.getName();
+            if (tool.getSecondaryName() != null && !tool.getSecondaryName().isEmpty()) {
+                displayName += " (" + tool.getSecondaryName() + ")";
+            }
+            toolOptionsHtml.append("<option value=\"").append(tool.getId()).append("\">")
+                           .append(displayName).append("</option>");
+        }
+        model.addAttribute("allToolsOptions", toolOptionsHtml.toString());
         
         // Add moving parts and their destination chains
         List<MovingPart> movingParts = movingPartService.getMovingPartsByRmaId(id);
@@ -2162,8 +2184,185 @@ public class RmaController {
     }
 
     /**
-     * Diagnostic endpoint to check file upload configuration and paths
+     * API endpoint to get comments for an RMA
      */
+    @GetMapping("/api/rma/{id}/comments")
+    @ResponseBody
+    public Map<String, Object> getCommentsForRma(@PathVariable Long id) {
+        logger.info("Loading comments for RMA ID: {}", id);
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            List<RmaComment> comments = rmaService.getCommentsForRma(id);
+            logger.info("Found {} comments for RMA {}", comments.size(), id);
+            List<Map<String, Object>> commentData = new ArrayList<>();
+            
+            for (RmaComment comment : comments) {
+                Map<String, Object> commentMap = new HashMap<>();
+                commentMap.put("content", comment.getContent());
+                commentMap.put("createdDate", comment.getCreatedDate() != null ? 
+                    comment.getCreatedDate().toString() : null);
+                commentMap.put("author", comment.getUser() != null ? 
+                    comment.getUser().getName() : "Unknown");
+                commentData.add(commentMap);
+            }
+            
+            result.put("success", true);
+            result.put("comments", commentData);
+            result.put("count", comments.size());
+            
+        } catch (Exception e) {
+            logger.error("Error loading comments for RMA {}: {}", id, e.getMessage(), e);
+            result.put("success", false);
+            result.put("error", e.getMessage());
+        }
+        
+        return result;
+    }
+
+    /**
+     * API endpoint to get problem details for an RMA tooltip
+     */
+    @GetMapping("/api/rma/{id}/problem-details")
+    @ResponseBody
+    public Map<String, Object> getProblemDetailsForRma(@PathVariable Long id) {
+        logger.info("Loading problem details for RMA ID: {}", id);
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            
+            if (rmaOpt.isPresent()) {
+                Rma rma = rmaOpt.get();
+                
+                Map<String, Object> problemDetails = new HashMap<>();
+                problemDetails.put("problemDiscoverer", rma.getProblemDiscoverer());
+                problemDetails.put("problemDiscoveryDate", rma.getProblemDiscoveryDate() != null ? 
+                    rma.getProblemDiscoveryDate().toString() : null);
+                problemDetails.put("whatHappened", rma.getWhatHappened());
+                problemDetails.put("whyAndHowItHappened", rma.getWhyAndHowItHappened());
+                problemDetails.put("howContained", rma.getHowContained());
+                problemDetails.put("whoContained", rma.getWhoContained());
+                problemDetails.put("rmaNumber", rma.getRmaNumber() != null ? rma.getRmaNumber() : rma.getSapNotificationNumber());
+                
+                result.put("success", true);
+                result.put("problemDetails", problemDetails);
+                
+                // Check if there are any actual problem details
+                boolean hasDetails = rma.getProblemDiscoverer() != null || 
+                                    rma.getProblemDiscoveryDate() != null ||
+                                    rma.getWhatHappened() != null ||
+                                    rma.getWhyAndHowItHappened() != null ||
+                                    rma.getHowContained() != null ||
+                                    rma.getWhoContained() != null;
+                
+                result.put("hasDetails", hasDetails);
+                
+            } else {
+                result.put("success", false);
+                result.put("error", "RMA not found");
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error loading problem details for RMA {}: {}", id, e.getMessage(), e);
+            result.put("success", false);
+            result.put("error", e.getMessage());
+        }
+        
+        return result;
+    }
+
+    /**
+     * API endpoint to get tool details for an RMA
+     */
+    @GetMapping("/api/rma/{id}/tool-details")
+    @ResponseBody
+    public Map<String, Object> getToolDetailsForRma(@PathVariable Long id) {
+        logger.info("Loading tool details for RMA ID: {}", id);
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (rmaOpt.isPresent()) {
+                Rma rma = rmaOpt.get();
+                
+                if (rma.getTool() != null) {
+                    Tool tool = rma.getTool();
+                    Map<String, Object> toolDetails = new HashMap<>();
+                    toolDetails.put("name", tool.getName());
+                    toolDetails.put("toolType", tool.getToolType() != null ? tool.getToolType().getDisplayName() : "Unknown Type");
+                    toolDetails.put("model1", tool.getModel1());
+                    toolDetails.put("model2", tool.getModel2());
+                    toolDetails.put("serialNumber1", tool.getSerialNumber1());
+                    toolDetails.put("serialNumber2", tool.getSerialNumber2());
+                    
+                    result.put("toolDetails", toolDetails);
+                    result.put("hasTool", true);
+                } else {
+                    result.put("hasTool", false);
+                }
+                
+                result.put("success", true);
+                logger.info("Successfully loaded tool details for RMA {}, hasTool: {}", id, rma.getTool() != null);
+            } else {
+                result.put("success", false);
+                result.put("error", "RMA not found");
+                logger.warn("RMA not found for ID: {}", id);
+            }
+        } catch (Exception e) {
+            logger.error("Error loading tool details for RMA {}: {}", id, e.getMessage(), e);
+            result.put("success", false);
+            result.put("error", "Failed to load tool details: " + e.getMessage());
+        }
+        
+        return result;
+    }
+
+    /**
+     * API endpoint to get moving parts for an RMA
+     */
+    @GetMapping("/api/rma/{id}/moving-parts")
+    @ResponseBody
+    public Map<String, Object> getMovingPartsForRma(@PathVariable Long id) {
+        logger.info("Loading moving parts for RMA ID: {}", id);
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (rmaOpt.isPresent()) {
+                List<MovingPart> movingParts = movingPartService.getMovingPartsByRmaId(id);
+                List<Map<String, Object>> movingPartsData = new ArrayList<>();
+                
+                for (MovingPart part : movingParts) {
+                    Map<String, Object> partData = new HashMap<>();
+                    partData.put("id", part.getId());
+                    partData.put("partName", part.getPartName());
+                    partData.put("partNumber", part.getPartNumber());
+                    partData.put("fromLocation", part.getFromTool() != null ? part.getFromTool().getName() : "Unknown");
+                    partData.put("toLocation", part.getToTool() != null ? part.getToTool().getName() : "Unknown");
+                    partData.put("movementDate", part.getMovementDate() != null ? part.getMovementDate().toString() : null);
+                    partData.put("notes", part.getNotes());
+                    
+                    movingPartsData.add(partData);
+                }
+                
+                result.put("success", true);
+                result.put("movingParts", movingPartsData);
+                logger.info("Successfully loaded {} moving parts for RMA: {}", movingPartsData.size(), id);
+            } else {
+                result.put("success", false);
+                result.put("error", "RMA not found");
+                logger.warn("RMA not found for ID: {}", id);
+            }
+        } catch (Exception e) {
+            logger.error("Error loading moving parts for RMA {}: {}", id, e.getMessage(), e);
+            result.put("success", false);
+            result.put("error", "Failed to load moving parts: " + e.getMessage());
+        }
+        
+        return result;
+    }
+
     @GetMapping("/api/upload-diagnostic/{id}")
     @ResponseBody
     public Map<String, Object> uploadDiagnostic(@PathVariable Long id) {

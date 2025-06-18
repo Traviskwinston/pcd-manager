@@ -32,14 +32,19 @@ public class StartupCacheWarmer {
         long startTime = System.currentTimeMillis();
         
         try {
-            // Warm up dashboard caches in the background
-            dashboardService.warmUpDashboardCachesAsync().get();
-            
-            long duration = System.currentTimeMillis() - startTime;
-            logger.info("Completed startup cache warming in {}ms", duration);
+            // Warm up dashboard caches in the background - don't block startup with .get()
+            dashboardService.warmUpDashboardCachesAsync()
+                .thenRun(() -> {
+                    long duration = System.currentTimeMillis() - startTime;
+                    logger.info("Completed startup cache warming in {}ms", duration);
+                })
+                .exceptionally(throwable -> {
+                    logger.warn("Cache warming failed during startup (non-critical): {}", throwable.getMessage());
+                    return null;
+                });
             
         } catch (Exception e) {
-            logger.error("Error during startup cache warming: {}", e.getMessage(), e);
+            logger.warn("Error starting cache warming (non-critical): {}", e.getMessage());
         }
     }
 
@@ -52,14 +57,19 @@ public class StartupCacheWarmer {
         long startTime = System.currentTimeMillis();
         
         try {
-            // Refresh all dashboard caches
-            dashboardService.refreshDashboardCacheAsync("all").get();
-            
-            long duration = System.currentTimeMillis() - startTime;
-            logger.info("Completed scheduled cache refresh in {}ms", duration);
+            // Refresh all dashboard caches - don't block with .get()
+            dashboardService.refreshDashboardCacheAsync("all")
+                .thenRun(() -> {
+                    long duration = System.currentTimeMillis() - startTime;
+                    logger.info("Completed scheduled cache refresh in {}ms", duration);
+                })
+                .exceptionally(throwable -> {
+                    logger.warn("Cache refresh failed: {}", throwable.getMessage());
+                    return null;
+                });
             
         } catch (Exception e) {
-            logger.error("Error during scheduled cache refresh: {}", e.getMessage(), e);
+            logger.warn("Error starting cache refresh: {}", e.getMessage());
         }
     }
 } 
