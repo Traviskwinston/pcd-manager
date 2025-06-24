@@ -187,6 +187,18 @@ public class RmaService {
                 Hibernate.initialize(rma.getComments());
                 logger.debug("Initialized {} comments for RMA {}", rma.getComments().size(), id);
             }
+            
+            // Initialize part line items collection to avoid LazyInitializationException
+            if (rma.getPartLineItems() != null) {
+                Hibernate.initialize(rma.getPartLineItems());
+                logger.debug("Initialized {} part line items for RMA {}", rma.getPartLineItems().size(), id);
+            }
+            
+            // Initialize movement entries collection to avoid LazyInitializationException
+            if (rma.getMovementEntries() != null) {
+                Hibernate.initialize(rma.getMovementEntries());
+                logger.debug("Initialized {} movement entries for RMA {}", rma.getMovementEntries().size(), id);
+            }
         });
         
         return rmaOpt;

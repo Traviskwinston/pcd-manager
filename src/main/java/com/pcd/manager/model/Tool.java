@@ -127,23 +127,23 @@ public class Tool {
     private LocalDate startUpSl03Date;
 
     // Document and picture paths
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "tool_documents", joinColumns = @JoinColumn(name = "tool_id"))
     @Column(name = "document_path")
     private Set<String> documentPaths = new HashSet<>();
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "tool_document_names", joinColumns = @JoinColumn(name = "tool_id"))
     @MapKeyColumn(name = "document_path")
     @Column(name = "original_filename")
     private Map<String, String> documentNames = new HashMap<>();
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "tool_pictures", joinColumns = @JoinColumn(name = "tool_id"))
     @Column(name = "picture_path")
     private Set<String> picturePaths = new HashSet<>();
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "tool_picture_names", joinColumns = @JoinColumn(name = "tool_id"))
     @MapKeyColumn(name = "picture_path")
     @Column(name = "original_filename")
@@ -161,7 +161,7 @@ public class Tool {
     private Set<User> currentTechnicians = new HashSet<>();
 
     // Tags for the tool
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "tool_tags", joinColumns = @JoinColumn(name = "tool_id"))
     @Column(name = "tag")
     private Set<String> tags = new HashSet<>();

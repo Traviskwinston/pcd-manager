@@ -223,19 +223,43 @@ public class RmaController {
                 }
             }
             
-            // Bulk load moving part counts
-            Map<Long, Integer> movingPartsMap = new HashMap<>();
+            // Bulk load moving parts data (not just counts) for tooltip display
+            Map<Long, List<Map<String, Object>>> movingPartsMap = new HashMap<>();
             if (!rmaIds.isEmpty()) {
                 try {
-                    List<Object[]> movingPartCounts = movingPartRepository.findMovingPartCountsByRmaIds(rmaIds);
-                    for (Object[] row : movingPartCounts) {
-                        Long rmaId = (Long) row[0];
-                        Long count = (Long) row[1];
-                        movingPartsMap.put(rmaId, count.intValue());
+                    // Get all moving parts for these RMAs
+                    List<MovingPart> allMovingParts = movingPartService.getMovingPartsByRmaIds(rmaIds);
+                    
+                    for (MovingPart part : allMovingParts) {
+                        Long rmaId = part.getRma() != null ? part.getRma().getId() : null;
+                        if (rmaId != null) {
+                            Map<String, Object> partData = new HashMap<>();
+                            partData.put("id", part.getId());
+                            partData.put("partName", part.getPartName());
+                            partData.put("partNumber", part.getPartNumber());
+                            partData.put("fromLocation", part.getFromTool() != null ? part.getFromTool().getName() : "Unknown");
+                            
+                            // Get destination from destination chain (use the last destination as current location)
+                            Long currentLocationId = part.getCurrentLocationToolId();
+                            String toLocation = "Unknown";
+                            if (currentLocationId != null) {
+                                try {
+                                    Optional<Tool> destTool = toolService.getToolById(currentLocationId);
+                                    toLocation = destTool.map(Tool::getName).orElse("Unknown");
+                                } catch (Exception e) {
+                                    logger.warn("Could not fetch destination tool for ID: {}", currentLocationId);
+                                }
+                            }
+                            partData.put("toLocation", toLocation);
+                            partData.put("movementDate", part.getMoveDate() != null ? part.getMoveDate().toString() : null);
+                            partData.put("notes", part.getNotes());
+                            
+                            movingPartsMap.computeIfAbsent(rmaId, k -> new ArrayList<>()).add(partData);
+                        }
                     }
-                    logger.info("Loaded moving part counts for {} RMAs", movingPartCounts.size());
+                    logger.info("Loaded moving parts data for {} RMAs", movingPartsMap.size());
                 } catch (Exception e) {
-                    logger.error("Error loading RMA moving part counts: {}", e.getMessage(), e);
+                    logger.error("Error loading RMA moving parts data: {}", e.getMessage(), e);
                 }
             }
             
@@ -256,7 +280,7 @@ public class RmaController {
             logger.info("Final counts - RMAs: {}, Comments: {}, Moving Parts: {}", 
                        rmaData.size(),
                        rmaCommentsMap.values().stream().mapToInt(Integer::intValue).sum(),
-                       movingPartsMap.values().stream().mapToInt(Integer::intValue).sum());
+                       movingPartsMap.values().stream().mapToInt(List::size).sum());
                        
         } catch (Exception e) {
             logger.error("Error loading RMA data async: {}", e.getMessage(), e);
@@ -2318,42 +2342,48 @@ public class RmaController {
         return result;
     }
 
-    /**
-     * API endpoint to get moving parts for an RMA
-     */
-    @GetMapping("/api/rma/{id}/moving-parts")
+
+
+    @GetMapping("/api/test-moving-parts/{id}")
     @ResponseBody
-    public Map<String, Object> getMovingPartsForRma(@PathVariable Long id) {
+    public Map<String, Object> testMovingParts(@PathVariable Long id) {
         logger.info("Loading moving parts for RMA ID: {}", id);
         Map<String, Object> result = new HashMap<>();
         
         try {
-            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
-            if (rmaOpt.isPresent()) {
-                List<MovingPart> movingParts = movingPartService.getMovingPartsByRmaId(id);
-                List<Map<String, Object>> movingPartsData = new ArrayList<>();
+            // Use the EXACT same logic as the working RMA detail page
+            List<MovingPart> movingParts = movingPartService.getMovingPartsByRmaId(id);
+            List<Map<String, Object>> movingPartsData = new ArrayList<>();
+            
+            for (MovingPart part : movingParts) {
+                Map<String, Object> partData = new HashMap<>();
+                partData.put("id", part.getId());
+                partData.put("partName", part.getPartName());
+                partData.put("partNumber", part.getPartNumber());
+                partData.put("fromLocation", part.getFromTool() != null ? part.getFromTool().getName() : "Unknown");
                 
-                for (MovingPart part : movingParts) {
-                    Map<String, Object> partData = new HashMap<>();
-                    partData.put("id", part.getId());
-                    partData.put("partName", part.getPartName());
-                    partData.put("partNumber", part.getPartNumber());
-                    partData.put("fromLocation", part.getFromTool() != null ? part.getFromTool().getName() : "Unknown");
-                    partData.put("toLocation", part.getToTool() != null ? part.getToTool().getName() : "Unknown");
-                    partData.put("movementDate", part.getMovementDate() != null ? part.getMovementDate().toString() : null);
-                    partData.put("notes", part.getNotes());
-                    
-                    movingPartsData.add(partData);
+                // Get destination from destination chain (use the last destination as current location)
+                Long currentLocationId = part.getCurrentLocationToolId();
+                String toLocation = "Unknown";
+                if (currentLocationId != null) {
+                    try {
+                        Optional<Tool> destTool = toolService.getToolById(currentLocationId);
+                        toLocation = destTool.map(Tool::getName).orElse("Unknown");
+                    } catch (Exception e) {
+                        logger.warn("Could not fetch destination tool for ID: {}", currentLocationId);
+                    }
                 }
+                partData.put("toLocation", toLocation);
+                partData.put("movementDate", part.getMoveDate() != null ? part.getMoveDate().toString() : null);
+                partData.put("notes", part.getNotes());
                 
-                result.put("success", true);
-                result.put("movingParts", movingPartsData);
-                logger.info("Successfully loaded {} moving parts for RMA: {}", movingPartsData.size(), id);
-            } else {
-                result.put("success", false);
-                result.put("error", "RMA not found");
-                logger.warn("RMA not found for ID: {}", id);
+                movingPartsData.add(partData);
             }
+            
+            result.put("success", true);
+            result.put("movingParts", movingPartsData);
+            logger.info("Successfully loaded {} moving parts for RMA: {}", movingPartsData.size(), id);
+            
         } catch (Exception e) {
             logger.error("Error loading moving parts for RMA {}: {}", id, e.getMessage(), e);
             result.put("success", false);

@@ -10,6 +10,7 @@ import com.pcd.manager.model.User;
 import com.pcd.manager.model.Note;
 import com.pcd.manager.model.ToolComment;
 import com.pcd.manager.model.TrackTrend;
+import com.pcd.manager.model.MovingPart;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.repository.RmaRepository;
 import com.pcd.manager.repository.PassdownRepository;
@@ -22,6 +23,7 @@ import com.pcd.manager.service.PassdownService;
 import com.pcd.manager.service.UserService;
 import com.pcd.manager.service.TrackTrendService;
 import com.pcd.manager.service.AsyncDataService;
+import com.pcd.manager.service.MovingPartService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -70,12 +72,13 @@ public class ToolController {
     private final ToolCommentRepository toolCommentRepository;
     private final TrackTrendRepository trackTrendRepository;
     private final AsyncDataService asyncDataService;
+    private final MovingPartService movingPartService;
     
     @Value("${app.upload.dir:${user.home}/uploads}")
     private String uploadDir;
 
     @Autowired
-    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService, RmaRepository rmaRepository, PassdownRepository passdownRepository, ToolCommentRepository toolCommentRepository, TrackTrendRepository trackTrendRepository, AsyncDataService asyncDataService) {
+    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService, RmaRepository rmaRepository, PassdownRepository passdownRepository, ToolCommentRepository toolCommentRepository, TrackTrendRepository trackTrendRepository, AsyncDataService asyncDataService, MovingPartService movingPartService) {
         this.toolService = toolService;
         this.toolRepository = toolRepository;
         this.locationService = locationService;
@@ -88,6 +91,7 @@ public class ToolController {
         this.toolCommentRepository = toolCommentRepository;
         this.trackTrendRepository = trackTrendRepository;
         this.asyncDataService = asyncDataService;
+        this.movingPartService = movingPartService;
     }
     
     @PostConstruct
@@ -271,11 +275,16 @@ public class ToolController {
 
     @GetMapping("/{id}")
     public String showToolDetails(@PathVariable Long id, Model model, Principal principal) {
+        logger.info("=== LOADING TOOL DETAILS FOR ID: {} ===", id);
+        
         // Add all tools for the move document/picture dropdowns and moving parts chain display
         List<Tool> allTools = toolService.getAllTools();
         model.addAttribute("allTools", allTools);
         
-        toolService.getToolById(id).ifPresent(tool -> {
+        Optional<Tool> toolOpt = toolService.getToolById(id);
+        if (toolOpt.isPresent()) {
+            Tool tool = toolOpt.get();
+            logger.info("Found tool: {}", tool.getName());
             model.addAttribute("tool", tool);
             
             // Fetch RMAs associated with this tool
@@ -310,26 +319,33 @@ public class ToolController {
                 });
             }
             
-            // Create destination chain display data for each moving part (similar to RMA controller) - TEMPORARILY DISABLED
-            // Map<Long, List<Tool>> movingPartDestinationChains = new HashMap<>();
-            // Map<Long, Tool> toolMap = new HashMap<>();
-            // for (Tool t : allTools) {
-            //     toolMap.put(t.getId(), t);
-            // }
-            // 
-            // for (MovingPart movingPart : movingParts) {
-            //     List<Tool> chainTools = new ArrayList<>();
-            //     List<Long> destinationIds = movingPart.getDestinationToolIds();
-            //     for (Long toolId : destinationIds) {
-            //         Tool destTool = toolMap.get(toolId);
-            //         if (destTool != null) {
-            //             chainTools.add(destTool);
-            //         }
-            //     }
-            //     movingPartDestinationChains.put(movingPart.getId(), chainTools);
-            // }
-            // model.addAttribute("movingPartDestinationChains", movingPartDestinationChains);
-            model.addAttribute("movingPartDestinationChains", new HashMap<>());
+            // Fetch Moving Parts associated with this tool (both as source and destination)
+            logger.info("About to fetch moving parts for tool ID: {}", id);
+            List<MovingPart> movingParts = movingPartService.getMovingPartsByToolId(id);
+            logger.info("MovingPartService returned {} moving parts for tool ID: {}", movingParts.size(), id);
+            model.addAttribute("movingParts", movingParts);
+            model.addAttribute("movingPartService", movingPartService);
+            logger.info("Found {} Moving Parts associated with tool ID: {}", movingParts.size(), id);
+            
+            // Create destination chain display data for each moving part (similar to RMA controller)
+            Map<Long, List<Tool>> movingPartDestinationChains = new HashMap<>();
+            Map<Long, Tool> toolMap = new HashMap<>();
+            for (Tool t : allTools) {
+                toolMap.put(t.getId(), t);
+            }
+            
+            for (MovingPart movingPart : movingParts) {
+                List<Tool> chainTools = new ArrayList<>();
+                List<Long> destinationIds = movingPart.getDestinationToolIds();
+                for (Long toolId : destinationIds) {
+                    Tool destTool = toolMap.get(toolId);
+                    if (destTool != null) {
+                        chainTools.add(destTool);
+                    }
+                }
+                movingPartDestinationChains.put(movingPart.getId(), chainTools);
+            }
+            model.addAttribute("movingPartDestinationChains", movingPartDestinationChains);
             
             // Create a new Note object for the note creation form
             model.addAttribute("newNote", new Note());
@@ -337,7 +353,9 @@ public class ToolController {
             // Fetch Track/Trends associated with this tool
             List<TrackTrend> trackTrendsForTool = trackTrendService.getTrackTrendsByToolId(id);
             model.addAttribute("trackTrendsForTool", trackTrendsForTool);
-        });
+        } else {
+            logger.warn("Tool with ID {} not found", id);
+        }
         
         // Add lightweight RMA data for link functionality (only id and rmaNumber needed)
         List<Rma> allRmas = rmaRepository.findAllForListView();
@@ -1189,6 +1207,87 @@ public class ToolController {
             redirectAttributes.addFlashAttribute("info", "No " + fileType + " were selected for upload.");
         }
 
+        return "redirect:/tools/" + id;
+    }
+    
+    // ===============================
+    // MOVING PARTS ENDPOINTS FOR TOOLS
+    // ===============================
+    
+    /**
+     * Add a new moving part to a tool
+     */
+    @PostMapping("/{id}/moving-parts")
+    public String addMovingPart(@PathVariable Long id,
+                               @RequestParam String partName,
+                               @RequestParam Long fromToolId,
+                               @RequestParam List<Long> destinationToolIds,
+                               @RequestParam(required = false) String notes,
+                               RedirectAttributes redirectAttributes) {
+        try {
+            logger.info("Adding moving part to tool {}: partName={}, fromToolId={}, destinationToolIds={}", 
+                       id, partName, fromToolId, destinationToolIds);
+            
+            movingPartService.createMovingPart(partName, fromToolId, destinationToolIds, notes, null, null);
+            
+            redirectAttributes.addFlashAttribute("message", "Moving part added successfully");
+        } catch (Exception e) {
+            logger.error("Error adding moving part to tool {}: {}", id, e.getMessage(), e);
+            redirectAttributes.addFlashAttribute("error", "Error adding moving part: " + e.getMessage());
+        }
+        return "redirect:/tools/" + id;
+    }
+    
+    /**
+     * Update an existing moving part for a tool
+     */
+    @PostMapping("/{id}/moving-parts/{movingPartId}/edit")
+    public String editMovingPart(@PathVariable Long id,
+                                @PathVariable Long movingPartId,
+                                @RequestParam String partName,
+                                @RequestParam Long fromToolId,
+                                @RequestParam List<Long> destinationToolIds,
+                                @RequestParam(required = false) String notes,
+                                RedirectAttributes redirectAttributes) {
+        try {
+            logger.info("Editing moving part {} for tool {}: partName={}, fromToolId={}, destinationToolIds={}", 
+                       movingPartId, id, partName, fromToolId, destinationToolIds);
+            
+            Optional<MovingPart> result = movingPartService.updateMovingPart(movingPartId, partName, fromToolId, destinationToolIds, notes, null);
+            
+            if (result.isPresent()) {
+                redirectAttributes.addFlashAttribute("message", "Moving part updated successfully");
+            } else {
+                redirectAttributes.addFlashAttribute("error", "Moving part not found");
+            }
+        } catch (Exception e) {
+            logger.error("Error updating moving part {} for tool {}: {}", movingPartId, id, e.getMessage(), e);
+            redirectAttributes.addFlashAttribute("error", "Error updating moving part: " + e.getMessage());
+        }
+        return "redirect:/tools/" + id;
+    }
+    
+    /**
+     * Delete a moving part from a tool
+     */
+    @PostMapping("/{id}/moving-parts/{movingPartId}/delete")
+    public String deleteMovingPart(@PathVariable Long id,
+                                  @PathVariable Long movingPartId,
+                                  RedirectAttributes redirectAttributes) {
+        try {
+            logger.info("Deleting moving part {} from tool {}", movingPartId, id);
+            
+            boolean deleted = movingPartService.deleteMovingPart(movingPartId);
+            
+            if (deleted) {
+                redirectAttributes.addFlashAttribute("message", "Moving part deleted successfully");
+            } else {
+                redirectAttributes.addFlashAttribute("error", "Moving part not found");
+            }
+        } catch (Exception e) {
+            logger.error("Error deleting moving part {} from tool {}: {}", movingPartId, id, e.getMessage(), e);
+            redirectAttributes.addFlashAttribute("error", "Error deleting moving part: " + e.getMessage());
+        }
         return "redirect:/tools/" + id;
     }
 } 

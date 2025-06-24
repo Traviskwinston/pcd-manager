@@ -674,18 +674,10 @@
                                                             </th:block>
                                                         </th:block>
                                                         
-                                                        <!-- Fallback for single destination (backward compatibility) -->
-                                                        <th:block th:if="${(movingPartDestinationChains[movingPart.id] == null or movingPartDestinationChains[movingPart.id].empty) and movingPart.toTool != null}">
-                                                            <i class="bi bi-arrow-right text-primary mx-2"></i>
-                                                            <a th:href="@{/tools/{id}(id=${movingPart.toTool.id})}" 
-                                                               th:text="${movingPart.toTool.name}" 
-                                                               class="text-decoration-none">To Tool</a>
-                                                        </th:block>
-                                                        
                                                         <!-- If no destinations at all -->
-                                                        <th:block th:if="${(movingPartDestinationChains[movingPart.id] == null or movingPartDestinationChains[movingPart.id].empty) and movingPart.toTool == null}">
+                                                        <th:block th:if="${movingPartDestinationChains[movingPart.id] == null or movingPartDestinationChains[movingPart.id].empty}">
                                                             <i class="bi bi-arrow-right text-primary mx-2"></i>
-                                                            <span class="text-muted">-</span>
+                                                            <span class="text-muted">No Destination</span>
                                                         </th:block>
                                                     </div>
                                                 </td>
@@ -700,7 +692,7 @@
                                                                 th:data-id="${movingPart.id}"
                                                                 th:data-part-name="${movingPart.partName}"
                                                                 th:data-from-tool-id="${movingPart.fromTool != null ? movingPart.fromTool.id : ''}"
-                                                                th:data-to-tool-id="${movingPart.toTool != null ? movingPart.toTool.id : ''}"
+                                                                th:data-to-tool-id="${movingPart.currentLocationToolId != null ? movingPart.currentLocationToolId : ''}"
                                                                 th:data-destination-chain="${movingPart.destinationChain != null ? movingPart.destinationChain : ''}"
                                                                 th:data-notes="${movingPart.notes != null ? movingPart.notes : ''}"
                                                                 th:data-move-date="${#temporals.format(movingPart.moveDate, 'yyyy-MM-dd')}">

@@ -157,7 +157,7 @@
                         <span th:text="${tool.setDate != null ? #temporals.format(tool.setDate, 'MMM dd, yyyy') : '-'}">Jan 1, 2025</span>
                     </div>
                 </div>
-                <div class="row mt-2" th:if="${!#sets.isEmpty(tool.tags)}">
+                <div class="row mt-2" th:if="${tool.tags != null && !tool.tags.isEmpty()}">
                     <div class="col-12">
                         <strong>Tags:</strong>
                         <span th:each="tag : ${tool.tags}" class="badge bg-info me-1" th:text="${tag}">Tag</span>
@@ -304,13 +304,13 @@
                     <div class="collapse" id="documentsCollapse">
                         <div class="card-body">
                             <!-- Show message if no documents -->
-                            <div th:if="${#sets.isEmpty(tool.documentPaths)}" class="alert alert-info text-center">
+                            <div th:if="${tool.documentPaths == null || tool.documentPaths.isEmpty()}" class="alert alert-info text-center">
                                 <i class="bi bi-file-earmark-text fs-4"></i>
                                 <p class="mb-0 mt-2 small">No documents uploaded yet.</p>
                             </div>
                             
                             <!-- Documents list -->
-                            <div th:if="${!#sets.isEmpty(tool.documentPaths)}" class="list-group list-group-flush">
+                            <div th:if="${tool.documentPaths != null && !tool.documentPaths.isEmpty()}" class="list-group list-group-flush">
                                 <div class="list-group-item d-flex align-items-center px-0" th:each="docPath : ${tool.documentPaths}">
                                     <!-- Document Name -->
                                     <div class="flex-grow-1">
@@ -358,13 +358,13 @@
                     <div class="collapse" id="picturesCollapse">
                         <div class="card-body">
                             <!-- Show message if no pictures -->
-                            <div th:if="${#sets.isEmpty(tool.picturePaths)}" class="alert alert-info text-center">
+                            <div th:if="${tool.picturePaths == null || tool.picturePaths.isEmpty()}" class="alert alert-info text-center">
                                 <i class="bi bi-image fs-4"></i>
                                 <p class="mb-0 mt-2 small">No pictures uploaded yet.</p>
                             </div>
                             
                             <!-- Pictures grid -->
-                            <div th:if="${!#sets.isEmpty(tool.picturePaths)}" class="row g-2">
+                            <div th:if="${tool.picturePaths != null && !tool.picturePaths.isEmpty()}" class="row g-2">
                                 <div class="col-6 col-md-4" th:each="picPath : ${tool.picturePaths}">
                                     <div class="card h-100">
                                         <div class="card-body text-center p-2">
@@ -948,7 +948,9 @@
             });
             
             // Handle picture link confirmation
-            document.getElementById('confirmPicLinkBtn').addEventListener('click', function() {
+            const confirmPicLinkBtn = document.getElementById('confirmPicLinkBtn');
+            if (confirmPicLinkBtn) {
+                confirmPicLinkBtn.addEventListener('click', function() {
                 const picPath = document.getElementById('picPathToLink').value;
                 const linkType = document.getElementById('linkPictureType').value;
                 let targetId = '';
@@ -996,10 +998,13 @@
                 
                 document.body.appendChild(form);
                 form.submit();
-            });
+                });
+            }
             
             // Handle document delete confirmation
-            document.getElementById('confirmDocDeleteBtn').addEventListener('click', function() {
+            const confirmDocDeleteBtn = document.getElementById('confirmDocDeleteBtn');
+            if (confirmDocDeleteBtn) {
+                confirmDocDeleteBtn.addEventListener('click', function() {
                 const docPath = document.getElementById('docPathToDelete').value;
                 const deleteOption = document.querySelector('input[name="deleteOption"]:checked').value;
                 
@@ -1023,10 +1028,13 @@
                 
                 document.body.appendChild(form);
                 form.submit();
-            });
+                });
+            }
             
             // Handle picture delete confirmation
-            document.getElementById('confirmPicDeleteBtn').addEventListener('click', function() {
+            const confirmPicDeleteBtn = document.getElementById('confirmPicDeleteBtn');
+            if (confirmPicDeleteBtn) {
+                confirmPicDeleteBtn.addEventListener('click', function() {
                 const picPath = document.getElementById('picPathToDelete').value;
                 const deleteOption = document.querySelector('input[name="deletePicOption"]:checked').value;
                 
@@ -1050,7 +1058,8 @@
                 
                 document.body.appendChild(form);
                 form.submit();
-            });
+                });
+            }
             
             // Moving Parts Link Note button handlers
             document.querySelectorAll('.link-note-btn').forEach(btn => {

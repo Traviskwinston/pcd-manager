@@ -43,6 +43,11 @@ public interface MovingPartRepository extends JpaRepository<MovingPart, Long> {
     List<MovingPart> findByRmaId(Long rmaId);
     
     /**
+     * OPTIMIZATION: Bulk find moving parts for multiple RMAs to avoid N+1 queries
+     */
+    List<MovingPart> findByRmaIdIn(List<Long> rmaIds);
+    
+    /**
      * Lightweight bulk query for RMA list view - only loads essential moving part data
      * Returns: rmaId, movingPartCount
      */

@@ -156,6 +156,22 @@ public class MovingPartService {
     public List<MovingPart> getMovingPartsByRmaId(Long rmaId) {
         return movingPartRepository.findByRmaId(rmaId);
     }
+    
+    /**
+     * OPTIMIZATION: Bulk gets moving parts for multiple RMAs to avoid N+1 queries
+     * @param rmaIds The list of RMA IDs
+     * @return List of moving parts for the specified RMAs
+     */
+    public List<MovingPart> getMovingPartsByRmaIds(List<Long> rmaIds) {
+        if (rmaIds == null || rmaIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        logger.debug("Bulk searching for moving parts for {} RMA IDs", rmaIds.size());
+        List<MovingPart> results = movingPartRepository.findByRmaIdIn(rmaIds);
+        logger.debug("Found {} moving parts for {} RMA IDs", results.size(), rmaIds.size());
+        return results;
+    }
 
     @Transactional
     public boolean linkMovingPartToTrackTrend(Long movingPartId, Long trackTrendId) {

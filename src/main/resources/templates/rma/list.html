@@ -708,6 +708,9 @@
                 
                 // Apply default sorting by written date (descending - most recent first)
                 this.applyDefaultSort();
+                
+                // Initialize interactions for tooltips and popovers
+                this.initializeInteractions();
             }
 
             init() {
@@ -1434,7 +1437,7 @@
                 console.log(`Found ${movingPartsIcons.length} moving parts icons`);
                 
                 movingPartsIcons.forEach(icon => {
-                    const rmaId = icon.closest('tr').querySelector('a[href*="/rma/"]').href.split('/').pop();
+                    const rmaId = icon.getAttribute('data-rma-id');
                     if (!rmaId) return;
                     
                     if (!self.tooltipCache.movingParts.has(rmaId)) {
@@ -1494,7 +1497,7 @@
                         
                         try {
                             console.log(`Loading moving parts for RMA ${rmaId} (cache miss)`);
-                            const response = await fetch(`/rma/api/rma/${rmaId}/moving-parts`, {
+                            const response = await fetch(`/rma/api/test-moving-parts/${rmaId}`, {
                                 signal: abortController.signal
                             });
                             
@@ -1689,6 +1692,9 @@
 
                 tbody.innerHTML = '';
 
+                // Store moving parts data globally for tooltip access
+                window.rmaMovingPartsData = data.movingPartsMap || {};
+
                 data.rmas.forEach(rma => {
                     const row = this.createTableRow(rma, data.rmaCommentsMap, data.movingPartsMap);
                     tbody.appendChild(row);
@@ -1754,7 +1760,8 @@
                 };
 
                 const commentCount = commentsMap[rma.id] || 0;
-                const movingPartCount = movingPartsMap[rma.id] || 0;
+                const movingPartData = movingPartsMap[rma.id] || [];
+                const movingPartCount = Array.isArray(movingPartData) ? movingPartData.length : 0;
 
                 row.innerHTML = `
                     <td>
@@ -1788,9 +1795,20 @@
                     <td>${formatDate(rma.failedPartsPackedDate)}</td>
                     <td>${formatDate(rma.failedPartsShippedDate)}</td>
                     <td class="text-center">
-                        <span ${movingPartCount > 0 ? 'title="' + movingPartCount + ' moving parts"' : ''}>
-                            <i class="bi bi-arrow-left-right ${movingPartCount > 0 ? 'moving-parts-icon' : 'text-muted'}"></i>
-                        </span>
+                        ${movingPartCount > 0 ? `
+                            <i class="bi bi-arrow-left-right moving-parts-icon info-icon-interactive"
+                               data-rma-id="${rma.id}"
+                               data-moving-part-count="${movingPartCount}"
+                               data-bs-toggle="popover"
+                               data-bs-placement="left"
+                               data-bs-trigger="hover focus click"
+                               data-bs-html="true"
+                               data-bs-title="Moving Parts (${movingPartCount})"
+                               data-bs-content="Loading moving parts..."
+                               title="Hover to load moving parts"></i>
+                        ` : `
+                            <i class="bi bi-arrow-left-right text-muted"></i>
+                        `}
                     </td>
                     <td class="text-center">
                         <i class="bi bi-chat-dots-fill comment-icon ${commentCount > 0 ? 'info-icon-interactive' : 'text-muted'}"
@@ -2569,11 +2587,23 @@
             initLazyMovingPartsLoading() {
                 const self = this; // Capture 'this' reference
                 const movingPartsIcons = document.querySelectorAll('.moving-parts-icon');
+                console.log(`Found ${movingPartsIcons.length} moving parts icons`);
                 
                 movingPartsIcons.forEach(icon => {
-                    let isLoaded = false;
-                    let isLoading = false;
-                    let currentRequest = null;
+                    const rmaId = icon.getAttribute('data-rma-id');
+                    if (!rmaId) return;
+                    
+                    // Get or create cache entry for this RMA
+                    if (!self.tooltipCache.movingParts.has(rmaId)) {
+                        self.tooltipCache.movingParts.set(rmaId, {
+                            data: null,
+                            isLoaded: false,
+                            isLoading: false,
+                            currentRequest: null
+                        });
+                    }
+                    
+                    const cacheEntry = self.tooltipCache.movingParts.get(rmaId);
                     
                     // Initialize popover if not already done
                     let popover = bootstrap.Popover.getInstance(icon);
@@ -2582,8 +2612,8 @@
                             html: true,
                             placement: 'left',
                             trigger: 'hover focus click',
-                            title: 'Moving Parts',
-                            content: 'Loading moving parts...',
+                            title: icon.getAttribute('data-bs-title') || 'Moving Parts',
+                            content: icon.getAttribute('data-bs-content') || 'Loading moving parts...',
                             sanitize: false,
                             fallbackPlacements: ['right', 'top', 'bottom'],
                             container: 'body'
@@ -2591,151 +2621,122 @@
                     }
                     
                     icon.addEventListener('mouseenter', async () => {
-                        // Don't load if already loaded
-                        if (isLoaded) return;
-                        
-                        // Cancel any existing request
-                        if (currentRequest && !currentRequest.signal.aborted) {
-                            currentRequest.abort();
-                            isLoading = false; // Reset loading state when we abort
-                        }
-                        
-                        // Don't start new request if already loading
-                        if (isLoading) {
+                        // If already loaded, show cached data immediately
+                        if (cacheEntry.isLoaded && cacheEntry.data) {
+                            console.log(`Using cached moving parts for RMA ${rmaId}`);
+                            const formattedMovingParts = self.formatMovingPartsForPopover(cacheEntry.data.movingParts);
+                            
+                            // Always dispose and recreate popover to ensure fresh content
+                            const currentPopover = bootstrap.Popover.getInstance(icon);
+                            if (currentPopover) {
+                                currentPopover.dispose();
+                            }
+                            
+                            // Create new popover with cached content and show it immediately
+                            const newPopover = new bootstrap.Popover(icon, {
+                                html: true,
+                                placement: 'left',
+                                trigger: 'hover focus click',
+                                title: `Moving Parts (${cacheEntry.data.movingParts.length})`,
+                                content: formattedMovingParts,
+                                sanitize: false,
+                                fallbackPlacements: ['right', 'top', 'bottom'],
+                                container: 'body'
+                            });
+                            newPopover.show();
                             return;
                         }
                         
-                        // Get RMA ID from closest row
-                        const row = icon.closest('.rma-row');
-                        if (!row) return;
+                        // Cancel any existing request
+                        if (cacheEntry.currentRequest && !cacheEntry.currentRequest.signal.aborted) {
+                            cacheEntry.currentRequest.abort();
+                            cacheEntry.isLoading = false; // Reset loading state when we abort
+                        }
                         
-                        const viewLink = row.querySelector('a[href*="/rma/"]');
-                        if (!viewLink) return;
-                        
-                        const rmaId = viewLink.getAttribute('href').split('/').pop();
-                        if (!rmaId) return;
+                        // Don't start new request if already loading
+                        if (cacheEntry.isLoading) {
+                            return;
+                        }
                         
                         // Create new AbortController for this request
                         const abortController = new AbortController();
-                        currentRequest = abortController;
-                        isLoading = true;
+                        cacheEntry.currentRequest = abortController;
+                        cacheEntry.isLoading = true;
                         
                         try {
-                            console.log(`Loading moving parts for RMA ${rmaId}`);
-                            const response = await fetch(`/rma/api/rma/${rmaId}/moving-parts`, {
-                                signal: abortController.signal
-                            });
+                            console.log(`Using server-side moving parts data for RMA ${rmaId}`);
                             
-                            if (!response.ok) {
-                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                            }
+                            // Get moving parts data from the global data loaded via /api/data
+                            const movingPartsData = window.rmaMovingPartsData && window.rmaMovingPartsData[rmaId] ? window.rmaMovingPartsData[rmaId] : [];
                             
-                            const data = await response.json();
-                            
-                            if (data.success && data.movingParts) {
-                                const formattedMovingParts = self.formatMovingPartsForPopover(data.movingParts);
+                            if (movingPartsData.length > 0) {
+                                // Cache the data
+                                cacheEntry.data = { success: true, movingParts: movingPartsData };
+                                cacheEntry.isLoaded = true;
                                 
-                                // Update the popover content
-                                icon.setAttribute('data-bs-content', formattedMovingParts);
-                                icon.setAttribute('data-bs-title', `Moving Parts (${data.movingParts.length})`);
+                                const formattedMovingParts = self.formatMovingPartsForPopover(movingPartsData);
                                 
+                                // Update the existing popover's content
                                 const currentPopover = bootstrap.Popover.getInstance(icon);
                                 if (currentPopover) {
+                                    // Update the popover's tip content if it's already shown
                                     const popoverTip = currentPopover.tip;
-                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                    if (popoverTip) {
                                         const popoverBody = popoverTip.querySelector('.popover-body');
                                         if (popoverBody) {
                                             popoverBody.innerHTML = formattedMovingParts;
                                         }
                                         const popoverHeader = popoverTip.querySelector('.popover-header');
                                         if (popoverHeader) {
-                                            popoverHeader.textContent = `Moving Parts (${data.movingParts.length})`;
+                                            popoverHeader.textContent = `Moving Parts (${movingPartsData.length})`;
                                         }
-                                    } else {
-                                        // Recreate popover with new content
-                                        currentPopover.dispose();
-                                        new bootstrap.Popover(icon, {
-                                            html: true,
-                                            placement: 'left',
-                                            trigger: 'hover focus click',
-                                            title: `Moving Parts (${data.movingParts.length})`,
-                                            content: formattedMovingParts,
-                                            sanitize: false,
-                                            fallbackPlacements: ['right', 'top', 'bottom'],
-                                            container: 'body'
-                                        });
                                     }
+                                    
+                                    // Also update the data attributes for future shows
+                                    icon.setAttribute('data-bs-content', formattedMovingParts);
+                                    icon.setAttribute('data-bs-title', `Moving Parts (${movingPartsData.length})`);
                                 }
-                                
-                                isLoaded = true;
                             } else {
-                                console.error('Failed to load moving parts:', data.error);
-                                const errorMessage = 'Error loading moving parts';
+                                console.log(`No moving parts data found for RMA ${rmaId}`);
+                                const noDataMessage = 'No moving parts recorded';
                                 
-                                icon.setAttribute('data-bs-content', errorMessage);
+                                // Cache the empty result
+                                cacheEntry.data = { success: true, movingParts: [] };
+                                cacheEntry.isLoaded = true;
                                 
                                 const currentPopover = bootstrap.Popover.getInstance(icon);
                                 if (currentPopover) {
                                     const popoverTip = currentPopover.tip;
-                                    if (popoverTip && document.body.contains(popoverTip)) {
+                                    if (popoverTip) {
                                         const popoverBody = popoverTip.querySelector('.popover-body');
                                         if (popoverBody) {
-                                            popoverBody.innerHTML = errorMessage;
+                                            popoverBody.innerHTML = noDataMessage;
                                         }
-                                    } else {
-                                        currentPopover.dispose();
-                                        new bootstrap.Popover(icon, {
-                                            html: true,
-                                            placement: 'left',
-                                            trigger: 'hover focus click',
-                                            title: 'Moving Parts',
-                                            content: errorMessage,
-                                            sanitize: false,
-                                            fallbackPlacements: ['right', 'top', 'bottom'],
-                                            container: 'body'
-                                        });
                                     }
+                                    
+                                    // Also update the data attributes for future shows
+                                    icon.setAttribute('data-bs-content', noDataMessage);
                                 }
                             }
                         } catch (error) {
-                            // Don't show error if request was aborted (user moved mouse away quickly)
-                            if (error.name === 'AbortError') {
-                                console.log('Request aborted for moving parts loading');
-                                return;
-                            }
-                            
-                            console.error('Error loading moving parts:', error);
+                            console.error('Error processing moving parts data:', error);
                             const errorMessage = 'Error loading moving parts';
-                            
-                            icon.setAttribute('data-bs-content', errorMessage);
                             
                             const currentPopover = bootstrap.Popover.getInstance(icon);
                             if (currentPopover) {
                                 const popoverTip = currentPopover.tip;
-                                if (popoverTip && document.body.contains(popoverTip)) {
+                                if (popoverTip) {
                                     const popoverBody = popoverTip.querySelector('.popover-body');
                                     if (popoverBody) {
                                         popoverBody.innerHTML = errorMessage;
                                     }
-                                } else {
-                                    currentPopover.dispose();
-                                    new bootstrap.Popover(icon, {
-                                        html: true,
-                                        placement: 'left',
-                                        trigger: 'hover focus click',
-                                        title: 'Moving Parts',
-                                        content: errorMessage,
-                                        sanitize: false,
-                                        fallbackPlacements: ['right', 'top', 'bottom'],
-                                        container: 'body'
-                                    });
                                 }
+                                
+                                // Also update the data attributes for future shows
+                                icon.setAttribute('data-bs-content', errorMessage);
                             }
                         } finally {
-                            // Only reset loading state if this request wasn't aborted
-                            if (!abortController.signal.aborted) {
-                                isLoading = false;
-                            }
+                            cacheEntry.isLoading = false;
                         }
                     });
                 });
