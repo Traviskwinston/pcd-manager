@@ -76,8 +76,8 @@
 
 <!-- Moving Parts Section Fragment -->
 <div th:fragment="movingPartsSection(title, movingParts, movingPartService, showAddButton, addButtonText, showActions, editUrlPattern, deleteUrlPattern)" class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 flex-grow-1">
             <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
                     type="button" 
                     data-bs-toggle="collapse" 
@@ -86,12 +86,6 @@
                     aria-controls="movingPartsCollapse">
                 <span th:text="${title}">Moving Parts</span>
                 <div class="d-flex align-items-center">
-                    <button th:if="${showAddButton}" type="button" class="btn btn-sm btn-success me-2" 
-                            data-bs-toggle="modal" data-bs-target="#addMovingPartModal"
-                            onclick="event.stopPropagation();">
-                        <i class="bi bi-plus-circle me-1"></i>
-                        <span th:text="${addButtonText ?: 'Add Moving Part'}">Add Moving Part</span>
-                    </button>
                     <span class="badge bg-secondary me-2" th:text="${movingParts != null ? movingParts.size() : '0'}">0</span>
                     <i class="bi bi-chevron-down"></i>
                 </div>
@@ -107,6 +101,13 @@
         </div>
             <div th:if="${movingParts != null && !movingParts.empty}">
                 <div th:replace="~{fragments/moving-part-table :: movingPartsTable(${movingParts}, ${movingPartService}, ${showActions}, ${editUrlPattern}, ${deleteUrlPattern})}"></div>
+            </div>
+            <div th:if="${showAddButton}" class="mt-2">
+                <button type="button" class="btn btn-sm btn-success" 
+                        data-bs-toggle="modal" data-bs-target="#addMovingPartModal">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    <span th:text="${addButtonText ?: 'Add Moving Part'}">Add Moving Part</span>
+                </button>
             </div>
         </div>
     </div>
