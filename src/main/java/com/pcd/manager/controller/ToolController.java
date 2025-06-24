@@ -1277,13 +1277,8 @@ public class ToolController {
         try {
             logger.info("Deleting moving part {} from tool {}", movingPartId, id);
             
-            boolean deleted = movingPartService.deleteMovingPart(movingPartId);
-            
-            if (deleted) {
-                redirectAttributes.addFlashAttribute("message", "Moving part deleted successfully");
-            } else {
-                redirectAttributes.addFlashAttribute("error", "Moving part not found");
-            }
+            movingPartService.deleteMovingPart(movingPartId);
+            redirectAttributes.addFlashAttribute("message", "Moving part deleted successfully");
         } catch (Exception e) {
             logger.error("Error deleting moving part {} from tool {}: {}", movingPartId, id, e.getMessage(), e);
             redirectAttributes.addFlashAttribute("error", "Error deleting moving part: " + e.getMessage());
