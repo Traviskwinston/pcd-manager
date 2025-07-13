@@ -29,7 +29,7 @@ public class MovingPartController {
     @Autowired
     private UserService userService;
 
-    @PostMapping("/tools/{id}/moving-parts/add")
+    @PostMapping("/tools/{id}/moving-parts")
     public String addMovingPart(@PathVariable("id") Long toolId,
                              @RequestParam("partName") String partName,
                              @RequestParam("fromToolId") Long fromToolId,
@@ -41,14 +41,14 @@ public class MovingPartController {
         
         try {
             if (destinationToolIds == null || destinationToolIds.isEmpty()) {
-                redirectAttributes.addFlashAttribute("errorMessage", "At least one destination tool must be selected");
+                redirectAttributes.addFlashAttribute("error", "At least one destination tool must be selected");
                 return "redirect:/tools/" + toolId;
             }
             
             movingPartService.createMovingPart(partName, fromToolId, destinationToolIds, notes, noteId, null);
-            redirectAttributes.addFlashAttribute("successMessage", "Moving part recorded successfully");
+            redirectAttributes.addFlashAttribute("message", "Moving part recorded successfully");
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", "Error recording moving part: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Error recording moving part: " + e.getMessage());
         }
         
         return "redirect:/tools/" + toolId;
@@ -63,9 +63,9 @@ public class MovingPartController {
         Optional<MovingPart> result = movingPartService.linkNoteToMovingPart(movingPartId, noteId);
         
         if (result.isPresent()) {
-            redirectAttributes.addFlashAttribute("successMessage", "Note linked to moving part successfully");
+            redirectAttributes.addFlashAttribute("message", "Note linked to moving part successfully");
         } else {
-            redirectAttributes.addFlashAttribute("errorMessage", "Could not link note to moving part");
+            redirectAttributes.addFlashAttribute("error", "Could not link note to moving part");
         }
         
         return "redirect:/tools/" + toolId;
@@ -78,9 +78,9 @@ public class MovingPartController {
         
         try {
             movingPartService.deleteMovingPart(movingPartId);
-            redirectAttributes.addFlashAttribute("successMessage", "Moving part record deleted successfully");
+            redirectAttributes.addFlashAttribute("message", "Moving part record deleted successfully");
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", "Error deleting moving part: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Error deleting moving part: " + e.getMessage());
         }
         
         return "redirect:/tools/" + toolId;
@@ -97,20 +97,20 @@ public class MovingPartController {
         
         try {
             if (destinationToolIds == null || destinationToolIds.isEmpty()) {
-                redirectAttributes.addFlashAttribute("errorMessage", "At least one destination tool must be selected");
+                redirectAttributes.addFlashAttribute("error", "At least one destination tool must be selected");
                 return "redirect:/tools/" + toolId;
             }
             
             Optional<MovingPart> result = movingPartService.updateMovingPart(movingPartId, partName, fromToolId, destinationToolIds, notes, null);
             
             if (result.isPresent()) {
-                redirectAttributes.addFlashAttribute("successMessage", "Moving part updated successfully");
+                redirectAttributes.addFlashAttribute("message", "Moving part updated successfully");
                 } else {
-                redirectAttributes.addFlashAttribute("errorMessage", "Moving part not found");
+                redirectAttributes.addFlashAttribute("error", "Moving part not found");
             }
             
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", "Error updating moving part: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Error updating moving part: " + e.getMessage());
         }
         
         return "redirect:/tools/" + toolId;
@@ -126,13 +126,13 @@ public class MovingPartController {
             Optional<MovingPart> result = movingPartService.addDestinationToMovingPart(movingPartId, newDestinationToolId);
             
             if (result.isPresent()) {
-                redirectAttributes.addFlashAttribute("successMessage", "New destination added to moving part successfully");
+                redirectAttributes.addFlashAttribute("message", "New destination added to moving part successfully");
             } else {
-                redirectAttributes.addFlashAttribute("errorMessage", "Moving part not found");
+                redirectAttributes.addFlashAttribute("error", "Moving part not found");
             }
             
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("errorMessage", "Error adding destination: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Error adding destination: " + e.getMessage());
         }
         
         return "redirect:/tools/" + toolId;

@@ -8,331 +8,359 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" th:href="@{/dark-mode.css}">
     <style>
-        .checklist-item {
-            padding: 6px 0;
-            border-bottom: 1px solid #eee;
-            font-size: 0.9rem;
-        }
-        .checklist-item i {
-            margin-right: 8px;
-        }
-        .document-item, .picture-item {
-            padding: 8px;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            margin-bottom: 8px;
-        }
-        .thumbnail {
-            max-width: 100%;
-            height: auto;
-            max-height: 150px;
-            object-fit: contain;
-            margin-top: 8px;
-        }
-        .file-actions {
+        /* Fixed Height Sections */
+        .section-fixed-height {
+            height: 400px;
             display: flex;
-            gap: 6px;
-            margin-top: 8px;
-            justify-content: center;
+            flex-direction: column;
         }
-        .file-actions .btn {
-            width: 32px;
-            height: 32px;
-            padding: 6px 0;
+
+        .section-fixed-height .card {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-fixed-height .card-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.25rem;
+        }
+
+        .section-fixed-height .collapse {
+            flex: 1;
+            display: flex !important;
+            flex-direction: column;
+        }
+
+        /* Custom Scrollbar */
+        .section-fixed-height .card-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .section-fixed-height .card-body::-webkit-scrollbar-track {
+            background: #f1f3f4;
+            border-radius: 10px;
+        }
+
+        .section-fixed-height .card-body::-webkit-scrollbar-thumb {
+            background: #c1c7cd;
+            border-radius: 10px;
+        }
+
+        .section-fixed-height .card-body::-webkit-scrollbar-thumb:hover {
+            background: #a8b0b8;
+        }
+
+        /* Tool Checklist Compact Grid */
+        .checklist-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .checklist-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 0.75rem;
             display: flex;
             align-items: center;
-            justify-content: center;
-            border-radius: 4px;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
         }
-        .file-actions .btn i {
-            font-size: 1rem;
+
+        .checklist-item:hover {
+            background: #e9ecef;
+            transform: translateX(4px);
         }
-        
-        /* Compact card styling */
-        .card {
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+
+        .checklist-item i {
+            font-size: 1.1rem;
         }
-        .card-header {
-            padding: 0.75rem 1rem;
-            background-color: var(--bs-light);
+
+        /* Grid Layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
         }
-        .card-body {
-            padding: 1rem;
+
+        .sections-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 1.5rem;
         }
-        
-        /* Responsive adjustments */
-        @media (max-width: 991.98px) {
-            .col-lg-6 {
-                margin-bottom: 1rem;
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .sections-grid {
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: repeat(3, 1fr);
+            }
+            
+            .section-fixed-height {
+                height: 350px;
             }
         }
-        
-        /* Compact table styling */
-        .table-sm th, .table-sm td {
-            padding: 0.5rem;
-            font-size: 0.875rem;
-        }
-        
-        /* Compact alert styling */
-        .alert {
-            padding: 0.5rem 0.75rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        /* Compact list group */
-        .list-group-item {
-            padding: 0.5rem 0.75rem;
+
+        @media (max-width: 768px) {
+            .sections-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(6, 1fr);
+            }
+            
+            .section-fixed-height {
+                height: 300px;
+            }
         }
     </style>
 </head>
 <body>
     <div th:replace="~{fragments/navigation :: navbar('tools')}"></div>
 
-    <div class="container-fluid mt-4">
-        <div class="row mb-3">
-            <div class="col">
-                <h1>
+    <div class="container-fluid px-4 py-3">
+        <!-- Original Style Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="mb-2">
+                            <i class="bi bi-tools me-3"></i>
                     <span th:text="${tool.name}">Tool Name</span>
-                    <small class="text-muted" th:if="${tool.secondaryName != null && !tool.secondaryName.isEmpty()}" th:text="'(' + ${tool.secondaryName} + ')'"></small>
+                            <small class="text-muted ms-2" th:if="${tool.secondaryName != null && !tool.secondaryName.isEmpty()}" th:text="'(' + ${tool.secondaryName} + ')'"></small>
                 </h1>
+                        <div class="d-flex gap-3 align-items-center">
+                            <span class="badge"
+                                  th:with="statusStr=${tool.status != null ? tool.status.name() : 'UNKNOWN'}"
+                                  th:classappend="${statusStr == 'NOT_STARTED' ? 'bg-secondary' : statusStr == 'IN_PROGRESS' ? 'bg-primary' : statusStr == 'COMPLETED' ? 'bg-success' : 'bg-secondary'}"
+                                  th:text="${tool.status != null ? tool.status.name().replace('_',' ') : 'UNKNOWN'}">Status</span>
+                            <span class="text-muted">
+                                <i class="bi bi-geo-alt me-1"></i>
+                                <span th:text="${tool.location != null ? tool.location.displayName : 'No location assigned'}">Location</span>
+                            </span>
             </div>
-            <div class="col text-end">
-                <a th:href="@{/tools}" class="btn btn-secondary me-2">Back to Tools</a>
-                <a th:href="@{/tools/{id}/edit(id=${tool.id})}" class="btn btn-primary">Edit Tool</a>
-            </div>
-        </div>
-
-        <!-- Single Column Layout -->
-                <!-- Basic Information Card - Horizontal Layout -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
-                            type="button" 
-                            data-bs-toggle="collapse" 
-                            data-bs-target="#basicInfoCollapse" 
-                            aria-expanded="true" 
-                            aria-controls="basicInfoCollapse">
-                        <span>Basic Information</span>
-                        <i class="bi bi-chevron-up"></i>
-                    </button>
-                </h5>
-            </div>
-            <div class="collapse show" id="basicInfoCollapse">
-                <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <strong>Type:</strong> 
-                        <span th:text="${tool.toolType}">CHEMBLEND</span>
                     </div>
-                    <div class="col-md-3">
-                        <strong>Status:</strong> 
-                        <span class="badge"
-                              th:with="statusStr=${tool.status != null ? tool.status.name() : 'UNKNOWN'}"
-                              th:classappend="${statusStr == 'NOT_STARTED' ? 'bg-secondary' : statusStr == 'IN_PROGRESS' ? 'bg-primary' : statusStr == 'COMPLETED' ? 'bg-success' : 'bg-secondary'}"
-                              th:text="${tool.status != null ? tool.status.name().replace('_',' ') : 'UNKNOWN'}">Not Started</span>
-                    </div>
-                    <div class="col-md-6">
-                        <div>
-                            <strong>Serial Number:</strong> 
-                            <span th:text="${(tool.serialNumber1 ?: '-') + (tool.serialNumber2 != null && !tool.serialNumber2.isEmpty() ? '/' + tool.serialNumber2 : '')}">SN12345</span>
-                        </div>
-                        <div class="mt-1" th:if="${tool.model1 != null || tool.model2 != null}">
-                            <strong>Model Number:</strong> 
-                            <span th:text="${(tool.model1 ?: '-') + (tool.model2 != null && !tool.model2.isEmpty() ? '/' + tool.model2 : '')}">Model1/Model2</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-4">
-                        <strong>Chemical/Gas Serviced:</strong> 
-                        <span th:text="${tool.chemicalGasService ?: 'N/A'}">N/A</span>
-                    </div>
-                    <div class="col-md-4">
-                        <strong>Location:</strong> 
-                        <span th:text="${tool.location != null ? tool.location.displayName : 'Not assigned'}">Location</span>
-                    </div>
-                    <div class="col-md-4">
-                        <strong>Set Date:</strong> 
-                        <span th:text="${tool.setDate != null ? #temporals.format(tool.setDate, 'MMM dd, yyyy') : '-'}">Jan 1, 2025</span>
-                    </div>
-                </div>
-                <div class="row mt-2" th:if="${tool.tags != null && !tool.tags.isEmpty()}">
-                    <div class="col-12">
-                        <strong>Tags:</strong>
-                        <span th:each="tag : ${tool.tags}" class="badge bg-info me-1" th:text="${tag}">Tag</span>
+                    <div class="d-flex gap-2">
+                        <a th:href="@{/tools}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Back to Tools
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Tool Checklist Card - 2 Column Layout -->
+        <!-- Main Content Grid -->
+        <div class="main-grid">
+            <!-- Basic Information Panel -->
+            <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Basic Information
+                </h5>
+            </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="d-flex flex-column">
+                                <small class="text-muted">Type</small>
+                                <strong th:text="${tool.toolType}">CHEMBLEND</strong>
+                    </div>
+                    </div>
+                    <div class="col-md-6">
+                            <div class="d-flex flex-column">
+                                <small class="text-muted">Serial Number</small>
+                                <strong th:text="${(tool.serialNumber1 ?: '-') + (tool.serialNumber2 != null && !tool.serialNumber2.isEmpty() ? '/' + tool.serialNumber2 : '')}">SN12345</strong>
+                        </div>
+                        </div>
+                        <div class="col-md-6" th:if="${tool.model1 != null || tool.model2 != null}">
+                            <div class="d-flex flex-column">
+                                <small class="text-muted">Model Number</small>
+                                <strong th:text="${(tool.model1 ?: '-') + (tool.model2 != null && !tool.model2.isEmpty() ? '/' + tool.model2 : '')}">Model1/Model2</strong>
+                    </div>
+                </div>
+                        <div class="col-md-6">
+                            <div class="d-flex flex-column">
+                                <small class="text-muted">Chemical/Gas Serviced</small>
+                                <strong th:text="${tool.chemicalGasService ?: 'N/A'}">N/A</strong>
+                    </div>
+                    </div>
+                        <div class="col-md-6">
+                            <div class="d-flex flex-column">
+                                <small class="text-muted">Set Date</small>
+                                <strong th:text="${tool.setDate != null ? #temporals.format(tool.setDate, 'MMM dd, yyyy') : '-'}">Jan 1, 2025</strong>
+                    </div>
+                </div>
+                        <div class="col-12" th:if="${tool.tags != null && !tool.tags.isEmpty()}">
+                            <div class="d-flex flex-column">
+                                <small class="text-muted">Tags</small>
+                                <div class="mt-1">
+                                    <span th:each="tag : ${tool.tags}" class="badge bg-secondary me-1" th:text="${tag}">Tag</span>
+                                </div>
+                            </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+            <!-- Upload Files Panel -->
+            <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                        <i class="bi bi-cloud-arrow-up-fill me-2"></i>Upload New Files
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/tools/{id}/upload-files(id=${tool.id})}" method="post" enctype="multipart/form-data" id="toolFileUploadForm">
+                        <div class="border border-2 border-dashed rounded p-4 text-center" style="cursor: pointer;" onclick="document.getElementById('toolFileInput').click()">
+                            <i class="bi bi-cloud-arrow-up-fill fs-1 mb-3 text-muted"></i>
+                            <h6 class="mb-2">Drag files here or click to browse</h6>
+                            <p class="mb-0 small text-muted">Supports images and documents</p>
+                        </div>
+                        <input type="file" id="toolFileInput" name="files" accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" style="display: none;" multiple>
+                        
+                        <div id="tool-files-preview" class="mt-3" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0">Selected Files</h6>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-upload me-1"></i>Upload
+                    </button>
+                            </div>
+                            <div id="tool-file-list" class="small text-muted"></div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tool Checklist Section -->
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0">
-                    <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
-                            type="button" 
-                            data-bs-toggle="collapse" 
-                            data-bs-target="#toolChecklistCollapse" 
-                            aria-expanded="false" 
-                            aria-controls="toolChecklistCollapse">
-                        <span>Tool Checklist</span>
-                        <i class="bi bi-chevron-down" id="checklistToggleIcon"></i>
-                    </button>
+                    <i class="bi bi-check2-square me-2"></i>Tool Checklist
                 </h5>
             </div>
-            <div class="collapse" id="toolChecklistCollapse">
                 <div class="card-body">
-                <div class="row">
-                    <!-- Left column checklist items -->
-                    <div class="col-md-6">
+                <div class="checklist-grid">
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.commissionCompleted ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Commission</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.commissionDate != null}" 
-                                 th:text="${#temporals.format(tool.commissionDate, 'MMM dd, yyyy')}">Date</span>
+                        <span class="flex-grow-1">Commission</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.commissionDate != null}" 
+                             th:text="${#temporals.format(tool.commissionDate, 'MMM dd')}">Date</span>
                         </div>
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.preSl1Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>PreSL1</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.preSl1Date != null}" 
-                                 th:text="${#temporals.format(tool.preSl1Date, 'MMM dd, yyyy')}">Date</span>
+                        <span class="flex-grow-1">PreSL1</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.preSl1Date != null}" 
+                             th:text="${#temporals.format(tool.preSl1Date, 'MMM dd')}">Date</span>
                         </div>
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.sl1Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>SL1</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.sl1Date != null}" 
-                                 th:text="${#temporals.format(tool.sl1Date, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.sl2Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>SL2</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.sl2Date != null}" 
-                                 th:text="${#temporals.format(tool.sl2Date, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.electricalOperationPreSl1Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Electrical Operation: Pre SL1</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.electricalOperationPreSl1Date != null}" 
-                                 th:text="${#temporals.format(tool.electricalOperationPreSl1Date, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.hazardousEnergyChecklistCompleted ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Hazardous Energy Checklist</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.hazardousEnergyChecklistDate != null}" 
-                                 th:text="${#temporals.format(tool.hazardousEnergyChecklistDate, 'MMM dd, yyyy')}">Date</span>
+                        <span class="flex-grow-1">SL1</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.sl1Date != null}" 
+                             th:text="${#temporals.format(tool.sl1Date, 'MMM dd')}">Date</span>
                         </div>
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.mechanicalPreSl1Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Mechanical: Pre SL1</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.mechanicalPreSl1Date != null}" 
-                                 th:text="${#temporals.format(tool.mechanicalPreSl1Date, 'MMM dd, yyyy')}">Date</span>
+                        <span class="flex-grow-1">Mechanical: Pre SL1</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.mechanicalPreSl1Date != null}" 
+                             th:text="${#temporals.format(tool.mechanicalPreSl1Date, 'MMM dd')}">Date</span>
                         </div>
-                    </div>
-                    
-                    <!-- Right column checklist items -->
-                    <div class="col-md-6">
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.mechanicalPostSl1Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Mechanical: Post SL1</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.mechanicalPostSl1Date != null}" 
-                                 th:text="${#temporals.format(tool.mechanicalPostSl1Date, 'MMM dd, yyyy')}">Date</span>
+                        <span class="flex-grow-1">Mechanical: Post SL1</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.mechanicalPostSl1Date != null}" 
+                             th:text="${#temporals.format(tool.mechanicalPostSl1Date, 'MMM dd')}">Date</span>
                         </div>
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.specificInputFunctionalityTested ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Specific Input Functionality Tested</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.specificInputFunctionalityDate != null}" 
-                                 th:text="${#temporals.format(tool.specificInputFunctionalityDate, 'MMM dd, yyyy')}">Date</span>
+                        <span class="flex-grow-1">Input Functionality Tested</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.specificInputFunctionalityDate != null}" 
+                             th:text="${#temporals.format(tool.specificInputFunctionalityDate, 'MMM dd')}">Date</span>
                         </div>
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.modesOfOperationTested ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Modes of Operation Tested</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.modesOfOperationDate != null}" 
-                                 th:text="${#temporals.format(tool.modesOfOperationDate, 'MMM dd, yyyy')}">Date</span>
+                        <span class="flex-grow-1">Operation Modes Tested</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.modesOfOperationDate != null}" 
+                             th:text="${#temporals.format(tool.modesOfOperationDate, 'MMM dd')}">Date</span>
                         </div>
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.specificSoosTestsed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Specific SOO's Tested</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.specificSoosDate != null}" 
-                                 th:text="${#temporals.format(tool.specificSoosDate, 'MMM dd, yyyy')}">Date</span>
+                        <span class="flex-grow-1">SOO's Tested</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.specificSoosDate != null}" 
+                             th:text="${#temporals.format(tool.specificSoosDate, 'MMM dd')}">Date</span>
                         </div>
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.fieldServiceReportUploaded ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Field Service Report Uploaded</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.fieldServiceReportDate != null}" 
-                                 th:text="${#temporals.format(tool.fieldServiceReportDate, 'MMM dd, yyyy')}">Date</span>
+                        <span class="flex-grow-1">Field Service Report</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.fieldServiceReportDate != null}" 
+                             th:text="${#temporals.format(tool.fieldServiceReportDate, 'MMM dd')}">Date</span>
                         </div>
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.certificateOfApprovalUploaded ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Certificate of Approval Uploaded</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.certificateOfApprovalDate != null}" 
-                                 th:text="${#temporals.format(tool.certificateOfApprovalDate, 'MMM dd, yyyy')}">Date</span>
+                        <span class="flex-grow-1">Certificate of Approval</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.certificateOfApprovalDate != null}" 
+                             th:text="${#temporals.format(tool.certificateOfApprovalDate, 'MMM dd')}">Date</span>
                         </div>
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.turnedOverToCustomer ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Turned Over to Customer</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.turnedOverToCustomerDate != null}" 
-                                 th:text="${#temporals.format(tool.turnedOverToCustomerDate, 'MMM dd, yyyy')}">Date</span>
+                        <span class="flex-grow-1">Turned Over to Customer</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.turnedOverToCustomerDate != null}" 
+                             th:text="${#temporals.format(tool.turnedOverToCustomerDate, 'MMM dd')}">Date</span>
                         </div>
                         <div class="checklist-item">
                             <i class="bi" th:classappend="${tool.startUpSl03Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                            <span>Start-Up/SL03</span>
-                            <span class="ms-2 badge bg-light text-dark" th:if="${tool.startUpSl03Date != null}" 
-                                 th:text="${#temporals.format(tool.startUpSl03Date, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                    </div>
+                        <span class="flex-grow-1">Start-Up/SL03</span>
+                        <span class="badge bg-light text-dark" th:if="${tool.startUpSl03Date != null}" 
+                             th:text="${#temporals.format(tool.startUpSl03Date, 'MMM dd')}">Date</span>
                 </div>
                 </div>
             </div>
         </div>
 
-                <!-- Documents Section -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#documentsCollapse" 
-                                    aria-expanded="false" 
-                                    aria-controls="documentsCollapse">
-                                <span>Documents</span>
-                                <i class="bi bi-chevron-down"></i>
-                            </button>
-                        </h5>
+        <!-- Content Sections Grid -->
+        <div class="sections-grid">
+            <!-- Associated RMAs Section -->
+            <div class="section-fixed-height">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Associated RMAs
+                        </h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <a th:href="@{/rma/new(toolId=${tool.id})}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-plus"></i>
+                            </a>
+                            <span class="badge bg-secondary" th:text="${associatedRmas != null ? associatedRmas.size() : 0}">0</span>
                     </div>
-                    <div class="collapse" id="documentsCollapse">
+                    </div>
                         <div class="card-body">
-                            <!-- Show message if no documents -->
-                            <div th:if="${tool.documentPaths == null || tool.documentPaths.isEmpty()}" class="alert alert-info text-center">
-                                <i class="bi bi-file-earmark-text fs-4"></i>
-                                <p class="mb-0 mt-2 small">No documents uploaded yet.</p>
+                        <div th:if="${associatedRmas == null || associatedRmas.isEmpty()}" class="text-center text-muted">
+                            <i class="bi bi-exclamation-triangle fs-1 mb-3 opacity-50"></i>
+                            <p class="mb-0">No associated RMAs</p>
                             </div>
                             
-                            <!-- Documents list -->
-                            <div th:if="${tool.documentPaths != null && !tool.documentPaths.isEmpty()}" class="list-group list-group-flush">
-                                <div class="list-group-item d-flex align-items-center px-0" th:each="docPath : ${tool.documentPaths}">
-                                    <!-- Document Name -->
-                                    <div class="flex-grow-1">
-                                        <i class="bi bi-file-earmark-text me-2"></i>
-                                        <span class="small" th:text="${tool.documentNames != null && tool.documentNames.containsKey(docPath) ? 
-                                                           tool.documentNames.get(docPath) : 
-                                                           (docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath)}">document.pdf</span>
+                        <div th:if="${associatedRmas != null && !associatedRmas.isEmpty()}" class="d-flex flex-column gap-2">
+                            <div class="d-flex align-items-center justify-content-between p-2 border rounded" th:each="rma : ${associatedRmas}">
+                                <div>
+                                    <div class="fw-bold" th:text="${rma.rmaNumber ?: ('RMA-' + rma.id)}">RMA-123</div>
+                                    <small class="text-muted" th:text="${rma.customerName ?: 'N/A'}">Customer</small>
                                     </div>
-                                    
-                                    <!-- Action Buttons -->
-                                    <div class="ms-auto">
-                                        <div class="btn-group">
-                                            <a th:href="@{'/uploads/' + ${docPath}}" class="btn btn-sm btn-outline-primary" target="_blank" title="View">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge" 
+                                          th:classappend="${rma.status.name() == 'COMPLETED' ? 'bg-success' : 
+                                                            rma.status.name() == 'IN_PROGRESS' ? 'bg-primary' : 
+                                                            rma.status.name() == 'SHIPPED' ? 'bg-info' : 'bg-secondary'}"
+                                          th:text="${rma.status.name().replace('_', ' ')}">Status</span>
+                                    <a th:href="@{/rma/{id}(id=${rma.id})}" class="btn btn-sm btn-outline-primary">
                                                 <i class="bi bi-eye"></i>
                                             </a>
-                                            <button type="button" class="btn btn-sm btn-outline-danger delete-file-btn" 
-                                                   data-bs-toggle="modal" data-bs-target="#deleteDocConfirmModal"
-                                                   th:data-document-path="${docPath}"
-                                                   title="Delete">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -340,1190 +368,609 @@
                     </div>
                 </div>
 
-                <!-- Pictures Section -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#picturesCollapse" 
-                                    aria-expanded="false" 
-                                    aria-controls="picturesCollapse">
-                                <span>Pictures</span>
-                                <i class="bi bi-chevron-down"></i>
+            <!-- Moving Parts Section -->
+            <div class="section-fixed-height">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-arrow-left-right me-2"></i>Moving Parts
+                        </h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#movingPartModal">
+                                <i class="bi bi-plus"></i>
                             </button>
-                        </h5>
+                            <span class="badge bg-secondary" th:text="${movingParts != null ? movingParts.size() : 0}">0</span>
                     </div>
-                    <div class="collapse" id="picturesCollapse">
+                    </div>
                         <div class="card-body">
-                            <!-- Show message if no pictures -->
-                            <div th:if="${tool.picturePaths == null || tool.picturePaths.isEmpty()}" class="alert alert-info text-center">
-                                <i class="bi bi-image fs-4"></i>
-                                <p class="mb-0 mt-2 small">No pictures uploaded yet.</p>
+                        <div th:if="${movingParts == null || movingParts.isEmpty()}" class="alert alert-info">
+                            No moving parts have been recorded for this tool.
                             </div>
                             
-                            <!-- Pictures grid -->
-                            <div th:if="${tool.picturePaths != null && !tool.picturePaths.isEmpty()}" class="row g-2">
-                                <div class="col-6 col-md-4" th:each="picPath : ${tool.picturePaths}">
-                                    <div class="card h-100">
-                                        <div class="card-body text-center p-2">
-                                            <img th:src="@{'/uploads/' + ${picPath}}" class="img-fluid rounded" 
-                                                 style="max-height: 80px; object-fit: contain;"
-                                                 th:alt="${picPath}">
+                        <div th:if="${movingParts != null && !movingParts.isEmpty()}" class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Part Name</th>
+                                        <th>Movement</th>
+                                        <th>RMA</th>
+                                        <th>Notes</th>
+                                        <th>Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="movingPart : ${movingParts}">
+                                        <td th:text="${movingPart.partName}">Part Name</td>
+                                        <td>
+                                            <!-- Enhanced movement display with full destination chain -->
+                                            <div>
+                                                <!-- Show from tool -->
+                                                <span>
+                                                    <a th:if="${movingPart.fromTool != null}" 
+                                                       th:href="@{/tools/{id}(id=${movingPart.fromTool.id})}" 
+                                                       th:text="${movingPart.fromTool.name}" 
+                                                       class="text-decoration-none">From Tool</a>
+                                                    <span th:if="${movingPart.fromTool == null}" class="text-muted">-</span>
+                                                </span>
+                                                
+                                                <!-- Show full destination chain with arrows -->
+                                                <th:block th:if="${movingPartDestinationChains != null && movingPartDestinationChains[movingPart.id] != null and !movingPartDestinationChains[movingPart.id].empty}">
+                                                    <th:block th:each="destTool, iterStat : ${movingPartDestinationChains[movingPart.id]}">
+                                                        <i class="bi bi-arrow-right text-primary mx-2"></i>
+                                                        <a th:href="@{/tools/{id}(id=${destTool.id})}" 
+                                                           th:text="${destTool.name}" 
+                                                           class="text-decoration-none">Dest Tool</a>
+                                                    </th:block>
+                                                </th:block>
+                                                
+                                                <!-- If no destinations at all -->
+                                                <th:block th:if="${movingPartDestinationChains == null || movingPartDestinationChains[movingPart.id] == null or movingPartDestinationChains[movingPart.id].empty}">
+                                                    <i class="bi bi-arrow-right text-primary mx-2"></i>
+                                                    <span class="text-muted">No Destination</span>
+                                                </th:block>
                                         </div>
-                                        <div class="card-footer p-1">
-                                            <div class="d-flex gap-1 justify-content-center">
-                                                <a th:href="@{'/uploads/' + ${picPath}}" class="btn btn-sm btn-outline-primary" target="_blank" title="View">
-                                                    <i class="bi bi-eye"></i>
+                                        </td>
+                                        <td>
+                                            <!-- RMA Link Badge -->
+                                            <div th:if="${movingPart.rma != null}">
+                                                <a th:href="@{/rma/{id}(id=${movingPart.rma.id})}" 
+                                                   class="badge bg-info text-decoration-none" 
+                                                   title="View related RMA">
+                                                    <span th:if="${movingPart.rma.rmaNumber != null and !#strings.isEmpty(movingPart.rma.rmaNumber)}" 
+                                                          th:text="${movingPart.rma.rmaNumber}">RMA Number</span>
+                                                    <span th:if="${movingPart.rma.rmaNumber == null or #strings.isEmpty(movingPart.rma.rmaNumber)}" 
+                                                          th:text="'RMA-' + ${movingPart.rma.id}">RMA-ID</span>
                                                 </a>
-                                                <button type="button" class="btn btn-sm btn-outline-danger delete-picture-btn" 
-                                                       data-bs-toggle="modal" data-bs-target="#deletePicConfirmModal"
-                                                       th:data-picture-path="${picPath}"
-                                                       title="Delete">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
                                             </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Associated Users Section -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#associatedUsersCollapse" 
-                                    aria-expanded="false" 
-                                    aria-controls="associatedUsersCollapse">
-                                <span><i class="bi bi-people me-2"></i>Associated Users</span>
-                                <i class="bi bi-chevron-down"></i>
+                                            <span th:if="${movingPart.rma == null}" class="text-muted">-</span>
+                                        </td>
+                                        <td>
+                                            <span th:if="${movingPart.notes != null}" th:text="${movingPart.notes}">Notes</span>
+                                            <span th:if="${movingPart.notes == null}" class="text-muted">-</span>
+                                        </td>
+                                        <td th:text="${#temporals.format(movingPart.moveDate, 'MM/dd/yy')}">01/01/23</td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary moving-part-edit-btn"
+                                                        th:data-id="${movingPart.id}"
+                                                        th:data-part-name="${movingPart.partName}"
+                                                        th:data-from-tool-id="${movingPart.fromTool != null ? movingPart.fromTool.id : ''}"
+                                                        th:data-to-tool-id="${movingPart.currentLocationToolId != null ? movingPart.currentLocationToolId : ''}"
+                                                        th:data-destination-chain="${movingPart.destinationChain != null ? movingPart.destinationChain : ''}"
+                                                        th:data-notes="${movingPart.notes != null ? movingPart.notes : ''}"
+                                                        th:data-move-date="${#temporals.format(movingPart.moveDate, 'yyyy-MM-dd')}">
+                                                    <i class="bi bi-pencil"></i>
                             </button>
-                        </h5>
-                    </div>
-                    <div class="collapse" id="associatedUsersCollapse">
-                        <div class="card-body">
-                            <div th:if="${usersWithActiveTool == null || usersWithActiveTool.empty}" class="alert alert-info">
-                                <small>No users are currently associated with this tool.</small>
-                            </div>
-                            <div th:if="${usersWithActiveTool != null && !usersWithActiveTool.empty}">
-                                <ul class="list-group list-group-flush">
-                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0" th:each="user : ${usersWithActiveTool}">
-                                        <span th:text="${user.name}">User Name</span>
-                                        <!-- Show unassign button only for the current user -->
-                                        <form th:if="${currentUser != null && currentUser.id == user.id}"
-                                              th:action="@{/tools/{id}/unassign(id=${tool.id})}" 
-                                              method="post">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                <i class="bi bi-person-dash me-1"></i> Unassign
+                                                <button type="button" class="btn btn-sm btn-outline-danger moving-part-delete-btn"
+                                                        th:data-id="${movingPart.id}"
+                                                        th:data-part-name="${movingPart.partName}">
+                                                    <i class="bi bi-trash"></i>
                                             </button>
-                                        </form>
-                                    </li>
-                                </ul>
                             </div>
-                            
-                            <!-- Assign Tool Button for current user -->
-                            <div class="mt-2" th:if="${currentUser != null && !isCurrentUserAssigned}">
-                                <form th:action="@{/tools/{id}/assign(id=${tool.id})}" method="post">
-                                    <button type="submit" class="btn btn-sm btn-success">
-                                        <i class="bi bi-tools me-1"></i> Assign Tool
-                                    </button>
-                                </form>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Track/Trends Section -->
-                <div class="card mb-4">
+            <div class="section-fixed-height">
+                <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 flex-grow-1">
-                            <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#trackTrendsCollapse" 
-                                    aria-expanded="false" 
-                                    aria-controls="trackTrendsCollapse">
-                                <span>Track/Trends</span>
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-secondary me-2" th:text="${trackTrendsForTool != null ? trackTrendsForTool.size() : 0}">0</span>
-                                    <i class="bi bi-chevron-down"></i>
+                        <h6 class="mb-0">
+                            <i class="bi bi-graph-up-arrow me-2"></i>Track/Trends
+                        </h6>
+                        <span class="badge bg-secondary" th:text="${trackTrendsForTool != null ? trackTrendsForTool.size() : 0}">0</span>
                                 </div>
-                            </button>
-                        </h5>
-                    </div>
-                    <div class="collapse" id="trackTrendsCollapse">
                         <div class="card-body">
-                            <div th:if="${trackTrendsForTool == null or trackTrendsForTool.empty}" class="alert alert-info">
-                                <small>No Track/Trends associated with this tool.</small>
+                        <div th:if="${trackTrendsForTool == null or trackTrendsForTool.empty}" class="text-center text-muted">
+                            <i class="bi bi-graph-up-arrow fs-1 mb-3 opacity-50"></i>
+                            <p class="mb-0">No track/trends associated</p>
                             </div>
-                            <div th:if="${trackTrendsForTool != null and !trackTrendsForTool.empty}">
-                                <ul class="list-group list-group-flush">
-                                    <li th:each="tt : ${trackTrendsForTool}" class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                        <a th:href="@{/tracktrend/{id}(id=${tt.id})}" th:text="${tt.name}" class="text-decoration-none">Trend Name</a>
-                                        <a th:href="@{/tracktrend/{id}(id=${tt.id})}" class="btn btn-sm btn-outline-primary" title="View">
+                        
+                        <div th:if="${trackTrendsForTool != null and !trackTrendsForTool.empty}" class="d-flex flex-column gap-2">
+                            <div class="d-flex align-items-center justify-content-between p-2 border rounded" th:each="tt : ${trackTrendsForTool}">
+                                <span th:text="${tt.name}">Trend Name</span>
+                                <a th:href="@{/tracktrend/{id}(id=${tt.id})}" class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-eye"></i>
                                         </a>
-                                    </li>
-                                </ul>
+                            </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Associated RMAs Section -->
-                <div class="card mb-4">
+            <!-- Documents & Pictures Section -->
+            <div class="section-fixed-height">
+                <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 flex-grow-1">
-                            <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#associatedRmasCollapse" 
-                                    aria-expanded="false" 
-                                    aria-controls="associatedRmasCollapse">
-                                <span>Associated RMAs</span>
-                                <div class="d-flex align-items-center">
-                                    <a th:href="@{/rma/new(toolId=${tool.id})}" class="btn btn-sm btn-success me-2">
-                                        <i class="bi bi-plus-circle"></i> Create RMA
-                                    </a>
-                                    <span class="badge bg-secondary me-2" th:text="${associatedRmas != null ? associatedRmas.size() : '0'}">0</span>
-                                    <i class="bi bi-chevron-down"></i>
+                        <h6 class="mb-0">
+                            <i class="bi bi-files me-2"></i>Documents & Pictures
+                        </h6>
+                        <span class="badge bg-secondary" th:text="${(tool.documentPaths != null ? tool.documentPaths.size() : 0) + (tool.picturePaths != null ? tool.picturePaths.size() : 0)}">0</span>
                                 </div>
-                            </button>
-                        </h5>
-                    </div>
-                    <div class="collapse" id="associatedRmasCollapse">
                         <div class="card-body">
-                            <div th:if="${associatedRmas != null && !associatedRmas.isEmpty()}" class="table-responsive">
-                                <table class="table table-hover table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>RMA #</th>
-                                            <th>Customer</th>
-                                            <th>Status</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr th:each="rma : ${associatedRmas}">
-                                            <td>
-                                                <span th:text="${rma.rmaNumber ?: ('RMA-' + rma.id)}">RMA-123</span>
-                                            </td>
-                                            <td th:text="${rma.customerName ?: 'N/A'}">Customer Name</td>
-                                            <td>
-                                                <span class="badge" 
-                                                      th:classappend="${rma.status.name() == 'COMPLETED' ? 'bg-success' : 
-                                                                        rma.status.name() == 'IN_PROGRESS' ? 'bg-primary' : 
-                                                                        rma.status.name() == 'SHIPPED' ? 'bg-info' : 'bg-secondary'}"
-                                                      th:text="${rma.status.name().replace('_', ' ')}">Status</span>
-                                            </td>
-                                            <td>
-                                                <a th:href="@{/rma/{id}(id=${rma.id})}" class="btn btn-sm btn-outline-primary">
-                                                    <i class="bi bi-eye"></i>
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div th:if="${associatedRmas == null || associatedRmas.isEmpty()}" class="text-muted text-center py-2">
-                                <small><i class="bi bi-info-circle me-2"></i> No RMAs are associated with this tool.</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Moving Parts Section -->
-                <div th:replace="~{fragments/moving-part-table :: movingPartsSection('Moving Parts', ${movingParts}, ${movingPartService}, true, 'Add Moving Part', true, '/tools/' + ${tool.id} + '/moving-parts/{movingPartId}/edit', '/tools/' + ${tool.id} + '/moving-parts/{movingPartId}/delete')}"></div>
-
-                <!-- Tool Passdowns Section -->
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 flex-grow-1">
-                            <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#toolPassdownsCollapse" 
-                                    aria-expanded="false" 
-                                    aria-controls="toolPassdownsCollapse">
-                                <span><i class="bi bi-journal-text me-2"></i>Passdowns</span>
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-secondary me-2" th:text="${toolPassdowns != null ? toolPassdowns.size() : '0'}">0</span>
-                                    <i class="bi bi-chevron-down"></i>
-                                </div>
-                            </button>
-                        </h5>
-                    </div>
-                    <div class="collapse" id="toolPassdownsCollapse">
-                        <div class="card-body">
-                            <div th:if="${toolPassdowns == null || toolPassdowns.empty}" class="alert alert-info">
-                                <small>No passdowns exist for this tool.</small>
-                            </div>
-                            <div th:if="${toolPassdowns != null && !toolPassdowns.empty}" class="table-responsive">
-                                <table class="table table-striped table-hover table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Comment</th>
-                                            <th>User</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr th:each="passdown : ${toolPassdowns}">
-                                            <td th:text="${#temporals.format(passdown.date, 'MM/dd')}">01/01</td>
-                                            <td>
-                                                <span th:text="${#strings.abbreviate(passdown.comment, 30)}">Comment text</span>
-                                            </td>
-                                            <td th:text="${passdown.user != null ? passdown.user.name : 'Unknown'}">User Name</td>
-                                            <td>
-                                                <a th:href="@{/passdown/{id}(id=${passdown.id})}" class="btn btn-sm btn-outline-primary" title="View passdown details">
-                                                    <i class="bi bi-eye"></i>
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div class="mt-2">
-                                <a th:href="@{/passdown/new}" class="btn btn-sm btn-success">
-                                    <i class="bi bi-plus-circle me-1"></i> Add Passdown
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tool Comments Section -->
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 flex-grow-1">
-                            <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#toolCommentsCollapse" 
-                                    aria-expanded="false" 
-                                    aria-controls="toolCommentsCollapse">
-                                <span>Comments</span>
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-secondary me-2" th:text="${toolComments != null ? toolComments.size() : '0'}">0</span>
-                                    <i class="bi bi-chevron-down"></i>
-                                </div>
-                            </button>
-                        </h5>
-                    </div>
-                    <div class="collapse" id="toolCommentsCollapse">
-                        <div class="card-body">
-                            <!-- Add Comment Form -->
-                            <div class="mb-3" th:if="${currentUser != null}">
-                                <form th:action="@{/tools/{id}/post-comment(id=${tool.id})}" method="post">
-                                    <div class="form-group">
-                                        <textarea class="form-control" id="commentContent" name="content" rows="2" required 
-                                                  placeholder="Add a comment..."></textarea>
+                        <!-- Documents Section -->
+                        <div th:if="${tool.documentPaths != null && !tool.documentPaths.isEmpty()}">
+                            <h6 class="text-muted mb-2">Documents</h6>
+                            <div class="d-flex flex-column gap-2 mb-3">
+                                <div class="d-flex align-items-center justify-content-between p-2 border rounded" th:each="docPath : ${tool.documentPaths}">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-file-earmark-text me-2 text-primary"></i>
+                                        <span class="text-truncate" th:text="${tool.documentNames != null && tool.documentNames.containsKey(docPath) ? 
+                                                           tool.documentNames.get(docPath) : 
+                                                           (docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath)}">document.pdf</span>
                                     </div>
-                                    <div class="mt-2 text-end">
-                                        <button type="submit" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-plus-circle me-1"></i> Post
+                                    <div class="btn-group btn-group-sm">
+                                        <a th:href="@{'/uploads/' + ${docPath}}" class="btn btn-outline-primary" target="_blank" title="View">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                        <button type="button" class="btn btn-outline-danger delete-file-btn" 
+                                               data-bs-toggle="modal" data-bs-target="#deleteDocConfirmModal"
+                                               th:data-document-path="${docPath}" title="Delete">
+                                            <i class="bi bi-trash"></i>
                                         </button>
-                                    </div>
-                                </form>
                             </div>
-                            
-                            <!-- Comments List -->
-                            <div th:if="${toolComments == null || toolComments.empty}" class="alert alert-info">
-                                <small>No comments have been added to this tool yet.</small>
-                            </div>
-                            <div th:if="${toolComments != null && !toolComments.empty}" class="list-group list-group-flush">
-                                <div class="list-group-item px-0 py-2"
-                                     th:each="comment : ${toolComments}">
-                                    <div class="d-flex w-100 justify-content-between">
-                                        <h6 class="mb-1 small"><strong th:text="${comment.user != null ? comment.user.name : 'Unknown User'}">User Name</strong></h6>
-                                        <small th:text="${#temporals.format(comment.createdDate, 'MM/dd HH:mm')}">01/01 12:00</small>
-                                    </div>
-                                    <p class="mb-1 small" th:text="${comment.content}">Comment content goes here...</p>
-                                    <!-- Delete button (only for comment owner or admin) -->
-                                    <div class="d-flex justify-content-end mt-1" 
-                                         th:if="${currentUser != null && (currentUser.id == comment.user.id || currentUser.role == 'ADMIN')}">
-                                        <form th:action="@{/tools/{toolId}/comments/{commentId}/delete(toolId=${tool.id}, commentId=${comment.id})}" method="post">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" 
-                                                    onclick="return confirm('Are you sure you want to delete this comment?')">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
+                        </div>
+                    </div>
+                </div>
+
+                        <!-- Pictures Section -->
+                        <div th:if="${tool.picturePaths != null && !tool.picturePaths.isEmpty()}">
+                            <h6 class="text-muted mb-2">Pictures</h6>
+                            <div class="row g-2">
+                                <div class="col-6" th:each="picPath : ${tool.picturePaths}">
+                                    <div class="card h-100">
+                                        <div class="card-body p-2 text-center">
+                                            <img th:src="@{'/uploads/' + ${picPath}}" class="img-fluid rounded" 
+                                                 style="max-height: 120px; object-fit: cover; width: 100%;"
+                                                 th:alt="${picPath}">
                                 </div>
+                                        <div class="card-footer p-2">
+                                            <!-- Relationship Tags -->
+                                            <div class="mb-2" th:if="${tool.pictureNames != null && tool.pictureNames.containsKey(picPath)}">
+                                                <div th:with="pictureName=${tool.pictureNames.get(picPath)}">
+                                                    <span th:if="${#strings.contains(pictureName, 'RMA-')}" 
+                                                          th:with="rmaInfo=${#strings.substringAfter(pictureName, 'RMA-')},
+                                                                   rmaId=${#strings.contains(rmaInfo, ':') ? #strings.substringBefore(rmaInfo, ':') : rmaInfo}">
+                                                        <a th:href="@{'/rma/' + ${rmaId}}" class="badge bg-info text-decoration-none me-1" 
+                                                           th:text="'RMA-' + ${rmaId}" title="View related RMA">RMA</a>
+                                                    </span>
+                                                    <span th:if="${#strings.contains(pictureName, 'Tool-')}" 
+                                                          th:with="toolInfo=${#strings.substringAfter(pictureName, 'Tool-')},
+                                                                   toolId=${#strings.contains(toolInfo, ':') ? #strings.substringBefore(toolInfo, ':') : toolInfo}">
+                                                        <span class="badge bg-secondary me-1" th:text="'Tool: ' + ${toolId}">Tool</span>
+                                                    </span>
+                                                    <span th:if="${#strings.contains(pictureName, 'Passdown-')}" 
+                                                          th:with="passdownInfo=${#strings.substringAfter(pictureName, 'Passdown-')},
+                                                                   passdownId=${#strings.contains(passdownInfo, ':') ? #strings.substringBefore(passdownInfo, ':') : passdownInfo}">
+                                                        <span class="badge bg-warning text-dark me-1" th:text="'Passdown: ' + ${passdownId}">Passdown</span>
+                                                    </span>
+                    </div>
+                            </div>
+                                            <!-- View/Delete Buttons -->
+                                            <div class="btn-group btn-group-sm w-100">
+                                                <a th:href="@{'/uploads/' + ${picPath}}" class="btn btn-outline-primary" target="_blank" title="View">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                <button type="button" class="btn btn-outline-danger delete-picture-btn" 
+                                                       data-bs-toggle="modal" data-bs-target="#deletePicConfirmModal"
+                                                       th:data-picture-path="${picPath}" title="Delete">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                            </div>
+                                        </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                        <!-- Empty State -->
+                        <div th:if="${(tool.documentPaths == null || tool.documentPaths.isEmpty()) && (tool.picturePaths == null || tool.picturePaths.isEmpty())}" class="text-center text-muted">
+                            <i class="bi bi-files fs-1 mb-3 opacity-50"></i>
+                            <p class="mb-0">No documents or pictures uploaded yet</p>
+                                </div>
+                    </div>
+                                    </div>
+            </div>
+
+            <!-- Comments Section -->
+            <div class="section-fixed-height">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-chat-dots me-2"></i>Comments
+                        </h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#commentModal" th:if="${currentUser != null}">
+                                <i class="bi bi-plus"></i>
+                                        </button>
+                            <span class="badge bg-secondary" th:text="${toolComments != null ? toolComments.size() : 0}">0</span>
+                                    </div>
+                            </div>
+                    <div class="card-body">
+                            <!-- Comments List -->
+                        <div th:if="${toolComments == null || toolComments.empty}" class="text-center text-muted">
+                            <i class="bi bi-chat-dots fs-1 mb-3 opacity-50"></i>
+                            <p class="mb-0">No comments yet</p>
+                            </div>
+                        
+                        <div th:if="${toolComments != null && !toolComments.empty}" class="d-flex flex-column gap-3">
+                            <div class="border rounded p-3" th:each="comment : ${toolComments}">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <strong class="text-primary" th:text="${comment.user != null ? comment.user.name : 'Unknown'}">User</strong>
+                                    <small class="text-muted" th:text="${#temporals.format(comment.createdDate, 'MM/dd HH:mm')}">Date</small>
+                                    </div>
+                                <p class="mb-0" th:text="${comment.content}">Comment content</p>
                             </div>
                         </div>
                     </div>
                 </div>
     </div>
     
-    <!-- New Drag-and-Drop File Upload Section -->
-    <div class="container mt-4 mb-4">
-        <div class="card border-primary">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">
-                    <button class="btn btn-link p-0 text-decoration-none text-start w-100 d-flex justify-content-between align-items-center text-white" 
-                            type="button" 
-                            data-bs-toggle="collapse" 
-                            data-bs-target="#fileUploadCollapse" 
-                            aria-expanded="false" 
-                            aria-controls="fileUploadCollapse">
-                        <span><i class="bi bi-cloud-arrow-up-fill me-2"></i>Upload New Files to This Tool</span>
-                        <i class="bi bi-chevron-down"></i>
+            <!-- Passdowns Section -->
+            <div class="section-fixed-height">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-journal-text me-2"></i>Passdowns
+                        </h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#passdownModal">
+                                <i class="bi bi-plus"></i>
                     </button>
-                </h5>
+                            <span class="badge bg-secondary" th:text="${toolPassdowns != null ? toolPassdowns.size() : 0}">0</span>
             </div>
-            <div class="collapse" id="fileUploadCollapse">
+                    </div>
                 <div class="card-body">
-                    <form th:action="@{/tools/{id}/upload-files(id=${tool.id})}" method="post" enctype="multipart/form-data" id="toolFileUploadForm">
-                        <!-- Drop Zone and File Input -->
-                        <div id="tool-drop-area" class="rounded bg-light border border-dashed border-primary p-3 mb-3 text-center" style="cursor: pointer;">
-                            <i class="bi bi-cloud-arrow-up-fill text-primary fs-2 mb-2"></i>
-                            <h6>Drag files here or <label for="toolFileInput" class="text-primary" style="cursor: pointer; text-decoration: underline;">browse</label></h6>
-                            <div class="small text-muted">Supports images (jpg, png, gif) and documents (pdf, doc, docx, xls, xlsx, txt, csv)</div>
-                            <input type="file" id="toolFileInput" name="files" multiple="multiple" class="d-none">
+                        <div th:if="${toolPassdowns == null || toolPassdowns.empty}" class="text-center text-muted">
+                            <i class="bi bi-journal-text fs-1 mb-3 opacity-50"></i>
+                            <p class="mb-0">No passdowns exist</p>
                         </div>
 
-                        <!-- Files Preview -->
-                        <div id="tool-files-preview" class="mt-2" style="display: none;">
-                            <h6 class="small fw-bold">Selected files:</h6>
-                            <div id="tool-image-preview" class="mb-2">
-                                <div class="d-flex align-items-center small">
-                                    <i class="bi bi-images me-1"></i>
-                                    <div>Images: <span id="tool-image-count">0</span></div>
+                        <div th:if="${toolPassdowns != null && !toolPassdowns.empty}" class="d-flex flex-column gap-2">
+                            <div class="border rounded p-2" th:each="passdown : ${toolPassdowns}">
+                                <div class="d-flex justify-content-between align-items-start mb-1">
+                                    <strong th:text="${#temporals.format(passdown.date, 'MM/dd')}">Date</strong>
+                                    <a th:href="@{/passdown/{id}(id=${passdown.id})}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
                                 </div>
-                                <ul id="tool-image-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
+                                <p class="mb-1 small" th:text="${#strings.abbreviate(passdown.comment, 80)}">Comment</p>
+                                <small class="text-muted" th:text="${passdown.user != null ? passdown.user.name : 'Unknown'}">User</small>
                             </div>
-                            <div id="tool-document-preview" class="mb-2">
-                                <div class="d-flex align-items-center small">
-                                    <i class="bi bi-file-earmark-text me-1"></i>
-                                    <div>Documents: <span id="tool-document-count">0</span></div>
                                 </div>
-                                <ul id="tool-document-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
                             </div>
-                            <div id="tool-other-file-preview">
-                                 <div class="d-flex align-items-center small">
-                                    <i class="bi bi-file-earmark me-1"></i>
-                                    <div>Other Files: <span id="tool-other-file-count">0</span></div>
                                 </div>
-                                <ul id="tool-other-file-list" class="list-unstyled ms-3 mt-1 mb-0" style="max-height: 100px; overflow-y: auto; font-size: 0.8rem;"></ul>
                             </div>
                         </div>
                         
-                        <div class="text-end mt-3">
-                            <button type="submit" class="btn btn-success">
-                                <i class="bi bi-upload me-1"></i> Upload Selected Files
+    <!-- Comment Modal -->
+    <div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="commentModalLabel">
+                        <i class="bi bi-chat-dots me-2"></i>Add Comment
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form th:action="@{/tools/{id}/post-comment(id=${tool.id})}" method="post">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="commentContent" class="form-label">Comment</label>
+                            <textarea class="form-control" id="commentContent" name="content" rows="4" required 
+                                      placeholder="Enter your comment..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send me-2"></i>Post Comment
                             </button>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
-    </div>
-    <!-- End New Drag-and-Drop File Upload Section -->
     
-    <!-- Move Document Modal -->
-    <div class="modal fade" id="moveDocumentModal" tabindex="-1" aria-labelledby="moveDocumentModalLabel" aria-hidden="true">
+    <!-- Passdown Modal -->
+    <div class="modal fade" id="passdownModal" tabindex="-1" aria-labelledby="passdownModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <form th:action="@{/tools/{id}/documents/move(id=${tool.id})}" method="post">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="moveDocumentModalLabel">Move Document</h5>
+                    <h5 class="modal-title" id="passdownModalLabel">
+                        <i class="bi bi-journal-text me-2"></i>Add Passdown
+                    </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
+                <form th:action="@{/passdown}" method="post" enctype="multipart/form-data">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">Document</label>
-                            <div class="p-2 border rounded bg-light" id="documentNameDisplay"></div>
-                            <input type="hidden" name="documentPath" id="documentPathInput">
+                            <label for="passdownComment" class="form-label">Comment</label>
+                            <textarea class="form-control" id="passdownComment" name="comment" rows="4" required 
+                                      placeholder="Enter your passdown comment..."></textarea>
                         </div>
                         <div class="mb-3">
-                            <label for="destinationToolSelect" class="form-label">Destination Tool</label>
-                            <select name="destinationToolId" id="destinationToolSelect" class="form-control" required>
-                                <option value="">Select a tool...</option>
-                                <option th:each="destTool : ${allTools}" 
-                                        th:if="${destTool.id != tool.id}"
-                                        th:value="${destTool.id}" 
-                                        th:text="${destTool.name + (destTool.secondaryName != null ? ' (' + destTool.secondaryName + ')' : '')}">
-                                    Tool Name
-                                </option>
+                            <label for="passdownDate" class="form-label">Date</label>
+                            <input type="date" class="form-control" id="passdownDate" name="date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="passdownTool" class="form-label">Tool</label>
+                            <select class="form-select" id="passdownTool" name="tool">
+                                <option value="">No Tool</option>
+                                <option th:each="toolOption : ${allTools}" 
+                                        th:value="${toolOption.id}" 
+                                        th:text="${toolOption.name}"
+                                        th:selected="${toolOption.id == tool.id}">Tool Name</option>
                             </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="passdownFile" class="form-label">Upload Picture (Optional)</label>
+                            <input type="file" class="form-control" id="passdownFile" name="pictureFile" accept="image/*">
+                            <small class="text-muted">Select an image file to upload (JPG, PNG, GIF)</small>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Move Document</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-2"></i>Save Passdown
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
     
-    <!-- Move Picture Modal -->
-    <div class="modal fade" id="movePictureModal" tabindex="-1" aria-labelledby="movePictureModalLabel" aria-hidden="true">
+    <!-- Moving Part Modals -->
+    <div th:replace="~{fragments/moving-part-modal :: addMovingPartModal('movingPartModal', '/tools/' + ${tool.id} + '/moving-parts', ${allTools}, 'toolDestinationContainer', 'toolAddAnotherDestination')}"></div>
+    <div th:replace="~{fragments/moving-part-modal :: editMovingPartModal('/tools/' + ${tool.id} + '/moving-parts', ${allTools})}"></div>
+    
+    <!-- Delete Moving Part Confirmation Modal -->
+    <div class="modal fade" id="deleteMovingPartModal" tabindex="-1" aria-labelledby="deleteMovingPartModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <form th:action="@{/tools/{id}/pictures/move(id=${tool.id})}" method="post">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="movePictureModalLabel">Move Picture</h5>
+                    <h5 class="modal-title" id="deleteMovingPartModalLabel">
+                        <i class="bi bi-exclamation-triangle me-2 text-warning"></i>Delete Moving Part
+                    </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Picture</label>
-                            <div class="p-2 border rounded bg-light" id="pictureNameDisplay"></div>
-                            <input type="hidden" name="picturePath" id="picturePathInput">
-                        </div>
-                        <div class="mb-3">
-                            <label for="picDestinationToolSelect" class="form-label">Destination Tool</label>
-                            <select name="destinationToolId" id="picDestinationToolSelect" class="form-control" required>
-                                <option value="">Select a tool...</option>
-                                <option th:each="destTool : ${allTools}" 
-                                        th:if="${destTool.id != tool.id}"
-                                        th:value="${destTool.id}" 
-                                        th:text="${destTool.name + (destTool.secondaryName != null ? ' (' + destTool.secondaryName + ')' : '')}">
-                                    Tool Name
-                                </option>
-                            </select>
-                        </div>
+                    <p>Are you sure you want to delete this moving part?</p>
+                    <p class="text-muted"><strong>Part Name:</strong> <span id="deletePartName"></span></p>
+                    <p class="text-danger"><small>This action cannot be undone.</small></p>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Move Picture</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteMovingPart">
+                        <i class="bi bi-trash me-2"></i>Delete
+                    </button>
                     </div>
-                </form>
             </div>
         </div>
     </div>
     
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Include all existing modals and JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script th:src="@{/js/theme-instant.js}"></script>
     <script th:src="@{/js/theme-toggle.js}"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Move document button handlers
-            document.querySelectorAll('.move-document-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const docPath = this.getAttribute('data-document-path');
-                    const docName = docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath;
-                    document.getElementById('documentPathInput').value = docPath;
-                    document.getElementById('documentNameDisplay').textContent = docName;
-                });
-            });
+        // File upload preview functionality
+        document.getElementById('toolFileInput').addEventListener('change', function() {
+            const preview = document.getElementById('tool-files-preview');
+            const fileList = document.getElementById('tool-file-list');
             
-            // Move picture button handlers
-            document.querySelectorAll('.move-picture-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const picPath = this.getAttribute('data-picture-path');
-                    const picName = picPath.contains('/') ? picPath.substring(picPath.lastIndexOf('/') + 1) : picPath;
-                    document.getElementById('picturePathInput').value = picPath;
-                    document.getElementById('pictureNameDisplay').textContent = picName;
-                });
-            });
-            
-            // Delete document button handlers
-            document.querySelectorAll('.delete-file-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const docPath = this.getAttribute('data-document-path');
-                    const docName = docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath;
-                    document.getElementById('docPathToDelete').value = docPath;
-                    document.getElementById('docNameToDelete').textContent = docName;
-                });
-            });
-            
-            // Delete picture button handlers
-            document.querySelectorAll('.delete-picture-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const picPath = this.getAttribute('data-picture-path');
-                    const picName = picPath.contains('/') ? picPath.substring(picPath.lastIndexOf('/') + 1) : picPath;
-                    document.getElementById('picPathToDelete').value = picPath;
-                    document.getElementById('picNameToDelete').textContent = picName;
-                });
-            });
-            
-            // Link document button handlers
-            document.querySelectorAll('.link-document-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const docPath = this.getAttribute('data-file-path');
-                    const docName = docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath;
-                    document.getElementById('docPathToLink').value = docPath;
-                    document.getElementById('docNameToLink').textContent = docName;
-                });
-            });
-            
-            // Link picture button handlers
-            document.querySelectorAll('.link-picture-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const picPath = this.getAttribute('data-file-path');
-                    const picName = picPath.contains('/') ? picPath.substring(picPath.lastIndexOf('/') + 1) : picPath;
-                    document.getElementById('picPathToLink').value = picPath;
-                    document.getElementById('picNameToLink').textContent = picName;
-                });
-            });
-            
-            // Toggle link sections based on selection
-            document.getElementById('linkDocumentType').addEventListener('change', function() {
-                const rmaSection = document.getElementById('linkDocumentRmaSection');
-                const passdownSection = document.getElementById('linkDocumentPassdownSection');
+            if (this.files.length > 0) {
+                preview.style.display = 'block';
+                fileList.innerHTML = '';
                 
-                if (this.value === 'rma') {
-                    rmaSection.style.display = 'block';
-                    passdownSection.style.display = 'none';
+                Array.from(this.files).forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'd-flex justify-content-between align-items-center py-1';
+                    fileItem.innerHTML = `
+                        <span><i class="bi bi-file-earmark me-2"></i>${file.name}</span>
+                        <small class="text-muted">${(file.size / 1024).toFixed(1)} KB</small>
+                    `;
+                    fileList.appendChild(fileItem);
+                });
                 } else {
-                    rmaSection.style.display = 'none';
-                    passdownSection.style.display = 'block';
-                }
-            });
-            
-            document.getElementById('linkPictureType').addEventListener('change', function() {
-                const rmaSection = document.getElementById('linkPictureRmaSection');
-                const passdownSection = document.getElementById('linkPicturePassdownSection');
-                
-                if (this.value === 'rma') {
-                    rmaSection.style.display = 'block';
-                    passdownSection.style.display = 'none';
-                } else {
-                    rmaSection.style.display = 'none';
-                    passdownSection.style.display = 'block';
-                }
-            });
-            
-            // Handle document link confirmation
-            document.getElementById('confirmDocLinkBtn').addEventListener('click', function() {
-                const docPath = document.getElementById('docPathToLink').value;
-                const linkType = document.getElementById('linkDocumentType').value;
-                let targetId = '';
-                
-                if (linkType === 'rma') {
-                    targetId = document.getElementById('linkDocumentRmaId').value;
-                } else {
-                    targetId = document.getElementById('linkDocumentPassdownId').value;
-                }
-                
-                if (!targetId) {
-                    alert('Please select a target to link to');
-                    return;
-                }
-                
-                // Create and submit form
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/tools/link-document';
-                
-                const docPathInput = document.createElement('input');
-                docPathInput.type = 'hidden';
-                docPathInput.name = 'documentPath';
-                docPathInput.value = docPath;
-                
-                const toolIdInput = document.createElement('input');
-                toolIdInput.type = 'hidden';
-                toolIdInput.name = 'toolId';
-                toolIdInput.value = document.getElementById('toolId').value;
-                
-                const linkTypeInput = document.createElement('input');
-                linkTypeInput.type = 'hidden';
-                linkTypeInput.name = 'linkType';
-                linkTypeInput.value = linkType;
-                
-                const targetIdInput = document.createElement('input');
-                targetIdInput.type = 'hidden';
-                targetIdInput.name = 'targetId';
-                targetIdInput.value = targetId;
-                
-                form.appendChild(docPathInput);
-                form.appendChild(toolIdInput);
-                form.appendChild(linkTypeInput);
-                form.appendChild(targetIdInput);
-                
-                document.body.appendChild(form);
-                form.submit();
-            });
-            
-            // Handle picture link confirmation
-            const confirmPicLinkBtn = document.getElementById('confirmPicLinkBtn');
-            if (confirmPicLinkBtn) {
-                confirmPicLinkBtn.addEventListener('click', function() {
-                const picPath = document.getElementById('picPathToLink').value;
-                const linkType = document.getElementById('linkPictureType').value;
-                let targetId = '';
-                
-                if (linkType === 'rma') {
-                    targetId = document.getElementById('linkPictureRmaId').value;
-                } else {
-                    targetId = document.getElementById('linkPicturePassdownId').value;
-                }
-                
-                if (!targetId) {
-                    alert('Please select a target to link to');
-                    return;
-                }
-                
-                // Create and submit form
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/tools/link-picture';
-                
-                const picPathInput = document.createElement('input');
-                picPathInput.type = 'hidden';
-                picPathInput.name = 'picturePath';
-                picPathInput.value = picPath;
-                
-                const toolIdInput = document.createElement('input');
-                toolIdInput.type = 'hidden';
-                toolIdInput.name = 'toolId';
-                toolIdInput.value = document.getElementById('toolId').value;
-                
-                const linkTypeInput = document.createElement('input');
-                linkTypeInput.type = 'hidden';
-                linkTypeInput.name = 'linkType';
-                linkTypeInput.value = linkType;
-                
-                const targetIdInput = document.createElement('input');
-                targetIdInput.type = 'hidden';
-                targetIdInput.name = 'targetId';
-                targetIdInput.value = targetId;
-                
-                form.appendChild(picPathInput);
-                form.appendChild(toolIdInput);
-                form.appendChild(linkTypeInput);
-                form.appendChild(targetIdInput);
-                
-                document.body.appendChild(form);
-                form.submit();
-                });
+                preview.style.display = 'none';
             }
-            
-            // Handle document delete confirmation
-            const confirmDocDeleteBtn = document.getElementById('confirmDocDeleteBtn');
-            if (confirmDocDeleteBtn) {
-                confirmDocDeleteBtn.addEventListener('click', function() {
-                const docPath = document.getElementById('docPathToDelete').value;
-                const deleteOption = document.querySelector('input[name="deleteOption"]:checked').value;
-                
-                // Create and submit form
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/tools/' + document.getElementById('toolId').value + '/documents/delete';
-                
-                const docPathInput = document.createElement('input');
-                docPathInput.type = 'hidden';
-                docPathInput.name = 'documentPath';
-                docPathInput.value = docPath;
-                
-                const deleteOptionInput = document.createElement('input');
-                deleteOptionInput.type = 'hidden';
-                deleteOptionInput.name = 'deleteOption';
-                deleteOptionInput.value = deleteOption;
-                
-                form.appendChild(docPathInput);
-                form.appendChild(deleteOptionInput);
-                
-                document.body.appendChild(form);
-                form.submit();
-                });
-            }
-            
-            // Handle picture delete confirmation
-            const confirmPicDeleteBtn = document.getElementById('confirmPicDeleteBtn');
-            if (confirmPicDeleteBtn) {
-                confirmPicDeleteBtn.addEventListener('click', function() {
-                const picPath = document.getElementById('picPathToDelete').value;
-                const deleteOption = document.querySelector('input[name="deletePicOption"]:checked').value;
-                
-                // Create and submit form
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/tools/' + document.getElementById('toolId').value + '/pictures/delete';
-                
-                const picPathInput = document.createElement('input');
-                picPathInput.type = 'hidden';
-                picPathInput.name = 'picturePath';
-                picPathInput.value = picPath;
-                
-                const deleteOptionInput = document.createElement('input');
-                deleteOptionInput.type = 'hidden';
-                deleteOptionInput.name = 'deleteOption';
-                deleteOptionInput.value = deleteOption;
-                
-                form.appendChild(picPathInput);
-                form.appendChild(deleteOptionInput);
-                
-                document.body.appendChild(form);
-                form.submit();
-                });
-            }
-            
-            // Moving Parts Link Note button handlers
-            document.querySelectorAll('.link-note-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const movingPartId = this.getAttribute('data-moving-part-id');
-                    const linkNoteForm = document.getElementById('linkNoteForm');
-                    const actionUrl = linkNoteForm.action.replace('/0/', '/' + movingPartId + '/');
-                    linkNoteForm.action = actionUrl;
-                });
-            });
-            
-            // View Note button handlers
-            document.querySelectorAll('.view-note-btn').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const noteContent = this.getAttribute('data-note-content');
-                    const noteUser = this.getAttribute('data-note-user');
-                    const noteDate = this.getAttribute('data-note-date');
-                    
-                    document.getElementById('viewNoteContent').textContent = noteContent;
-                    document.getElementById('viewNoteUser').textContent = noteUser;
-                    document.getElementById('viewNoteDate').textContent = noteDate;
-                    
-                    const viewNoteModal = new bootstrap.Modal(document.getElementById('viewNoteModal'));
-                    viewNoteModal.show();
-                });
-            });
-            
-            // Edit Moving Part button handlers
-            document.querySelectorAll('.edit-moving-part-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const id = this.getAttribute('data-id');
-                    const partName = this.getAttribute('data-part-name');
-                    const fromToolId = this.getAttribute('data-from-tool-id');
-                    const toToolId = this.getAttribute('data-to-tool-id');
-                    const destinationChain = this.getAttribute('data-destination-chain') || '';
-                    const notes = this.getAttribute('data-notes') || '';
-                    
-                    // Update form action URL
-                    const form = document.getElementById('editMovingPartForm');
-                    form.action = form.action.replace('/0/', '/' + id + '/');
-                    
-                    // Fill form fields with existing data
-                    document.getElementById('editMovingPartId').value = id;
-                    document.getElementById('editPartName').value = partName;
-                    document.getElementById('editFromToolId').value = fromToolId;
-                    document.getElementById('editNotes').value = notes;
-                    
-                    // Clear existing destination rows
-                    const container = document.getElementById('editDestinationContainer');
-                    container.innerHTML = '';
-                    
-                    // Parse destination chain to get all destination IDs
-                    let destinationIds = [];
-                    if (toToolId) {
-                        destinationIds.push(toToolId);
-                    }
-                    
-                    // Parse additional destinations from chain if any
-                    if (destinationChain && destinationChain !== 'null' && destinationChain !== '[]') {
-                        try {
-                            const chainIds = JSON.parse(destinationChain);
-                            if (Array.isArray(chainIds) && chainIds.length > 1) {
-                                // Skip the first one if it matches toToolId, add the rest
-                                for (let i = 1; i < chainIds.length; i++) {
-                                    destinationIds.push(chainIds[i]);
-                                }
-                            }
-                        } catch (e) {
-                            console.warn('Could not parse destination chain:', destinationChain);
-                        }
-                    }
-                    
-                    // Create destination rows
-                    destinationIds.forEach((destId, index) => {
-                        const newRow = document.createElement('div');
-                        newRow.className = 'd-flex align-items-center mb-2 edit-destination-row';
-                        newRow.innerHTML = `
-                            <strong class="me-2">To:</strong>
-                            <select class="form-select edit-destination-select" name="destinationToolIds" required>
-                                <option value="">Select destination tool...</option>
-                                ${Array.from(document.querySelector('#editFromToolId').options).map(option => 
-                                    `<option value="${option.value}" ${option.value == destId ? 'selected' : ''}>${option.text}</option>`
-                                ).join('')}
-                            </select>
-                            <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-edit-destination" style="${destinationIds.length > 1 ? 'display: inline-block;' : 'display: none;'}">
-                                <i class="bi bi-dash"></i>
-                            </button>
-                        `;
-                        container.appendChild(newRow);
-                    });
-                    
-                    // If no destinations, create one empty row
-                    if (destinationIds.length === 0) {
-                        const newRow = document.createElement('div');
-                        newRow.className = 'd-flex align-items-center mb-2 edit-destination-row';
-                        newRow.innerHTML = `
-                            <strong class="me-2">To:</strong>
-                            <select class="form-select edit-destination-select" name="destinationToolIds" required>
-                                <option value="">Select destination tool...</option>
-                                ${Array.from(document.querySelector('#editFromToolId').options).map(option => 
-                                    `<option value="${option.value}">${option.text}</option>`
-                                ).join('')}
-                            </select>
-                            <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-edit-destination" style="display: none;">
-                                <i class="bi bi-dash"></i>
-                            </button>
-                        `;
-                        container.appendChild(newRow);
-                    }
-                });
-            });
+        });
 
-            // --- Add/Remove Destination Tools Logic for Edit Modal ---
-            document.getElementById('addEditDestinationBtn').addEventListener('click', function() {
-                const container = document.getElementById('editDestinationContainer');
-                const firstRow = container.querySelector('.edit-destination-row');
-                const newRow = firstRow.cloneNode(true);
+        // Upload zone drag and drop
+        const uploadZone = document.querySelector('.border-dashed');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+                    e.preventDefault();
+            e.stopPropagation();
+        }
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, highlight, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            uploadZone.classList.add('border-primary');
+        }
+
+        function unhighlight(e) {
+            uploadZone.classList.remove('border-primary');
+        }
+
+        uploadZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            document.getElementById('toolFileInput').files = files;
+            document.getElementById('toolFileInput').dispatchEvent(new Event('change'));
+        }
+
+        // Set default date for passdown modal
+        document.getElementById('passdownModal').addEventListener('show.bs.modal', function() {
+            const today = new Date();
+            const dd = String(today.getDate()).padStart(2, '0');
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const yyyy = today.getFullYear();
+            
+            const todayStr = yyyy + '-' + mm + '-' + dd;
+            document.getElementById('passdownDate').value = todayStr;
+        });
+
+        // Moving Parts Edit functionality
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.moving-part-edit-btn')) {
+                const btn = e.target.closest('.moving-part-edit-btn');
+                const id = btn.dataset.id;
+                const partName = btn.dataset.partName;
+                const fromToolId = btn.dataset.fromToolId;
+                const toToolId = btn.dataset.toToolId;
+                const destinationChain = btn.dataset.destinationChain;
+                const notes = btn.dataset.notes;
+                const moveDate = btn.dataset.moveDate;
                 
-                // Clear the selected value and show remove button
-                newRow.querySelector('.edit-destination-select').selectedIndex = 0;
-                newRow.querySelector('.remove-edit-destination').style.display = 'inline-block';
+                // Populate edit modal
+                document.getElementById('editMovingPartId').value = id;
+                document.getElementById('editPartName').value = partName;
+                document.getElementById('editFromToolId').value = fromToolId;
+                document.getElementById('editNotes').value = notes;
+                
+                // Handle destination chain
+                const container = document.getElementById('editDestinationContainer');
+                container.innerHTML = '';
+                
+                if (destinationChain) {
+                    const destinations = destinationChain.split(',');
+                    destinations.forEach((destId, index) => {
+                        addEditDestinationRow(destId.trim(), index === 0);
+                    });
+                } else if (toToolId) {
+                    addEditDestinationRow(toToolId, true);
+                } else {
+                    addEditDestinationRow('', true);
+                }
+                
+                // Update form action
+                document.getElementById('editMovingPartForm').action = `/tools/[[${tool.id}]]/moving-parts/${id}/edit`;
+                
+                // Show modal
+                new bootstrap.Modal(document.getElementById('editMovingPartModal')).show();
+            }
+        });
+        
+        // Moving Parts Delete functionality
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.moving-part-delete-btn')) {
+                const btn = e.target.closest('.moving-part-delete-btn');
+                const id = btn.dataset.id;
+                const partName = btn.dataset.partName;
+                
+                // Populate delete modal
+                document.getElementById('deletePartName').textContent = partName;
+                
+                // Set up delete confirmation
+                document.getElementById('confirmDeleteMovingPart').onclick = function() {
+                    // Create a form to submit the DELETE request
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = `/tools/[[${tool.id}]]/moving-parts/${id}/delete`;
+                document.body.appendChild(form);
+                form.submit();
+                };
+                
+                // Show modal
+                new bootstrap.Modal(document.getElementById('deleteMovingPartModal')).show();
+            }
+        });
+        
+        // Add destination row for edit modal
+        function addEditDestinationRow(selectedValue = '', isFirst = false) {
+                    const container = document.getElementById('editDestinationContainer');
+            const newRow = document.createElement('div');
+            newRow.className = 'd-flex align-items-center mb-2 destination-row';
+            
+            const toolOptions = Array.from(document.querySelectorAll('#editFromToolId option'))
+                .map(opt => `<option value="${opt.value}" ${opt.value === selectedValue ? 'selected' : ''}>${opt.text}</option>`)
+                .join('');
+            
+                        newRow.innerHTML = `
+                            <strong class="me-2">To:</strong>
+                <select class="form-select destination-select" name="destinationToolIds" required>
+                    <option value="">Select destination tool</option>
+                    ${toolOptions}
+                            </select>
+                <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-destination" ${isFirst && container.children.length === 0 ? 'style="display: none;"' : ''}>
+                                <i class="bi bi-dash"></i>
+                            </button>
+                        `;
                 
                 container.appendChild(newRow);
-                updateEditRemoveButtons();
-            });
-
-            // Handle remove destination buttons for edit modal (event delegation)
-            document.getElementById('editDestinationContainer').addEventListener('click', function(e) {
-                if (e.target.closest('.remove-edit-destination')) {
-                    e.target.closest('.edit-destination-row').remove();
                     updateEditRemoveButtons();
                 }
-            });
 
+        // Update remove buttons for edit modal
             function updateEditRemoveButtons() {
-                const rows = document.querySelectorAll('.edit-destination-row');
+            const container = document.getElementById('editDestinationContainer');
+            const rows = container.querySelectorAll('.destination-row');
+            
                 rows.forEach((row, index) => {
-                    const removeBtn = row.querySelector('.remove-edit-destination');
-                    if (rows.length > 1) {
-                        removeBtn.style.display = 'inline-block';
-                    } else {
-                        removeBtn.style.display = 'none';
+                const removeBtn = row.querySelector('.remove-destination');
+                if (removeBtn) {
+                    removeBtn.style.display = rows.length > 1 ? 'block' : 'none';
                     }
                 });
             }
 
-            // --- New File Upload Logic for Tool Details Page ---
-            const toolDropArea = document.getElementById('tool-drop-area');
-            const toolFileInput = document.getElementById('toolFileInput');
-            const toolFilesPreview = document.getElementById('tool-files-preview');
-            
-            let toolSelectedFiles = [];
-
-            if (toolDropArea && toolFileInput) {
-                // Prevent default drag behaviors
-                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                    toolDropArea.addEventListener(eventName, e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    });
-                });
-
-                // Highlight drop area
-                ['dragenter', 'dragover'].forEach(eventName => {
-                    toolDropArea.addEventListener(eventName, () => toolDropArea.classList.add('highlight-upload')); // Use a unique class
-                });
-                ['dragleave', 'drop'].forEach(eventName => {
-                    toolDropArea.addEventListener(eventName, () => toolDropArea.classList.remove('highlight-upload'));
-                });
-
-                // Click to browse
-                toolDropArea.addEventListener('click', () => toolFileInput.click());
-
-                // Handle dropped files
-                toolDropArea.addEventListener('drop', e => {
-                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                        toolFileInput.files = e.dataTransfer.files; // Assign to the input
-                        handleToolFileSelect(toolFileInput.files);
-                    }
-                });
-
-                // Handle file selection via input
-                toolFileInput.addEventListener('change', function() {
-                    handleToolFileSelect(this.files);
-                });
+        // Add another destination for edit modal
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('#editAddAnotherDestination')) {
+                addEditDestinationRow();
             }
-
-            function handleToolFileSelect(files) {
-                if (!files || files.length === 0) {
-                    toolFilesPreview.style.display = 'none';
-                    return;
-                }
-                toolFilesPreview.style.display = 'block';
-
-                let imageCount = 0;
-                let documentCount = 0;
-                let otherCount = 0;
-
-                const imageList = document.getElementById('tool-image-list');
-                const documentList = document.getElementById('tool-document-list');
-                const otherList = document.getElementById('tool-other-file-list');
-                
-                imageList.innerHTML = '';
-                documentList.innerHTML = '';
-                otherList.innerHTML = '';
-
-                toolSelectedFiles = Array.from(files); // Store for management
-
-                toolSelectedFiles.forEach((file, index) => {
-                    const listItem = document.createElement('li');
-                    listItem.className = 'd-flex justify-content-between align-items-center mb-1';
-                    listItem.dataset.fileIndex = index; // Store index for removal
-
-                    const fileNameSpan = document.createElement('span');
-                    fileNameSpan.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
-                    fileNameSpan.className = 'text-truncate me-2';
-                    fileNameSpan.title = file.name;
-                    listItem.appendChild(fileNameSpan);
-
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.type = 'button';
-                    deleteBtn.className = 'btn btn-sm btn-link text-danger p-0';
-                    deleteBtn.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
-                    deleteBtn.title = 'Remove file';
-                    deleteBtn.onclick = function() {
-                        removeToolFileFromSelection(index);
-                    };
-                    listItem.appendChild(deleteBtn);
-
-                    if (file.type.startsWith('image/')) {
-                        imageCount++;
-                        imageList.appendChild(listItem);
-                    } else if (['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/plain', 'text/csv'].includes(file.type)) {
-                        documentCount++;
-                        documentList.appendChild(listItem);
-                    } else {
-                        otherCount++;
-                        otherList.appendChild(listItem);
-                    }
-                });
-
-                document.getElementById('tool-image-count').textContent = imageCount;
-                document.getElementById('tool-document-count').textContent = documentCount;
-                document.getElementById('tool-other-file-count').textContent = otherCount;
-                
-                // Ensure the actual file input that will be submitted is updated
-                updateToolFileInput();
-            }
-
-            function removeToolFileFromSelection(indexToRemove) {
-                toolSelectedFiles.splice(indexToRemove, 1); // Remove from our tracking array
-                updateToolFileInput(); // Update the actual file input
-                handleToolFileSelect(toolFileInput.files); // Re-render the preview
-            }
-            
-            function updateToolFileInput() {
-                const dataTransfer = new DataTransfer();
-                toolSelectedFiles.forEach(file => dataTransfer.items.add(file));
-                toolFileInput.files = dataTransfer.files; // This is the crucial part for form submission
-                 if (toolSelectedFiles.length === 0) {
-                    toolFilesPreview.style.display = 'none';
-                }
-            }
-            // --- End New File Upload Logic ---
-
-            // --- Add/Remove Destination Tools Logic ---
-            document.getElementById('addDestinationBtn').addEventListener('click', function() {
-                const container = document.getElementById('destinationContainer');
-                const firstRow = container.querySelector('.destination-row');
-                const newRow = firstRow.cloneNode(true);
-                
-                // Clear the selected value and show remove button
-                newRow.querySelector('.destination-select').selectedIndex = 0;
-                newRow.querySelector('.remove-destination').style.display = 'inline-block';
-                
-                container.appendChild(newRow);
-                updateRemoveButtons();
-            });
-
-            // Handle remove destination buttons (event delegation)
-            document.getElementById('destinationContainer').addEventListener('click', function(e) {
+        });
+        
+        // Remove destination for edit modal
+        document.addEventListener('click', function(e) {
                 if (e.target.closest('.remove-destination')) {
                     e.target.closest('.destination-row').remove();
-                    updateRemoveButtons();
-                }
-            });
-
-            function updateRemoveButtons() {
-                const rows = document.querySelectorAll('.destination-row');
-                rows.forEach((row, index) => {
-                    const removeBtn = row.querySelector('.remove-destination');
-                    if (rows.length > 1) {
-                        removeBtn.style.display = 'inline-block';
-                    } else {
-                        removeBtn.style.display = 'none';
-                    }
-                });
+                updateEditRemoveButtons();
             }
-            // --- End Add/Remove Destination Tools Logic ---
-
-            // --- Unified Link File Modal Logic ---
-            const unifiedLinkFileModal = document.getElementById('unifiedLinkFileModal');
-            if (unifiedLinkFileModal) {
-                const toolIdElement = document.getElementById('toolId');
-                let toolIdForPage = null;
-                if (toolIdElement) {
-                    toolIdForPage = toolIdElement.value;
-                    console.log("Unified Link Modal: Tool ID for page context found:", toolIdForPage);
-                } else {
-                    console.error("CRITICAL ERROR: Hidden input with id='toolId' not found. Linking will likely fail for sourceEntityId.");
-                    alert("Page Error: Tool ID context is missing. Please contact support or refresh.");
-                }
-
-                const unifiedLinkTargetEntityType = document.getElementById('unifiedLinkTargetEntityType');
-                const unifiedLinkTargetRmaSection = document.getElementById('unifiedLinkTargetRmaSection');
-                const unifiedLinkTargetToolSection = document.getElementById('unifiedLinkTargetToolSection');
-                const unifiedLinkTargetTrackTrendSection = document.getElementById('unifiedLinkTargetTrackTrendSection');
-
-                document.querySelectorAll('.link-document-btn, .link-picture-btn, .unified-link-trigger-btn').forEach(button => {
-                    button.addEventListener('click', function() {
-                        if (!toolIdForPage && this.dataset.sourceEntityType === 'TOOL') {
-                            alert("Cannot proceed: Page Tool ID is missing. Please refresh or contact support.");
-                            return;
-                        }
-
-                        // Log the modal's innerHTML for debugging
-                        const modalElement = document.getElementById('unifiedLinkFileModal');
-                        if (modalElement) {
-                            console.log("Modal innerHTML:", modalElement.innerHTML);
-                        } else {
-                            console.error("CRITICAL: unifiedLinkFileModal itself not found!");
-                            return;
-                        }
-
-                        const dataType = this.dataset.fileType; 
-                        const dataSourceEntityType = this.dataset.sourceEntityType; 
-                        const buttonSourceEntityId = this.dataset.sourceEntityId; // ID of the item being linked (e.g., movingPart.id) OR the page's toolId
-                        
-                        let itemIdToLink = ''; 
-                        let itemFilePath = this.dataset.filePath || '';
-                        let itemDisplayName = this.dataset.fileName || 'Selected Item';
-                        let pageContextEntityId = toolIdForPage; // Default to toolIdForPage for source context
-
-                        console.log("Link button clicked on Tool Page:", this.dataset);
-                        console.log("Data Type:", dataType, "Button Source Entity Type:", dataSourceEntityType, "Button Source Entity ID:", buttonSourceEntityId);
-                        console.log("Initial itemDisplayName from data-file-name:", this.dataset.fileName);
-
-                        if (dataType === 'MOVING_PART_RECORD') {
-                            itemIdToLink = buttonSourceEntityId; 
-                            itemFilePath = ''; 
-                        } else {
-                            itemIdToLink = ''; 
-                        }
-                        
-                        // Safely get and set modal input values
-                        const safeSetModalInputValue = (id, value) => {
-                            const el = document.getElementById(id);
-                            if (el) el.value = value;
-                            else console.error(`Modal input field with ID '${id}' not found!`);
-                        };
-                        const safeSetModalTextContent = (id, text) => {
-                            const el = document.getElementById(id);
-                            if (el) el.textContent = text;
-                            else console.error(`Modal display element with ID '${id}' not found!`);
-                        };
-
-                        safeSetModalInputValue('unifiedLinkFileIdInput', itemIdToLink); 
-                        safeSetModalInputValue('unifiedLinkFilePathInput', itemFilePath);
-                        safeSetModalInputValue('unifiedLinkOriginalFileNameInput', itemDisplayName);
-                        safeSetModalInputValue('unifiedLinkFileTypeInput', dataType);
-                        safeSetModalInputValue('unifiedLinkSourceEntityTypeInput', dataSourceEntityType); 
-                        safeSetModalInputValue('unifiedLinkSourceEntityIdInput', pageContextEntityId); 
-                        safeSetModalTextContent('unifiedLinkFileNameDisplay', itemDisplayName);
-                        console.log("Modal populated. FileNameDisplay:", itemDisplayName, "FileIdInput:", itemIdToLink, "SourceEntityIdInput:", pageContextEntityId);
-                        
-                        // Reset target selection
-                        unifiedLinkTargetEntityType.value = '';
-                        unifiedLinkTargetRmaSection.style.display = 'none';
-                        document.getElementById('unifiedLinkTargetRmaId').value = '';
-                        unifiedLinkTargetToolSection.style.display = 'none';
-                        document.getElementById('unifiedLinkTargetToolId').value = '';
-                        unifiedLinkTargetTrackTrendSection.style.display = 'none';
-                        document.getElementById('unifiedLinkTargetTrackTrendId').value = '';
-                    });
-                });
-
-                unifiedLinkTargetEntityType.addEventListener('change', function() {
-                    unifiedLinkTargetRmaSection.style.display = this.value === 'RMA' ? 'block' : 'none';
-                    unifiedLinkTargetToolSection.style.display = this.value === 'TOOL' ? 'block' : 'none';
-                    unifiedLinkTargetTrackTrendSection.style.display = this.value === 'TRACK_TREND' ? 'block' : 'none';
-                });
-                
-                // Add an event listener for the form submission to validate selection
-                const unifiedLinkForm = document.getElementById('unifiedLinkForm');
-                if(unifiedLinkForm) {
-                    unifiedLinkForm.addEventListener('submit', function(event) {
-                        const targetType = unifiedLinkTargetEntityType.value;
-                        let targetId = '';
-                        if (targetType === 'RMA') targetId = document.getElementById('unifiedLinkTargetRmaId').value;
-                        else if (targetType === 'TOOL') targetId = document.getElementById('unifiedLinkTargetToolId').value;
-                        else if (targetType === 'TRACK_TREND') targetId = document.getElementById('unifiedLinkTargetTrackTrendId').value;
-
-                        if (!targetType || !targetId) {
-                            alert('Please select both an entity type and a specific entity to link to.');
-                            event.preventDefault(); // Stop form submission
-                        }
-                    });
-                }
-            }
-            // --- End Unified Link File Modal Logic ---
-
-            // Handle all collapsible sections chevron rotation
-            const collapsibleSections = [
-                'basicInfoCollapse',
-                'toolChecklistCollapse', 
-                'documentsCollapse',
-                'picturesCollapse',
-                'associatedUsersCollapse',
-                'trackTrendsCollapse',
-                'associatedRmasCollapse',
-                'movingPartsCollapse',
-                'toolPassdownsCollapse',
-                'toolCommentsCollapse',
-                'partMovementsCollapse',
-                'fileUploadCollapse'
-            ];
-            
-            collapsibleSections.forEach(sectionId => {
-                const collapseElement = document.getElementById(sectionId);
-                if (collapseElement) {
-                    const button = document.querySelector(`[data-bs-target="#${sectionId}"]`);
-                    const chevron = button ? button.querySelector('.bi-chevron-down, .bi-chevron-up') : null;
-                    
-                    if (button && chevron) {
-                        collapseElement.addEventListener('show.bs.collapse', function () {
-                            chevron.classList.remove('bi-chevron-down');
-                            chevron.classList.add('bi-chevron-up');
-                            button.classList.remove('collapsed');
-                        });
-                        
-                        collapseElement.addEventListener('hide.bs.collapse', function () {
-                            chevron.classList.remove('bi-chevron-up');
-                            chevron.classList.add('bi-chevron-down');
-                            button.classList.add('collapsed');
-                        });
-                        
-                        // Set initial state
-                        if (collapseElement.classList.contains('show')) {
-                            chevron.classList.remove('bi-chevron-down');
-                            chevron.classList.add('bi-chevron-up');
-                            button.classList.remove('collapsed');
-                        } else {
-                            chevron.classList.remove('bi-chevron-up');
-                            chevron.classList.add('bi-chevron-down');
-                            button.classList.add('collapsed');
-                        }
-                    }
-                }
-            });
         });
     </script>
     
     <!-- Moving Part Modal JavaScript -->
-    <div th:replace="~{fragments/moving-part-modal :: movingPartModalScript}"></div>
+    <div th:replace="~{fragments/moving-part-modal :: movingPartModalScript('toolDestinationContainer', 'toolAddAnotherDestination')}"></div>
 </body>
 </html> 

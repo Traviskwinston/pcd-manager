@@ -165,8 +165,8 @@
                             th:attr="data-track-trend-id=${tt.id},
                                      data-name=${tt.name},
                                      data-description=${tt.description ?: ''},
-                                     data-tools=${#strings.listJoin(affectedToolsMap.get(tt.id).![name], ' ')},
-                                     data-rmas=${#strings.listJoin(relatedRmasMap.get(tt.id).![rmaNumber ?: sapNotificationNumber ?: ('RMA-' + id)], ' ')}">
+                                     data-tools=${affectedToolsMap.get(tt.id) != null ? #strings.listJoin(affectedToolsMap.get(tt.id).![name], ' ') : ''},
+                                     data-rmas=${relatedRmasMap.get(tt.id) != null ? #strings.listJoin(relatedRmasMap.get(tt.id).![rmaNumber ?: sapNotificationNumber ?: ('RMA-' + id)], ' ') : ''}">
                             <td style="text-align: left;">
                                 <strong th:text="${tt.name}">Track/Trend Name</strong>
                             </td>
@@ -176,8 +176,8 @@
                             </td>
                             <td class="text-center">
                                 <!-- Interactive Tools icon when tools exist -->
-                                <i th:class="${'bi bi-tools ' + (!affectedToolsMap.get(tt.id).empty ? 'info-icon-interactive' : 'text-muted')}"
-                                   th:if="${!affectedToolsMap.get(tt.id).empty}"
+                                <i th:class="${'bi bi-tools ' + (affectedToolsMap.get(tt.id) != null && !affectedToolsMap.get(tt.id).empty ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${affectedToolsMap.get(tt.id) != null && !affectedToolsMap.get(tt.id).empty}"
                                    data-bs-toggle="popover"
                                    data-bs-placement="left"
                                    data-bs-trigger="hover focus click"
@@ -191,17 +191,17 @@
                                 </i>
                                 
                                 <!-- Greyed out icon when no tools -->
-                                <i th:if="${affectedToolsMap.get(tt.id).empty}" 
+                                <i th:if="${affectedToolsMap.get(tt.id) == null || affectedToolsMap.get(tt.id).empty}" 
                                    class="bi bi-tools text-muted">
                                 </i>
                                 
                                 <!-- Tools count -->
-                                <span th:text="${#lists.size(affectedToolsMap.get(tt.id))}" class="ms-1 small"></span>
+                                <span th:text="${affectedToolsMap.get(tt.id) != null ? #lists.size(affectedToolsMap.get(tt.id)) : 0}" class="ms-1 small"></span>
                             </td>
                             <td class="text-center">
                                 <!-- Interactive RMA icon when RMAs exist -->
-                                <i th:class="${'bi bi-clipboard-data-fill ' + (!relatedRmasMap.get(tt.id).empty ? 'info-icon-interactive' : 'text-muted')}"
-                                   th:if="${!relatedRmasMap.get(tt.id).empty}"
+                                <i th:class="${'bi bi-clipboard-data-fill ' + (relatedRmasMap.get(tt.id) != null && !relatedRmasMap.get(tt.id).empty ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${relatedRmasMap.get(tt.id) != null && !relatedRmasMap.get(tt.id).empty}"
                                    data-bs-toggle="popover"
                                    data-bs-placement="left"
                                    data-bs-trigger="hover focus click"
@@ -218,17 +218,17 @@
                                 </i>
                                 
                                 <!-- Greyed out icon when no RMAs -->
-                                <i th:if="${relatedRmasMap.get(tt.id).empty}" 
+                                <i th:if="${relatedRmasMap.get(tt.id) == null || relatedRmasMap.get(tt.id).empty}" 
                                    class="bi bi-clipboard-data text-muted">
                                 </i>
                                 
                                 <!-- RMA count -->
-                                <span th:text="${#lists.size(relatedRmasMap.get(tt.id))}" class="ms-1 small"></span>
+                                <span th:text="${relatedRmasMap.get(tt.id) != null ? #lists.size(relatedRmasMap.get(tt.id)) : 0}" class="ms-1 small"></span>
                             </td>
                             <td class="text-center">
                                 <!-- Interactive comments icon when comments exist -->
-                                <i th:class="${'bi bi-chat-dots-fill ' + (!commentsDataMap.get(tt.id).empty ? 'info-icon-interactive' : 'text-muted')}"
-                                   th:if="${!commentsDataMap.get(tt.id).empty}"
+                                <i th:class="${'bi bi-chat-dots-fill ' + (commentsDataMap.get(tt.id) != null && !commentsDataMap.get(tt.id).empty ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${commentsDataMap.get(tt.id) != null && !commentsDataMap.get(tt.id).empty}"
                                    data-bs-toggle="popover"
                                    data-bs-placement="left"
                                    data-bs-trigger="hover focus click"
@@ -245,12 +245,12 @@
                                 </i>
                                 
                                 <!-- Greyed out icon when no comments -->
-                                <i th:if="${commentsDataMap.get(tt.id).empty}" 
+                                <i th:if="${commentsDataMap.get(tt.id) == null || commentsDataMap.get(tt.id).empty}" 
                                    class="bi bi-chat-dots text-muted">
                                 </i>
                                 
                                 <!-- Comment count -->
-                                <span th:text="${#lists.size(commentsDataMap.get(tt.id))}" class="ms-1 small"></span>
+                                <span th:text="${commentsDataMap.get(tt.id) != null ? #lists.size(commentsDataMap.get(tt.id)) : 0}" class="ms-1 small"></span>
                             </td>
                         </tr>
                     </tbody>

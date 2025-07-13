@@ -159,22 +159,37 @@
             font-size: 0.75rem !important;
         }
         
+        .priority-badge {
+            font-size: 0.75rem !important;
+        }
+        
         /* Moving Parts icon styling */
         .moving-parts-icon {
             cursor: pointer !important;
-            transition: transform 0.2s;
+            transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             background-color: #0d6efd; /* Bootstrap primary blue */
-            color: white;
+            color: #000000 !important; /* Black icon for better contrast */
             border-radius: 4px;
             padding: 4px 6px;
             font-size: 0.9rem;
+            border: 1px solid #0d6efd;
         }
         .moving-parts-icon:hover {
             transform: scale(1.1);
             background-color: #0b5ed7; /* Darker blue on hover */
+            border-color: #0b5ed7;
+            color: #000000 !important; /* Keep black icon on hover */
+        }
+        .moving-parts-icon:focus,
+        .moving-parts-icon:active,
+        .moving-parts-icon.show {
+            background-color: #0a58ca; /* Even darker blue for active states */
+            border-color: #0a58ca;
+            color: #000000 !important; /* Keep black icon in all states */
+            outline: none;
         }
         
         /* RMA-specific sorting arrows using Bootstrap icons */
@@ -195,8 +210,31 @@
             box-shadow: none;
         }
         
+        /* RMA-specific priority filter dropdown */
+        .priority-filter-header .dropdown-toggle {
+            border: none;
+            padding: 2px 6px;
+        }
+        .priority-filter-header .dropdown-toggle:focus {
+            box-shadow: none;
+        }
+        
         /* Fixed square status count badges */
         .status-count-square {
+            width: 28px;
+            height: 20px;
+            min-width: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        
+        /* Fixed square priority count badges */
+        .priority-count-square {
             width: 28px;
             height: 20px;
             min-width: 28px;
@@ -225,6 +263,22 @@
             flex: 1;
         }
         
+        /* Priority filter item layout */
+        .priority-filter-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            min-height: 32px;
+            padding: 4px 0;
+        }
+        
+        .priority-filter-left {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+        
         /* Ensure minimum height for RMA list to prevent cutoff */
         .rma-table-container {
             min-height: 600px;
@@ -246,6 +300,12 @@
             width: 15% !important;
         }
         
+        /* Ensure priority column doesn't get too narrow */
+        .priority-filter-header {
+            min-width: 140px !important;
+            width: 10% !important;
+        }
+        
         /* Make parts column same width as status column */
         .parts-column {
             min-width: 220px !important;
@@ -254,6 +314,14 @@
         
         /* Status cell content */
         td .status-badge {
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Priority cell content */
+        td .priority-badge {
             display: inline-block;
             max-width: 100%;
             overflow: hidden;
@@ -293,6 +361,10 @@
                 </h2>
             </div>
             <div>
+                <button type="button" class="btn btn-success me-2" id="exportToExcelBtn">
+                    <i class="fas fa-file-excel me-1"></i>
+                    Export to Excel
+                </button>
                 <a th:href="@{/rma/new}" class="btn btn-primary">
                     <i class="fas fa-plus me-1"></i>
                     New RMA
@@ -443,6 +515,58 @@
                                         </ul>
                                     </div>
                                 </th>
+                                <th style="width: 10%; min-width: 140px;" class="priority-filter-header">
+                                    Priority
+                                    <div class="dropdown d-inline-block ms-1">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="priorityFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-funnel"></i>
+                                        </button>
+                                        <ul class="dropdown-menu p-2" aria-labelledby="priorityFilterDropdown" style="min-width: 220px;">
+                                            <li class="dropdown-item-text">
+                                                <small class="text-muted">Filter by Priority:</small>
+                                                <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="showAllPriorities">Show All</button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="selectNonePriorities">Select None</button>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li class="dropdown-item-text">
+                                                <div class="priority-filter-item">
+                                                    <div class="priority-filter-left">
+                                                        <span class="badge bg-success priority-count-square priority-count" data-priority="LOW">0</span>
+                                                        <span>Low</span>
+                                                    </div>
+                                                    <input class="form-check-input priority-filter" type="checkbox" value="LOW" id="priority-LOW" checked>
+                                                </div>
+                                            </li>
+                                            <li class="dropdown-item-text">
+                                                <div class="priority-filter-item">
+                                                    <div class="priority-filter-left">
+                                                        <span class="badge bg-primary priority-count-square priority-count" data-priority="MEDIUM">0</span>
+                                                        <span>Medium</span>
+                                                    </div>
+                                                    <input class="form-check-input priority-filter" type="checkbox" value="MEDIUM" id="priority-MEDIUM" checked>
+                                                </div>
+                                            </li>
+                                            <li class="dropdown-item-text">
+                                                <div class="priority-filter-item">
+                                                    <div class="priority-filter-left">
+                                                        <span class="badge bg-warning text-dark priority-count-square priority-count" data-priority="HIGH">0</span>
+                                                        <span>High</span>
+                                                    </div>
+                                                    <input class="form-check-input priority-filter" type="checkbox" value="HIGH" id="priority-HIGH" checked>
+                                                </div>
+                                            </li>
+                                            <li class="dropdown-item-text">
+                                                <div class="priority-filter-item">
+                                                    <div class="priority-filter-left">
+                                                        <span class="badge bg-danger priority-count-square priority-count" data-priority="URGENT">0</span>
+                                                        <span>Urgent</span>
+                                                    </div>
+                                                    <input class="form-check-input priority-filter" type="checkbox" value="URGENT" id="priority-URGENT" checked>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </th>
                                 <th style="width: 7%;" class="sortable-header" data-sort="written-date">
                                     <div class="header-content">
                                         <span class="header-text">Written</span>
@@ -517,6 +641,7 @@
                                          data-part-numbers=${#strings.listJoin(rma.partLineItems.![partNumber], ' ')},
                                          data-rma-number=*{rmaNumber ?: sapNotificationNumber ?: ''},
                                          data-status=*{status != null ? status.name() : ''},
+                                         data-priority=*{priority != null ? priority.name() : 'MEDIUM'},
                                          data-written-date=*{writtenDate != null ? #temporals.format(writtenDate, 'yyyy-MM-dd') : ''},
                                          data-rma-provided-date=*{rmaNumberProvidedDate != null ? #temporals.format(rmaNumberProvidedDate, 'yyyy-MM-dd') : ''},
                                          data-shipping-memo-date=*{shippingMemoEmailedDate != null ? #temporals.format(shippingMemoEmailedDate, 'yyyy-MM-dd') : ''},
@@ -577,6 +702,17 @@
                                         <span th:case="*" class="badge rounded-pill bg-light text-dark status-badge" th:text="*{status.displayName}"></span>
                                     </span>
                                     <span th:if="*{status == null}" class="badge rounded-pill bg-light text-dark status-badge">N/A</span>
+                                </td>
+                                <!-- Priority -->
+                                <td class="text-center">
+                                    <span th:if="*{priority != null}" th:switch="*{priority.name()}">
+                                        <span th:case="'LOW'" class="badge rounded-pill bg-success priority-badge" th:text="*{priority.displayName}"></span>
+                                        <span th:case="'MEDIUM'" class="badge rounded-pill bg-primary priority-badge" th:text="*{priority.displayName}"></span>
+                                        <span th:case="'HIGH'" class="badge rounded-pill bg-warning text-dark priority-badge" th:text="*{priority.displayName}"></span>
+                                        <span th:case="'URGENT'" class="badge rounded-pill bg-danger priority-badge" th:text="*{priority.displayName}"></span>
+                                        <span th:case="*" class="badge rounded-pill bg-light text-dark priority-badge" th:text="*{priority.displayName}"></span>
+                                    </span>
+                                    <span th:if="*{priority == null}" class="badge rounded-pill bg-primary priority-badge">Medium</span>
                                 </td>
                                 <!-- Written Date -->
                                 <td th:text="*{writtenDate != null ? #temporals.format(writtenDate, 'MM/dd/yy') : '-'}"></td>
@@ -656,6 +792,20 @@
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Initialize Bootstrap Dropdowns FIRST (before anything else)
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing Bootstrap dropdowns...');
+            
+            // Initialize all dropdowns
+            const dropdownElementList = [].slice.call(document.querySelectorAll('[data-bs-toggle="dropdown"]'));
+            const dropdownList = dropdownElementList.map(function (dropdownToggleEl) {
+                console.log('Initializing dropdown:', dropdownToggleEl.id);
+                return new bootstrap.Dropdown(dropdownToggleEl);
+            });
+            
+            console.log('Initialized', dropdownList.length, 'dropdowns');
+        });
+        
         // Initialize Bootstrap Popovers
         var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
         var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
@@ -690,7 +840,9 @@
                 this.sortDirection = 'asc';
                 this.currentSearch = '';
                 this.visibleStatuses = new Set(['RMA_WRITTEN_EMAILED', 'NUMBER_PROVIDED', 'MEMO_EMAILED', 'RECEIVED_PARTS', 'WAITING_CUSTOMER', 'WAITING_FSE', 'COMPLETED']);
+                this.visiblePriorities = new Set(['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
                 this.totalStatusCounts = {}; // Track total counts across all RMAs
+                this.totalPriorityCounts = {}; // Track total counts across all RMAs
                 
                 // Global caches for tooltip data that persist across DOM changes
                 this.tooltipCache = {
@@ -702,12 +854,21 @@
 
                 
                 this.init();
-                this.calculateTotalStatusCounts();
-                this.updateStatusCounts();
-                this.updateRmaCount();
                 
-                // Apply default sorting by written date (descending - most recent first)
-                this.applyDefaultSort();
+                // Only calculate counts if there are rows (non-async mode)
+                const existingRows = document.querySelectorAll('.rma-row');
+                if (existingRows.length > 0) {
+                    this.calculateTotalStatusCounts();
+                    this.calculateTotalPriorityCounts();
+                    this.updateStatusCounts();
+                    this.updatePriorityCounts();
+                    this.updateRmaCount();
+                    
+                    // Apply default sorting by written date (descending - most recent first)
+                    this.applyDefaultSort();
+                }
+                
+                // Bootstrap dropdowns are now initialized globally
                 
                 // Initialize interactions for tooltips and popovers
                 this.initializeInteractions();
@@ -782,6 +943,45 @@
                         this.filterTable();
                     });
                 }
+
+                // Priority filtering
+                document.querySelectorAll('.priority-filter').forEach(checkbox => {
+                    checkbox.addEventListener('change', (e) => {
+                        const priority = e.target.value;
+                        if (e.target.checked) {
+                            this.visiblePriorities.add(priority);
+                        } else {
+                            this.visiblePriorities.delete(priority);
+                        }
+                        this.filterTable();
+                    });
+                });
+
+                // Show All Priorities button
+                const showAllPrioritiesButton = document.getElementById('showAllPriorities');
+                if (showAllPrioritiesButton) {
+                    showAllPrioritiesButton.addEventListener('click', () => {
+                        // Check all checkboxes
+                        document.querySelectorAll('.priority-filter').forEach(checkbox => {
+                            checkbox.checked = true;
+                            this.visiblePriorities.add(checkbox.value);
+                        });
+                        this.filterTable();
+                    });
+                }
+
+                // Select None Priorities button
+                const selectNonePrioritiesButton = document.getElementById('selectNonePriorities');
+                if (selectNonePrioritiesButton) {
+                    selectNonePrioritiesButton.addEventListener('click', () => {
+                        // Uncheck all checkboxes
+                        document.querySelectorAll('.priority-filter').forEach(checkbox => {
+                            checkbox.checked = false;
+                            this.visiblePriorities.delete(checkbox.value);
+                        });
+                        this.filterTable();
+                    });
+                }
             }
 
             handleSort(sortType, header) {
@@ -852,8 +1052,8 @@
                 const rows = document.querySelectorAll('.rma-row');
                 const tbody = document.querySelector('tbody');
                 
-                // Check if no statuses are selected
-                if (this.visibleStatuses.size === 0) {
+                // Check if no statuses or priorities are selected
+                if (this.visibleStatuses.size === 0 || this.visiblePriorities.size === 0) {
                     // Hide all rows
                     rows.forEach(row => {
                         row.style.display = 'none';
@@ -871,6 +1071,7 @@
                     const partNumbers = row.getAttribute('data-part-numbers').toLowerCase();
                     const rmaNumber = row.getAttribute('data-rma-number').toLowerCase();
                     const status = row.getAttribute('data-status');
+                    const priority = row.getAttribute('data-priority');
 
                     // Check search criteria
                     const matchesSearch = !this.currentSearch || 
@@ -882,7 +1083,10 @@
                     // Check status filter
                     const matchesStatus = this.visibleStatuses.has(status);
 
-                    if (matchesSearch && matchesStatus) {
+                    // Check priority filter
+                    const matchesPriority = this.visiblePriorities.has(priority);
+
+                    if (matchesSearch && matchesStatus && matchesPriority) {
                         row.style.display = '';
                     } else {
                         row.style.display = 'none';
@@ -891,6 +1095,7 @@
                 }
 
                 this.updateStatusCounts();
+                this.updatePriorityCounts();
                 this.updateRmaCount();
             }
 
@@ -916,7 +1121,7 @@
                         <td colspan="${colSpan}" class="text-center text-muted py-5">
                             <i class="bi bi-inbox" style="font-size: 2rem;"></i>
                             <div class="mt-2">Empty</div>
-                            <small>No status filters selected</small>
+                            <small>No status or priority filters selected</small>
                         </td>
                     `;
                     tbody.appendChild(emptyRow);
@@ -940,12 +1145,31 @@
                 });
             }
 
+            calculateTotalPriorityCounts() {
+                // Count all RMAs by priority (regardless of filters)
+                document.querySelectorAll('.rma-row').forEach(row => {
+                    const priority = row.getAttribute('data-priority');
+                    if (priority) {
+                        this.totalPriorityCounts[priority] = (this.totalPriorityCounts[priority] || 0) + 1;
+                    }
+                });
+            }
+
             updateStatusCounts() {
                 // Always show total counts, not filtered counts
                 // This ensures counts don't disappear when everything is unchecked
                 document.querySelectorAll('.status-count').forEach(badge => {
                     const status = badge.getAttribute('data-status');
                     badge.textContent = this.totalStatusCounts[status] || 0;
+                });
+            }
+
+            updatePriorityCounts() {
+                // Always show total counts, not filtered counts
+                // This ensures counts don't disappear when everything is unchecked
+                document.querySelectorAll('.priority-count').forEach(badge => {
+                    const priority = badge.getAttribute('data-priority');
+                    badge.textContent = this.totalPriorityCounts[priority] || 0;
                 });
             }
             
@@ -1648,6 +1872,11 @@
                                     // Initialize RMA Manager after loading data
                                     try {
                                         window.rmaManager = new RMAManager();
+                                        // Recalculate counts after async data load
+                                        window.rmaManager.calculateTotalPriorityCounts();
+                                        window.rmaManager.updatePriorityCounts();
+                                        window.rmaManager.applyDefaultSort();
+                                        // Bootstrap dropdowns are initialized globally
                                         window.rmaManager.initializeInteractions();
                                     } catch (error) {
                                         console.error('Error initializing RMAManager:', error);
@@ -1712,6 +1941,7 @@
                 row.setAttribute('data-part-numbers', this.formatPartNumbersForSearch(rma.partLineItems));
                 row.setAttribute('data-rma-number', (rma.rmaNumber || rma.sapNotificationNumber || '').toLowerCase());
                 row.setAttribute('data-status', rma.status || '');
+                row.setAttribute('data-priority', rma.priority || 'MEDIUM');
                 
                 // Add date attributes for sorting (in ISO format for proper date comparison)
                 row.setAttribute('data-written-date', rma.writtenDate || '');
@@ -1739,6 +1969,16 @@
                         'COMPLETED': 'bg-success'
                     };
                     return statusMap[status] || 'bg-light text-dark';
+                };
+
+                const getPriorityBadgeClass = (priority) => {
+                    const priorityMap = {
+                        'LOW': 'bg-success',
+                        'MEDIUM': 'bg-primary',
+                        'HIGH': 'bg-warning text-dark',
+                        'URGENT': 'bg-danger'
+                    };
+                    return priorityMap[priority] || 'bg-primary';
                 };
 
                 const formatParts = (partLineItems) => {
@@ -1785,6 +2025,11 @@
                     <td class="text-center">
                         <span class="badge rounded-pill status-badge ${getStatusBadgeClass(rma.status)}">
                             ${rma.statusDisplayName || 'N/A'}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge rounded-pill priority-badge ${getPriorityBadgeClass(rma.priority)}">
+                            ${rma.priorityDisplayName || 'Medium'}
                         </span>
                     </td>
                     <td>${formatDate(rma.writtenDate)}</td>
@@ -2928,6 +3173,100 @@
         });
     </script>
     
+    <!-- Excel Export Functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const exportBtn = document.getElementById('exportToExcelBtn');
+            
+            if (exportBtn) {
+                exportBtn.addEventListener('click', function() {
+                    exportToExcel();
+                });
+            }
+        });
+        
+        function exportToExcel() {
+            // Show loading state
+            const exportBtn = document.getElementById('exportToExcelBtn');
+            const originalHtml = exportBtn.innerHTML;
+            exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Exporting...';
+            exportBtn.disabled = true;
+            
+            try {
+                // Collect current filters
+                const filters = getCurrentFilters();
+                
+                // Create form data
+                const formData = new FormData();
+                formData.append('searchTerm', filters.searchTerm || '');
+                formData.append('statusFilters', JSON.stringify(filters.statusFilters));
+                formData.append('sortBy', filters.sortBy || '');
+                formData.append('sortDirection', filters.sortDirection || 'desc');
+                
+                // Create and submit form
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/rma/export-excel';
+                form.style.display = 'none';
+                
+                // Add form data as hidden inputs
+                formData.forEach((value, key) => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = value;
+                    form.appendChild(input);
+                });
+                
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+                
+                // Reset button after a short delay
+                setTimeout(() => {
+                    exportBtn.innerHTML = originalHtml;
+                    exportBtn.disabled = false;
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error exporting to Excel:', error);
+                alert('Error exporting to Excel. Please try again.');
+                
+                // Reset button
+                exportBtn.innerHTML = originalHtml;
+                exportBtn.disabled = false;
+            }
+        }
+        
+        function getCurrentFilters() {
+            // Get search term
+            const searchInput = document.getElementById('rmaSearchInput');
+            const searchTerm = searchInput ? searchInput.value : '';
+            
+            // Get status filters
+            const statusCheckboxes = document.querySelectorAll('.status-filter:checked');
+            const statusFilters = Array.from(statusCheckboxes).map(cb => cb.value);
+            
+            // Get current sort (if available)
+            let sortBy = '';
+            let sortDirection = 'desc';
+            
+            // Check for sort indicators in table headers
+            const activeSort = document.querySelector('.sortable-header.sort-active');
+            if (activeSort) {
+                sortBy = activeSort.getAttribute('data-sort');
+                sortDirection = activeSort.classList.contains('sort-asc') ? 'asc' : 'desc';
+            }
+            
+            return {
+                searchTerm: searchTerm,
+                statusFilters: statusFilters,
+                sortBy: sortBy,
+                sortDirection: sortDirection
+            };
+        }
+    </script>
+    
     <!-- Bootstrap JavaScript - MUST load before theme toggle for dropdowns to work -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Theme Toggle JavaScript -->
@@ -2938,6 +3277,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Fix dropdown functionality on this page
             const statusDropdown = document.getElementById('statusFilterDropdown');
+            const priorityDropdown = document.getElementById('priorityFilterDropdown');
             const profileDropdown = document.getElementById('profileDropdown');
             
             if (statusDropdown) {
@@ -2945,6 +3285,15 @@
                     e.stopPropagation();
                     e.preventDefault();
                     const dropdownInstance = bootstrap.Dropdown.getInstance(statusDropdown) || new bootstrap.Dropdown(statusDropdown);
+                    dropdownInstance.toggle();
+                });
+            }
+            
+            if (priorityDropdown) {
+                priorityDropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const dropdownInstance = bootstrap.Dropdown.getInstance(priorityDropdown) || new bootstrap.Dropdown(priorityDropdown);
                     dropdownInstance.toggle();
                 });
             }
@@ -2969,6 +3318,31 @@
                     
                     // Find the checkbox within this item
                     const checkbox = item.querySelector('.status-filter');
+                    if (checkbox) {
+                        // Toggle the checkbox
+                        checkbox.checked = !checkbox.checked;
+                        
+                        // Trigger the change event to update the filtering
+                        const event = new Event('change', { bubbles: true });
+                        checkbox.dispatchEvent(event);
+                    }
+                    
+                    // Prevent the dropdown from closing
+                    e.stopPropagation();
+                });
+            });
+
+            // Make priority filter rows clickable to toggle checkboxes
+            document.querySelectorAll('.priority-filter-item').forEach(function(item) {
+                item.style.cursor = 'pointer';
+                item.addEventListener('click', function(e) {
+                    // Don't trigger if clicking directly on the checkbox
+                    if (e.target.type === 'checkbox') {
+                        return;
+                    }
+                    
+                    // Find the checkbox within this item
+                    const checkbox = item.querySelector('.priority-filter');
                     if (checkbox) {
                         // Toggle the checkbox
                         checkbox.checked = !checkbox.checked;

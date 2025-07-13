@@ -250,6 +250,7 @@
 
 /* Tables */
 [data-bs-theme="dark"] .table {
+    --bs-table-bg: var(--bs-secondary-bg);
     color: var(--bs-body-color);
 }
 
@@ -288,173 +289,159 @@
 
 /* Alerts */
 [data-bs-theme="dark"] .alert-primary {
-    background-color: #031633;
-    border-color: #084298;
-    color: #6ea8fe;
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #fff;
 }
 
 [data-bs-theme="dark"] .alert-secondary {
-    background-color: #161719;
-    border-color: #41464b;
-    color: #a7acb1;
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
 }
 
 [data-bs-theme="dark"] .alert-success {
-    background-color: #051b11;
-    border-color: #0f5132;
-    color: #75b798;
+    background-color: #198754;
+    border-color: #198754;
+    color: #fff;
 }
 
 [data-bs-theme="dark"] .alert-danger {
-    background-color: #2c0b0e;
-    border-color: #842029;
-    color: #ea868f;
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
 }
 
 [data-bs-theme="dark"] .alert-warning {
-    background-color: #332701;
-    border-color: #997404;
-    color: #ffda6a;
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #000;
 }
 
 [data-bs-theme="dark"] .alert-info {
-    background-color: #055160;
-    border-color: #087990;
-    color: #6edff6;
+    background-color: #0dcaf0;
+    border-color: #0dcaf0;
+    color: #000;
 }
 
 /* Badges */
 [data-bs-theme="dark"] .badge {
-    color: #000;
+    color: #fff;
 }
 
 [data-bs-theme="dark"] .badge.bg-secondary {
-    color: #fff;
+    background-color: #6c757d !important;
 }
 
 [data-bs-theme="dark"] .badge.bg-dark {
-    color: #fff;
+    background-color: #495057 !important;
 }
 
 /* Grid canvas and controls */
 [data-bs-theme="dark"] #grid-canvas {
-    background-color: var(--bs-secondary-bg);
+    background-color: var(--bs-body-bg);
     border-color: var(--bs-border-color);
 }
 
 [data-bs-theme="dark"] #grid-controls {
-    background-color: #4a1a5c; /* Dark purple background */
-    border: 1px solid #5e226e; /* Dark purple border */
-    box-shadow: 0 4px 12px rgba(74, 26, 92, 0.4); /* Purple glow shadow */
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
 }
 
 [data-bs-theme="dark"] #grid-controls-header {
-    background-color: #4a1a5c; /* Dark purple header */
-    color: #c084d1; /* Light purple text */
-    border-bottom: 1px solid #5e226e; /* Dark purple border */
+    background-color: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
 }
 
 [data-bs-theme="dark"] #grid-controls-body {
-    background-color: #3a1447; /* Darker purple body */
+    background-color: var(--bs-secondary-bg);
     color: var(--bs-body-color);
-    border-color: #5e226e;
 }
 
 [data-bs-theme="dark"] .grid-control-btn {
-    background-color: #2d0f38; /* Very dark purple */
-    border-color: #5e226e; /* Dark purple border */
-    color: #c084d1; /* Light purple text */
-    transition: all 0.2s ease;
+    background-color: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
 }
 
 [data-bs-theme="dark"] .grid-control-btn:hover {
-    background-color: #4a1a5c; /* Lighter purple on hover */
-    border-color: #7a2b85; /* Brighter purple border */
-    color: #d19ad8; /* Slightly brighter text */
-    transform: translateY(-1px); /* Subtle lift effect */
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
 }
 
 [data-bs-theme="dark"] .grid-control-btn.active {
-    background-color: #6b2475; /* Active purple */
-    border-color: #8e44ad; /* Bright purple border */
-    color: #e8b4f0; /* Bright purple text */
-    box-shadow: 0 0 8px rgba(142, 68, 173, 0.3); /* Purple glow */
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #fff;
 }
 
-/* Dark mode grid tool colors */
+/* Tool shapes */
 [data-bs-theme="dark"] .tool-shape.teal-tool,
-[data-bs-theme="dark"] .konvajs-content .teal-tool {
-    background-color: #0d4f47 !important; /* Dark teal background */
-    border-color: #1a5d55 !important; /* Dark teal outline */
-    color: #4fd1c7 !important; /* Light teal text */
+[data-bs-theme="dark"] .tool-shape.purple-tool {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
 }
 
 [data-bs-theme="dark"] .tool-shape.purple-tool,
-[data-bs-theme="dark"] .konvajs-content .purple-tool {
-    background-color: #4a1a5c !important; /* Dark purple background */
-    border-color: #5e226e !important; /* Dark purple outline */
-    color: #c084d1 !important; /* Light purple text */
+[data-bs-theme="dark"] .tool-shape.teal-tool {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
 }
 
 [data-bs-theme="dark"] .tool-shape,
-[data-bs-theme="dark"] .konvajs-content .tool-shape {
-    background-color: #1a3a5c !important; /* Dark blue background for default tools */
-    border-color: #2a4a6c !important; /* Dark blue outline */
-    color: #87ceeb !important; /* Light blue text */
+[data-bs-theme="dark"] .tool-shape.selected {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
 }
 
-/* Konva canvas tool styling for dark mode */
+/* Konva canvas overrides */
 [data-bs-theme="dark"] .konvajs-content canvas {
-    filter: none; /* Ensure no unwanted filters */
+    background-color: var(--bs-body-bg) !important;
 }
 
-/* Additional Konva element targeting */
 [data-bs-theme="dark"] .konvajs-content rect[fill="#16a085"] {
-    fill: #0d4f47 !important; /* Dark teal fill */
-    stroke: #1a5d55 !important; /* Dark teal stroke */
+    fill: #20c997 !important;
 }
 
 [data-bs-theme="dark"] .konvajs-content rect[fill="#8e44ad"] {
-    fill: #4a1a5c !important; /* Dark purple fill */
-    stroke: #5e226e !important; /* Dark purple stroke */
+    fill: #d63384 !important;
 }
 
 [data-bs-theme="dark"] .konvajs-content rect[fill="#007bff"] {
-    fill: #1a3a5c !important; /* Dark blue fill */
-    stroke: #2a4a6c !important; /* Dark blue stroke */
+    fill: #0d6efd !important;
 }
 
-/* Text elements in Konva canvas */
+/* Text fills */
 [data-bs-theme="dark"] .konvajs-content text[fill="black"] {
-    fill: #f0f8ff !important; /* Light text for readability */
+    fill: #f8f9fa !important;
 }
 
-/* Filter icons */
 [data-bs-theme="dark"] .filter-icon:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Tooltips */
 [data-bs-theme="dark"] .assigned-user-tooltip {
-    background-color: #495057;
-    color: #f8f9fa;
+    background-color: var(--bs-secondary-bg) !important;
+    border-color: var(--bs-border-color) !important;
+    color: var(--bs-body-color) !important;
 }
 
-/* Login page dark mode */
+/* Login form */
 [data-bs-theme="dark"] .login-form {
     background-color: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    border-color: var(--bs-border-color);
 }
 
 [data-bs-theme="dark"] .login-form h2 {
     color: var(--bs-body-color);
 }
 
-/* Custom scrollbars for dark mode */
+/* Scrollbars */
 [data-bs-theme="dark"] ::-webkit-scrollbar {
     width: 8px;
-    height: 8px;
 }
 
 [data-bs-theme="dark"] ::-webkit-scrollbar-track {
@@ -463,14 +450,12 @@
 
 [data-bs-theme="dark"] ::-webkit-scrollbar-thumb {
     background: var(--bs-border-color);
-    border-radius: 4px;
 }
 
 [data-bs-theme="dark"] ::-webkit-scrollbar-thumb:hover {
     background: #6c757d;
 }
 
-/* Borders and dividers */
 [data-bs-theme="dark"] hr {
     border-color: var(--bs-border-color);
 }
@@ -495,7 +480,7 @@
     border-right-color: var(--bs-border-color) !important;
 }
 
-/* Text colors */
+/* Text overrides */
 [data-bs-theme="dark"] .text-muted {
     color: #6c757d !important;
 }
@@ -504,23 +489,22 @@
     color: var(--bs-body-color) !important;
 }
 
-/* Background colors */
+/* Background overrides */
 [data-bs-theme="dark"] .bg-light {
     background-color: var(--bs-secondary-bg) !important;
 }
 
 [data-bs-theme="dark"] .bg-white {
-    background-color: var(--bs-body-bg) !important;
+    background-color: var(--bs-secondary-bg) !important;
 }
 
-/* Smooth transitions for theme switching */
+/* Theme toggle animations */
 * {
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
-/* Animation for theme toggle icon */
 .theme-toggle i {
-    animation: none;
+    transition: transform 0.3s ease;
 }
 
 [data-bs-theme="dark"] .theme-toggle .bi-sun-fill {
@@ -531,28 +515,28 @@
     transform: rotate(0deg);
 }
 
-/* Ensure proper contrast for status indicators */
+/* Additional text color overrides */
 [data-bs-theme="dark"] .text-success {
-    color: #75b798 !important;
+    color: #198754 !important;
 }
 
 [data-bs-theme="dark"] .text-danger {
-    color: #ea868f !important;
+    color: #dc3545 !important;
 }
 
 [data-bs-theme="dark"] .text-warning {
-    color: #ffda6a !important;
+    color: #ffc107 !important;
 }
 
 [data-bs-theme="dark"] .text-info {
-    color: #6edff6 !important;
+    color: #0dcaf0 !important;
 }
 
 [data-bs-theme="dark"] .text-primary {
-    color: #6ea8fe !important;
+    color: #0d6efd !important;
 }
 
-/* RMA and other specific page elements */
+/* Accordion */
 [data-bs-theme="dark"] .accordion-item {
     background-color: var(--bs-secondary-bg);
     border-color: var(--bs-border-color);
@@ -564,33 +548,34 @@
 }
 
 [data-bs-theme="dark"] .accordion-body {
-    background-color: var(--bs-body-bg);
+    background-color: var(--bs-secondary-bg);
     color: var(--bs-body-color);
 }
 
+/* Nav tabs */
 [data-bs-theme="dark"] .nav-tabs .nav-link {
     background-color: var(--bs-secondary-bg);
     border-color: var(--bs-border-color);
     color: var(--bs-body-color);
 }
 
-[data-bs-theme="dark"] .nav-tabs .nav-link.active {
+[data-bs-theme="dark"] .nav-tabs .nav-link.active,
+[data-bs-theme="dark"] .nav-tabs .nav-link.active:focus,
+[data-bs-theme="dark"] .nav-tabs .nav-link.active:hover {
     background-color: var(--bs-body-bg);
     border-color: var(--bs-border-color);
     color: var(--bs-body-color);
 }
 
-/* RMA List Page Dark Mode Styles */
-
-/* RMA Table Compact Styles */
+/* Table compact */
 [data-bs-theme="dark"] .table-compact {
-    color: var(--bs-body-color);
+    background-color: var(--bs-secondary-bg);
 }
 
 [data-bs-theme="dark"] .table-compact th {
     background-color: var(--bs-tertiary-bg);
-    color: var(--bs-body-color);
     border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
 }
 
 [data-bs-theme="dark"] .table-compact td {
@@ -599,28 +584,25 @@
 }
 
 [data-bs-theme="dark"] .table-compact tbody tr:hover {
-    background-color: rgba(255, 255, 255, 0.075);
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
-/* RMA Interactive Icons */
 [data-bs-theme="dark"] .info-icon-interactive {
-    color: #5ba3f5; /* Blue theme */
+    color: #0dcaf0;
 }
 
 [data-bs-theme="dark"] .problem-popover-icon {
-    color: #5ba3f5; /* Blue theme */
+    color: #dc3545;
 }
 
 [data-bs-theme="dark"] .moving-parts-icon {
-    background-color: #5ba3f5; /* Blue theme */
-    color: #fff;
+    color: var(--bs-body-color);
 }
 
 [data-bs-theme="dark"] .moving-parts-icon:hover {
-    background-color: #4a91e2; /* Darker blue on hover */
+    color: #0d6efd;
 }
 
-/* RMA Sorting Arrows */
 [data-bs-theme="dark"] .sort-up,
 [data-bs-theme="dark"] .sort-down {
     color: #6c757d;
@@ -628,15 +610,14 @@
 
 [data-bs-theme="dark"] .sortable-header:hover .sort-up,
 [data-bs-theme="dark"] .sortable-header:hover .sort-down {
-    color: #5ba3f5; /* Blue theme */
+    color: var(--bs-body-color);
 }
 
 [data-bs-theme="dark"] .sortable-header.sort-asc .sort-up,
 [data-bs-theme="dark"] .sortable-header.sort-desc .sort-down {
-    color: #5ba3f5; /* Blue theme */
+    color: #0d6efd;
 }
 
-/* RMA Header Content Structure */
 [data-bs-theme="dark"] .header-content {
     color: var(--bs-body-color);
 }
@@ -645,14 +626,15 @@
     color: var(--bs-body-color);
 }
 
-/* RMA Search Highlighting */
+/* Search highlighting */
 [data-bs-theme="dark"] .search-highlight {
-    background-color: #4a91e2; /* Blue highlight instead of yellow */
-    color: #fff;
-    font-weight: bold;
+    background-color: #ffc107;
+    color: #000;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
 }
 
-/* RMA Status Filter Dropdown */
+/* Status filter header */
 [data-bs-theme="dark"] .status-filter-header .dropdown-toggle {
     background-color: var(--bs-secondary-bg);
     border-color: var(--bs-border-color);
@@ -667,15 +649,15 @@
     color: var(--bs-body-color);
 }
 
-/* RMA Status Count Badges - Dark Mode Colors */
+/* Status count squares */
 [data-bs-theme="dark"] .status-count-square.badge.bg-primary {
-    background-color: #5ba3f5 !important; /* Blue theme */
+    background-color: #0d6efd !important;
     color: #fff !important;
 }
 
 [data-bs-theme="dark"] .status-count-square.badge.bg-info {
-    background-color: #17a2b8 !important;
-    color: #fff !important;
+    background-color: #0dcaf0 !important;
+    color: #000 !important;
 }
 
 [data-bs-theme="dark"] .status-count-square.badge.bg-secondary {
@@ -698,182 +680,170 @@
     color: #fff !important;
 }
 
-/* RMA Table Container */
+/* RMA table container */
 [data-bs-theme="dark"] .rma-table-container {
-    background-color: var(--bs-body-bg);
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
 }
 
-/* RMA Links */
 [data-bs-theme="dark"] .text-decoration-hover-underline {
-    color: #5ba3f5; /* Blue theme */
-    text-decoration: none;
+    color: var(--bs-body-color);
 }
 
 [data-bs-theme="dark"] .text-decoration-hover-underline:hover {
-    color: #4a91e2; /* Darker blue on hover */
+    color: #0d6efd;
     text-decoration: underline;
 }
 
-/* RMA Form Check Inputs in Dropdown */
+/* Status filter items */
 [data-bs-theme="dark"] .status-filter-item .form-check-input {
     background-color: var(--bs-secondary-bg);
     border-color: var(--bs-border-color);
 }
 
 [data-bs-theme="dark"] .status-filter-item .form-check-input:checked {
-    background-color: #5ba3f5; /* Blue theme */
-    border-color: #5ba3f5;
+    background-color: #0d6efd;
+    border-color: #0d6efd;
 }
 
-/* Input Group for Search */
+/* Input group text */
 [data-bs-theme="dark"] .input-group-text {
     background-color: var(--bs-secondary-bg);
     border-color: var(--bs-border-color);
     color: var(--bs-body-color);
 }
 
-/* Enhanced Popovers in Dark Mode */
+/* Popovers */
 [data-bs-theme="dark"] .popover {
     background-color: var(--bs-secondary-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    max-width: 350px;
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5);
 }
 
 [data-bs-theme="dark"] .popover-header {
     background-color: var(--bs-tertiary-bg);
-    border-bottom: 1px solid var(--bs-border-color);
-    border-radius: 7px 7px 0 0;
+    border-color: var(--bs-border-color);
     color: var(--bs-body-color);
-    padding: 12px 16px;
+    border-top-left-radius: calc(0.375rem - 1px);
+    border-top-right-radius: calc(0.375rem - 1px);
 }
 
 [data-bs-theme="dark"] .popover-body {
     background-color: var(--bs-secondary-bg);
     color: var(--bs-body-color);
-    padding: 12px 16px;
-    line-height: 1.4;
+    border-bottom-left-radius: calc(0.375rem - 1px);
+    border-bottom-right-radius: calc(0.375rem - 1px);
 }
 
-/* Enhanced Arrow Styling for Dark Mode */
+/* Popover arrows */
 [data-bs-theme="dark"] .popover .popover-arrow {
-    width: 16px;
-    height: 8px;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
 }
 
 [data-bs-theme="dark"] .popover .popover-arrow::before,
 [data-bs-theme="dark"] .popover .popover-arrow::after {
-    position: absolute;
-    display: block;
-    content: "";
-    border-color: transparent;
-    border-style: solid;
-    border-width: 8px;
+    border-color: var(--bs-border-color);
 }
 
-/* Right placement arrow (most common) */
 [data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::before {
-    left: -1px;
     border-right-color: var(--bs-border-color);
 }
 
 [data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::after {
-    left: 0;
     border-right-color: var(--bs-secondary-bg);
 }
 
-/* Left placement arrow */
 [data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::before {
-    right: -1px;
     border-left-color: var(--bs-border-color);
 }
 
 [data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::after {
-    right: 0;
     border-left-color: var(--bs-secondary-bg);
 }
 
-/* Top placement arrow */
 [data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::before {
-    bottom: -1px;
     border-top-color: var(--bs-border-color);
 }
 
 [data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::after {
-    bottom: 0;
     border-top-color: var(--bs-secondary-bg);
 }
 
-/* Bottom placement arrow */
 [data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::before {
-    top: -1px;
     border-bottom-color: var(--bs-border-color);
 }
 
 [data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::after {
-    top: 0;
     border-bottom-color: var(--bs-secondary-bg);
 }
 
-/* Action Icons */
+/* Action icons */
 [data-bs-theme="dark"] .action-icon {
     color: var(--bs-body-color);
 }
 
 [data-bs-theme="dark"] .action-icon:hover {
-    color: #5ba3f5; /* Blue theme */
+    color: #0d6efd;
 }
 
-/* List Unstyled in RMA Parts */
+/* List unstyled */
 [data-bs-theme="dark"] .list-unstyled {
     color: var(--bs-body-color);
 }
 
-/* RMA Status Badges - Rounded Pill Badges in Table */
+/* Status badges */
 [data-bs-theme="dark"] .status-badge.badge.bg-primary {
-    background-color: #375a7f !important; /* Darker blue for dark mode */
+    background-color: #0d6efd !important;
     color: #fff !important;
-    border: 1px solid #4a91e2;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-info {
-    background-color: #1b6ec2 !important; /* Darker info blue */
-    color: #fff !important;
-    border: 1px solid #17a2b8;
+    background-color: #0dcaf0 !important;
+    color: #000 !important;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-secondary {
-    background-color: #495057 !important; /* Darker gray */
+    background-color: #6c757d !important;
     color: #fff !important;
-    border: 1px solid #6c757d;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-warning {
-    background-color: #fd7e14 !important; /* Darker orange instead of bright yellow */
+    background-color: #ffc107 !important;
     color: #000 !important;
-    border: 1px solid #ffc107;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-danger {
-    background-color: #b02a37 !important; /* Darker red */
+    background-color: #dc3545 !important;
     color: #fff !important;
-    border: 1px solid #dc3545;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-success {
-    background-color: #146c43 !important; /* Darker green */
+    background-color: #198754 !important;
     color: #fff !important;
-    border: 1px solid #198754;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-light {
-    background-color: #495057 !important; /* Dark gray instead of light */
-    color: #fff !important;
-    border: 1px solid #6c757d;
+    background-color: #f8f9fa !important;
+    color: #000 !important;
 }
 
-/* Override text-dark class on warning badges in dark mode */
+/* Medium priority badge fix */
 [data-bs-theme="dark"] .status-badge.badge.bg-warning.text-dark {
-    color: #000 !important; /* Keep dark text on orange background */
-} 
+    color: #000000 !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-warning.text-dark {
+    color: #000000 !important;
+}
+
+/* Tool Checklist Items Dark Mode */
+[data-bs-theme="dark"] .checklist-item {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .checklist-item:hover {
+    background-color: var(--bs-tertiary-bg);
+}

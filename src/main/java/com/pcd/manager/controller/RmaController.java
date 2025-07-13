@@ -49,6 +49,9 @@ import com.pcd.manager.model.MovingPart;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.pcd.manager.service.TrackTrendService;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Objects;
+import java.util.Arrays;
+import java.util.Comparator;
 
 @Controller
 @RequestMapping("/rma")
@@ -145,7 +148,8 @@ public class RmaController {
                 rmaMap.put("sapNotificationNumber", (String) row[2]);
                 rmaMap.put("status", row[3] != null ? row[3].toString() : null);
                 rmaMap.put("statusDisplayName", row[3] != null ? ((RmaStatus) row[3]).getDisplayName() : null);
-                rmaMap.put("priority", row[4] != null ? ((RmaPriority) row[4]).ordinal() + 1 : 1);
+                rmaMap.put("priority", row[4] != null ? ((RmaPriority) row[4]).name() : "MEDIUM");
+                rmaMap.put("priorityDisplayName", row[4] != null ? ((RmaPriority) row[4]).getDisplayName() : "Medium");
                 rmaMap.put("customerName", (String) row[5]);
                 rmaMap.put("writtenDate", row[6] != null ? row[6].toString() : null);
                 rmaMap.put("rmaNumberProvidedDate", row[7] != null ? row[7].toString() : null);
@@ -1203,6 +1207,164 @@ public class RmaController {
         
         // Return to the RMA view
         return "redirect:/rma/" + sourceRmaId;
+    }
+
+    /**
+     * Test endpoint to verify controller mapping
+     */
+    @GetMapping("/{id}/test-upload")
+    @ResponseBody
+    public String testUpload(@PathVariable Long id) {
+        return "Test upload endpoint works for RMA ID: " + id;
+    }
+
+    /**
+     * Upload pictures for RMA and redirect back to detail page
+     */
+    @PostMapping("/{id}/upload")
+    public String uploadPictures(@PathVariable Long id,
+                                @RequestParam("files") MultipartFile[] files,
+                                RedirectAttributes redirectAttributes) {
+        try {
+            // Verify RMA exists
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (rmaOpt.isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "RMA not found");
+                return "redirect:/rma";
+            }
+            
+            Rma rma = rmaOpt.get();
+            int successCount = 0;
+            
+            // Process each file
+            for (MultipartFile file : files) {
+                if (file.isEmpty()) {
+                    continue;
+                }
+                
+                try {
+                    // Validate file
+                    if (!uploadUtils.validateFile(file)) {
+                        logger.warn("File validation failed for: {}", file.getOriginalFilename());
+                        continue;
+                    }
+                    
+                    // Only process images
+                    String contentType = file.getContentType();
+                    if (contentType == null || !contentType.startsWith("image/")) {
+                        logger.warn("File is not an image: {}", file.getOriginalFilename());
+                        continue;
+                    }
+                    
+                    // Save file to disk
+                    String filePath = uploadUtils.saveFile(file, "rma-pictures");
+                    if (filePath == null) {
+                        logger.warn("Failed to save file: {}", file.getOriginalFilename());
+                        continue;
+                    }
+                    
+                    // Create picture entity
+                    RmaPicture picture = new RmaPicture();
+                    picture.setFileName(file.getOriginalFilename());
+                    picture.setFilePath(filePath);
+                    picture.setFileType(contentType);
+                    picture.setFileSize(file.getSize());
+                    picture.setRma(rma);
+                    
+                    rma.getPictures().add(picture);
+                    successCount++;
+                    
+                } catch (Exception e) {
+                    logger.error("Error processing picture {}: {}", file.getOriginalFilename(), e.getMessage());
+                }
+            }
+            
+            // Save RMA with new pictures
+            if (successCount > 0) {
+                rmaService.saveRma(rma, new MultipartFile[0]);
+                redirectAttributes.addFlashAttribute("success", 
+                    successCount + " picture(s) uploaded successfully");
+            } else {
+                redirectAttributes.addFlashAttribute("error", "No pictures were uploaded");
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error uploading pictures for RMA {}: {}", id, e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Error uploading pictures: " + e.getMessage());
+        }
+        
+        return "redirect:/rma/" + id;
+    }
+    
+    /**
+     * Upload documents for RMA and redirect back to detail page
+     */
+    @PostMapping("/{id}/documents/upload")
+    public String uploadDocuments(@PathVariable Long id,
+                                 @RequestParam("files") MultipartFile[] files,
+                                 RedirectAttributes redirectAttributes) {
+        try {
+            // Verify RMA exists
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (rmaOpt.isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "RMA not found");
+                return "redirect:/rma";
+            }
+            
+            Rma rma = rmaOpt.get();
+            int successCount = 0;
+            
+            // Process each file
+            for (MultipartFile file : files) {
+                if (file.isEmpty()) {
+                    continue;
+                }
+                
+                try {
+                    // Validate file
+                    if (!uploadUtils.validateFile(file)) {
+                        logger.warn("File validation failed for: {}", file.getOriginalFilename());
+                        continue;
+                    }
+                    
+                    // Save file to disk
+                    String filePath = uploadUtils.saveFile(file, "rma-documents");
+                    if (filePath == null) {
+                        logger.warn("Failed to save file: {}", file.getOriginalFilename());
+                        continue;
+                    }
+                    
+                    // Create document entity
+                    RmaDocument document = new RmaDocument();
+                    document.setFileName(file.getOriginalFilename());
+                    document.setFilePath(filePath);
+                    document.setFileType(file.getContentType());
+                    document.setFileSize(file.getSize());
+                    document.setRma(rma);
+                    
+                    rma.getDocuments().add(document);
+                    successCount++;
+                    
+                } catch (Exception e) {
+                    logger.error("Error processing document {}: {}", file.getOriginalFilename(), e.getMessage());
+                }
+            }
+            
+            // Save RMA with new documents
+            if (successCount > 0) {
+                rmaService.saveRma(rma, new MultipartFile[0]);
+                redirectAttributes.addFlashAttribute("success", 
+                    successCount + " document(s) uploaded successfully");
+            } else {
+                redirectAttributes.addFlashAttribute("error", "No documents were uploaded");
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error uploading documents for RMA {}: {}", id, e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "Error uploading documents: " + e.getMessage());
+        }
+        
+        return "redirect:/rma/" + id;
     }
 
     /**
@@ -2552,5 +2714,193 @@ public class RmaController {
         } catch (Exception e) {
             logger.error("Error processing temporary moving parts for RMA {}: {}", savedRma.getId(), e.getMessage(), e);
         }
+    }
+    
+    /**
+     * Export filtered RMA list to Excel
+     */
+    @PostMapping("/export-excel")
+    public ResponseEntity<byte[]> exportFilteredRmasToExcel(
+            @RequestParam(required = false) String searchTerm,
+            @RequestParam(required = false) String statusFilters,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDirection,
+            Principal principal) {
+        
+        try {
+            logger.info("Exporting filtered RMA list to Excel");
+            logger.info("Filters - searchTerm: '{}', statusFilters: '{}', sortBy: '{}', sortDirection: '{}'", 
+                       searchTerm, statusFilters, sortBy, sortDirection);
+            
+            // Get all RMAs first
+            List<Rma> allRmas = rmaService.getAllRmas();
+            
+            // Apply filters
+            List<Rma> filteredRmas = filterRmas(allRmas, searchTerm, statusFilters, sortBy, sortDirection);
+            
+            logger.info("Filtered {} RMAs out of {} total RMAs for export", filteredRmas.size(), allRmas.size());
+            
+            // Generate Excel file
+            byte[] excelData = excelService.generateRmaListExcel(filteredRmas);
+            
+            // Generate filename with timestamp
+            String timestamp = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
+                    .format(java.time.LocalDateTime.now());
+            String filename = "RMA_List_Export_" + timestamp + ".xlsx";
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(excelData.length);
+            
+            logger.info("Successfully exported {} RMAs to Excel file: {}", filteredRmas.size(), filename);
+            
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(excelData);
+                    
+        } catch (Exception e) {
+            logger.error("Error exporting RMA list to Excel: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(("Error generating Excel export: " + e.getMessage()).getBytes());
+        }
+    }
+    
+    /**
+     * Filter RMAs based on search criteria
+     */
+    private List<Rma> filterRmas(List<Rma> rmas, String searchTerm, String statusFiltersJson, String sortBy, String sortDirection) {
+        List<Rma> filtered = new ArrayList<>(rmas);
+        
+        // Apply search term filter
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            String searchLower = searchTerm.toLowerCase().trim();
+            filtered = filtered.stream()
+                    .filter(rma -> matchesSearchTerm(rma, searchLower))
+                    .collect(Collectors.toList());
+        }
+        
+        // Apply status filters
+        if (statusFiltersJson != null && !statusFiltersJson.trim().isEmpty() && !statusFiltersJson.equals("[]")) {
+            try {
+                // Parse JSON array of status strings
+                List<String> statusFilters = parseStatusFilters(statusFiltersJson);
+                if (!statusFilters.isEmpty()) {
+                    Set<RmaStatus> allowedStatuses = statusFilters.stream()
+                            .map(status -> {
+                                try {
+                                    return RmaStatus.valueOf(status);
+                                } catch (IllegalArgumentException e) {
+                                    logger.warn("Invalid status filter: {}", status);
+                                    return null;
+                                }
+                            })
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toSet());
+                    
+                    filtered = filtered.stream()
+                            .filter(rma -> allowedStatuses.contains(rma.getStatus()))
+                            .collect(Collectors.toList());
+                }
+            } catch (Exception e) {
+                logger.warn("Error parsing status filters: {}", e.getMessage());
+            }
+        }
+        
+        // Apply sorting
+        if (sortBy != null && !sortBy.trim().isEmpty()) {
+            boolean ascending = "asc".equalsIgnoreCase(sortDirection);
+            filtered = sortRmas(filtered, sortBy, ascending);
+        }
+        
+        return filtered;
+    }
+    
+    /**
+     * Check if RMA matches search term
+     */
+    private boolean matchesSearchTerm(Rma rma, String searchTerm) {
+        // Search in RMA number
+        if (rma.getRmaNumber() != null && rma.getRmaNumber().toLowerCase().contains(searchTerm)) {
+            return true;
+        }
+        
+        // Search in tool name
+        if (rma.getTool() != null && rma.getTool().getName() != null && 
+            rma.getTool().getName().toLowerCase().contains(searchTerm)) {
+            return true;
+        }
+        
+        // Search in customer name
+        if (rma.getCustomerName() != null && rma.getCustomerName().toLowerCase().contains(searchTerm)) {
+            return true;
+        }
+        
+        // Search in part line items
+        if (rma.getPartLineItems() != null) {
+            for (PartLineItem item : rma.getPartLineItems()) {
+                if ((item.getPartName() != null && item.getPartName().toLowerCase().contains(searchTerm)) ||
+                    (item.getPartNumber() != null && item.getPartNumber().toLowerCase().contains(searchTerm)) ||
+                    (item.getProductDescription() != null && item.getProductDescription().toLowerCase().contains(searchTerm))) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Parse status filters from JSON string
+     */
+    private List<String> parseStatusFilters(String statusFiltersJson) {
+        try {
+            // Remove brackets and quotes, split by comma
+            String cleaned = statusFiltersJson.replaceAll("[\\[\\]\"]", "");
+            if (cleaned.trim().isEmpty()) {
+                return new ArrayList<>();
+            }
+            return Arrays.stream(cleaned.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            logger.warn("Error parsing status filters: {}", e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+    
+    /**
+     * Sort RMAs based on sort criteria
+     */
+    private List<Rma> sortRmas(List<Rma> rmas, String sortBy, boolean ascending) {
+        Comparator<Rma> comparator;
+        
+        switch (sortBy.toLowerCase()) {
+            case "rma-number":
+                comparator = Comparator.comparing(rma -> rma.getRmaNumber(), Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+                break;
+            case "tool":
+                comparator = Comparator.comparing(rma -> rma.getTool() != null ? rma.getTool().getName() : "", 
+                                                Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+                break;
+            case "status":
+                comparator = Comparator.comparing(rma -> rma.getStatus() != null ? rma.getStatus().name() : "", 
+                                                Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+                break;
+            case "customer":
+                comparator = Comparator.comparing(rma -> rma.getCustomerName(), Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+                break;
+            case "date":
+            default:
+                comparator = Comparator.comparing(rma -> rma.getWrittenDate(), Comparator.nullsLast(Comparator.naturalOrder()));
+                break;
+        }
+        
+        if (!ascending) {
+            comparator = comparator.reversed();
+        }
+        
+        return rmas.stream().sorted(comparator).collect(Collectors.toList());
     }
 } 

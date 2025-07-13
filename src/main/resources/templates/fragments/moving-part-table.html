@@ -82,17 +82,17 @@
                     type="button" 
                     data-bs-toggle="collapse" 
                     data-bs-target="#movingPartsCollapse" 
-                    aria-expanded="false" 
+                    aria-expanded="true" 
                     aria-controls="movingPartsCollapse">
                 <span th:text="${title}">Moving Parts</span>
                 <div class="d-flex align-items-center">
                     <span class="badge bg-secondary me-2" th:text="${movingParts != null ? movingParts.size() : '0'}">0</span>
-                    <i class="bi bi-chevron-down"></i>
+                    <i class="bi bi-chevron-up"></i>
                 </div>
             </button>
         </h5>
     </div>
-    <div class="collapse" id="movingPartsCollapse">
+    <div class="collapse show" id="movingPartsCollapse">
         <div class="card-body">
         <div th:if="${movingParts == null || movingParts.empty}" class="alert alert-info">
             <span th:text="${'No moving parts have been recorded' + (title != null ? ' for this ' + #strings.toLowerCase(title) : '') + '.'}">

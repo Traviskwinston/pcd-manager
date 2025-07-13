@@ -756,4 +756,192 @@ public class ExcelService {
         // If all parsing attempts fail
         return null;
     }
+    
+    /**
+     * Generates an Excel file containing a list of RMAs
+     * 
+     * @param rmas The list of RMAs to include in the Excel file
+     * @return A byte array of the Excel file
+     * @throws IOException If an I/O error occurs
+     */
+    public byte[] generateRmaListExcel(List<Rma> rmas) throws IOException {
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            
+            // Create sheet
+            Sheet sheet = workbook.createSheet("RMA List");
+            
+            // Create header style
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setFontHeightInPoints((short) 12);
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+            
+            // Create date style
+            CellStyle dateStyle = workbook.createCellStyle();
+            dateStyle.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat("MM/dd/yyyy"));
+            
+            // Create header row
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {
+                "RMA Number", "SAP Notification", "Tool Name", "Tool Serial #", "Tool Model #",
+                "Status", "Priority", "Customer Name", "Location", "Technician",
+                "Written Date", "RMA # Provided Date", "Shipping Memo Date", "Parts Received Date",
+                "Installed Parts Date", "Failed Parts Packed Date", "Failed Parts Shipped Date",
+                "Part Names", "Part Numbers", "Root Cause", "Resolution", "Notes"
+            };
+            
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+            
+            // Populate data rows
+            int rowNum = 1;
+            for (Rma rma : rmas) {
+                Row row = sheet.createRow(rowNum++);
+                int colNum = 0;
+                
+                // RMA Number
+                setCellValueSafe(row, colNum++, rma.getRmaNumber());
+                
+                // SAP Notification
+                setCellValueSafe(row, colNum++, rma.getSapNotificationNumber());
+                
+                // Tool information
+                Tool tool = rma.getTool();
+                if (tool != null) {
+                    setCellValueSafe(row, colNum++, tool.getName()); // Tool Name
+                    
+                    // Tool Serial # (combine serial1 and serial2)
+                    String serialNumber = "";
+                    if (tool.getSerialNumber1() != null && !tool.getSerialNumber1().isEmpty()) {
+                        serialNumber = tool.getSerialNumber1();
+                    }
+                    if (tool.getSerialNumber2() != null && !tool.getSerialNumber2().isEmpty()) {
+                        if (!serialNumber.isEmpty()) {
+                            serialNumber += " / ";
+                        }
+                        serialNumber += tool.getSerialNumber2();
+                    }
+                    setCellValueSafe(row, colNum++, serialNumber);
+                    
+                    // Tool Model # (combine model1 and model2)
+                    String modelNumber = "";
+                    if (tool.getModel1() != null && !tool.getModel1().isEmpty()) {
+                        modelNumber = tool.getModel1();
+                    }
+                    if (tool.getModel2() != null && !tool.getModel2().isEmpty()) {
+                        if (!modelNumber.isEmpty()) {
+                            modelNumber += " / ";
+                        }
+                        modelNumber += tool.getModel2();
+                    }
+                    setCellValueSafe(row, colNum++, modelNumber);
+                } else {
+                    setCellValueSafe(row, colNum++, ""); // Tool Name
+                    setCellValueSafe(row, colNum++, ""); // Tool Serial #
+                    setCellValueSafe(row, colNum++, ""); // Tool Model #
+                }
+                
+                // Status
+                setCellValueSafe(row, colNum++, rma.getStatus() != null ? rma.getStatus().getDisplayName() : "");
+                
+                // Priority
+                setCellValueSafe(row, colNum++, rma.getPriority() != null ? rma.getPriority().getDisplayName() : "");
+                
+                // Customer Name
+                setCellValueSafe(row, colNum++, rma.getCustomerName());
+                
+                // Location
+                setCellValueSafe(row, colNum++, rma.getLocation() != null ? rma.getLocation().getDisplayName() : "");
+                
+                // Technician
+                setCellValueSafe(row, colNum++, rma.getTechnician());
+                
+                // Dates (with date formatting)
+                setDateCellValue(row, colNum++, rma.getWrittenDate(), dateStyle);
+                setDateCellValue(row, colNum++, rma.getRmaNumberProvidedDate(), dateStyle);
+                setDateCellValue(row, colNum++, rma.getShippingMemoEmailedDate(), dateStyle);
+                setDateCellValue(row, colNum++, rma.getPartsReceivedDate(), dateStyle);
+                setDateCellValue(row, colNum++, rma.getInstalledPartsDate(), dateStyle);
+                setDateCellValue(row, colNum++, rma.getFailedPartsPackedDate(), dateStyle);
+                setDateCellValue(row, colNum++, rma.getFailedPartsShippedDate(), dateStyle);
+                
+                // Part information (concatenated)
+                StringBuilder partNames = new StringBuilder();
+                StringBuilder partNumbers = new StringBuilder();
+                
+                if (rma.getPartLineItems() != null && !rma.getPartLineItems().isEmpty()) {
+                    for (int i = 0; i < rma.getPartLineItems().size(); i++) {
+                        PartLineItem item = rma.getPartLineItems().get(i);
+                        if (i > 0) {
+                            partNames.append("; ");
+                            partNumbers.append("; ");
+                        }
+                        partNames.append(item.getPartName() != null ? item.getPartName() : "");
+                        partNumbers.append(item.getPartNumber() != null ? item.getPartNumber() : "");
+                    }
+                }
+                
+                setCellValueSafe(row, colNum++, partNames.toString());
+                setCellValueSafe(row, colNum++, partNumbers.toString());
+                
+                // Root Cause, Resolution, Notes
+                setCellValueSafe(row, colNum++, rma.getRootCause());
+                setCellValueSafe(row, colNum++, rma.getResolution());
+                setCellValueSafe(row, colNum++, rma.getNotes());
+            }
+            
+            // Auto-size columns
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+                // Set minimum width to prevent too narrow columns
+                if (sheet.getColumnWidth(i) < 2000) {
+                    sheet.setColumnWidth(i, 2000);
+                }
+                // Set maximum width to prevent too wide columns
+                if (sheet.getColumnWidth(i) > 8000) {
+                    sheet.setColumnWidth(i, 8000);
+                }
+            }
+            
+            // Freeze header row
+            sheet.createFreezePane(0, 1);
+            
+            // Write workbook to output stream
+            workbook.write(baos);
+            return baos.toByteArray();
+        }
+    }
+    
+    /**
+     * Safely sets a cell value, handling null values
+     */
+    private void setCellValueSafe(Row row, int columnIndex, String value) {
+        Cell cell = row.createCell(columnIndex);
+        if (value != null && !value.isEmpty()) {
+            cell.setCellValue(value);
+        }
+    }
+    
+    /**
+     * Sets a date cell value with proper formatting
+     */
+    private void setDateCellValue(Row row, int columnIndex, LocalDate date, CellStyle dateStyle) {
+        Cell cell = row.createCell(columnIndex);
+        if (date != null) {
+            // Convert LocalDate to Date for Excel
+            cell.setCellValue(java.sql.Date.valueOf(date));
+            cell.setCellStyle(dateStyle);
+        }
+    }
 } 
