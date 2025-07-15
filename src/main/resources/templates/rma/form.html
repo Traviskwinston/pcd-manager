@@ -10,10 +10,27 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" th:href="@{/dark-mode.css}">
     <style>
-        /* Ensure select text is readable */
+        /* Ensure select text is readable in both light and dark modes */
         #status,
         #priority {
-            color: #212529; /* Bootstrap's standard dark text color */
+            color: #212529; /* Bootstrap's standard dark text color for light mode */
+        }
+        
+        [data-bs-theme="dark"] #status,
+        [data-bs-theme="dark"] #priority {
+            color: #f8f9fa; /* Light text for dark mode */
+        }
+        
+        /* Ensure all other select elements also have proper dark mode colors */
+        [data-bs-theme="dark"] select.form-select {
+            color: #f8f9fa;
+            background-color: #495057;
+            border-color: #6c757d;
+        }
+        
+        [data-bs-theme="dark"] select.form-select option {
+            color: #f8f9fa;
+            background-color: #495057;
         }
         
         .border-dashed {

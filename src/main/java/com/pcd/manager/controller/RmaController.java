@@ -456,7 +456,7 @@ public class RmaController {
         model.addAttribute("allTools", allTools);
         model.addAttribute("locations", locationService.getAllLocations());
         model.addAttribute("technicians", userService.getAllUsers());
-        model.addAttribute("comments", rma.getComments());
+        model.addAttribute("rmaComments", rma.getComments());
         
         // Generate HTML options for tools for JavaScript use
         StringBuilder toolOptionsHtml = new StringBuilder();

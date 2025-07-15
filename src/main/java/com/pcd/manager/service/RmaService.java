@@ -1546,6 +1546,7 @@ public class RmaService {
      * Add a comment to an RMA
      */
     @Transactional
+    @CacheEvict(value = {"rma-list", "rma-details", "dashboard-data"}, allEntries = true)
     public RmaComment addComment(Long rmaId, String content, String userEmail) {
         Rma rma = rmaRepository.findById(rmaId)
             .orElseThrow(() -> new IllegalArgumentException("RMA not found: " + rmaId));
