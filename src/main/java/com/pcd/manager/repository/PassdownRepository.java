@@ -14,7 +14,26 @@ public interface PassdownRepository extends JpaRepository<Passdown, Long> {
     
     List<Passdown> findAllByOrderByDateDesc();
     
+    /**
+     * Find all passdowns with user and tool eagerly loaded to avoid lazy initialization
+     */
+    @Query("SELECT DISTINCT p FROM Passdown p " +
+           "LEFT JOIN FETCH p.user " +
+           "LEFT JOIN FETCH p.tool " +
+           "ORDER BY p.date DESC")
+    List<Passdown> findAllWithUserAndToolOrderByDateDesc();
+    
     List<Passdown> findByDateOrderByDateDesc(LocalDate date);
+    
+    /**
+     * Find passdowns by date with user and tool eagerly loaded to avoid lazy initialization
+     */
+    @Query("SELECT DISTINCT p FROM Passdown p " +
+           "LEFT JOIN FETCH p.user " +
+           "LEFT JOIN FETCH p.tool " +
+           "WHERE p.date = :date " +
+           "ORDER BY p.date DESC")
+    List<Passdown> findByDateWithUserAndToolOrderByDateDesc(@Param("date") LocalDate date);
     
     List<Passdown> findByDateBetweenOrderByDateDesc(LocalDate startDate, LocalDate endDate);
     
@@ -29,6 +48,16 @@ public interface PassdownRepository extends JpaRepository<Passdown, Long> {
     List<Passdown> findByDateBetweenWithUserAndToolOrderByDateDesc(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
     
     List<Passdown> findByToolIdOrderByDateDesc(Long toolId);
+    
+    /**
+     * Find passdowns by tool ID with user and tool eagerly loaded to avoid lazy initialization
+     */
+    @Query("SELECT DISTINCT p FROM Passdown p " +
+           "LEFT JOIN FETCH p.user " +
+           "LEFT JOIN FETCH p.tool " +
+           "WHERE p.tool.id = :toolId " +
+           "ORDER BY p.date DESC")
+    List<Passdown> findByToolIdWithUserAndToolOrderByDateDesc(@Param("toolId") Long toolId);
     
     /**
      * OPTIMIZATION: Bulk find passdowns for multiple tools to avoid N+1 queries

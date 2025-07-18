@@ -1013,14 +1013,31 @@ public class ToolController {
         return "redirect:/tools/" + id;
     }
 
-    @PostMapping("/{toolId}/comments/{commentId}/delete")
+    @PostMapping("/{toolId}/comments/{commentId}/update")
+    public String editComment(@PathVariable Long toolId, 
+                             @PathVariable Long commentId,
+                             @RequestParam("content") String content,
+                             Authentication authentication,
+                             RedirectAttributes redirectAttributes) {
+        try {
+            String userEmail = authentication.getName();
+            toolService.editComment(commentId, content, userEmail);
+            redirectAttributes.addFlashAttribute("message", "Comment updated successfully");
+        } catch (Exception e) {
+            logger.error("Error editing comment from Tool {}: {}", toolId, e.getMessage(), e);
+            redirectAttributes.addFlashAttribute("error", "Error editing comment: " + e.getMessage());
+        }
+        return "redirect:/tools/" + toolId;
+    }
+
+    @PostMapping("/{toolId}/comments/{commentId}/remove")
     public String deleteComment(@PathVariable Long toolId, 
                               @PathVariable Long commentId,
                               Authentication authentication,
                               RedirectAttributes redirectAttributes) {
         try {
-            // For now, we'll implement a simple delete - in a real app you'd want to check permissions
-            // This would require adding a delete method to ToolService
+            String userEmail = authentication.getName();
+            toolService.deleteComment(commentId, userEmail);
             redirectAttributes.addFlashAttribute("message", "Comment deleted successfully");
         } catch (Exception e) {
             logger.error("Error deleting comment from Tool {}: {}", toolId, e.getMessage(), e);

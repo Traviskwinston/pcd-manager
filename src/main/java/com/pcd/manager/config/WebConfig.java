@@ -48,13 +48,14 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Configure standard static resources with more specific patterns
-        registry.addResourceHandler("/css/**", "/js/**", "/images/**", "/fonts/**", "/webjars/**")
-                .addResourceLocations("classpath:/static/css/", 
-                                     "classpath:/static/js/", 
-                                     "classpath:/static/images/", 
-                                     "classpath:/static/fonts/", 
-                                     "classpath:/META-INF/resources/webjars/")
+        // Configure standard static resources - let Spring Boot handle static resources automatically
+        registry.addResourceHandler("/**")
+                .addResourceLocations("classpath:/static/")
+                .setCachePeriod("dev".equals(activeProfile) ? 0 : 3600);
+        
+        // Add webjars support
+        registry.addResourceHandler("/webjars/**")
+                .addResourceLocations("classpath:/META-INF/resources/webjars/")
                 .setCachePeriod("dev".equals(activeProfile) ? 0 : 3600);
         
         // Ensure the upload directory exists

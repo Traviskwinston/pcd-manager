@@ -138,7 +138,7 @@
         <!-- Modern Header Section -->
         <div class="detail-header detail-fade-in">
             <div class="d-flex justify-content-between align-items-start">
-                <div>
+                                        <div>
                     <h1 class="mb-2">
                         <i class="bi bi-clipboard-data me-3"></i>
                         <span th:if="${rma.rmaNumber != null && !rma.rmaNumber.empty}" th:text="${rma.rmaNumber}">RMA Number</span>
@@ -150,24 +150,24 @@
                         <!-- Status Badge -->
                         <span th:if="${rma.status != null}" 
                               th:class="${'badge detail-status-badge rma-status-badge ' + 
-                                  (rma.status.name() == 'RMA_WRITTEN_EMAILED' ? 'bg-primary' : 
-                                  (rma.status.name() == 'NUMBER_PROVIDED' ? 'bg-info' : 
-                                  (rma.status.name() == 'MEMO_EMAILED' ? 'bg-secondary' :
-                                  (rma.status.name() == 'RECEIVED_PARTS' ? 'bg-warning' : 
-                                  (rma.status.name() == 'WAITING_CUSTOMER' ? 'bg-danger' : 
-                                  (rma.status.name() == 'WAITING_FSE' ? 'bg-danger' : 
+                                                    (rma.status.name() == 'RMA_WRITTEN_EMAILED' ? 'bg-primary' : 
+                                                    (rma.status.name() == 'NUMBER_PROVIDED' ? 'bg-info' : 
+                                                    (rma.status.name() == 'MEMO_EMAILED' ? 'bg-secondary' :
+                                                    (rma.status.name() == 'RECEIVED_PARTS' ? 'bg-warning' : 
+                                                    (rma.status.name() == 'WAITING_CUSTOMER' ? 'bg-danger' : 
+                                                    (rma.status.name() == 'WAITING_FSE' ? 'bg-danger' : 
                                   (rma.status.name() == 'COMPLETED' ? 'bg-success' : 'bg-light text-dark')))))))}"
                               th:text="${rma.status?.displayName}"
-                              onclick="enterStatusEditMode()"
+                                                    onclick="enterStatusEditMode()"
                               title="Click to change status">Status</span>
                               
                         <!-- Priority Badge -->
-                        <span th:if="${rma.priority != null}" 
+                                                    <span th:if="${rma.priority != null}" 
                               th:class="${'badge detail-priority-badge rma-priority-badge border border-light ' + 
-                                  (rma.priority.name() == 'LOW' ? 'bg-info' : 
-                                  (rma.priority.name() == 'MEDIUM' ? 'bg-warning text-dark' : 
-                                  (rma.priority.name() == 'HIGH' ? 'bg-danger' : 
-                                  (rma.priority.name() == 'URGENT' ? 'bg-danger text-uppercase' : 'bg-light text-dark'))))}"
+                                                                (rma.priority.name() == 'LOW' ? 'bg-info' : 
+                                                                (rma.priority.name() == 'MEDIUM' ? 'bg-warning text-dark' : 
+                                                                (rma.priority.name() == 'HIGH' ? 'bg-danger' : 
+                                                                (rma.priority.name() == 'URGENT' ? 'bg-danger text-uppercase' : 'bg-light text-dark'))))}"
                               th:text="${rma.priority.displayName ?: rma.priority}"
                               onclick="enterPriorityEditMode()"
                               title="Click to change priority">Priority</span>
@@ -176,10 +176,10 @@
                         <span class="badge bg-secondary">
                             <i class="bi bi-geo-alt me-1"></i>
                             <span th:text="${rma.location != null ? rma.location.displayName : 'No location'}">Location</span>
-                        </span>
-                    </div>
-                </div>
-                
+                                                </span>
+                                            </div>
+                                        </div>
+
                 <!-- Tool Information -->
                 <div class="rma-tool-info" th:if="${rma.tool != null}">
                     <div>
@@ -190,16 +190,16 @@
                                 <span th:text="${rma.tool?.name}">Tool Name</span>
                             </a>
                             <span th:if="${rma.tool?.secondaryName}" class="text-muted" th:text="${rma.tool.secondaryName}">Secondary Name</span>
-                        </div>
+                                                </div>
                         
                         <!-- Type, Model, Serial below -->
                         <div class="small">
                             <span class="badge bg-light text-dark" th:text="${rma.tool?.toolType?.displayName ?: rma.tool?.toolType}">Type</span>
                             <span th:if="${rma.tool?.model1}" class="ms-2" th:text="'Model: ' + ${rma.tool.model1}">Model</span>
                             <span th:if="${rma.tool?.serialNumber1}" class="ms-2" th:text="'S/N: ' + ${rma.tool.serialNumber1}">Serial</span>
-                        </div>
-                    </div>
-                </div>
+                                                </div>
+                                            </div>
+                                            </div>
                 
                 <!-- Action Buttons -->
                 <div class="d-flex gap-2">
@@ -212,10 +212,10 @@
                     <a th:href="@{/rma/{id}/excel(id=${rma.id})}" class="btn btn-success detail-action-btn">
                         <i class="bi bi-file-excel"></i> Export
                     </a>
-                </div>
+                                        </div>
             </div>
-        </div>
-
+                                    </div>
+                                    
         <!-- Main Content Grid -->
         <div class="detail-main-grid">
             <!-- Basic Information Panel -->
@@ -279,43 +279,43 @@
                     
                     <!-- Edit Mode -->
                     <div id="header-edit-mode" class="d-none rma-edit-mode">
-                        <form id="header-edit-form">
+                                    <form id="header-edit-form">
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">RMA Number</label>
                                     <input type="text" class="form-control" name="rmaNumber" th:value="${rma.rmaNumber}" placeholder="Enter RMA number">
-                                </div>
-                                <div class="col-md-6">
+                                                </div>
+                                                <div class="col-md-6">
                                     <label class="form-label fw-bold">SAP Number</label>
                                     <input type="text" class="form-control" name="sapNotificationNumber" th:value="${rma.sapNotificationNumber}" placeholder="Enter SAP number">
                                 </div>
                                 <div class="col-md-12">
                                     <label class="form-label fw-bold">Tool</label>
                                     <select class="form-select" name="toolId">
-                                        <option value="">-- Select Tool --</option>
-                                        <option th:each="toolOption : ${allTools}"
-                                                th:value="${toolOption.id}"
-                                                th:text="${toolOption.name + (toolOption.secondaryName != null ? ' (' + toolOption.secondaryName + ')' : '') + ' - ' + toolOption.toolType}"
-                                                th:selected="${rma.tool != null && toolOption.id == rma.tool.id}">
-                                            Tool Name
-                                        </option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
+                                                        <option value="">-- Select Tool --</option>
+                                                        <option th:each="toolOption : ${allTools}"
+                                                                th:value="${toolOption.id}"
+                                                                th:text="${toolOption.name + (toolOption.secondaryName != null ? ' (' + toolOption.secondaryName + ')' : '') + ' - ' + toolOption.toolType}"
+                                                                th:selected="${rma.tool != null && toolOption.id == rma.tool.id}">
+                                                            Tool Name
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
                                     <label class="form-label fw-bold">Location</label>
                                     <select class="form-select" name="locationId">
-                                         <option value="">-- Select Location --</option>
-                                         <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.displayName}" th:selected="${rma.location != null && loc.id == rma.location.id}"></option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
+                                                         <option value="">-- Select Location --</option>
+                                                         <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.displayName}" th:selected="${rma.location != null && loc.id == rma.location.id}"></option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
                                     <label class="form-label fw-bold">Technician</label>
                                     <select class="form-select" name="technician">
-                                        <option value="">-- Unassigned --</option>
-                                        <option th:each="tech : ${technicians}" th:value="${tech.name}" th:text="${tech.name}" th:selected="${rma.technician != null && tech.name == rma.technician}"></option>
-                                    </select>
-                                </div>
-                            </div>
+                                                        <option value="">-- Unassigned --</option>
+                                                        <option th:each="tech : ${technicians}" th:value="${tech.name}" th:text="${tech.name}" th:selected="${rma.technician != null && tech.name == rma.technician}"></option>
+                                                    </select>
+                                                </div>
+                                            </div>
                             <div class="mt-3 d-flex gap-2">
                                 <button type="button" class="btn btn-success detail-action-btn" onclick="saveHeaderChanges()">
                                     <i class="bi bi-check-lg"></i> Save
@@ -323,10 +323,10 @@
                                 <button type="button" class="btn btn-secondary detail-action-btn" onclick="cancelHeaderEditMode()">
                                     <i class="bi bi-x-lg"></i> Cancel
                                 </button>
-                            </div>
-                        </form>
                     </div>
+                        </form>
                 </div>
+            </div>
             </div>
 
             <!-- Upload Files Panel -->
@@ -336,7 +336,7 @@
                         <i class="bi bi-cloud-arrow-up me-2"></i>Upload New Files
                     </h6>
                 </div>
-                <div class="card-body">
+            <div class="card-body">
                     <form th:action="@{/rma/{id}/upload-files(id=${rma.id})}" method="post" enctype="multipart/form-data" id="rmaFileUploadForm">
                         <div class="detail-upload-area" onclick="document.getElementById('rmaFileInput').click()">
                             <i class="bi bi-cloud-arrow-up"></i>
@@ -355,9 +355,9 @@
                             <div id="rma-file-list" class="small detail-text-muted"></div>
                         </div>
                     </form>
-                </div>
-            </div>
-        </div>
+                                </div>
+                                </div>
+                            </div>
 
         <!-- Content Sections Grid (3x3) -->
         <div class="detail-sections-grid">
@@ -369,12 +369,12 @@
                             <i class="bi bi-boxes me-2"></i>Parts Information
                         </h6>
                         <span class="badge bg-secondary" th:text="${rma.partLineItems != null ? rma.partLineItems.size() : 0}">0</span>
-                    </div>
+                                </div>
                     <div class="card-body">
                         <div th:if="${rma.partLineItems == null || rma.partLineItems.isEmpty()}" class="detail-empty-state">
                             <i class="bi bi-boxes"></i>
                             <p>No parts information available</p>
-                        </div>
+                            </div>
                         
                         <div th:if="${rma.partLineItems != null && !rma.partLineItems.isEmpty()}" class="table-responsive">
                             <table class="table table-striped detail-section-table">
@@ -395,10 +395,10 @@
                                     </tr>
                                 </tbody>
                             </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                                </div>
+                            </div>
+                                </div>
+                                </div>
 
             <!-- Problem Details Section -->
             <div class="detail-section-fixed-height">
@@ -407,57 +407,57 @@
                         <h6 class="mb-0">
                             <i class="bi bi-question-circle me-2"></i>Problem Details
                         </h6>
-                    </div>
+                            </div>
                     <div class="card-body">
                         <div class="row g-3">
-                            <div class="col-md-6">
+                                    <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Who Discovered</small>
                                     <p class="mb-0" th:if="${rma.problemDiscoverer != null}" th:text="${rma.problemDiscoverer}">Who discovered</p>
                                     <span class="detail-text-muted" th:if="${rma.problemDiscoverer == null}">Not specified</span>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
+                                    </div>
+                                    <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">When Discovered</small>
                                     <p class="mb-0" th:if="${rma.problemDiscoveryDate != null}" th:text="${#temporals.format(rma.problemDiscoveryDate, 'MM/dd/yyyy')}">When discovered</p>
                                     <span class="detail-text-muted" th:if="${rma.problemDiscoveryDate == null}">Not specified</span>
+                                    </div>
                                 </div>
-                            </div>
                             <div class="col-12">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">What Happened</small>
                                     <p class="mb-0" th:if="${rma.whatHappened != null}" th:text="${rma.whatHappened}">What happened</p>
                                     <span class="detail-text-muted" th:if="${rma.whatHappened == null}">Not specified</span>
+                                    </div>
                                 </div>
-                            </div>
                             <div class="col-12">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Why & How It Happened</small>
                                     <p class="mb-0" th:if="${rma.whyAndHowItHappened != null}" th:text="${rma.whyAndHowItHappened}">Why and how</p>
                                     <span class="detail-text-muted" th:if="${rma.whyAndHowItHappened == null}">Not specified</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
+                                    <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">How Contained</small>
                                     <p class="mb-0" th:if="${rma.howContained != null}" th:text="${rma.howContained}">How contained</p>
                                     <span class="detail-text-muted" th:if="${rma.howContained == null}">Not specified</span>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
+                                    </div>
+                                    <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Who Contained</small>
                                     <p class="mb-0" th:if="${rma.whoContained != null}" th:text="${rma.whoContained}">Who contained</p>
                                     <span class="detail-text-muted" th:if="${rma.whoContained == null}">Not specified</span>
+                                    </div>
                                 </div>
-                            </div>
+                        </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Process Impact Section -->
+                <!-- Process Impact Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
                     <div class="card-header">
@@ -470,19 +470,19 @@
                             <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Interruption to Flow</small>
-                                    <div>
+                            <div>
                                         <span th:if="${rma.interruptionToFlow}" class="badge bg-danger">Yes</span>
                                         <span th:if="${!rma.interruptionToFlow}" class="badge bg-success">No</span>
-                                    </div>
-                                </div>
                             </div>
+                        </div>
+                                </div>
                             <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Interruption to Production</small>
                                     <div>
                                         <span th:if="${rma.interruptionToProduction}" class="badge bg-danger">Yes</span>
                                         <span th:if="${!rma.interruptionToProduction}" class="badge bg-success">No</span>
-                                    </div>
+                                </div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -490,131 +490,131 @@
                                     <small class="detail-text-muted">Downtime Hours</small>
                                     <p class="mb-0" th:text="${rma.downtimeHours != null ? rma.downtimeHours + ' hours' : '0 hours'}">0 hours</p>
                                 </div>
-                            </div>
+                                </div>
                             <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Exposed to Gas/Chemicals</small>
                                     <div>
                                         <span th:if="${rma.exposedToProcessGasOrChemicals}" class="badge bg-warning">Yes</span>
                                         <span th:if="${!rma.exposedToProcessGasOrChemicals}" class="badge bg-success">No</span>
-                                    </div>
-                                </div>
                             </div>
+                        </div>
+                        </div>
                             <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Purged</small>
-                                    <div>
+                            <div>
                                         <span th:if="${rma.purged}" class="badge bg-success">Yes</span>
                                         <span th:if="${!rma.purged}" class="badge bg-warning">No</span>
-                                    </div>
-                                </div>
                             </div>
+                        </div>
+                        </div>
                             <div class="col-12">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Instructions for Exposed Component</small>
                                     <p class="mb-0" th:if="${rma.instructionsForExposedComponent != null}" th:text="${rma.instructionsForExposedComponent}">Instructions</p>
                                     <span class="detail-text-muted" th:if="${rma.instructionsForExposedComponent == null}">No instructions provided</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                                            </div>
+                                            </div>
+                                            </div>
+                                            </div>
+                                            </div>
+                                            </div>
 
             <!-- Moving Parts Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="card-header d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
                             <i class="bi bi-arrow-left-right me-2"></i>Moving Parts
                         </h6>
                         <div class="d-flex align-items-center gap-2">
                             <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" data-bs-toggle="modal" data-bs-target="#addMovingPartModal" th:if="${rma.tool != null}">
                                 <i class="bi bi-plus"></i>
-                            </button>
+                                </button>
                             <span class="badge bg-secondary" th:text="${movingParts != null ? movingParts.size() : 0}">0</span>
                         </div>
-                    </div>
-                    <div class="card-body">
+                            </div>
+                            <div class="card-body">
                         <div th:if="${movingParts == null || movingParts.isEmpty()}" class="detail-empty-state">
                             <i class="bi bi-arrow-left-right"></i>
                             <p>No moving parts recorded</p>
-                        </div>
+                                </div>
                         
                         <div th:if="${movingParts != null && !movingParts.isEmpty()}" class="table-responsive">
                             <table class="table table-striped detail-section-table">
-                                <thead>
-                                    <tr>
-                                        <th>Part Name</th>
-                                        <th>Movement</th>
-                                        <th>Notes</th>
-                                        <th>Date</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr th:each="movingPart : ${movingParts}">
+                                        <thead>
+                                            <tr>
+                                                <th>Part Name</th>
+                                                <th>Movement</th>
+                                                <th>Notes</th>
+                                                <th>Date</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="movingPart : ${movingParts}">
                                         <td th:text="${movingPart.partName}">Part Name</td>
-                                        <td>
+                                                <td>
                                             <div class="small">
-                                                <!-- Show from tool -->
-                                                <span>
-                                                    <a th:if="${movingPart.fromTool != null}" 
-                                                       th:href="@{/tools/{id}(id=${movingPart.fromTool.id})}" 
-                                                       th:text="${movingPart.fromTool.name}" 
+                                                        <!-- Show from tool -->
+                                                        <span>
+                                                            <a th:if="${movingPart.fromTool != null}" 
+                                                               th:href="@{/tools/{id}(id=${movingPart.fromTool.id})}" 
+                                                               th:text="${movingPart.fromTool.name}" 
                                                        class="text-decoration-none detail-text-primary">From Tool</a>
                                                     <span th:if="${movingPart.fromTool == null}" class="detail-text-muted">-</span>
-                                                </span>
-                                                
-                                                <!-- Show full destination chain with arrows -->
+                                                        </span>
+                                                        
+                                                        <!-- Show full destination chain with arrows -->
                                                 <th:block th:if="${movingPartDestinationChains != null && movingPartDestinationChains[movingPart.id] != null and !movingPartDestinationChains[movingPart.id].empty}">
-                                                    <th:block th:each="destTool, iterStat : ${movingPartDestinationChains[movingPart.id]}">
-                                                        <i class="bi bi-arrow-right text-primary mx-2"></i>
-                                                        <a th:href="@{/tools/{id}(id=${destTool.id})}" 
-                                                           th:text="${destTool.name}" 
+                                                            <th:block th:each="destTool, iterStat : ${movingPartDestinationChains[movingPart.id]}">
+                                                                <i class="bi bi-arrow-right text-primary mx-2"></i>
+                                                                <a th:href="@{/tools/{id}(id=${destTool.id})}" 
+                                                                   th:text="${destTool.name}" 
                                                            class="text-decoration-none detail-text-primary">Dest Tool</a>
-                                                    </th:block>
-                                                </th:block>
-                                                
-                                                <!-- If no destinations at all -->
+                                                            </th:block>
+                                                        </th:block>
+                                                        
+                                                        <!-- If no destinations at all -->
                                                 <th:block th:if="${movingPartDestinationChains == null || movingPartDestinationChains[movingPart.id] == null or movingPartDestinationChains[movingPart.id].empty}">
-                                                    <i class="bi bi-arrow-right text-primary mx-2"></i>
+                                                            <i class="bi bi-arrow-right text-primary mx-2"></i>
                                                     <span class="detail-text-muted">No Destination</span>
-                                                </th:block>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span th:if="${movingPart.notes != null}" th:text="${movingPart.notes}">Notes</span>
+                                                        </th:block>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span th:if="${movingPart.notes != null}" th:text="${movingPart.notes}">Notes</span>
                                             <span th:if="${movingPart.notes == null}" class="detail-text-muted">-</span>
-                                        </td>
-                                        <td th:text="${#temporals.format(movingPart.moveDate, 'MM/dd/yy')}">01/01/23</td>
-                                        <td>
-                                            <div class="btn-group">
-                                                <button type="button" class="btn btn-sm btn-outline-primary moving-part-edit-btn"
-                                                        th:data-id="${movingPart.id}"
-                                                        th:data-part-name="${movingPart.partName}"
-                                                        th:data-from-tool-id="${movingPart.fromTool != null ? movingPart.fromTool.id : ''}"
-                                                        th:data-to-tool-id="${movingPart.currentLocationToolId != null ? movingPart.currentLocationToolId : ''}"
-                                                        th:data-destination-chain="${movingPart.destinationChain != null ? movingPart.destinationChain : ''}"
-                                                        th:data-notes="${movingPart.notes != null ? movingPart.notes : ''}"
-                                                        th:data-move-date="${#temporals.format(movingPart.moveDate, 'yyyy-MM-dd')}">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger moving-part-delete-btn"
-                                                        th:data-id="${movingPart.id}"
-                                                        th:data-part-name="${movingPart.partName}">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                                                </td>
+                                                <td th:text="${#temporals.format(movingPart.moveDate, 'MM/dd/yy')}">01/01/23</td>
+                                                <td>
+                                                    <div class="btn-group">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary moving-part-edit-btn"
+                                                                th:data-id="${movingPart.id}"
+                                                                th:data-part-name="${movingPart.partName}"
+                                                                th:data-from-tool-id="${movingPart.fromTool != null ? movingPart.fromTool.id : ''}"
+                                                                th:data-to-tool-id="${movingPart.currentLocationToolId != null ? movingPart.currentLocationToolId : ''}"
+                                                                th:data-destination-chain="${movingPart.destinationChain != null ? movingPart.destinationChain : ''}"
+                                                                th:data-notes="${movingPart.notes != null ? movingPart.notes : ''}"
+                                                                th:data-move-date="${#temporals.format(movingPart.moveDate, 'yyyy-MM-dd')}">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger moving-part-delete-btn"
+                                                                th:data-id="${movingPart.id}"
+                                                                th:data-part-name="${movingPart.partName}">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                            </tr>
+                                        </tbody>
+                                    </table>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-
+                                      </div>
+              </div>
+              
             <!-- Customer Information Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
@@ -677,9 +677,9 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-
+                            </div>
+                        </div>
+                        
             <!-- Important Dates Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
@@ -690,46 +690,46 @@
                     </div>
                     <div class="card-body">
                         <table class="table table-sm rma-date-table">
-                            <thead>
-                                <tr>
-                                    <th>Written</th>
+                                <thead>
+                                    <tr>
+                                        <th>Written</th>
                                     <th>Number Provided</th>
                                     <th>Memo Emailed</th>
-                                    <th>Parts Received</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
+                                <th>Parts Received</th>
+                            </tr>
+                                </thead>
+                                <tbody>
+                            <tr>
                                     <td th:text="${rma.writtenDate != null ? #temporals.format(rma.writtenDate, 'MM/dd/yy') : '-'}">-</td>
                                     <td th:text="${rma.rmaNumberProvidedDate != null ? #temporals.format(rma.rmaNumberProvidedDate, 'MM/dd/yy') : '-'}">-</td>
                                     <td th:text="${rma.shippingMemoEmailedDate != null ? #temporals.format(rma.shippingMemoEmailedDate, 'MM/dd/yy') : '-'}">-</td>
                                     <td th:text="${rma.partsReceivedDate != null ? #temporals.format(rma.partsReceivedDate, 'MM/dd/yy') : '-'}">-</td>
-                                </tr>
-                            </tbody>
+                            </tr>
+                                </tbody>
                         </table>
                         
                         <table class="table table-sm rma-date-table mt-3">
-                            <thead>
-                                <tr>
-                                    <th>Parts Installed</th>
+                                    <thead>
+                            <tr>
+                                            <th>Parts Installed</th>
                                     <th>Parts Ready</th>
                                     <th>Parts Shipped</th>
                                     <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
+                            </tr>
+                                    </thead>
+                                    <tbody>
+                            <tr>
                                     <td th:text="${rma.installedPartsDate != null ? #temporals.format(rma.installedPartsDate, 'MM/dd/yy') : '-'}">-</td>
                                     <td th:text="${rma.failedPartsPackedDate != null ? #temporals.format(rma.failedPartsPackedDate, 'MM/dd/yy') : '-'}">-</td>
                                     <td th:text="${rma.failedPartsShippedDate != null ? #temporals.format(rma.failedPartsShippedDate, 'MM/dd/yy') : '-'}">-</td>
                                     <td></td>
-                                </tr>
-                            </tbody>
+                            </tr>
+                                    </tbody>
                         </table>
+                        </div>
                     </div>
                 </div>
-            </div>
-
+                
             <!-- Documents & Pictures Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
@@ -755,7 +755,7 @@
                                         </a>
                                         <button type="button" class="btn btn-outline-danger" title="Delete">
                                             <i class="bi bi-trash"></i>
-                                        </button>
+                                </button>
                                     </div>
                                 </div>
                             </div>
@@ -779,22 +779,22 @@
                                                 </a>
                                                 <button type="button" class="btn btn-outline-danger" title="Delete">
                                                     <i class="bi bi-trash"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                </button>
                             </div>
                         </div>
+                                </div>
+                                </div>
+                            </div>
+                                </div>
 
                         <!-- Empty State -->
                         <div th:if="${(rma.documents == null || rma.documents.isEmpty()) && (rma.pictures == null || rma.pictures.isEmpty())}" class="detail-empty-state">
                             <i class="bi bi-files"></i>
                             <p>No files uploaded yet</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                                </div>
+                            </div>
+                                        </div>
+                                        </div>
 
             <!-- Comments Section -->
             <div class="detail-section-fixed-height">
@@ -808,26 +808,26 @@
                                 <i class="bi bi-plus"></i>
                             </button>
                             <span class="badge bg-secondary" th:text="${rmaComments != null ? rmaComments.size() : 0}">0</span>
-                        </div>
-                    </div>
+                                    </div>
+                                        </div>
                     <div class="card-body">
                         <div th:if="${rmaComments == null || rmaComments.isEmpty()}" class="detail-empty-state">
                             <i class="bi bi-chat-dots"></i>
                             <p>No comments yet</p>
-                        </div>
+                                        </div>
                         
                         <div th:if="${rmaComments != null && !rmaComments.isEmpty()}" class="d-flex flex-column gap-3">
                             <div class="border rounded p-3 detail-interactive" th:each="comment : ${rmaComments}">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <strong class="detail-text-primary" th:text="${comment.user != null ? comment.user.name : 'Unknown'}">User</strong>
                                     <small class="detail-text-muted" th:text="${#temporals.format(comment.createdDate, 'MM/dd HH:mm')}">Date</small>
-                                </div>
+                                        </div>
                                 <p class="mb-0" th:text="${comment.content}">Comment content</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
+                                    </div>
 
             <!-- Notes & Resolution Section -->
             <div class="detail-section-fixed-height">
@@ -839,14 +839,14 @@
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
-                            <div class="col-md-6">
+                                    <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Technician</small>
                                     <p class="mb-0" th:if="${rma.technician != null}" th:text="${rma.technician}">Technician</p>
                                     <span class="detail-text-muted" th:if="${rma.technician == null}">Not assigned</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
+                                    <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Field Tech</small>
                                     <div th:if="${rma.fieldTechName != null}">
@@ -854,38 +854,38 @@
                                         <div class="small detail-text-muted">
                                             <div th:if="${rma.fieldTechPhone != null}" th:text="${rma.fieldTechPhone}">Phone</div>
                                             <div th:if="${rma.fieldTechEmail != null}" th:text="${rma.fieldTechEmail}">Email</div>
-                                        </div>
+                                    </div>
                                     </div>
                                     <span class="detail-text-muted" th:if="${rma.fieldTechName == null}">Not assigned</span>
                                 </div>
-                            </div>
+                                            </div>
                             <div class="col-12">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Notes</small>
                                     <p class="mb-0" th:if="${rma.notes != null}" th:text="${rma.notes}">Notes content</p>
                                     <span class="detail-text-muted" th:if="${rma.notes == null}">No notes available</span>
-                                </div>
-                            </div>
+                                            </div>
+                                        </div>
                             <div class="col-12">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Root Cause</small>
                                     <p class="mb-0" th:if="${rma.rootCause != null}" th:text="${rma.rootCause}">Root cause</p>
                                     <span class="detail-text-muted" th:if="${rma.rootCause == null}">No root cause identified</span>
-                                </div>
-                            </div>
+                                            </div>
+                                            </div>
                             <div class="col-12">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Resolution</small>
                                     <p class="mb-0" th:if="${rma.resolution != null}" th:text="${rma.resolution}">Resolution</p>
                                     <span class="detail-text-muted" th:if="${rma.resolution == null}">No resolution provided</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Hidden RMA ID for JavaScript -->
     <input type="hidden" id="rmaPageEntityIdForJs" th:value="${rma.id}">
@@ -900,10 +900,10 @@
         </select>
         <button type="button" class="btn btn-sm btn-success ms-1" onclick="saveStatus()">
             <i class="bi bi-check-lg"></i>
-        </button>
+                                    </button>
         <button type="button" class="btn btn-sm btn-secondary ms-1" onclick="cancelStatusEdit()">
             <i class="bi bi-x-lg"></i>
-        </button>
+                                                    </button>
     </span>
 
     <!-- Priority Edit Mode Elements (Hidden) -->
@@ -929,7 +929,7 @@
                 <div class="modal-header">
                     <h5 class="modal-title" id="deleteConfirmModalLabel">Confirm Delete</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+                                                </div>
                 <div class="modal-body">
                     <p>How would you like to handle this file?</p>
                     <input type="hidden" id="fileIdToDelete">
@@ -941,21 +941,21 @@
                         <label class="form-check-label" for="deleteOnly">
                             <strong>Unlink only:</strong> Remove only from this RMA, keep in other locations
                         </label>
-                    </div>
+                                            </div>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="deleteOption" id="deleteEverywhere" value="delete">
                         <label class="form-check-label" for="deleteEverywhere">
                             <strong>Delete everywhere:</strong> Remove from all locations
                         </label>
-                    </div>
-                </div>
+                                        </div>
+                                    </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
-                </div>
-            </div>
-        </div>
-    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
     
     <!-- Transfer Modal -->
     <div class="modal fade" id="transferModal" tabindex="-1" aria-labelledby="transferModalLabel" aria-hidden="true">
@@ -985,15 +985,15 @@
                                 </option>
                             </select>
                         </div>
-                    </form>
-                </div>
+                                </form>
+                            </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" id="confirmTransferBtn">Transfer</button>
-                </div>
-            </div>
-        </div>
-    </div>
+                                </div>
+                                            </div>
+                            </div>
+                        </div>
 
     <!-- Unified Link File Modal (Copied from tools/details.html, ensure allRmas, allTools, allTrackTrends are available) -->
     <div class="modal fade" id="unifiedLinkFileModal" tabindex="-1" aria-labelledby="unifiedLinkFileModalLabel" aria-hidden="true">
@@ -1022,7 +1022,7 @@
                                 <option value="TOOL">Tool</option>
                                 <option value="TRACK_TREND">Track/Trend</option>
                             </select>
-                        </div>
+                </div>
 
                         <div id="unifiedLinkTargetRmaSectionRmaPage" class="mb-3" style="display: none;">
                             <label for="unifiedLinkTargetRmaIdRmaPage" class="form-label">Select RMA:</label>
@@ -1036,7 +1036,7 @@
                                     </option>
                                 </th:block>
                             </select>
-                        </div>
+                                    </div>
 
                         <div id="unifiedLinkTargetToolSectionRmaPage" class="mb-3" style="display: none;">
                             <label for="unifiedLinkTargetToolIdRmaPage" class="form-label">Select Tool:</label>
@@ -1049,7 +1049,7 @@
                                    </option>
                                </th:block>
                             </select>
-                        </div>
+                                </div>
 
                         <div id="unifiedLinkTargetTrackTrendSectionRmaPage" class="mb-3" style="display: none;">
                             <label for="unifiedLinkTargetTrackTrendIdRmaPage" class="form-label">Select Track/Trend:</label>
@@ -1061,16 +1061,16 @@
                                             th:text="${tt.name + ' (' + #temporals.format(tt.startDate, 'yyyy-MM-dd') + ')'}"></option>
                                 </th:block>
                             </select>
-                        </div>
-                    </div>
+                            </div>
+                                </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary" id="confirmUnifiedLinkBtnRmaPage">Link File</button>
                     </div>
-                </form>
-            </div>
-        </div>
-    </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
     <!-- End Unified Link File Modal -->
 
     <!-- Delete RMA Modal -->
@@ -1101,9 +1101,9 @@
                     </form>
                 </div>
             </div>
-        </div>
-    </div>
-
+                    </div>
+                </div>
+                
     <!-- Comment Modal -->
     <div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -1113,15 +1113,15 @@
                         <i class="bi bi-chat-dots me-2"></i>Add Comment
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+                            </div>
                 <form th:action="@{/rma/{id}/post-comment(id=${rma.id})}" method="post">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="commentContent" class="form-label">Comment</label>
                             <textarea class="form-control" id="commentContent" name="content" rows="4" required 
                                       placeholder="Enter your comment..."></textarea>
-                        </div>
-                    </div>
+                                    </div>
+                                        </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">
@@ -1129,9 +1129,9 @@
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
+                                        </div>
+                                    </div>
+                                </div>
 
     <!-- Add Moving Part Modal (Reusable Fragment) -->
     <div th:replace="~{fragments/moving-part-modal :: addMovingPartModal('addMovingPartModal', @{/rma/{id}/moving-parts/add(id=${rma.id})}, ${allTools}, 'destinationContainerRma', 'addDestinationBtnRma')}"></div>
@@ -1145,7 +1145,7 @@
                     <div class="modal-header">
                         <h5 class="modal-title">Edit Moving Part</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
+                                        </div>
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="editPartName" class="form-label">Part Name:</label>
@@ -1192,7 +1192,7 @@
                                     </select>
                                     <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-destination" style="display: none;">
                                         <i class="bi bi-dash"></i>
-                                    </button>
+                                            </button>
                                 </div>
                             </div>
                             
@@ -1211,11 +1211,11 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Save Changes</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
 
     <!-- Picture View Modal -->
     <div class="modal fade" id="pictureModal" tabindex="-1" aria-hidden="true">
@@ -1224,7 +1224,7 @@
                 <div class="modal-header">
                     <h5 class="modal-title">View Picture</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+                    </div>
                 <div class="modal-body text-center">
                     <img id="modalPictureImg" src="" alt="RMA Picture" style="max-width: 100%; max-height: 80vh;">
                 </div>

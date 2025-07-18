@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.ArrayList;
 
 @Controller
 @RequestMapping("/passdown")
@@ -72,6 +73,7 @@ public class PassdownController {
     }
 
     @GetMapping
+    @Transactional(readOnly = true)
     public String listPassdowns(Model model,
                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
@@ -90,20 +92,38 @@ public class PassdownController {
             passdowns = passdownService.getAllPassdowns();
         }
         
-        // Extract unique user names and tool names for filters
-        List<String> passdownUsers = passdowns.stream()
-            .filter(p -> p.getUser() != null && p.getUser().getName() != null)
-            .map(p -> p.getUser().getName())
-            .distinct()
-            .sorted()
-            .toList();
+        // Extract unique user names and tool names for filters (with safe lazy loading handling)
+        logger.info("Processing {} passdowns for filter extraction", passdowns.size());
+        List<String> passdownUsers = new ArrayList<>();
+        List<String> passdownTools = new ArrayList<>();
+        
+        for (Passdown p : passdowns) {
+            try {
+                if (p.getUser() != null && p.getUser().getName() != null) {
+                    String userName = p.getUser().getName();
+                    if (!passdownUsers.contains(userName)) {
+                        passdownUsers.add(userName);
+                    }
+                }
+            } catch (Exception e) {
+                logger.debug("Could not load user name for passdown {}: {}", p.getId(), e.getMessage());
+            }
             
-        List<String> passdownTools = passdowns.stream()
-            .filter(p -> p.getTool() != null && p.getTool().getName() != null)
-            .map(p -> p.getTool().getName())
-            .distinct()
-            .sorted()
-            .toList();
+            try {
+                if (p.getTool() != null && p.getTool().getName() != null) {
+                    String toolName = p.getTool().getName();
+                    if (!passdownTools.contains(toolName)) {
+                        passdownTools.add(toolName);
+                    }
+                }
+            } catch (Exception e) {
+                logger.debug("Could not load tool name for passdown {}: {}", p.getId(), e.getMessage());
+            }
+        }
+        
+        // Sort the lists
+        passdownUsers.sort(String::compareToIgnoreCase);
+        passdownTools.sort(String::compareToIgnoreCase);
         
         model.addAttribute("passdownUsers", passdownUsers);
         model.addAttribute("passdownTools", passdownTools);
@@ -378,6 +398,57 @@ public class PassdownController {
             redirectAttributes.addFlashAttribute("error", "Error deleting picture: " + e.getMessage());
             return "redirect:/passdown";
         }
+    }
+
+    @PostMapping("/{id}/update")
+    @Transactional
+    public String editPassdown(@PathVariable Long id, 
+                              @RequestParam("comment") String comment,
+                              @RequestParam("date") String date,
+                              RedirectAttributes redirectAttributes) {
+        try {
+            logger.info("Editing passdown with ID: {}", id);
+            
+            Optional<Passdown> passdownOpt = passdownService.getPassdownByIdWithDetails(id);
+            if (passdownOpt.isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "Passdown not found");
+                return "redirect:/passdown";
+            }
+            
+            Passdown passdown = passdownOpt.get();
+            passdown.setComment(comment);
+            
+            // Parse and set the date
+            try {
+                passdown.setDate(java.time.LocalDate.parse(date));
+            } catch (Exception e) {
+                logger.error("Error parsing date: {}", e.getMessage());
+                redirectAttributes.addFlashAttribute("error", "Invalid date format");
+                return "redirect:/tools/" + (passdown.getTool() != null ? passdown.getTool().getId() : "");
+            }
+            
+            // Get current user
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+            User currentUser = userService.getUserByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            // Save the updated passdown
+            passdownService.savePassdown(passdown, currentUser, null, null);
+            logger.info("Successfully updated passdown ID: {}", id);
+            redirectAttributes.addFlashAttribute("message", "Passdown updated successfully");
+            
+        } catch (Exception e) {
+            logger.error("Error editing passdown: {}", e.getMessage(), e);
+            redirectAttributes.addFlashAttribute("error", "Error editing passdown: " + e.getMessage());
+        }
+        
+        // Redirect back to the tool details page (assuming passdown is from a tool)
+        Optional<Passdown> passdownOpt = passdownService.getPassdownByIdWithDetails(id);
+        if (passdownOpt.isPresent() && passdownOpt.get().getTool() != null) {
+            return "redirect:/tools/" + passdownOpt.get().getTool().getId();
+        }
+        return "redirect:/passdown";
     }
 
     @PostMapping("/{id}/delete")

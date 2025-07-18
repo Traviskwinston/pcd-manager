@@ -430,4 +430,54 @@ public class ToolService {
         logger.debug("Found {} lightweight comment records for {} tool IDs", commentData.size(), toolIds.size());
         return commentData;
     }
+    
+    /**
+     * Edit a comment
+     */
+    @Transactional
+    @CacheEvict(value = {"tools-list", "dropdown-data", "tool-details"}, allEntries = true)
+    public ToolComment editComment(Long commentId, String content, String userEmail) {
+        ToolComment comment = toolCommentRepository.findById(commentId)
+            .orElseThrow(() -> new IllegalArgumentException("Comment not found: " + commentId));
+        
+        User user = userRepository.findByEmailIgnoreCase(userEmail)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail));
+        
+        // Basic permission check - only the author can edit their comment
+        if (!comment.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("You can only edit your own comments");
+        }
+        
+        comment.setContent(content);
+        comment.setCreatedDate(LocalDateTime.now()); // Update timestamp
+        
+        return toolCommentRepository.save(comment);
+    }
+    
+    /**
+     * Delete a comment
+     */
+    @Transactional
+    @CacheEvict(value = {"tools-list", "dropdown-data", "tool-details"}, allEntries = true)
+    public void deleteComment(Long commentId, String userEmail) {
+        ToolComment comment = toolCommentRepository.findById(commentId)
+            .orElseThrow(() -> new IllegalArgumentException("Comment not found: " + commentId));
+        
+        User user = userRepository.findByEmailIgnoreCase(userEmail)
+            .orElseThrow(() -> new IllegalArgumentException("User not found: " + userEmail));
+        
+        // Basic permission check - only the author can delete their comment
+        if (!comment.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("You can only delete your own comments");
+        }
+        
+        // Remove from tool's comment list
+        Tool tool = comment.getTool();
+        if (tool != null) {
+            tool.getComments().remove(comment);
+            toolRepository.save(tool);
+        }
+        
+        toolCommentRepository.deleteById(commentId);
+    }
 } 

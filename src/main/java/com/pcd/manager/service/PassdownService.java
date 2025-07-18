@@ -55,7 +55,7 @@ public class PassdownService {
     }
 
     public List<Passdown> getAllPassdowns() {
-        return passdownRepository.findAllByOrderByDateDesc();
+        return passdownRepository.findAllWithUserAndToolOrderByDateDesc();
     }
 
     public Optional<Passdown> getPassdownById(Long id) {
@@ -96,12 +96,12 @@ public class PassdownService {
 
     public List<Passdown> getPassdownsByDate(LocalDate date) {
         logger.info("Fetching passdowns for date: {}", date);
-        return passdownRepository.findByDateOrderByDateDesc(date);
+        return passdownRepository.findByDateWithUserAndToolOrderByDateDesc(date);
     }
 
     public List<Passdown> getPassdownsByDateRange(LocalDate startDate, LocalDate endDate) {
         logger.debug("Getting passdowns between {} and {}", startDate, endDate);
-        return passdownRepository.findByDateBetweenOrderByDateDesc(startDate, endDate);
+        return passdownRepository.findByDateBetweenWithUserAndToolOrderByDateDesc(startDate, endDate);
     }
 
     /**
@@ -460,7 +460,7 @@ public class PassdownService {
      */
     public List<Passdown> getPassdownsByToolId(Long toolId) {
         logger.debug("Getting passdowns for tool ID: {}", toolId);
-        return passdownRepository.findByToolIdOrderByDateDesc(toolId);
+        return passdownRepository.findByToolIdWithUserAndToolOrderByDateDesc(toolId);
     }
     
     /**
