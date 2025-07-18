@@ -14,6 +14,12 @@ A comprehensive manufacturing management system for tracking Return Merchandise 
   - [Frontend Architecture](#frontend-architecture)
   - [Backend Architecture](#backend-architecture)
 - [Setup Instructions](#setup-instructions)
+  - [Prerequisites](#prerequisites)
+  - [Development Setup](#development-setup)
+  - [IDE Setup](#ide-setup-optional-but-recommended)
+  - [Troubleshooting](#troubleshooting)
+  - [System Verification](#system-verification)
+  - [Production Deployment](#production-deployment)
 - [Configuration](#configuration)
 - [Development](#development)
 
@@ -222,10 +228,96 @@ User administration:
 ## Setup Instructions
 
 ### Prerequisites
-- Java 17 or higher
-- Maven 3.6+
-- MySQL 8.0+ (for production) or H2 (for development)
-- Git
+
+#### Java 17 Installation
+**Windows:**
+1. Download Java 17 from [Oracle](https://www.oracle.com/java/technologies/downloads/) or [OpenJDK](https://adoptium.net/)
+2. Run the installer and follow the wizard
+3. Verify installation: `java -version`
+
+**macOS:**
+```bash
+# Using Homebrew
+brew install openjdk@17
+
+# Add to PATH (add to ~/.zshrc or ~/.bash_profile)
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install openjdk-17-jdk
+java -version
+```
+
+#### Maven Installation
+**Windows:**
+1. Download Maven from [Apache Maven](https://maven.apache.org/download.cgi)
+2. Extract to `C:\Program Files\Apache\maven`
+3. Add to PATH:
+   - Open System Properties → Advanced → Environment Variables
+   - Add `C:\Program Files\Apache\maven\bin` to PATH
+   - Create `MAVEN_HOME` variable pointing to `C:\Program Files\Apache\maven`
+4. Verify: `mvn -version`
+
+**macOS:**
+```bash
+# Using Homebrew
+brew install maven
+mvn -version
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install maven
+mvn -version
+```
+
+#### Git Installation
+**Windows:**
+- Download from [Git for Windows](https://gitforwindows.org/)
+- Run installer with default settings
+
+**macOS:**
+```bash
+# Using Homebrew
+brew install git
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install git
+```
+
+#### Database Setup
+
+**MySQL (Production):**
+```bash
+# Windows: Download MySQL Installer from mysql.com
+# macOS:
+brew install mysql
+brew services start mysql
+
+# Linux:
+sudo apt update
+sudo apt install mysql-server
+sudo systemctl start mysql
+sudo systemctl enable mysql
+
+# Create database
+mysql -u root -p
+CREATE DATABASE pcd_manager;
+CREATE USER 'pcd_user'@'localhost' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON pcd_manager.* TO 'pcd_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+**H2 (Development):**
+- No installation required - embedded in the application
+- Automatically configured for development profile
 
 ### Development Setup
 
@@ -256,6 +348,98 @@ User administration:
 4. **Access the Application**
    - URL: `http://localhost:8080`
    - Login with configured credentials
+
+### IDE Setup (Optional but Recommended)
+
+#### IntelliJ IDEA
+1. Download [IntelliJ IDEA Community](https://www.jetbrains.com/idea/download/)
+2. Open project: File → Open → Select `pom.xml`
+3. Enable annotation processing: Settings → Build → Compiler → Annotation Processors
+4. Install plugins: Spring Boot, Thymeleaf
+
+#### Visual Studio Code
+1. Download [VS Code](https://code.visualstudio.com/)
+2. Install extensions:
+   - Extension Pack for Java
+   - Spring Boot Extension Pack
+   - Thymeleaf Language Support
+
+#### Eclipse
+1. Download [Eclipse IDE for Enterprise Java Developers](https://www.eclipse.org/downloads/)
+2. Import project: File → Import → Existing Maven Projects
+3. Install Spring Tools from Eclipse Marketplace
+
+### Troubleshooting
+
+#### Common Issues
+
+**"JAVA_HOME not set" error:**
+```bash
+# Windows
+set JAVA_HOME=C:\Program Files\Java\jdk-17
+# macOS/Linux
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+```
+
+**Maven not found:**
+- Verify Maven is in PATH: `echo $PATH` (Linux/macOS) or `echo %PATH%` (Windows)
+- Restart terminal/command prompt after installation
+
+**Port 8080 already in use:**
+```properties
+# Add to application.properties
+server.port=8081
+```
+
+**Database connection refused:**
+- Ensure MySQL is running: `sudo systemctl status mysql` (Linux)
+- Check firewall settings
+- Verify database credentials in application.properties
+
+**Permission denied errors:**
+- Ensure proper file permissions for upload directories
+- Run with appropriate user privileges
+
+#### Memory Issues
+If you encounter OutOfMemoryError, increase JVM heap size:
+```bash
+# For Maven
+export MAVEN_OPTS="-Xmx2g -Xms1g"
+
+# For running the application
+java -Xmx2g -Xms1g -jar target/pcd-manager-0.0.1-SNAPSHOT.jar
+```
+
+### System Verification
+
+Before starting development, verify your setup:
+
+```bash
+# Check Java version (should be 17+)
+java -version
+
+# Check Maven version (should be 3.6+)
+mvn -version
+
+# Check Git installation
+git --version
+
+# Test Maven build (in project directory)
+mvn clean compile
+
+# Run tests
+mvn test
+
+# Check if application starts
+mvn spring-boot:run
+```
+
+**Expected output indicators:**
+- ✅ Java version shows `17.x.x` or higher
+- ✅ Maven version shows `3.6.x` or higher  
+- ✅ `mvn clean compile` completes with "BUILD SUCCESS"
+- ✅ Application starts and shows "Started PcdManagerApplication in X seconds"
+- ✅ Web interface accessible at `http://localhost:8080`
 
 ### Production Deployment
 
