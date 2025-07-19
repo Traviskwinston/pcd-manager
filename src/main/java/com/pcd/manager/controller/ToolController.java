@@ -39,9 +39,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.PostConstruct;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -56,6 +55,13 @@ import java.security.Principal;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.time.LocalDate;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.InputStreamResource;
+import java.io.InputStream;
 
 @Controller
 @RequestMapping("/tools")
@@ -1325,4 +1331,98 @@ public class ToolController {
     }
     
     // Moving parts functionality is handled by MovingPartController
+
+    @PostMapping("/upload-excel")
+    @ResponseBody
+    public Map<String, Object> uploadToolsFromExcel(@RequestParam("file") MultipartFile file) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            logger.info("=== TOOL EXCEL UPLOAD STARTED ===");
+            logger.info("Received file: {}, size: {} bytes, content type: {}", 
+                file.getOriginalFilename(), file.getSize(), file.getContentType());
+            
+            if (file.isEmpty()) {
+                logger.warn("Uploaded file is empty");
+                response.put("success", false);
+                response.put("error", "Please select a file to upload");
+                return response;
+            }
+
+            // Validate file type
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null || 
+                (!originalFilename.toLowerCase().endsWith(".xlsx") && 
+                 !originalFilename.toLowerCase().endsWith(".xls"))) {
+                response.put("success", false);
+                response.put("error", "Please upload an Excel file (.xlsx or .xls)");
+                return response;
+            }
+
+            // Parse Excel file and create tools
+            int toolsCreated = toolService.createToolsFromExcel(file);
+            
+            if (toolsCreated > 0) {
+                response.put("success", true);
+                response.put("toolsCreated", toolsCreated);
+                logger.info("Successfully created {} tools from Excel upload", toolsCreated);
+            } else {
+                response.put("success", false);
+                response.put("error", "No valid tools were found in the Excel file. Please check the format and data.");
+            }
+            
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid Excel format: {}", e.getMessage());
+            response.put("success", false);
+            response.put("error", e.getMessage());
+        } catch (Exception e) {
+            logger.error("Error processing Excel file: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("error", "Error processing Excel file: " + e.getMessage());
+        }
+        
+        return response;
+    }
+
+    @GetMapping("/reference-documents/{filename}")
+    public ResponseEntity<Resource> downloadReferenceDocument(@PathVariable String filename) {
+        try {
+            // Security: Only allow specific safe filenames
+            if (!filename.matches("^[a-zA-Z0-9._-]+\\.(xlsx|xls|pdf|docx|doc)$")) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            // Load resource from classpath
+            String resourcePath = "/reference-documents/" + filename;
+            InputStream resourceStream = getClass().getResourceAsStream(resourcePath);
+            
+            if (resourceStream == null) {
+                logger.warn("Reference document not found in classpath: {}", filename);
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Create resource from input stream
+            Resource resource = new InputStreamResource(resourceStream);
+            
+            // Determine content type
+            String contentType = "application/octet-stream";
+            if (filename.toLowerCase().endsWith(".xlsx")) {
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            } else if (filename.toLowerCase().endsWith(".xls")) {
+                contentType = "application/vnd.ms-excel";
+            } else if (filename.toLowerCase().endsWith(".pdf")) {
+                contentType = "application/pdf";
+            }
+            
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, 
+                           "attachment; filename=\"" + filename + "\"")
+                    .body(resource);
+                    
+        } catch (Exception e) {
+            logger.error("Error serving reference document: {}", filename, e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 } 

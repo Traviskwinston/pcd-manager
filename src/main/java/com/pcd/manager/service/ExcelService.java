@@ -16,13 +16,9 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 
 import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ByteArrayInputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -44,19 +40,15 @@ public class ExcelService {
 
     @PostConstruct
     public void init() {
-        // Check for template file
-        Path templatePath = Paths.get(uploadDir, "reference-documents", "BlankRMA.xlsx");
-        if (!Files.exists(templatePath)) {
-            logger.error("RMA Excel template not found at: {}. Excel export functionality will be limited.", templatePath);
-            try {
-                // Create the directory if it doesn't exist
-                Files.createDirectories(templatePath.getParent());
-                logger.info("Created directory: {}", templatePath.getParent());
-            } catch (IOException e) {
-                logger.error("Failed to create directory for Excel template: {}", e.getMessage(), e);
+        // Check for template file in classpath
+        try (InputStream templateStream = getClass().getResourceAsStream("/reference-documents/BlankRMA.xlsx")) {
+            if (templateStream == null) {
+                logger.error("RMA Excel template not found in classpath at: /reference-documents/BlankRMA.xlsx. Excel export functionality will be limited.");
+            } else {
+                logger.info("RMA Excel template found in classpath at: /reference-documents/BlankRMA.xlsx");
             }
-        } else {
-            logger.info("RMA Excel template found at: {}", templatePath);
+        } catch (IOException e) {
+            logger.error("Error checking for RMA Excel template in classpath: {}", e.getMessage(), e);
         }
     }
 
@@ -69,47 +61,47 @@ public class ExcelService {
      * @throws IOException If an I/O error occurs
      */
     public byte[] populateRmaTemplate(Rma rma, User currentUser) throws IOException {
-        // Load the template
-        Path templatePath = Paths.get(uploadDir, "reference-documents", "BlankRMA.xlsx");
-        
-        if (!Files.exists(templatePath)) {
-            logger.error("RMA template file not found at: {}", templatePath);
-            throw new IOException("RMA template file not found");
-        }
-        
-        try (FileInputStream fis = new FileInputStream(templatePath.toFile());
-             Workbook workbook = new XSSFWorkbook(fis);
-             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        // Load the template from classpath
+        try (InputStream templateStream = getClass().getResourceAsStream("/reference-documents/BlankRMA.xlsx")) {
             
-            // Get the first sheet
-            Sheet sheet = workbook.getSheetAt(0);
-            
-            // Set today's date in B6
-            setCellValue(sheet, "B6", LocalDate.now().format(DateTimeFormatter.ofPattern("MM/dd/yyyy")));
-            
-            // Set current user name in B7
-            if (currentUser != null) {
-                setCellValue(sheet, "B7", currentUser.getName());
-                
-                // Set user phone in B8 if available
-                if (currentUser.getPhoneNumber() != null && !currentUser.getPhoneNumber().isEmpty()) {
-                    setCellValue(sheet, "B8", currentUser.getPhoneNumber());
-                }
-                
-                // Set user email in B9
-                if (currentUser.getEmail() != null && !currentUser.getEmail().isEmpty()) {
-                    setCellValue(sheet, "B9", currentUser.getEmail());
-                }
+            if (templateStream == null) {
+                logger.error("RMA template file not found in classpath");
+                throw new IOException("RMA template file not found in classpath");
             }
             
-            // If RMA is provided, populate RMA-specific fields
-            if (rma != null) {
-                populateRmaFields(sheet, rma);
+            try (Workbook workbook = new XSSFWorkbook(templateStream);
+                 ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                
+                // Get the first sheet
+                Sheet sheet = workbook.getSheetAt(0);
+                
+                // Set today's date in B6
+                setCellValue(sheet, "B6", LocalDate.now().format(DateTimeFormatter.ofPattern("MM/dd/yyyy")));
+                
+                // Set current user name in B7
+                if (currentUser != null) {
+                    setCellValue(sheet, "B7", currentUser.getName());
+                    
+                    // Set user phone in B8 if available
+                    if (currentUser.getPhoneNumber() != null && !currentUser.getPhoneNumber().isEmpty()) {
+                        setCellValue(sheet, "B8", currentUser.getPhoneNumber());
+                    }
+                    
+                    // Set user email in B9
+                    if (currentUser.getEmail() != null && !currentUser.getEmail().isEmpty()) {
+                        setCellValue(sheet, "B9", currentUser.getEmail());
+                    }
+                }
+                
+                // If RMA is provided, populate RMA-specific fields
+                if (rma != null) {
+                    populateRmaFields(sheet, rma);
+                }
+                
+                // Write the workbook to the output stream
+                workbook.write(baos);
+                return baos.toByteArray();
             }
-            
-            // Write the workbook to the output stream
-            workbook.write(baos);
-            return baos.toByteArray();
         }
     }
     

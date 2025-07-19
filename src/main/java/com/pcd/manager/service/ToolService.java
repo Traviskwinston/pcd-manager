@@ -15,6 +15,7 @@ import com.pcd.manager.repository.RmaPictureRepository;
 import com.pcd.manager.repository.MovingPartRepository;
 import com.pcd.manager.repository.ToolCommentRepository;
 import com.pcd.manager.repository.UserRepository;
+import com.pcd.manager.repository.LocationRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,10 +27,20 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.ArrayList;
+import java.io.InputStream;
+import java.io.IOException;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class ToolService {
@@ -43,6 +54,7 @@ public class ToolService {
     private final MovingPartRepository movingPartRepository;
     private final ToolCommentRepository toolCommentRepository;
     private final UserRepository userRepository;
+    private final LocationRepository locationRepository;
     private PassdownService passdownService; // Not final anymore, will be set by setter
 
     @Autowired
@@ -52,7 +64,8 @@ public class ToolService {
                       RmaPictureRepository pictureRepository,
                       MovingPartRepository movingPartRepository,
                       ToolCommentRepository toolCommentRepository,
-                      UserRepository userRepository) {
+                      UserRepository userRepository,
+                      LocationRepository locationRepository) {
         this.toolRepository = toolRepository;
         this.rmaRepository = rmaRepository;
         this.documentRepository = documentRepository;
@@ -60,6 +73,7 @@ public class ToolService {
         this.movingPartRepository = movingPartRepository;
         this.toolCommentRepository = toolCommentRepository;
         this.userRepository = userRepository;
+        this.locationRepository = locationRepository;
         // PassdownService will be injected via setter
     }
     
@@ -479,5 +493,182 @@ public class ToolService {
         }
         
         toolCommentRepository.deleteById(commentId);
+    }
+
+    @Transactional
+    @CacheEvict(value = {"tool-list", "dashboard-data"}, allEntries = true)  
+    public int createToolsFromExcel(MultipartFile file) throws Exception {
+        logger.info("Starting Excel tool creation process");
+        
+        try (InputStream inputStream = file.getInputStream();
+             Workbook workbook = WorkbookFactory.create(inputStream)) {
+            
+            Sheet sheet = workbook.getSheetAt(0);
+            if (sheet == null) {
+                throw new IllegalArgumentException("Excel file is empty or corrupted");
+            }
+            
+            // Validate headers
+            Row headerRow = sheet.getRow(0);
+            if (headerRow == null) {
+                throw new IllegalArgumentException("Excel file must have a header row");
+            }
+            
+            // Expected headers in order
+            String[] expectedHeaders = {
+                "Tool Name", "Tool Name 2", "Type", "Model Number 1", 
+                "Model Number 2", "Serial Number 1", "Serial Number 2"
+            };
+            
+            // Validate header format
+            for (int i = 0; i < expectedHeaders.length; i++) {
+                Cell cell = headerRow.getCell(i);
+                String cellValue = cell != null ? cell.getStringCellValue().trim() : "";
+                
+                if (!expectedHeaders[i].equals(cellValue)) {
+                    throw new IllegalArgumentException(
+                        String.format("Invalid header at column %c. Expected '%s' but found '%s'. " +
+                                    "Please ensure headers match exactly: %s", 
+                                    (char)('A' + i), expectedHeaders[i], cellValue, 
+                                    String.join(", ", expectedHeaders))
+                    );
+                }
+            }
+            
+            logger.info("Excel headers validated successfully");
+            
+            // Find default location for new tools
+            Optional<Location> defaultLocationOpt = locationRepository.findByDefaultLocationIsTrue();
+            if (!defaultLocationOpt.isPresent()) {
+                logger.warn("No default location found. Tools will be created without location assignment.");
+            }
+            
+            int toolsCreated = 0;
+            int rowNum = 1; // Start after header row
+            
+            while (rowNum <= sheet.getLastRowNum()) {
+                Row row = sheet.getRow(rowNum);
+                
+                if (row == null) {
+                    rowNum++;
+                    continue;
+                }
+                
+                try {
+                    // Extract data from row
+                    String toolName = getCellValueAsString(row.getCell(0));
+                    String toolName2 = getCellValueAsString(row.getCell(1));
+                    String type = getCellValueAsString(row.getCell(2));
+                    String modelNumber1 = getCellValueAsString(row.getCell(3));
+                    String modelNumber2 = getCellValueAsString(row.getCell(4));
+                    String serialNumber1 = getCellValueAsString(row.getCell(5));
+                    String serialNumber2 = getCellValueAsString(row.getCell(6));
+                    
+                    // Skip rows where tool name is empty
+                    if (toolName == null || toolName.trim().isEmpty()) {
+                        logger.debug("Skipping row {} - no tool name", rowNum + 1);
+                        rowNum++;
+                        continue;
+                    }
+                    
+                    // Check if tool with this name already exists
+                    if (toolRepository.findByName(toolName.trim()).isPresent()) {
+                        logger.warn("Tool '{}' already exists, skipping row {}", toolName, rowNum + 1);
+                        rowNum++;
+                        continue;
+                    }
+                    
+                    // Create new tool
+                    Tool tool = new Tool();
+                    tool.setName(toolName.trim());
+                    
+                    if (toolName2 != null && !toolName2.trim().isEmpty()) {
+                        tool.setSecondaryName(toolName2.trim());
+                    }
+                    
+                    if (type != null && !type.trim().isEmpty()) {
+                        try {
+                            tool.setToolType(Tool.ToolType.valueOf(type.trim().toUpperCase()));
+                        } catch (IllegalArgumentException e) {
+                            logger.warn("Invalid tool type '{}' for tool '{}' at row {}. Setting to null.", 
+                                      type, toolName, rowNum + 1);
+                        }
+                    }
+                    
+                    if (modelNumber1 != null && !modelNumber1.trim().isEmpty()) {
+                        tool.setModel1(modelNumber1.trim());
+                    }
+                    
+                    if (modelNumber2 != null && !modelNumber2.trim().isEmpty()) {
+                        tool.setModel2(modelNumber2.trim());
+                    }
+                    
+                    if (serialNumber1 != null && !serialNumber1.trim().isEmpty()) {
+                        tool.setSerialNumber1(serialNumber1.trim());
+                    }
+                    
+                    if (serialNumber2 != null && !serialNumber2.trim().isEmpty()) {
+                        tool.setSerialNumber2(serialNumber2.trim());
+                    }
+                    
+                    // Assign default location if available
+                    defaultLocationOpt.ifPresent(tool::setLocation);
+                    
+                    // Set default status and dates
+                    tool.setStatus(Tool.ToolStatus.NOT_STARTED);
+                    tool.setSetDate(LocalDate.now());
+                    
+                    // Save the tool
+                    toolRepository.save(tool);
+                    toolsCreated++;
+                    
+                    logger.debug("Created tool '{}' from row {}", toolName, rowNum + 1);
+                    
+                } catch (Exception e) {
+                    logger.error("Error processing row {}: {}", rowNum + 1, e.getMessage());
+                    // Continue processing other rows
+                }
+                
+                rowNum++;
+            }
+            
+            logger.info("Excel tool creation completed. {} tools created", toolsCreated);
+            return toolsCreated;
+            
+        } catch (IOException e) {
+            logger.error("Error reading Excel file", e);
+            throw new IllegalArgumentException("Error reading Excel file: " + e.getMessage());
+        }
+    }
+    
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) {
+            return null;
+        }
+        
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue();
+            case NUMERIC:
+                // Handle numeric values that should be strings (like serial numbers)
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    return cell.getDateCellValue().toString();
+                } else {
+                    // Convert numeric to string, removing decimal if it's a whole number
+                    double numericValue = cell.getNumericCellValue();
+                    if (numericValue == Math.floor(numericValue)) {
+                        return String.valueOf((long) numericValue);
+                    } else {
+                        return String.valueOf(numericValue);
+                    }
+                }
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                return cell.getCellFormula();
+            case BLANK:
+            default:
+                return null;
+        }
     }
 } 
