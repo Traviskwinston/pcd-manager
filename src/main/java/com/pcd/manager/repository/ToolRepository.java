@@ -65,14 +65,20 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
     List<Tool> findAllForListView();
     
     /**
-     * Ultra-lightweight query for tools list view - only loads core tool data
+     * Ultra-lightweight query for tools list view - loads core tool data and checklist date fields
      * Returns: id, name, secondaryName, toolType, serialNumber1, serialNumber2, 
-     *          model1, model2, status, location.id, location.name
+     *          model1, model2, status, location.id, location.name,
+     *          commissionDate, preSl1Date, sl1Date, mechanicalPreSl1Date, mechanicalPostSl1Date,
+     *          specificInputFunctionalityDate, modesOfOperationDate, specificSoosDate,
+     *          fieldServiceReportDate, certificateOfApprovalDate, turnedOverToCustomerDate, startUpSl03Date
      */
     @Query("SELECT t.id, t.name, t.secondaryName, t.toolType, t.serialNumber1, t.serialNumber2, " +
            "t.model1, t.model2, t.status, " +
            "CASE WHEN l.id IS NOT NULL THEN l.id ELSE 0 END, " +
-           "CASE WHEN l.name IS NOT NULL THEN l.name ELSE '' END " +
+           "CASE WHEN l.name IS NOT NULL THEN l.name ELSE '' END, " +
+           "t.commissionDate, t.preSl1Date, t.sl1Date, t.mechanicalPreSl1Date, t.mechanicalPostSl1Date, " +
+           "t.specificInputFunctionalityDate, t.modesOfOperationDate, t.specificSoosDate, " +
+           "t.fieldServiceReportDate, t.certificateOfApprovalDate, t.turnedOverToCustomerDate, t.startUpSl03Date " +
            "FROM Tool t LEFT JOIN t.location l " +
            "ORDER BY t.name")
     List<Object[]> findAllForAsyncListView();

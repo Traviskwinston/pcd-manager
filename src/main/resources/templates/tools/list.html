@@ -87,6 +87,58 @@
             align-items: center;
             flex-grow: 1;
         }
+        
+        /* Checklist Popover Styling */
+        .checklist-popover {
+            max-width: 300px;
+            font-size: 0.875rem;
+        }
+        
+        .checklist-item-popup {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .checklist-item-name {
+            display: flex;
+            align-items: center;
+        }
+        
+        .checklist-item-date {
+            color: #6c757d;
+            font-size: 0.8rem;
+            margin-left: 10px;
+        }
+        
+        .checklist-item-popup:last-child {
+            border-bottom: none;
+        }
+        
+        .checklist-item-popup i {
+            margin-right: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .checklist-item-popup .text-success {
+            color: #28a745 !important;
+        }
+        
+        .checklist-item-popup .text-muted {
+            color: #6c757d !important;
+        }
+        
+        /* Status badge hover effect */
+        .status-badge.info-icon-interactive {
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .status-badge.info-icon-interactive:hover {
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
@@ -120,7 +172,7 @@
                             type="text" 
                             class="form-control" 
                             id="toolsSearchInput"
-                            placeholder="Search by tool name, serial number, model, technicians, or notes..."
+                            placeholder="Search by tool name, type, serial number, model, technicians, or notes..."
                             aria-label="Search">
                         <button 
                             class="btn btn-outline-secondary" 
@@ -163,6 +215,15 @@
                                     </span>
                                 </div>
                             </th>
+                            <th style="width: 12%; text-align: left;" class="sortable-header" data-sort="toolType">
+                                <div class="header-content">
+                                    <span class="header-text">Type</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
                             <th style="width: 18%; text-align: left;" class="sortable-header" data-sort="serialNumber">
                                 <div class="header-content">
                                     <span class="header-text">Serial Number</span>
@@ -172,7 +233,7 @@
                                     </span>
                                 </div>
                             </th>
-                            <th style="width: 15%; text-align: left;" class="sortable-header" data-sort="model">
+                            <th style="width: 14%; text-align: left;" class="sortable-header" data-sort="model">
                                 <div class="header-content">
                                     <span class="header-text">Model</span>
                                     <span class="sort-arrows">
@@ -181,7 +242,7 @@
                                     </span>
                                 </div>
                             </th>
-                            <th style="width: 10%;" class="status-filter-header filter-header">
+                            <th style="width: 9%;" class="status-filter-header filter-header">
                                 Status
                                 <div class="dropdown d-inline-block ms-1">
                                     <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -237,6 +298,7 @@
                                      data-name=${tool.name + (tool.secondaryName != null ? ' (' + tool.secondaryName + ')' : '')},
                                      data-serial-number=${(tool.serialNumber1 != null ? tool.serialNumber1 : '') + (tool.serialNumber2 != null ? (tool.serialNumber1 != null ? '/' : '') + tool.serialNumber2 : '')},
                                      data-model=${(tool.model1 != null ? tool.model1 : '') + (tool.model2 != null ? (tool.model1 != null ? '/' : '') + tool.model2 : '')},
+                                     data-tool-type=${tool.toolType != null ? tool.toolType : 'Not specified'},
                                      data-status=${tool.status != null ? tool.status.name() : 'NOT_STARTED'},
                                      data-technicians=${#strings.listJoin(tool.currentTechnicians.![name], ' ')},
                                      data-notes=${tool.notes != null ? tool.notes : ''}">
@@ -263,6 +325,10 @@
                                 </th:block>
                             </td>
                             <td style="text-align: left;">
+                                <span th:if="${tool.toolType != null}" th:text="${tool.toolType}">Tool Type</span>
+                                <span th:if="${tool.toolType == null}" class="text-muted">-</span>
+                            </td>
+                            <td style="text-align: left;">
                                 <span th:if="${tool.serialNumber1 != null}" th:text="${tool.serialNumber1}">Serial Number 1</span><span th:if="${tool.serialNumber1 != null and tool.serialNumber2 != null}">/</span><span th:if="${tool.serialNumber2 != null}" th:text="${tool.serialNumber2}">Serial Number 2</span>
                                 <span th:if="${tool.serialNumber1 == null and tool.serialNumber2 == null}" class="text-muted">-</span>
                             </td>
@@ -272,9 +338,72 @@
                             </td>
                             <td class="text-center">
                                 <span th:if="${tool.status != null}" th:switch="${tool.status.name()}">
-                                    <span th:case="'NOT_STARTED'" class="badge rounded-pill bg-secondary status-badge" th:text="'Not Started'"></span>
-                                    <span th:case="'IN_PROGRESS'" class="badge rounded-pill bg-primary status-badge" th:text="'In Progress'"></span>
-                                    <span th:case="'COMPLETED'" class="badge rounded-pill bg-success status-badge" th:text="'Completed'"></span>
+                                    <span th:case="'NOT_STARTED'" class="badge rounded-pill bg-secondary status-badge info-icon-interactive" 
+                                          data-bs-toggle="popover"
+                                          data-bs-placement="left"
+                                          data-bs-trigger="hover focus click"
+                                          data-bs-html="true"
+                                          data-bs-title="Tool Checklist"
+                                          th:data-bs-content="'<div class=&quot;checklist-popover&quot;>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.commissionCompleted} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Commission</span>' + (${tool.commissionDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.commissionDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.preSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> PreSL1</span>' + (${tool.preSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.preSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.sl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SL1</span>' + (${tool.sl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.sl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPreSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Pre SL1</span>' + (${tool.mechanicalPreSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPreSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPostSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Post SL1</span>' + (${tool.mechanicalPostSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPostSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificInputFunctionalityTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Input Functionality</span>' + (${tool.specificInputFunctionalityDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificInputFunctionalityDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.modesOfOperationTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Operation Modes</span>' + (${tool.modesOfOperationDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.modesOfOperationDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificSoosTestsed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SOOs Tested</span>' + (${tool.specificSoosDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificSoosDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.fieldServiceReportUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Field Service Report</span>' + (${tool.fieldServiceReportDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.fieldServiceReportDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.certificateOfApprovalUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Certificate of Approval</span>' + (${tool.certificateOfApprovalDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.certificateOfApprovalDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.turnedOverToCustomer} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Turned Over to Customer</span>' + (${tool.turnedOverToCustomerDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.turnedOverToCustomerDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.startUpSl03Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Start-Up/SL03</span>' + (${tool.startUpSl03Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.startUpSl03Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '</div>'"
+                                          onclick="event.stopPropagation();"
+                                          th:text="'Not Started'"></span>
+                                    <span th:case="'IN_PROGRESS'" class="badge rounded-pill bg-primary status-badge info-icon-interactive"
+                                          data-bs-toggle="popover"
+                                          data-bs-placement="left"
+                                          data-bs-trigger="hover focus click"
+                                          data-bs-html="true"
+                                          data-bs-title="Tool Checklist"
+                                          th:data-bs-content="'<div class=&quot;checklist-popover&quot;>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.commissionCompleted} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Commission</span>' + (${tool.commissionDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.commissionDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.preSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> PreSL1</span>' + (${tool.preSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.preSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.sl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SL1</span>' + (${tool.sl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.sl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPreSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Pre SL1</span>' + (${tool.mechanicalPreSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPreSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPostSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Post SL1</span>' + (${tool.mechanicalPostSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPostSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificInputFunctionalityTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Input Functionality</span>' + (${tool.specificInputFunctionalityDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificInputFunctionalityDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.modesOfOperationTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Operation Modes</span>' + (${tool.modesOfOperationDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.modesOfOperationDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificSoosTestsed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SOOs Tested</span>' + (${tool.specificSoosDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificSoosDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.fieldServiceReportUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Field Service Report</span>' + (${tool.fieldServiceReportDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.fieldServiceReportDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.certificateOfApprovalUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Certificate of Approval</span>' + (${tool.certificateOfApprovalDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.certificateOfApprovalDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.turnedOverToCustomer} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Turned Over to Customer</span>' + (${tool.turnedOverToCustomerDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.turnedOverToCustomerDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.startUpSl03Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Start-Up/SL03</span>' + (${tool.startUpSl03Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.startUpSl03Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '</div>'"
+                                          onclick="event.stopPropagation();"
+                                          th:text="'In Progress'"></span>
+                                    <span th:case="'COMPLETED'" class="badge rounded-pill bg-success status-badge info-icon-interactive"
+                                          data-bs-toggle="popover"
+                                          data-bs-placement="left"
+                                          data-bs-trigger="hover focus click"
+                                          data-bs-html="true"
+                                          data-bs-title="Tool Checklist"
+                                          th:data-bs-content="'<div class=&quot;checklist-popover&quot;>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.commissionCompleted} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Commission</span>' + (${tool.commissionDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.commissionDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.preSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> PreSL1</span>' + (${tool.preSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.preSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.sl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SL1</span>' + (${tool.sl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.sl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPreSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Pre SL1</span>' + (${tool.mechanicalPreSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPreSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPostSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Post SL1</span>' + (${tool.mechanicalPostSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPostSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificInputFunctionalityTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Input Functionality</span>' + (${tool.specificInputFunctionalityDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificInputFunctionalityDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.modesOfOperationTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Operation Modes</span>' + (${tool.modesOfOperationDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.modesOfOperationDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificSoosTestsed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SOOs Tested</span>' + (${tool.specificSoosDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificSoosDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.fieldServiceReportUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Field Service Report</span>' + (${tool.fieldServiceReportDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.fieldServiceReportDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.certificateOfApprovalUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Certificate of Approval</span>' + (${tool.certificateOfApprovalDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.certificateOfApprovalDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.turnedOverToCustomer} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Turned Over to Customer</span>' + (${tool.turnedOverToCustomerDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.turnedOverToCustomerDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.startUpSl03Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Start-Up/SL03</span>' + (${tool.startUpSl03Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.startUpSl03Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
+                                            '</div>'"
+                                          onclick="event.stopPropagation();"
+                                          th:text="'Completed'"></span>
                                     <span th:case="*" class="badge rounded-pill bg-light text-dark status-badge" th:text="${tool.status.name().replace('_',' ')}"></span>
                                 </span>
                                 <span th:if="${tool.status == null}" class="badge rounded-pill bg-light text-dark status-badge">N/A</span>
@@ -527,6 +656,7 @@
                     const name = (row.getAttribute('data-name') || '').toLowerCase();
                     const serialNumber = (row.getAttribute('data-serial-number') || '').toLowerCase();
                     const model = (row.getAttribute('data-model') || '').toLowerCase();
+                    const toolType = (row.getAttribute('data-tool-type') || '').toLowerCase();
                     const technicians = (row.getAttribute('data-technicians') || '').toLowerCase();
                     const notes = (row.getAttribute('data-notes') || '').toLowerCase();
                     const status = row.getAttribute('data-status') || 'NOT_STARTED';
@@ -536,6 +666,7 @@
                         name.includes(this.currentSearch) || 
                         serialNumber.includes(this.currentSearch) || 
                         model.includes(this.currentSearch) ||
+                        toolType.includes(this.currentSearch) ||
                         technicians.includes(this.currentSearch) ||
                         notes.includes(this.currentSearch);
 

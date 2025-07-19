@@ -32,9 +32,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.PostConstruct;
 import java.io.File;
@@ -53,6 +55,7 @@ import java.util.Optional;
 import java.security.Principal;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.time.LocalDate;
 
 @Controller
 @RequestMapping("/tools")
@@ -148,7 +151,8 @@ public class ToolController {
             tool.setSerialNumber2((String) row[5]);
             tool.setModel1((String) row[6]);
             tool.setModel2((String) row[7]);
-            tool.setStatus((Tool.ToolStatus) row[8]);
+            // Skip the stored status - we'll calculate it dynamically
+            // tool.setStatus((Tool.ToolStatus) row[8]);
             
             // Create minimal location object if location exists
             Long locationId = (Long) row[9];
@@ -159,6 +163,23 @@ public class ToolController {
                 location.setName(locationName);
                 tool.setLocation(location);
             }
+            
+            // Set checklist date fields for status popover (completion status is determined by helper methods)
+            tool.setCommissionDate((java.time.LocalDate) row[11]);
+            tool.setPreSl1Date((java.time.LocalDate) row[12]);
+            tool.setSl1Date((java.time.LocalDate) row[13]);
+            tool.setMechanicalPreSl1Date((java.time.LocalDate) row[14]);
+            tool.setMechanicalPostSl1Date((java.time.LocalDate) row[15]);
+            tool.setSpecificInputFunctionalityDate((java.time.LocalDate) row[16]);
+            tool.setModesOfOperationDate((java.time.LocalDate) row[17]);
+            tool.setSpecificSoosDate((java.time.LocalDate) row[18]);
+            tool.setFieldServiceReportDate((java.time.LocalDate) row[19]);
+            tool.setCertificateOfApprovalDate((java.time.LocalDate) row[20]);
+            tool.setTurnedOverToCustomerDate((java.time.LocalDate) row[21]);
+            tool.setStartUpSl03Date((java.time.LocalDate) row[22]);
+            
+            // Set the calculated status based on checklist completion
+            tool.setStatus(tool.getCalculatedStatus());
             
             allTools.add(tool);
             toolIds.add(tool.getId());
@@ -316,7 +337,23 @@ public class ToolController {
                     boolean isCurrentUserAssigned = usersWithActiveTool.stream()
                             .anyMatch(user -> user.getId().equals(currentUser.getId()));
                     model.addAttribute("isCurrentUserAssigned", isCurrentUserAssigned);
+                    
+                    // Determine likely last updater for checklist
+                    User lastUpdatedBy = null;
+                    if (isCurrentUserAssigned) {
+                        // If current user is assigned, they're likely the last updater
+                        lastUpdatedBy = currentUser;
+                    } else if (!usersWithActiveTool.isEmpty()) {
+                        // Otherwise, use the first assigned technician
+                        lastUpdatedBy = usersWithActiveTool.get(0);
+                    }
+                    model.addAttribute("checklistLastUpdatedBy", lastUpdatedBy);
                 });
+            } else {
+                // No authenticated user, but still try to show an assigned technician if available
+                if (!usersWithActiveTool.isEmpty()) {
+                    model.addAttribute("checklistLastUpdatedBy", usersWithActiveTool.get(0));
+                }
             }
             
             // Fetch Moving Parts associated with this tool (both as source and destination)
@@ -837,6 +874,7 @@ public class ToolController {
      * Assigns this tool to the current user as their active tool
      */
     @PostMapping("/{id}/assign")
+    @Transactional
     public String assignToolToCurrentUser(@PathVariable Long id) {
         logger.info("Assigning tool ID: {} to current user", id);
         
@@ -874,6 +912,7 @@ public class ToolController {
      * Unassigns the current user from their active tool
      */
     @PostMapping("/{id}/unassign")
+    @Transactional
     public String unassignToolFromCurrentUser(@PathVariable Long id) {
         logger.info("Unassigning current user from tool ID: {}", id);
         
@@ -1224,6 +1263,64 @@ public class ToolController {
             redirectAttributes.addFlashAttribute("info", "No " + fileType + " were selected for upload.");
         }
 
+        return "redirect:/tools/" + id;
+    }
+    
+    /**
+     * Update tool checklist dates
+     */
+    @PostMapping("/{id}/update-checklist")
+    public String updateChecklist(@PathVariable Long id,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate commissionDate,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate preSl1Date,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate sl1Date,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate mechanicalPreSl1Date,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate mechanicalPostSl1Date,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate specificInputFunctionalityDate,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate modesOfOperationDate,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate specificSoosDate,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fieldServiceReportDate,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate certificateOfApprovalDate,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate turnedOverToCustomerDate,
+                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startUpSl03Date,
+                                 RedirectAttributes redirectAttributes) {
+        
+        try {
+            logger.info("Updating checklist for tool ID: {}", id);
+            
+            Optional<Tool> toolOpt = toolService.getToolById(id);
+            if (toolOpt.isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "Tool not found");
+                return "redirect:/tools";
+            }
+            
+            Tool tool = toolOpt.get();
+            
+            // Update dates (completion status is automatically determined by date presence)
+            tool.setCommissionDate(commissionDate);
+            tool.setPreSl1Date(preSl1Date);
+            tool.setSl1Date(sl1Date);
+            tool.setMechanicalPreSl1Date(mechanicalPreSl1Date);
+            tool.setMechanicalPostSl1Date(mechanicalPostSl1Date);
+            tool.setSpecificInputFunctionalityDate(specificInputFunctionalityDate);
+            tool.setModesOfOperationDate(modesOfOperationDate);
+            tool.setSpecificSoosDate(specificSoosDate);
+            tool.setFieldServiceReportDate(fieldServiceReportDate);
+            tool.setCertificateOfApprovalDate(certificateOfApprovalDate);
+            tool.setTurnedOverToCustomerDate(turnedOverToCustomerDate);
+            tool.setStartUpSl03Date(startUpSl03Date);
+            
+            // Save the updated tool
+            toolService.saveTool(tool);
+            
+            redirectAttributes.addFlashAttribute("success", "Tool checklist updated successfully");
+            logger.info("Successfully updated checklist for tool ID: {}", id);
+            
+        } catch (Exception e) {
+            logger.error("Error updating tool checklist", e);
+            redirectAttributes.addFlashAttribute("error", "Error updating checklist: " + e.getMessage());
+        }
+        
         return "redirect:/tools/" + id;
     }
     

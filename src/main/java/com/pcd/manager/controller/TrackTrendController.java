@@ -307,4 +307,42 @@ public class TrackTrendController {
         
         return "redirect:/tracktrend/" + id;
     }
+    
+    /**
+     * Add a tool to a Track/Trend
+     */
+    @PostMapping("/add-tool")
+    public String addToolToTrackTrend(@RequestParam Long toolId, 
+                                     @RequestParam Long trackTrendId, 
+                                     RedirectAttributes redirectAttributes) {
+        try {
+            logger.info("Adding tool {} to Track/Trend {}", toolId, trackTrendId);
+            
+            // Get the tool and track/trend
+            Tool tool = toolService.getToolById(toolId)
+                .orElseThrow(() -> new RuntimeException("Tool not found with id: " + toolId));
+            
+            TrackTrend trackTrend = trackTrendService.getTrackTrendById(trackTrendId)
+                .orElseThrow(() -> new RuntimeException("Track/Trend not found with id: " + trackTrendId));
+            
+            // Check if tool is already in this track/trend
+            if (trackTrend.getAffectedTools().contains(tool)) {
+                redirectAttributes.addFlashAttribute("warning", "Tool is already associated with this Track/Trend");
+                return "redirect:/tools/" + toolId;
+            }
+            
+            // Add the tool to the track/trend
+            trackTrend.getAffectedTools().add(tool);
+            trackTrendService.saveTrackTrend(trackTrend);
+            
+            redirectAttributes.addFlashAttribute("success", 
+                "Tool successfully added to Track/Trend: " + trackTrend.getName());
+            
+        } catch (Exception e) {
+            logger.error("Error adding tool to Track/Trend", e);
+            redirectAttributes.addFlashAttribute("error", "Error adding tool to Track/Trend: " + e.getMessage());
+        }
+        
+        return "redirect:/tools/" + toolId;
+    }
 } 

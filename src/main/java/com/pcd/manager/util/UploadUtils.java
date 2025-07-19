@@ -27,6 +27,13 @@ import java.util.Arrays;
 import com.pcd.manager.model.Rma;
 import com.pcd.manager.model.RmaPicture;
 import com.pcd.manager.model.RmaDocument;
+import com.pcd.manager.model.Tool;
+import com.pcd.manager.model.ToolPicture;
+import com.pcd.manager.model.Passdown;
+import com.pcd.manager.model.PassdownPicture;
+import com.pcd.manager.model.TrackTrend;
+import com.pcd.manager.model.TrackTrendPicture;
+import com.pcd.manager.model.User;
 import org.springframework.http.ResponseEntity;
 
 @Component
@@ -416,10 +423,11 @@ public class UploadUtils {
      * 
      * @param rma The RMA to associate the picture with
      * @param file The picture file to save
+     * @param uploadedBy The user who uploaded the picture
      * @return The created RmaPicture entity, or null if saving failed
      * @throws IOException If an I/O error occurs
      */
-    public RmaPicture saveRmaPicture(Rma rma, MultipartFile file) throws IOException {
+    public RmaPicture saveRmaPicture(Rma rma, MultipartFile file, User uploadedBy) throws IOException {
         if (file == null || file.isEmpty() || rma == null) {
             logger.warn("Cannot save picture: file or RMA is null/empty");
             return null;
@@ -439,6 +447,109 @@ public class UploadUtils {
         picture.setFilePath(filePath);
         picture.setFileType(file.getContentType());
         picture.setFileSize(file.getSize());
+        picture.setUploadedBy(uploadedBy);
+        
+        return picture;
+    }
+
+    /**
+     * Save a picture file and create a ToolPicture entity
+     * 
+     * @param tool The Tool to associate the picture with
+     * @param file The picture file to save
+     * @param uploadedBy The user who uploaded the picture
+     * @return The created ToolPicture entity, or null if saving failed
+     * @throws IOException If an I/O error occurs
+     */
+    public ToolPicture saveToolPicture(Tool tool, MultipartFile file, User uploadedBy) throws IOException {
+        if (file == null || file.isEmpty() || tool == null) {
+            logger.warn("Cannot save picture: file or tool is null/empty");
+            return null;
+        }
+        
+        // Save the file to disk
+        String filePath = saveFile(file, "pictures");
+        if (filePath == null) {
+            logger.warn("Failed to save picture file to disk");
+            return null;
+        }
+        
+        // Create and return the ToolPicture entity
+        ToolPicture picture = new ToolPicture();
+        picture.setTool(tool);
+        picture.setFileName(file.getOriginalFilename());
+        picture.setFilePath(filePath);
+        picture.setFileType(file.getContentType());
+        picture.setFileSize(file.getSize());
+        picture.setUploadedBy(uploadedBy);
+        
+        return picture;
+    }
+
+    /**
+     * Save a picture file and create a PassdownPicture entity
+     * 
+     * @param passdown The Passdown to associate the picture with
+     * @param file The picture file to save
+     * @param uploadedBy The user who uploaded the picture
+     * @return The created PassdownPicture entity, or null if saving failed
+     * @throws IOException If an I/O error occurs
+     */
+    public PassdownPicture savePassdownPicture(Passdown passdown, MultipartFile file, User uploadedBy) throws IOException {
+        if (file == null || file.isEmpty() || passdown == null) {
+            logger.warn("Cannot save picture: file or passdown is null/empty");
+            return null;
+        }
+        
+        // Save the file to disk
+        String filePath = saveFile(file, "pictures");
+        if (filePath == null) {
+            logger.warn("Failed to save picture file to disk");
+            return null;
+        }
+        
+        // Create and return the PassdownPicture entity
+        PassdownPicture picture = new PassdownPicture();
+        picture.setPassdown(passdown);
+        picture.setFileName(file.getOriginalFilename());
+        picture.setFilePath(filePath);
+        picture.setFileType(file.getContentType());
+        picture.setFileSize(file.getSize());
+        picture.setUploadedBy(uploadedBy);
+        
+        return picture;
+    }
+
+    /**
+     * Save a picture file and create a TrackTrendPicture entity
+     * 
+     * @param trackTrend The TrackTrend to associate the picture with
+     * @param file The picture file to save
+     * @param uploadedBy The user who uploaded the picture
+     * @return The created TrackTrendPicture entity, or null if saving failed
+     * @throws IOException If an I/O error occurs
+     */
+    public TrackTrendPicture saveTrackTrendPicture(TrackTrend trackTrend, MultipartFile file, User uploadedBy) throws IOException {
+        if (file == null || file.isEmpty() || trackTrend == null) {
+            logger.warn("Cannot save picture: file or trackTrend is null/empty");
+            return null;
+        }
+        
+        // Save the file to disk
+        String filePath = saveFile(file, "pictures");
+        if (filePath == null) {
+            logger.warn("Failed to save picture file to disk");
+            return null;
+        }
+        
+        // Create and return the TrackTrendPicture entity
+        TrackTrendPicture picture = new TrackTrendPicture();
+        picture.setTrackTrend(trackTrend);
+        picture.setFileName(file.getOriginalFilename());
+        picture.setFilePath(filePath);
+        picture.setFileType(file.getContentType());
+        picture.setFileSize(file.getSize());
+        picture.setUploadedBy(uploadedBy);
         
         return picture;
     }

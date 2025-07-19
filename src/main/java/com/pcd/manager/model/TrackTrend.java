@@ -67,13 +67,18 @@ public class TrackTrend {
     @Column(name = "file_name")
     private Map<String, String> documentNames = new HashMap<>();
 
+    // Pictures with upload tracking
+    @OneToMany(mappedBy = "trackTrend", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<TrackTrendPicture> pictures = new ArrayList<>();
+
+    // Legacy string-based picture tracking - deprecated but kept for migration compatibility
     @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "tracktrend_picture_paths", joinColumns = @JoinColumn(name = "tracktrend_id"))
+    @CollectionTable(name = "tracktrend_picture_paths_legacy", joinColumns = @JoinColumn(name = "tracktrend_id"))
     @Column(name = "picture_path")
     private Set<String> picturePaths = new HashSet<>();
 
     @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "tracktrend_picture_names", joinColumns = @JoinColumn(name = "tracktrend_id"))
+    @CollectionTable(name = "tracktrend_picture_names_legacy", joinColumns = @JoinColumn(name = "tracktrend_id"))
     @MapKeyColumn(name = "file_path")
     @Column(name = "file_name")
     private Map<String, String> pictureNames = new HashMap<>();

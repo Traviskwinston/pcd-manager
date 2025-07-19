@@ -131,10 +131,15 @@
 <script th:fragment="movingPartModalScript(containerId, addButtonId)">
     document.addEventListener('DOMContentLoaded', function() {
         // Add destination functionality for the specific modal
-        const addBtn = document.getElementById(/*[[${addButtonId}]]*/);
+        const addButtonIdValue = '/*[[${addButtonId}]]*/';
+        const containerIdValue = '/*[[${containerId}]]*/';
+        
+        const addBtn = addButtonIdValue ? document.getElementById(addButtonIdValue) : null;
         if (addBtn) {
             addBtn.addEventListener('click', function() {
-                addDestinationRow(/*[[${containerId}]]*/);
+                if (containerIdValue) {
+                    addDestinationRow(containerIdValue);
+                }
             });
         }
         
@@ -142,17 +147,23 @@
         document.addEventListener('click', function(e) {
             if (e.target.closest('.remove-destination')) {
                 e.target.closest('.destination-row').remove();
-                updateRemoveButtons(/*[[${containerId}]]*/);
+                if (containerIdValue) {
+                    updateRemoveButtons(containerIdValue);
+                }
             }
         });
     });
     
     function addDestinationRow(containerId) {
         const container = document.getElementById(containerId);
+        if (!container) return;
+        
         const newRow = document.createElement('div');
         newRow.className = 'd-flex align-items-center mb-2 destination-row';
         
         const firstSelect = container.querySelector('.destination-select');
+        if (!firstSelect) return;
+        
         const toolOptions = firstSelect.innerHTML;
         
         newRow.innerHTML = `
@@ -171,6 +182,8 @@
     
     function updateRemoveButtons(containerId) {
         const container = document.getElementById(containerId);
+        if (!container) return;
+        
         const rows = container.querySelectorAll('.destination-row');
         
         rows.forEach((row, index) => {

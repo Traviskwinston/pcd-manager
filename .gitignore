@@ -87,6 +87,9 @@ Thumbs.db
 !**/uploads/rma-documents/
 !**/uploads/**/README.md
 
+# Allow reference documents (templates, etc.)
+!**/uploads/reference-documents/**
+
 # Node modules and build files for client
 pcd-manager-client/node_modules/
 pcd-manager-client/build/

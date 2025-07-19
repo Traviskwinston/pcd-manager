@@ -9,7 +9,9 @@ import lombok.ToString;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
@@ -45,14 +47,18 @@ public class Passdown {
     @JoinColumn(name = "tool_id")
     private Tool tool;
 
-    // Store multiple picture paths and original names
+    // Pictures with upload tracking
+    @OneToMany(mappedBy = "passdown", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<PassdownPicture> pictures = new ArrayList<>();
+
+    // Legacy string-based picture tracking - deprecated but kept for migration compatibility
     @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "passdown_pictures", joinColumns = @JoinColumn(name = "passdown_id"))
+    @CollectionTable(name = "passdown_pictures_legacy", joinColumns = @JoinColumn(name = "passdown_id"))
     @Column(name = "picture_path")
     private Set<String> picturePaths = new HashSet<>();
 
     @ElementCollection(fetch = FetchType.LAZY)
-    @CollectionTable(name = "passdown_picture_names", joinColumns = @JoinColumn(name = "passdown_id"))
+    @CollectionTable(name = "passdown_picture_names_legacy", joinColumns = @JoinColumn(name = "passdown_id"))
     @MapKeyColumn(name = "picture_path")
     @Column(name = "original_filename")
     private Map<String, String> pictureNames = new HashMap<>();

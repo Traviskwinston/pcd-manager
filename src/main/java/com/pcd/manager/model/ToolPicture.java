@@ -8,11 +8,11 @@ import lombok.AllArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "rma_pictures")
+@Table(name = "tool_pictures")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class RmaPicture {
+public class ToolPicture {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,8 +31,8 @@ public class RmaPicture {
     private User uploadedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "rma_id", nullable = false)
-    private Rma rma;
+    @JoinColumn(name = "tool_id", nullable = false)
+    private Tool tool;
 
     @PrePersist
     protected void onCreate() {

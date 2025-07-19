@@ -1233,6 +1233,17 @@ public class RmaController {
                 return "redirect:/rma";
             }
             
+            // Get current user for upload tracking
+            User currentUser = null;
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated() && !authentication.getName().equals("anonymousUser")) {
+                String username = authentication.getName();
+                currentUser = userService.getUserByUsername(username).orElse(null);
+                if (currentUser == null) {
+                    logger.warn("Could not find user with username: {}", username);
+                }
+            }
+            
             Rma rma = rmaOpt.get();
             int successCount = 0;
             
@@ -1256,23 +1267,14 @@ public class RmaController {
                         continue;
                     }
                     
-                    // Save file to disk
-                    String filePath = uploadUtils.saveFile(file, "rma-pictures");
-                    if (filePath == null) {
-                        logger.warn("Failed to save file: {}", file.getOriginalFilename());
-                        continue;
+                    // Use the new upload method with tracking
+                    RmaPicture picture = uploadUtils.saveRmaPicture(rma, file, currentUser);
+                    if (picture != null) {
+                        rma.getPictures().add(picture);
+                        successCount++;
+                    } else {
+                        logger.warn("Failed to save picture: {}", file.getOriginalFilename());
                     }
-                    
-                    // Create picture entity
-                    RmaPicture picture = new RmaPicture();
-                    picture.setFileName(file.getOriginalFilename());
-                    picture.setFilePath(filePath);
-                    picture.setFileType(contentType);
-                    picture.setFileSize(file.getSize());
-                    picture.setRma(rma);
-                    
-                    rma.getPictures().add(picture);
-                    successCount++;
                     
                 } catch (Exception e) {
                     logger.error("Error processing picture {}: {}", file.getOriginalFilename(), e.getMessage());

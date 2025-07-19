@@ -138,13 +138,18 @@ public class Tool {
     @Column(name = "original_filename")
     private Map<String, String> documentNames = new HashMap<>();
 
+    // Pictures with upload tracking
+    @OneToMany(mappedBy = "tool", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<ToolPicture> pictures = new ArrayList<>();
+
+    // Legacy string-based picture tracking - deprecated but kept for migration compatibility
     @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "tool_pictures", joinColumns = @JoinColumn(name = "tool_id"))
+    @CollectionTable(name = "tool_pictures_legacy", joinColumns = @JoinColumn(name = "tool_id"))
     @Column(name = "picture_path")
     private Set<String> picturePaths = new HashSet<>();
 
     @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "tool_picture_names", joinColumns = @JoinColumn(name = "tool_id"))
+    @CollectionTable(name = "tool_picture_names_legacy", joinColumns = @JoinColumn(name = "tool_id"))
     @MapKeyColumn(name = "picture_path")
     @Column(name = "original_filename")
     private Map<String, String> pictureNames = new HashMap<>();
@@ -281,6 +286,36 @@ public class Tool {
     
     public boolean isStartUpSl03Completed() {
         return startUpSl03Date != null;
+    }
+    
+    /**
+     * Calculate the dynamic status based on checklist completion
+     */
+    public ToolStatus getCalculatedStatus() {
+        int completedItems = 0;
+        
+        // Count all checklist items that are completed
+        if (isCommissionCompleted()) completedItems++;
+        if (isPreSl1Completed()) completedItems++;
+        if (isSl1Completed()) completedItems++;
+        if (isMechanicalPreSl1Completed()) completedItems++;
+        if (isMechanicalPostSl1Completed()) completedItems++;
+        if (isSpecificInputFunctionalityTested()) completedItems++;
+        if (isModesOfOperationTested()) completedItems++;
+        if (isSpecificSoosTestsed()) completedItems++;
+        if (isFieldServiceReportUploaded()) completedItems++;
+        if (isCertificateOfApprovalUploaded()) completedItems++;
+        if (isTurnedOverToCustomer()) completedItems++;
+        if (isStartUpSl03Completed()) completedItems++;
+        
+        // Total checklist items = 12
+        if (completedItems == 0) {
+            return ToolStatus.NOT_STARTED;
+        } else if (completedItems == 12) {
+            return ToolStatus.COMPLETED;
+        } else {
+            return ToolStatus.IN_PROGRESS;
+        }
     }
     
     @Override
