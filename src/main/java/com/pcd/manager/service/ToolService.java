@@ -8,6 +8,7 @@ import com.pcd.manager.model.Passdown;
 import com.pcd.manager.model.MovingPart;
 import com.pcd.manager.model.ToolComment;
 import com.pcd.manager.model.User;
+import com.pcd.manager.model.Location;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.repository.RmaRepository;
 import com.pcd.manager.repository.RmaDocumentRepository;
