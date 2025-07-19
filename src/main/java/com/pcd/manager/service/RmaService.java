@@ -274,7 +274,7 @@ public class RmaService {
                             // Check if it's an image file
                             if (uploadUtils.isImageFile(originalFilename)) {
                                 logger.info("Saving as picture: {}", originalFilename);
-                                RmaPicture picture = uploadUtils.saveRmaPicture(savedRma, file);
+                                RmaPicture picture = uploadUtils.saveRmaPicture(savedRma, file, null);
                                 if (picture != null) {
                                     picturesToAdd.add(picture);
                                     successCount++;
