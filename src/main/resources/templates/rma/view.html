@@ -148,7 +148,7 @@
                     
                     <div class="detail-meta">
                         <!-- Status Badge -->
-                        <span th:if="${rma.status != null}" 
+                        <span id="status-view-mode" th:if="${rma.status != null}" 
                               th:class="${'badge detail-status-badge rma-status-badge ' + 
                                                     (rma.status.name() == 'RMA_WRITTEN_EMAILED' ? 'bg-primary' : 
                                                     (rma.status.name() == 'NUMBER_PROVIDED' ? 'bg-info' : 
@@ -162,7 +162,7 @@
                               title="Click to change status">Status</span>
                               
                         <!-- Priority Badge -->
-                                                    <span th:if="${rma.priority != null}" 
+                        <span id="priority-view-mode-container" th:if="${rma.priority != null}" 
                               th:class="${'badge detail-priority-badge rma-priority-badge border border-light ' + 
                                                                 (rma.priority.name() == 'LOW' ? 'bg-info' : 
                                                                 (rma.priority.name() == 'MEDIUM' ? 'bg-warning text-dark' : 
@@ -171,6 +171,38 @@
                               th:text="${rma.priority.displayName ?: rma.priority}"
                               onclick="enterPriorityEditMode()"
                               title="Click to change priority">Priority</span>
+                              
+                        <!-- Status Edit Mode (Hidden) -->
+                        <span id="status-edit-mode" class="d-none">
+                            <select id="status-select" class="form-select form-select-sm d-inline-block" style="width: auto;">
+                                <option th:each="statusOption : ${T(com.pcd.manager.model.RmaStatus).values()}"
+                                        th:value="${statusOption}"
+                                        th:text="${statusOption.displayName}"
+                                        th:selected="${statusOption == rma.status}"></option>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-success ms-1" onclick="saveStatus()">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary ms-1" onclick="cancelStatusEdit()">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </span>
+
+                        <!-- Priority Edit Mode (Hidden) -->
+                        <span id="priority-edit-mode-container" class="d-none">
+                            <select id="priority-select" class="form-select form-select-sm d-inline-block" style="width: auto;">
+                                <option th:each="priorityOption : ${T(com.pcd.manager.model.RmaPriority).values()}"
+                                        th:value="${priorityOption}"
+                                        th:text="${priorityOption.displayName ?: priorityOption}"
+                                        th:selected="${priorityOption == rma.priority}"></option>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-success ms-1" onclick="savePriority()">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary ms-1" onclick="cancelPriorityEdit()">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </span>
                               
                         <!-- Location -->
                         <span class="badge bg-secondary">
@@ -268,10 +300,16 @@
                                     <strong th:text="${rma.systemDescription?.displayName ?: 'N/A'}">System Description</strong>
                                 </div>
                             </div>
-                            <div class="col-12">
+                            <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Customer</small>
                                     <strong th:text="${rma.customerName ?: 'N/A'}">Customer Name</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex flex-column">
+                                    <small class="detail-text-muted">Technician</small>
+                                    <strong th:text="${rma.technician ?: 'Not assigned'}">Technician</strong>
                                 </div>
                             </div>
                         </div>
@@ -368,7 +406,12 @@
                         <h6 class="mb-0">
                             <i class="bi bi-boxes me-2"></i>Parts Information
                         </h6>
-                        <span class="badge bg-secondary" th:text="${rma.partLineItems != null ? rma.partLineItems.size() : 0}">0</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" onclick="enableInlineEdit('parts-info')">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <span class="badge bg-secondary" th:text="${rma.partLineItems != null ? rma.partLineItems.size() : 0}">0</span>
+                        </div>
                                 </div>
                     <div class="card-body">
                         <div th:if="${rma.partLineItems == null || rma.partLineItems.isEmpty()}" class="detail-empty-state">
@@ -381,9 +424,10 @@
                                 <thead>
                                     <tr>
                                         <th>Part Name</th>
-                                        <th>Part Number</th>
-                                        <th>Description</th>
-                                        <th>Quantity</th>
+                                        <th>Part #</th>
+                                        <th>Desc.</th>
+                                        <th>QTY</th>
+                                        <th>Replace?</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -392,6 +436,10 @@
                                         <td th:text="${partItem.partNumber ?: '-'}">Part Number</td>
                                         <td th:text="${partItem.productDescription ?: '-'}">Description</td>
                                         <td th:text="${partItem.quantity ?: '1'}">Quantity</td>
+                                        <td>
+                                            <span th:if="${partItem.replacementRequired}" class="badge bg-danger">Yes</span>
+                                            <span th:if="${!partItem.replacementRequired}" class="badge bg-success">No</span>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -403,10 +451,13 @@
             <!-- Problem Details Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
                             <i class="bi bi-question-circle me-2"></i>Problem Details
                         </h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" onclick="enableInlineEdit('problem-details')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
                             </div>
                     <div class="card-body">
                         <div class="row g-3">
@@ -452,6 +503,20 @@
                                     <span class="detail-text-muted" th:if="${rma.whoContained == null}">Not specified</span>
                                     </div>
                                 </div>
+                            <div class="col-12">
+                                <div class="d-flex flex-column">
+                                    <small class="detail-text-muted">Root Cause</small>
+                                    <p class="mb-0" th:if="${rma.rootCause != null}" th:text="${rma.rootCause}">Root cause</p>
+                                    <span class="detail-text-muted" th:if="${rma.rootCause == null}">No root cause identified</span>
+                                            </div>
+                                            </div>
+                            <div class="col-12">
+                                <div class="d-flex flex-column">
+                                    <small class="detail-text-muted">Resolution</small>
+                                    <p class="mb-0" th:if="${rma.resolution != null}" th:text="${rma.resolution}">Resolution</p>
+                                    <span class="detail-text-muted" th:if="${rma.resolution == null}">No resolution provided</span>
+                                            </div>
+                                        </div>
                         </div>
                         </div>
                     </div>
@@ -460,10 +525,13 @@
                 <!-- Process Impact Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
                             <i class="bi bi-exclamation-triangle me-2"></i>Process Impact
                         </h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" onclick="enableInlineEdit('process-impact')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
@@ -618,10 +686,13 @@
             <!-- Customer Information Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
                             <i class="bi bi-person-badge me-2"></i>Customer Information
                         </h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" onclick="enableInlineEdit('customer-info')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
@@ -639,6 +710,28 @@
                                     <span class="detail-text-muted" th:if="${rma.attn == null}">Not specified</span>
                                 </div>
                             </div>
+                            <div class="col-12">
+                                <div class="d-flex flex-column">
+                                    <small class="detail-text-muted">Company Ship To:</small>
+                                    <div th:if="${rma.companyShipToName != null}">
+                                        <p class="mb-0" th:text="${rma.companyShipToName}">Company</p>
+                                        <p class="mb-0" th:if="${rma.companyShipToAddress != null}" th:text="${rma.companyShipToAddress}">Address</p>
+                                        <p class="mb-0" th:if="${rma.city != null or rma.state != null or rma.zipCode != null}">
+                                            <span th:if="${rma.city != null}" th:text="${rma.city}">City</span><span th:if="${rma.city != null and rma.state != null}">, </span>
+                                            <span th:if="${rma.state != null}" th:text="${rma.state}">State</span>
+                                            <span th:if="${rma.zipCode != null}" th:text="' ' + ${rma.zipCode}">ZIP</span>
+                                        </p>
+                                    </div>
+                                    <span class="detail-text-muted" th:if="${rma.companyShipToName == null}">No shipping address specified</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex flex-column">
+                                    <small class="detail-text-muted">Contact Phone Number</small>
+                                    <p class="mb-0" th:if="${rma.customerPhone != null}" th:text="${rma.customerPhone}">Contact phone</p>
+                                    <span class="detail-text-muted" th:if="${rma.customerPhone == null}">Not specified</span>
+                                </div>
+                            </div>
                             <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Field Tech Name</small>
@@ -653,26 +746,11 @@
                                     <span class="detail-text-muted" th:if="${rma.fieldTechPhone == null}">Not specified</span>
                                 </div>
                             </div>
-                            <div class="col-12">
+                            <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Field Tech Email</small>
                                     <p class="mb-0" th:if="${rma.fieldTechEmail != null}" th:text="${rma.fieldTechEmail}">Field tech email</p>
                                     <span class="detail-text-muted" th:if="${rma.fieldTechEmail == null}">Not specified</span>
-                                </div>
-                            </div>
-                            <div class="col-12">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Shipping Address</small>
-                                    <div th:if="${rma.companyShipToName != null}">
-                                        <p class="mb-0" th:text="${rma.companyShipToName}">Company</p>
-                                        <p class="mb-0" th:if="${rma.companyShipToAddress != null}" th:text="${rma.companyShipToAddress}">Address</p>
-                                        <p class="mb-0" th:if="${rma.city != null or rma.state != null or rma.zipCode != null}">
-                                            <span th:if="${rma.city != null}" th:text="${rma.city}">City</span><span th:if="${rma.city != null and rma.state != null}">, </span>
-                                            <span th:if="${rma.state != null}" th:text="${rma.state}">State</span>
-                                            <span th:if="${rma.zipCode != null}" th:text="' ' + ${rma.zipCode}">ZIP</span>
-                                        </p>
-                                    </div>
-                                    <span class="detail-text-muted" th:if="${rma.companyShipToName == null}">No shipping address specified</span>
                                 </div>
                             </div>
                         </div>
@@ -683,10 +761,13 @@
             <!-- Important Dates Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
                             <i class="bi bi-calendar-event me-2"></i>Important Dates
                         </h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" onclick="enableInlineEdit('important-dates')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
                     </div>
                     <div class="card-body">
                         <table class="table table-sm rma-date-table">
@@ -829,98 +910,36 @@
                         </div>
                                     </div>
 
-            <!-- Notes & Resolution Section -->
+            <!-- Notes Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-journal-text me-2"></i>Notes & Resolution
+                            <i class="bi bi-journal-text me-2"></i>Notes
                         </h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" data-bs-toggle="modal" data-bs-target="#notesModal">
+                            <i class="bi bi-plus"></i>
+                        </button>
                     </div>
                     <div class="card-body">
-                        <div class="row g-3">
-                                    <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Technician</small>
-                                    <p class="mb-0" th:if="${rma.technician != null}" th:text="${rma.technician}">Technician</p>
-                                    <span class="detail-text-muted" th:if="${rma.technician == null}">Not assigned</span>
-                                    </div>
-                                </div>
-                                    <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Field Tech</small>
-                                    <div th:if="${rma.fieldTechName != null}">
-                                        <p class="mb-0" th:text="${rma.fieldTechName}">Field tech name</p>
-                                        <div class="small detail-text-muted">
-                                            <div th:if="${rma.fieldTechPhone != null}" th:text="${rma.fieldTechPhone}">Phone</div>
-                                            <div th:if="${rma.fieldTechEmail != null}" th:text="${rma.fieldTechEmail}">Email</div>
-                                    </div>
-                                    </div>
-                                    <span class="detail-text-muted" th:if="${rma.fieldTechName == null}">Not assigned</span>
-                                </div>
-                                            </div>
-                            <div class="col-12">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Notes</small>
-                                    <p class="mb-0" th:if="${rma.notes != null}" th:text="${rma.notes}">Notes content</p>
-                                    <span class="detail-text-muted" th:if="${rma.notes == null}">No notes available</span>
-                                            </div>
-                                        </div>
-                            <div class="col-12">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Root Cause</small>
-                                    <p class="mb-0" th:if="${rma.rootCause != null}" th:text="${rma.rootCause}">Root cause</p>
-                                    <span class="detail-text-muted" th:if="${rma.rootCause == null}">No root cause identified</span>
-                                            </div>
-                                            </div>
-                            <div class="col-12">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Resolution</small>
-                                    <p class="mb-0" th:if="${rma.resolution != null}" th:text="${rma.resolution}">Resolution</p>
-                                    <span class="detail-text-muted" th:if="${rma.resolution == null}">No resolution provided</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                </div>
+                        <div th:if="${rma.notes == null || rma.notes.isEmpty()}" class="detail-empty-state">
+                            <i class="bi bi-journal-text"></i>
+                            <p>No notes available</p>
+                        </div>
+                        
+                        <div th:if="${rma.notes != null && !rma.notes.isEmpty()}" class="d-flex flex-column">
+                            <div class="border rounded p-3 detail-interactive">
+                                <p class="mb-0" th:text="${rma.notes}">Notes content</p>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
     <!-- Hidden RMA ID for JavaScript -->
     <input type="hidden" id="rmaPageEntityIdForJs" th:value="${rma.id}">
     
-    <!-- Status Edit Mode Elements (Hidden) -->
-    <span id="status-edit-mode" class="d-none">
-        <select id="status-select" class="form-select form-select-sm d-inline-block" style="width: auto;">
-            <option th:each="statusOption : ${T(com.pcd.manager.model.RmaStatus).values()}"
-                    th:value="${statusOption}"
-                    th:text="${statusOption.displayName}"
-                    th:selected="${statusOption == rma.status}"></option>
-        </select>
-        <button type="button" class="btn btn-sm btn-success ms-1" onclick="saveStatus()">
-            <i class="bi bi-check-lg"></i>
-                                    </button>
-        <button type="button" class="btn btn-sm btn-secondary ms-1" onclick="cancelStatusEdit()">
-            <i class="bi bi-x-lg"></i>
-                                                    </button>
-    </span>
 
-    <!-- Priority Edit Mode Elements (Hidden) -->
-    <span id="priority-edit-mode-container" class="d-none">
-        <select id="priority-select" class="form-select form-select-sm d-inline-block" style="width: auto;">
-            <option th:each="priorityOption : ${T(com.pcd.manager.model.RmaPriority).values()}"
-                    th:value="${priorityOption}"
-                    th:text="${priorityOption.displayName ?: priorityOption}"
-                    th:selected="${priorityOption == rma.priority}"></option>
-        </select>
-        <button type="button" class="btn btn-sm btn-success ms-1" onclick="savePriority()">
-            <i class="bi bi-check-lg"></i>
-        </button>
-        <button type="button" class="btn btn-sm btn-secondary ms-1" onclick="cancelPriorityEdit()">
-            <i class="bi bi-x-lg"></i>
-        </button>
-    </span>
 
     <!-- Delete Confirmation Modal -->
     <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
@@ -1132,6 +1151,35 @@
                                         </div>
                                     </div>
                                 </div>
+
+    <!-- Notes Modal -->
+    <div class="modal fade" id="notesModal" tabindex="-1" aria-labelledby="notesModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="notesModalLabel">
+                        <i class="bi bi-journal-text me-2"></i>Add/Edit Notes
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form th:action="@{/rma/{id}/update-notes(id=${rma.id})}" method="post">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="notesContent" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notesContent" name="notes" rows="6" 
+                                      placeholder="Enter notes..." th:text="${rma.notes}"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-2"></i>Save Notes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Add Moving Part Modal (Reusable Fragment) -->
     <div th:replace="~{fragments/moving-part-modal :: addMovingPartModal('addMovingPartModal', @{/rma/{id}/moving-parts/add(id=${rma.id})}, ${allTools}, 'destinationContainerRma', 'addDestinationBtnRma')}"></div>
@@ -1778,22 +1826,21 @@
                 if (data.success) {
                     // Update the displayed status and badge class
                     const statusViewMode = document.getElementById('status-view-mode');
-                    const statusSpan = statusViewMode.querySelector('span'); // The inner span that holds the text
-                    statusSpan.textContent = data.newStatusDisplay;
+                    statusViewMode.textContent = data.newStatusDisplay;
                     
                     // Update badge class based on data.newStatus (enum name)
-                    let badgeClass = 'bg-light text-dark'; // Default
-                    if (data.newStatus === 'RMA_WRITTEN_EMAILED') badgeClass = 'bg-primary';
-                    else if (data.newStatus === 'NUMBER_PROVIDED') badgeClass = 'bg-info';
-                    else if (data.newStatus === 'MEMO_EMAILED') badgeClass = 'bg-secondary';
-                    else if (data.newStatus === 'RECEIVED_PARTS') badgeClass = 'bg-warning text-dark';
-                    else if (data.newStatus === 'WAITING_CUSTOMER') badgeClass = 'bg-danger';
-                    else if (data.newStatus === 'WAITING_FSE') badgeClass = 'bg-danger';
-                    else if (data.newStatus === 'COMPLETED') badgeClass = 'bg-success';
+                    let badgeClass = 'badge detail-status-badge rma-status-badge ';
+                    if (data.newStatus === 'RMA_WRITTEN_EMAILED') badgeClass += 'bg-primary';
+                    else if (data.newStatus === 'NUMBER_PROVIDED') badgeClass += 'bg-info';
+                    else if (data.newStatus === 'MEMO_EMAILED') badgeClass += 'bg-secondary';
+                    else if (data.newStatus === 'RECEIVED_PARTS') badgeClass += 'bg-warning';
+                    else if (data.newStatus === 'WAITING_CUSTOMER') badgeClass += 'bg-danger';
+                    else if (data.newStatus === 'WAITING_FSE') badgeClass += 'bg-danger';
+                    else if (data.newStatus === 'COMPLETED') badgeClass += 'bg-success';
+                    else badgeClass += 'bg-light text-dark';
                     
-                    statusViewMode.className = `badge rounded-pill fs-6 cursor-pointer ${badgeClass}`;
+                    statusViewMode.className = badgeClass;
                     cancelStatusEdit(); // Switch back to view mode
-                    // Consider a more subtle success indication if needed
                 } else {
                     alert('Error updating status: ' + (data.message || 'Unknown error'));
                 }
@@ -1836,16 +1883,16 @@
             .then(data => {
                 if (data.success) {
                     const priorityViewContainer = document.getElementById('priority-view-mode-container');
-                    const priorityBadge = priorityViewContainer.querySelector('span'); // The badge span
-                    priorityBadge.textContent = data.newPriorityDisplay;
+                    priorityViewContainer.textContent = data.newPriorityDisplay;
 
-                    let badgeClass = 'bg-light text-dark'; // Default
-                    if (data.newPriority === 'LOW') badgeClass = 'bg-info';
-                    else if (data.newPriority === 'MEDIUM') badgeClass = 'bg-warning text-dark';
-                    else if (data.newPriority === 'HIGH') badgeClass = 'bg-danger';
-                    else if (data.newPriority === 'URGENT') badgeClass = 'bg-danger text-uppercase';
+                    let badgeClass = 'badge detail-priority-badge rma-priority-badge border border-light ';
+                    if (data.newPriority === 'LOW') badgeClass += 'bg-info';
+                    else if (data.newPriority === 'MEDIUM') badgeClass += 'bg-warning text-dark';
+                    else if (data.newPriority === 'HIGH') badgeClass += 'bg-danger';
+                    else if (data.newPriority === 'URGENT') badgeClass += 'bg-danger text-uppercase';
+                    else badgeClass += 'bg-light text-dark';
                     
-                    priorityBadge.className = `badge rounded-pill fs-6 border border-secondary-subtle ${badgeClass}`;
+                    priorityViewContainer.className = badgeClass;
                     cancelPriorityEdit();
                 } else {
                     alert('Error updating priority: ' + (data.message || 'Unknown error'));

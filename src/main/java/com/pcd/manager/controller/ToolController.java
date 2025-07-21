@@ -881,32 +881,21 @@ public class ToolController {
      * Assigns this tool to the current user as their active tool
      */
     @PostMapping("/{id}/assign")
-    @Transactional
     public String assignToolToCurrentUser(@PathVariable Long id) {
-        logger.info("Assigning tool ID: {} to current user", id);
+        logger.info("NEW CODE: Assigning tool ID: {} to current user using service method", id);
         
         // Get current authenticated user
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
             String email = auth.getName();
-            Optional<User> currentUserOpt = userService.getUserByEmail(email);
-            Optional<Tool> toolOpt = toolService.getToolById(id);
             
-            if (currentUserOpt.isPresent() && toolOpt.isPresent()) {
-                User currentUser = currentUserOpt.get();
-                Tool tool = toolOpt.get();
-                
-                // Set this tool as the user's active tool
-                currentUser.setActiveTool(tool);
-                userService.updateUser(currentUser);
-
-                // Also add the user to the tool's technician list for dashboard tracking
-                tool.getCurrentTechnicians().add(currentUser);
-                toolService.saveTool(tool);
-                
-                logger.info("Successfully assigned tool {} to user {}", tool.getName(), currentUser.getName());
+            // Use service method to handle the assignment with proper session management
+            boolean success = toolService.assignUserToTool(id, email);
+            
+            if (success) {
+                logger.info("Successfully assigned tool {} to user {}", id, email);
             } else {
-                logger.warn("Failed to assign tool. User or tool not found.");
+                logger.warn("Failed to assign tool {} to user {}", id, email);
             }
         } else {
             logger.warn("No authenticated user found when trying to assign tool");
@@ -919,7 +908,6 @@ public class ToolController {
      * Unassigns the current user from their active tool
      */
     @PostMapping("/{id}/unassign")
-    @Transactional
     public String unassignToolFromCurrentUser(@PathVariable Long id) {
         logger.info("Unassigning current user from tool ID: {}", id);
         
@@ -927,33 +915,14 @@ public class ToolController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
             String email = auth.getName();
-            Optional<User> currentUserOpt = userService.getUserByEmail(email);
-            Optional<Tool> toolOpt = toolService.getToolById(id);
             
-            if (currentUserOpt.isPresent() && toolOpt.isPresent()) {
-                User currentUser = currentUserOpt.get();
-                Tool tool = toolOpt.get();
-                
-                // Check if user is assigned to this specific tool
-                if (currentUser.getActiveTool() != null && 
-                    currentUser.getActiveTool().getId().equals(tool.getId())) {
-                    
-                    // Remove the tool assignment from user
-                    currentUser.setActiveTool(null);
-                    userService.updateUser(currentUser);
-
-                    // Also remove the user from the tool's technician list
-                    tool.getCurrentTechnicians().remove(currentUser);
-                    toolService.saveTool(tool);
-                    
-                    logger.info("Successfully unassigned user {} from tool {}", 
-                               currentUser.getName(), tool.getName());
-                } else {
-                    logger.warn("User {} is not assigned to tool {}", 
-                               currentUser.getName(), tool.getName());
-                }
+            // Use service method to handle the unassignment with proper session management
+            boolean success = toolService.unassignUserFromTool(id, email);
+            
+            if (success) {
+                logger.info("Successfully unassigned tool {} from user {}", id, email);
             } else {
-                logger.warn("Failed to unassign tool. User or tool not found.");
+                logger.warn("Failed to unassign tool {} from user {}", id, email);
             }
         } else {
             logger.warn("No authenticated user found when trying to unassign tool");

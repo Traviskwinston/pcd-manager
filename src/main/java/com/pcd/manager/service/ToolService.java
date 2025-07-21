@@ -420,6 +420,88 @@ public class ToolService {
     }
     
     /**
+     * Assign a user to a tool with proper session management
+     */
+    @Transactional
+    public boolean assignUserToTool(Long toolId, String userEmail) {
+        try {
+            // Load tool with technicians eagerly loaded to avoid lazy loading issues
+            Optional<Tool> toolOpt = toolRepository.findByIdWithTechnicians(toolId);
+            Optional<User> userOpt = userRepository.findByEmailIgnoreCase(userEmail);
+            
+            if (toolOpt.isEmpty() || userOpt.isEmpty()) {
+                logger.warn("Failed to assign user to tool. Tool found: {}, User found: {}", 
+                           toolOpt.isPresent(), userOpt.isPresent());
+                return false;
+            }
+            
+            Tool tool = toolOpt.get();
+            User user = userOpt.get();
+            
+            // Set this tool as the user's active tool
+            user.setActiveTool(tool);
+            userRepository.save(user);
+            
+            // Add the user to the tool's technician list for dashboard tracking
+            // Initialize the collection if it's null
+            if (tool.getCurrentTechnicians() == null) {
+                tool.setCurrentTechnicians(new java.util.HashSet<>());
+            }
+            
+            // Add the user if not already present
+            if (!tool.getCurrentTechnicians().contains(user)) {
+                tool.getCurrentTechnicians().add(user);
+                toolRepository.save(tool);
+            }
+            
+            logger.info("Successfully assigned tool {} to user {}", tool.getName(), user.getName());
+            return true;
+        } catch (Exception e) {
+            logger.error("Error assigning user to tool: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Unassign a user from a tool with proper session management
+     */
+    @Transactional
+    public boolean unassignUserFromTool(Long toolId, String userEmail) {
+        try {
+            // Load tool with technicians eagerly loaded to avoid lazy loading issues
+            Optional<Tool> toolOpt = toolRepository.findByIdWithTechnicians(toolId);
+            Optional<User> userOpt = userRepository.findByEmailIgnoreCase(userEmail);
+            
+            if (toolOpt.isEmpty() || userOpt.isEmpty()) {
+                logger.warn("Failed to unassign user from tool. Tool found: {}, User found: {}", 
+                           toolOpt.isPresent(), userOpt.isPresent());
+                return false;
+            }
+            
+            Tool tool = toolOpt.get();
+            User user = userOpt.get();
+            
+            // Clear this tool as the user's active tool if it matches
+            if (user.getActiveTool() != null && user.getActiveTool().getId().equals(toolId)) {
+                user.setActiveTool(null);
+                userRepository.save(user);
+            }
+            
+            // Remove the user from the tool's technician list
+            if (tool.getCurrentTechnicians() != null && tool.getCurrentTechnicians().contains(user)) {
+                tool.getCurrentTechnicians().remove(user);
+                toolRepository.save(tool);
+            }
+            
+            logger.info("Successfully unassigned tool {} from user {}", tool.getName(), user.getName());
+            return true;
+        } catch (Exception e) {
+            logger.error("Error unassigning user from tool: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
      * Bulk load comments for multiple tools (optimization for list views)
      */
     public List<ToolComment> getCommentsByToolIds(List<Long> toolIds) {

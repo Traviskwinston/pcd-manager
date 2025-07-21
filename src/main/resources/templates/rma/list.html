@@ -14,8 +14,20 @@
     <link th:href="@{/css/components/data-table.css}" rel="stylesheet">
     <link th:href="@{/dark-mode.css}" rel="stylesheet">
     <style>
-        .content-area {
+        /* Apply smaller font only to table content, not headers or inputs */
+        .content-area .data-table-compact {
             font-size: 0.9rem;
+        }
+        
+        /* Override content-area font size for the main header to match Tools page */
+        .content-area h2 {
+            font-size: 2rem; /* Bootstrap default h2 size */
+            font-weight: 500; /* Bootstrap default heading font-weight */
+        }
+        
+        /* Ensure search inputs match Tools page size */
+        .content-area .form-control {
+            font-size: 1rem; /* Bootstrap default input size */
         }
 
         /* Popover for Problem Description - now handled by unified tooltip styling above */
@@ -45,14 +57,25 @@
             text-decoration: none !important;
         }
         
-        /* Clickable row styling */
+        /* Clickable row styling - match tools list */
         .rma-row {
             cursor: pointer !important;
             transition: background-color 0.2s ease;
         }
         
         .rma-row:hover {
-            background-color: var(--bs-table-hover-bg) !important;
+            background-color: rgba(0,123,255,0.1) !important; /* Match tools list hover */
+        }
+        
+        /* Set specific alternating colors - dark and light */
+        [data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > td,
+        [data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > th {
+            background-color: #292d30 !important;
+        }
+        
+        [data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(even) > td,
+        [data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(even) > th {
+            background-color: #343a40 !important;
         }
         
         /* Prevent clicks on interactive elements from bubbling */
@@ -64,132 +87,16 @@
             position: relative;
             z-index: 10;
         }
-        .popover-header {
-            font-size: 1rem;
-            font-weight: bold;
-        }
-        .popover-body {
-            font-size: 0.85rem;
-        }
-        .popover-body strong {
-            display: inline-block;
-            width: 100px;
-        }
         
-        /* Enhanced Popover Styling with Pointed Arrows */
-        .popover {
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            max-width: 350px;
-        }
-        
-        .popover-header {
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            border-radius: 7px 7px 0 0;
-            padding: 12px 16px;
-        }
-        
-        .popover-body {
-            padding: 12px 16px;
-            line-height: 1.4;
-        }
-        
-        /* Improved Arrow Styling */
-        .popover .popover-arrow {
-            width: 16px;
-            height: 8px;
-        }
-        
-        .popover .popover-arrow::before,
-        .popover .popover-arrow::after {
-            position: absolute;
-            display: block;
-            content: "";
-            border-color: transparent;
-            border-style: solid;
-            border-width: 8px;
-        }
-        
-        /* Right placement arrow (most common for your tooltips) */
-        .popover.bs-popover-end .popover-arrow::before {
-            left: -1px;
-            border-right-color: #dee2e6;
-        }
-        
-        .popover.bs-popover-end .popover-arrow::after {
-            left: 0;
-            border-right-color: #fff;
-        }
-        
-        /* Left placement arrow */
-        .popover.bs-popover-start .popover-arrow::before {
-            right: -1px;
-            border-left-color: #dee2e6;
-        }
-        
-        .popover.bs-popover-start .popover-arrow::after {
-            right: 0;
-            border-left-color: #fff;
-        }
-        
-        /* Top placement arrow */
-        .popover.bs-popover-top .popover-arrow::before {
-            bottom: -1px;
-            border-top-color: #dee2e6;
-        }
-        
-        .popover.bs-popover-top .popover-arrow::after {
-            bottom: 0;
-            border-top-color: #fff;
-        }
-        
-        /* Bottom placement arrow */
-        .popover.bs-popover-bottom .popover-arrow::before {
-            top: -1px;
-            border-bottom-color: #dee2e6;
-        }
-        
-        .popover.bs-popover-bottom .popover-arrow::after {
-            top: 0;
-            border-bottom-color: #fff;
-        }
+        /* Status and Priority badges - match Tools page exactly */
         .status-badge {
             font-size: 0.75rem !important;
+            padding: 0.35em 0.65em !important; /* Match Bootstrap default badge padding */
         }
         
         .priority-badge {
             font-size: 0.75rem !important;
-        }
-        
-        /* Moving Parts icon styling */
-        .moving-parts-icon {
-            cursor: pointer !important;
-            transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #0d6efd; /* Bootstrap primary blue */
-            color: #000000 !important; /* Black icon for better contrast */
-            border-radius: 4px;
-            padding: 4px 6px;
-            font-size: 0.9rem;
-            border: 1px solid #0d6efd;
-        }
-        .moving-parts-icon:hover {
-            transform: scale(1.1);
-            background-color: #0b5ed7; /* Darker blue on hover */
-            border-color: #0b5ed7;
-            color: #000000 !important; /* Keep black icon on hover */
-        }
-        .moving-parts-icon:focus,
-        .moving-parts-icon:active,
-        .moving-parts-icon.show {
-            background-color: #0a58ca; /* Even darker blue for active states */
-            border-color: #0a58ca;
-            color: #000000 !important; /* Keep black icon in all states */
-            outline: none;
+            padding: 0.35em 0.65em !important; /* Match Bootstrap default badge padding */
         }
         
         /* RMA-specific sorting arrows using Bootstrap icons */
@@ -219,32 +126,26 @@
             box-shadow: none;
         }
         
-        /* Fixed square status count badges */
+        /* Status count badges - match tools list styling exactly */
         .status-count-square {
-            width: 28px;
-            height: 20px;
-            min-width: 28px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: bold;
-            border-radius: 4px;
-            margin-right: 10px;
+            display: inline-block;
+            min-width: 20px;
+            padding: 2px 4px;
+            font-size: 0.75em;
+            text-align: center;
+            border-radius: 3px;
+            margin-right: 8px;
         }
         
-        /* Fixed square priority count badges */
+        /* Priority count badges - match tools list styling exactly */
         .priority-count-square {
-            width: 28px;
-            height: 20px;
-            min-width: 28px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: bold;
-            border-radius: 4px;
-            margin-right: 10px;
+            display: inline-block;
+            min-width: 20px;
+            padding: 2px 4px;
+            font-size: 0.75em;
+            text-align: center;
+            border-radius: 3px;
+            margin-right: 8px;
         }
         
         /* Status filter item layout */
@@ -345,6 +246,70 @@
 
         .comment-icon.info-icon-interactive {
             cursor: pointer;
+        }
+        
+        /* Status badge hover effect - match tools list */
+        .status-badge:hover {
+            opacity: 0.8;
+            cursor: pointer;
+        }
+        
+        /* Match Tools page table row height and icon sizes exactly */
+        .data-table-compact td {
+            padding: 0.35rem 0.3rem !important; /* Slightly less top/bottom padding */
+            font-size: 0.85rem !important; /* Match tools page exactly */
+            vertical-align: middle !important;
+            line-height: 1.1 !important; /* Tighter line-height */
+            height: 35.2px !important; /* Force exact height match */
+            box-sizing: border-box !important; /* Ensure padding is included in height */
+        }
+        
+        /* Ensure icons are same size as Tools page */
+        .bi {
+            font-size: 1rem !important; /* Standard Bootstrap icon size */
+        }
+        
+        /* Remove any extra margins/padding from badges and elements */
+        .status-badge, .priority-badge {
+            margin: 0 !important;
+            line-height: 1 !important;
+        }
+        
+        /* Remove spacing from icon elements */
+        .problem-popover-icon, .tool-tooltip, .moving-parts-icon, .comment-icon {
+            margin: 0 !important;
+            line-height: 1 !important;
+        }
+        
+        /* Parts list styling to minimize height */
+        .list-unstyled {
+            margin-bottom: 0 !important;
+            line-height: 1.1 !important;
+        }
+        
+        .list-unstyled li {
+            font-size: 0.8rem !important;
+            line-height: 1.1 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        /* Ensure spans and links don't add extra height */
+        .rma-number, .text-decoration-hover-underline {
+            line-height: 1.1 !important;
+            margin: 0 !important;
+        }
+        
+        /* Force table row height */
+        .data-table-compact tbody tr {
+            height: 35.2px !important;
+            max-height: 35.2px !important;
+        }
+        
+        /* Remove any border spacing that might add height */
+        .table {
+            border-spacing: 0 !important;
+            border-collapse: collapse !important;
         }
     </style>
 </head>
@@ -630,7 +595,7 @@
                                         </span>
                                     </div>
                                 </th>
-                                <th style="width: 5%;">Moving Parts</th>
+                                <th style="width: 5%;">Moving<br/>Parts</th>
                                 <th style="width: 5%;">Comments</th>
                             </tr>
                         </thead>
@@ -1515,7 +1480,7 @@
                         
                         try {
                             console.log(`Loading problem details for RMA ${rmaId} (cache miss)`);
-                            const response = await fetch(`/rma/api/rma/${rmaId}/problem-details`, {
+                            const response = await fetch(`/rma/${rmaId}/problem-details`, {
                                 signal: abortController.signal
                             });
                             
@@ -2438,7 +2403,7 @@
                         
                         try {
                             console.log(`Loading problem details for RMA ${rmaId} (cache miss)`);
-                            const response = await fetch(`/rma/api/rma/${rmaId}/problem-details`, {
+                            const response = await fetch(`/rma/${rmaId}/problem-details`, {
                                 signal: abortController.signal
                             });
                             console.log('Response status:', response.status);

@@ -324,18 +324,7 @@
     color: #000;
 }
 
-/* Badges */
-[data-bs-theme="dark"] .badge {
-    color: #fff;
-}
-
-[data-bs-theme="dark"] .badge.bg-secondary {
-    background-color: #6c757d !important;
-}
-
-[data-bs-theme="dark"] .badge.bg-dark {
-    background-color: #495057 !important;
-}
+/* General badges - handled by data-table.css and Bootstrap */
 
 /* Grid canvas and controls */
 [data-bs-theme="dark"] #grid-canvas {
@@ -567,25 +556,7 @@
     color: var(--bs-body-color);
 }
 
-/* Table compact */
-[data-bs-theme="dark"] .table-compact {
-    background-color: var(--bs-secondary-bg);
-}
-
-[data-bs-theme="dark"] .table-compact th {
-    background-color: var(--bs-tertiary-bg);
-    border-color: var(--bs-border-color);
-    color: var(--bs-body-color);
-}
-
-[data-bs-theme="dark"] .table-compact td {
-    border-color: var(--bs-border-color);
-    color: var(--bs-body-color);
-}
-
-[data-bs-theme="dark"] .table-compact tbody tr:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-}
+/* Table compact - handled by data-table.css */
 
 [data-bs-theme="dark"] .info-icon-interactive {
     color: #0dcaf0;
@@ -713,70 +684,7 @@
     color: var(--bs-body-color);
 }
 
-/* Popovers */
-[data-bs-theme="dark"] .popover {
-    background-color: var(--bs-secondary-bg);
-    border-color: var(--bs-border-color);
-    color: var(--bs-body-color);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5);
-}
-
-[data-bs-theme="dark"] .popover-header {
-    background-color: var(--bs-tertiary-bg);
-    border-color: var(--bs-border-color);
-    color: var(--bs-body-color);
-    border-top-left-radius: calc(0.375rem - 1px);
-    border-top-right-radius: calc(0.375rem - 1px);
-}
-
-[data-bs-theme="dark"] .popover-body {
-    background-color: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
-    border-bottom-left-radius: calc(0.375rem - 1px);
-    border-bottom-right-radius: calc(0.375rem - 1px);
-}
-
-/* Popover arrows */
-[data-bs-theme="dark"] .popover .popover-arrow {
-    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
-}
-
-[data-bs-theme="dark"] .popover .popover-arrow::before,
-[data-bs-theme="dark"] .popover .popover-arrow::after {
-    border-color: var(--bs-border-color);
-}
-
-[data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::before {
-    border-right-color: var(--bs-border-color);
-}
-
-[data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::after {
-    border-right-color: var(--bs-secondary-bg);
-}
-
-[data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::before {
-    border-left-color: var(--bs-border-color);
-}
-
-[data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::after {
-    border-left-color: var(--bs-secondary-bg);
-}
-
-[data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::before {
-    border-top-color: var(--bs-border-color);
-}
-
-[data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::after {
-    border-top-color: var(--bs-secondary-bg);
-}
-
-[data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::before {
-    border-bottom-color: var(--bs-border-color);
-}
-
-[data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::after {
-    border-bottom-color: var(--bs-secondary-bg);
-}
+/* Popovers - handled by data-table.css */
 
 /* Action icons */
 [data-bs-theme="dark"] .action-icon {
@@ -792,50 +700,7 @@
     color: var(--bs-body-color);
 }
 
-/* Status badges */
-[data-bs-theme="dark"] .status-badge.badge.bg-primary {
-    background-color: #0d6efd !important;
-    color: #fff !important;
-}
-
-[data-bs-theme="dark"] .status-badge.badge.bg-info {
-    background-color: #0dcaf0 !important;
-    color: #000 !important;
-}
-
-[data-bs-theme="dark"] .status-badge.badge.bg-secondary {
-    background-color: #6c757d !important;
-    color: #fff !important;
-}
-
-[data-bs-theme="dark"] .status-badge.badge.bg-warning {
-    background-color: #ffc107 !important;
-    color: #000 !important;
-}
-
-[data-bs-theme="dark"] .status-badge.badge.bg-danger {
-    background-color: #dc3545 !important;
-    color: #fff !important;
-}
-
-[data-bs-theme="dark"] .status-badge.badge.bg-success {
-    background-color: #198754 !important;
-    color: #fff !important;
-}
-
-[data-bs-theme="dark"] .status-badge.badge.bg-light {
-    background-color: #f8f9fa !important;
-    color: #000 !important;
-}
-
-/* Medium priority badge fix */
-[data-bs-theme="dark"] .status-badge.badge.bg-warning.text-dark {
-    color: #000000 !important;
-}
-
-[data-bs-theme="dark"] .badge.bg-warning.text-dark {
-    color: #000000 !important;
-}
+/* Status badges - handled by data-table.css */
 
 /* Tool Checklist Items Dark Mode */
 [data-bs-theme="dark"] .checklist-item {

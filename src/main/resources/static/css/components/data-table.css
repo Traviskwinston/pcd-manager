@@ -380,47 +380,40 @@
     color: #5ba3f5;
 }
 
-/* Dark mode status badges */
+/* Dark mode status badges - same size as light mode (no borders) */
 [data-bs-theme="dark"] .status-badge.badge.bg-primary {
     background-color: #375a7f !important;
     color: #fff !important;
-    border: 1px solid #4a91e2;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-info {
     background-color: #1b6ec2 !important;
     color: #fff !important;
-    border: 1px solid #17a2b8;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-secondary {
     background-color: #495057 !important;
     color: #fff !important;
-    border: 1px solid #6c757d;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-warning {
     background-color: #fd7e14 !important;
     color: #000 !important;
-    border: 1px solid #ffc107;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-danger {
     background-color: #b02a37 !important;
     color: #fff !important;
-    border: 1px solid #dc3545;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-success {
     background-color: #146c43 !important;
     color: #fff !important;
-    border: 1px solid #198754;
 }
 
 [data-bs-theme="dark"] .status-badge.badge.bg-light {
     background-color: #495057 !important;
     color: #fff !important;
-    border: 1px solid #6c757d;
 }
 
 /* Hover tooltip styles */
@@ -493,8 +486,8 @@
 
 /* Enhanced Popovers in Dark Mode - Global */
 [data-bs-theme="dark"] .popover {
-    background-color: var(--bs-secondary-bg);
-    border: 1px solid var(--bs-border-color);
+    background-color: #495057;
+    border: 1px solid #6c757d;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     max-width: 350px;
@@ -502,79 +495,123 @@
 }
 
 [data-bs-theme="dark"] .popover-header {
-    background-color: var(--bs-tertiary-bg);
-    border-bottom: 1px solid var(--bs-border-color);
+    background-color: #495057;
+    border-bottom: 1px solid #6c757d;
     border-radius: 7px 7px 0 0;
-    color: var(--bs-body-color);
+    color: #f9fafb;
     padding: 12px 16px;
     font-size: 1rem;
     font-weight: 600;
 }
 
 [data-bs-theme="dark"] .popover-body {
-    background-color: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
+    background-color: #495057 !important;
+    color: #f9fafb;
     padding: 12px 16px;
     line-height: 1.5;
     font-size: 0.85rem;
 }
 
 /* Enhanced Arrow Styling for Dark Mode - Global */
-[data-bs-theme="dark"] .popover .popover-arrow {
-    width: 16px;
-    height: 8px;
+/* Dark mode popover arrows - Enhanced with !important and higher specificity */
+body[data-bs-theme="dark"] .popover .popover-arrow {
+    width: 16px !important;
+    height: 8px !important;
 }
 
-[data-bs-theme="dark"] .popover .popover-arrow::before,
-[data-bs-theme="dark"] .popover .popover-arrow::after {
-    position: absolute;
-    display: block;
-    content: "";
-    border-color: transparent;
-    border-style: solid;
-    border-width: 8px;
+body[data-bs-theme="dark"] .popover .popover-arrow::before,
+body[data-bs-theme="dark"] .popover .popover-arrow::after {
+    position: absolute !important;
+    display: block !important;
+    content: "" !important;
+    border-color: transparent !important;
+    border-style: solid !important;
+    border-width: 8px !important;
 }
 
-/* Right placement arrow (most common) */
-[data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::before {
-    left: -1px;
-    border-right-color: var(--bs-border-color);
+/* Right placement arrow (most common) - NUCLEAR OVERRIDE */
+html body[data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::before {
+    left: -1px !important;
+    border-right-color: #495057 !important;
+    border-color: transparent !important;
+    border-top-color: transparent !important;
+    border-bottom-color: transparent !important;
+    border-left-color: transparent !important;
 }
 
-[data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::after {
-    left: 0;
-    border-right-color: var(--bs-secondary-bg);
+html body[data-bs-theme="dark"] .popover.bs-popover-end .popover-arrow::after {
+    left: 0 !important;
+    border-right-color: #495057 !important;
+    border-color: transparent !important;
+    border-top-color: transparent !important;
+    border-bottom-color: transparent !important;
+    border-left-color: transparent !important;
+    background-color: #495057 !important;
 }
 
-/* Left placement arrow */
-[data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::before {
-    right: -1px;
-    border-left-color: var(--bs-border-color);
+/* Left placement arrow - NUCLEAR OVERRIDE */
+html body[data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::before {
+    right: -1px !important;
+    border-left-color: #495057 !important;
+    border-color: transparent !important;
+    border-top-color: transparent !important;
+    border-bottom-color: transparent !important;
+    border-right-color: transparent !important;
 }
 
-[data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::after {
-    right: 0;
-    border-left-color: var(--bs-secondary-bg);
+html body[data-bs-theme="dark"] .popover.bs-popover-start .popover-arrow::after {
+    right: 0 !important;
+    border-left-color: #495057 !important;
+    border-color: transparent !important;
+    border-top-color: transparent !important;
+    border-bottom-color: transparent !important;
+    border-right-color: transparent !important;
+    background-color: #495057 !important;
 }
 
-/* Top placement arrow */
-[data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::before {
-    bottom: -1px;
-    border-top-color: var(--bs-border-color);
+/* Top placement arrow - NUCLEAR OVERRIDE */
+html body[data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::before {
+    bottom: -1px !important;
+    border-top-color: #495057 !important;
+    border-color: transparent !important;
+    border-bottom-color: transparent !important;
+    border-left-color: transparent !important;
+    border-right-color: transparent !important;
 }
 
-[data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::after {
-    bottom: 0;
-    border-top-color: var(--bs-secondary-bg);
+html body[data-bs-theme="dark"] .popover.bs-popover-top .popover-arrow::after {
+    bottom: 0 !important;
+    border-top-color: #495057 !important;
+    border-color: transparent !important;
+    border-bottom-color: transparent !important;
+    border-left-color: transparent !important;
+    border-right-color: transparent !important;
+    background-color: #495057 !important;
 }
 
-/* Bottom placement arrow */
-[data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::before {
-    top: -1px;
-    border-bottom-color: var(--bs-border-color);
+/* Bottom placement arrow - NUCLEAR OVERRIDE */
+html body[data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::before {
+    top: -1px !important;
+    border-bottom-color: #495057 !important;
+    border-color: transparent !important;
+    border-top-color: transparent !important;
+    border-left-color: transparent !important;
+    border-right-color: transparent !important;
 }
 
-[data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::after {
-    top: 0;
-    border-bottom-color: var(--bs-secondary-bg);
+html body[data-bs-theme="dark"] .popover.bs-popover-bottom .popover-arrow::after {
+    top: 0 !important;
+    border-bottom-color: #495057 !important;
+    border-color: transparent !important;
+    border-top-color: transparent !important;
+    border-left-color: transparent !important;
+    border-right-color: transparent !important;
+    background-color: #495057 !important;
+}
+
+/* Dark mode popover background variable so arrow and body stay in sync */
+[data-bs-theme="dark"] .popover {
+    /* Ensure Bootstrap arrow pseudo-elements inherit the same colour */
+    --bs-popover-bg: #495057;
+    background-color: var(--bs-popover-bg); /* keep existing colour assignment */
 }

@@ -54,21 +54,47 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            color: #17a2b8;
+            color: #0d6efd;
         }
 
         .info-icon-interactive:hover {
             transform: scale(1.2);
-            color: #20c997;
+            color: #0a58ca;
         }
 
         /* Dark mode icon colors */
         [data-bs-theme="dark"] .info-icon-interactive {
-            color: #17a2b8;
+            color: #0d6efd;
         }
 
         [data-bs-theme="dark"] .info-icon-interactive:hover {
-            color: #20c997;
+            color: #0a58ca;
+        }
+
+        /* Popover styling to match Tools page */
+        .popover {
+            max-width: 350px;
+        }
+
+        .popover-header {
+            background-color: #f8f9fa;
+            border-bottom-color: #6c757d;
+        }
+
+        .popover-body {
+            background-color: #ffffff;
+            border-color: #6c757d;
+        }
+
+        [data-bs-theme="dark"] .popover-header {
+            background-color: #6c757d;
+            border-bottom-color: #6c757d;
+            color: #f8f9fa;
+        }
+
+        [data-bs-theme="dark"] .popover-body {
+            background-color: #495057;
+            color: #f8f9fa;
         }
     </style>
 </head>
@@ -168,7 +194,9 @@
                                      data-tools=${affectedToolsMap.get(tt.id) != null ? #strings.listJoin(affectedToolsMap.get(tt.id).![name], ' ') : ''},
                                      data-rmas=${relatedRmasMap.get(tt.id) != null ? #strings.listJoin(relatedRmasMap.get(tt.id).![rmaNumber ?: sapNotificationNumber ?: ('RMA-' + id)], ' ') : ''}">
                             <td style="text-align: left;">
-                                <strong th:text="${tt.name}">Track/Trend Name</strong>
+                                <a th:href="@{/tracktrend/{id}(id=${tt.id})}" class="text-decoration-none text-reset">
+                                    <strong th:text="${tt.name}">Track/Trend Name</strong>
+                                </a>
                             </td>
                             <td style="text-align: left;">
                                 <span th:if="${tt.description != null}" th:text="${#strings.abbreviate(tt.description, 80)}">Description</span>
@@ -277,50 +305,99 @@
             init() {
                 // Initialize data table with search functionality
                 this.dataTable = new DataTable({
-                    searchInputId: 'trackTrendSearchInput',
-                    clearButtonId: 'clearSearch',
-                    tableSelector: '.track-trend-table-container table',
+                    container: '.track-trend-table-container',
+                    searchInput: '#trackTrendSearchInput',
+                    clearButton: '#clearSearch',
                     rowSelector: '.track-trend-row',
-                    resultsSummaryId: 'resultsSummary',
-                    visibleCountId: 'visibleCount',
-                    totalCountId: 'totalCount',
-                    searchableAttributes: ['data-name', 'data-description', 'data-tools', 'data-rmas'],
+                    linkSelector: 'a[href]',
+                    searchAttributes: ['data-name', 'data-description', 'data-tools', 'data-rmas'],
                     enableSorting: true,
                     enableRowClick: true,
-                    rowClickHandler: this.handleRowClick.bind(this)
+                    enableHorizontalScroll: true,
+                    interactiveElements: 'a, button, input, .dropdown, [data-bs-toggle], .info-icon-interactive'
                 });
 
                 // Initialize Bootstrap popovers
                 this.initializePopovers();
+                
+                // Listen for filter events to update counts
+                document.addEventListener('dataTableFiltered', (e) => {
+                    this.updateTrackTrendCount(e.detail.visibleRows.length);
+                });
             }
 
             initializePopovers() {
-                // Initialize all popovers
-                const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
-                popoverTriggerList.map(function (popoverTriggerEl) {
+                // Initialize Bootstrap Popovers with proper management
+                var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+                var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
                     return new bootstrap.Popover(popoverTriggerEl, {
-                        container: 'body',
-                        sanitize: false
+                        sanitize: false, // Allow HTML in content
+                        fallbackPlacements: ['left', 'top', 'bottom'],
+                        container: 'body' // Added to help with potential positioning/event issues
+                    });
+                });
+
+                // Track currently pinned popovers
+                var currentlyPinnedPopover = null;
+                        
+                // Handle popover clicks to manage pinning
+                popoverTriggerList.forEach(function (triggerEl) {
+                    triggerEl.addEventListener('click', function (event) {
+                        var clickedPopover = popoverList.find(function (popover) {
+                            return popover._element === triggerEl;
+                        });
+                        
+                        // If there's a currently pinned popover and it's different from the clicked one
+                        if (currentlyPinnedPopover && currentlyPinnedPopover !== clickedPopover) {
+                            currentlyPinnedPopover.hide();
+                        }
+                        
+                        // Update the currently pinned popover
+                        setTimeout(function () {
+                            var popoverId = triggerEl.getAttribute('aria-describedby');
+                            if (popoverId && document.getElementById(popoverId)) {
+                                currentlyPinnedPopover = clickedPopover;
+                            } else {
+                                if (currentlyPinnedPopover === clickedPopover) {
+                                    currentlyPinnedPopover = null;
+                                }
+                            }
+                        }, 100);
+                    });
+                });
+                        
+                // Close popovers when clicking outside (but don't interfere with dropdowns)
+                document.addEventListener('click', function (event) {
+                    // Don't interfere with dropdown functionality
+                    if (event.target.closest('[data-bs-toggle="dropdown"]') || 
+                        event.target.closest('.dropdown-menu')) {
+                        return;
+                    }
+                    
+                    popoverList.forEach(function (popover) {
+                        var triggerElement = popover._element;
+                        var popoverId = triggerElement.getAttribute('aria-describedby');
+                        var popoverElement = popoverId ? document.getElementById(popoverId) : null;
+                        
+                        var isClickInsideTrigger = triggerElement.contains(event.target);
+                        var isClickInsidePopover = popoverElement ? popoverElement.contains(event.target) : false;
+                    
+                        // Hide popover if clicking outside both trigger and popover content
+                        if (!isClickInsideTrigger && !isClickInsidePopover) {
+                            popover.hide();
+                            // Clear pinned state if this was the pinned popover
+                            if (currentlyPinnedPopover === popover) {
+                                currentlyPinnedPopover = null;
+                            }
+                        }
                     });
                 });
             }
 
-            handleRowClick(row, event) {
-                // Don't navigate if clicking on interactive elements
-                if (event.target.closest('[data-bs-toggle="popover"]') || 
-                    event.target.closest('a') || 
-                    event.target.closest('button')) {
-                    return;
-                }
-                
-                const trackTrendId = row.getAttribute('data-track-trend-id');
-                if (trackTrendId) {
-                    window.location.href = `/tracktrend/${trackTrendId}`;
-                }
-            }
+
             
-            updateTrackTrendCount() {
-                const visibleRows = document.querySelectorAll('.track-trend-row:not(.data-table-hidden)').length;
+            updateTrackTrendCount(visibleCount = null) {
+                const visibleRows = visibleCount !== null ? visibleCount : document.querySelectorAll('.track-trend-row:not([style*="display: none"])').length;
                 const totalRows = document.querySelectorAll('.track-trend-row').length;
                 
                 const visibleCountSpan = document.getElementById('visibleCount');

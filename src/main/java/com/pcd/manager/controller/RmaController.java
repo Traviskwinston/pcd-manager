@@ -1729,7 +1729,7 @@ public class RmaController {
             }
             
             Rma rma = rmaOpt.get();
-            String statusParam = request.getParameter("status");
+            String statusParam = request.getParameter("newStatus");
             
             if (statusParam != null && !statusParam.trim().isEmpty()) {
                 try {
@@ -1739,8 +1739,8 @@ public class RmaController {
                     rmaService.saveRma(rma, null);
                     response.put("success", true);
                     response.put("message", "Status updated successfully");
-                    response.put("newStatus", newStatus.getDisplayName());
-                    response.put("newStatusClass", getStatusBadgeClass(newStatus));
+                    response.put("newStatusDisplay", newStatus.getDisplayName());
+                    response.put("newStatus", newStatus.name());
                     
                 } catch (IllegalArgumentException e) {
                     response.put("success", false);
@@ -2411,7 +2411,7 @@ public class RmaController {
     /**
      * API endpoint to get problem details for an RMA tooltip
      */
-    @GetMapping("/api/rma/{id}/problem-details")
+    @GetMapping("/{id}/problem-details")
     @ResponseBody
     public Map<String, Object> getProblemDetailsForRma(@PathVariable Long id) {
         logger.info("Loading problem details for RMA ID: {}", id);

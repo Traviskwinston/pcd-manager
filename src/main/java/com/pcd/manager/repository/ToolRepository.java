@@ -46,6 +46,12 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
     List<Tool> findAllWithTechnicians();
     
     /**
+     * Find a specific tool with its technicians eagerly loaded
+     */
+    @Query("SELECT t FROM Tool t LEFT JOIN FETCH t.currentTechnicians WHERE t.id = :id")
+    Optional<Tool> findByIdWithTechnicians(@Param("id") Long id);
+    
+    /**
      * Find all tools with ALL related entities eagerly loaded to prevent N+1 queries
      * This is optimized for dashboard and list views
      */

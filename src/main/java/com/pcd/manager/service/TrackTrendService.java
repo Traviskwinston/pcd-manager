@@ -75,6 +75,16 @@ public class TrackTrendService {
             .sorted(Comparator.comparing(TrackTrend::getName, String.CASE_INSENSITIVE_ORDER))
             .collect(Collectors.toList());
     }
+    
+    /**
+     * Get all TrackTrends with affected tools and comments eagerly loaded (for list view with icons)
+     */
+    public List<TrackTrend> getAllTrackTrendsWithAffectedToolsAndComments() {
+        List<TrackTrend> trackTrends = trackTrendRepository.findAllWithAffectedToolsAndComments();
+        return trackTrends.stream()
+            .sorted(Comparator.comparing(TrackTrend::getName, String.CASE_INSENSITIVE_ORDER))
+            .collect(Collectors.toList());
+    }
 
     public Optional<TrackTrend> getTrackTrendById(Long id) {
         return trackTrendRepository.findById(id);

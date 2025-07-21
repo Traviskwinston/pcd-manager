@@ -305,6 +305,48 @@
                 height: 300px;
             }
         }
+
+        /* Edit Checklist Modal styling */
+        .edit-checklist-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .checklist-edit-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+        }
+
+        .checklist-edit-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .checklist-edit-item label {
+            flex: 1;
+            margin: 0;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .checklist-edit-item input[type="date"] {
+            max-width: 140px;
+            font-size: 0.875rem;
+        }
+
+        [data-bs-theme="dark"] .checklist-edit-item {
+            border-color: #495057;
+            background-color: #343a40;
+        }
+
+        [data-bs-theme="dark"] .checklist-edit-item label {
+            color: #adb5bd;
+        }
     </style>
 </head>
 <body>
@@ -600,7 +642,22 @@
                         <div th:if="${associatedRmas != null && !associatedRmas.isEmpty()}" class="d-flex flex-column gap-2">
                             <div class="d-flex align-items-center justify-content-between p-2 border rounded" th:each="rma : ${associatedRmas}">
                                 <div>
-                                    <div class="fw-bold" th:text="${rma.rmaNumber ?: ('RMA-' + rma.id)}">RMA-123</div>
+                                    <div class="fw-bold">
+                                        <span th:text="${rma.rmaNumber ?: ('RMA-' + rma.id)}">RMA-123</span>
+                                        <!-- Problem details icon with lazy loading -->
+                                        <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
+                                           th:attr="data-rma-id=${rma.id},
+                                                    data-rma-number=(${rma.rmaNumber} != null ? ${rma.rmaNumber} : (${rma.sapNotificationNumber} != null ? ${rma.sapNotificationNumber} : 'RMA-' + ${rma.id}))"
+                                           data-bs-toggle="popover"
+                                           data-bs-placement="right"
+                                           data-bs-trigger="hover focus click"
+                                           data-bs-html="true"
+                                           th:data-bs-title="'Problem Details for ' + (${rma.rmaNumber} != null ? ${rma.rmaNumber} : (${rma.sapNotificationNumber} != null ? ${rma.sapNotificationNumber} : 'RMA-' + ${rma.id}))"
+                                           data-bs-content="Loading problem details..."
+                                           title="Hover to load problem details"
+                                           style="color: #0d6efd; cursor: pointer;">
+                                        </i>
+                                    </div>
                                     <small class="text-muted" th:text="${rma.customerName ?: 'N/A'}">Customer</small>
                                     </div>
                                 <div class="d-flex align-items-center gap-2">
@@ -785,11 +842,38 @@
                             <h6 class="text-muted mb-2">Documents</h6>
                             <div class="d-flex flex-column gap-2 mb-3">
                                 <div class="d-flex align-items-center justify-content-between p-2 border rounded" th:each="docPath : ${tool.documentPaths}">
-                                    <div class="d-flex align-items-center">
-                                        <i class="bi bi-file-earmark-text me-2 text-primary"></i>
-                                        <span class="text-truncate" th:text="${tool.documentNames != null && tool.documentNames.containsKey(docPath) ? 
-                                                           tool.documentNames.get(docPath) : 
-                                                           (docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath)}">document.pdf</span>
+                                    <div class="d-flex flex-column flex-grow-1 me-2">
+                                        <!-- Document Name -->
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-file-earmark-text me-2 text-primary"></i>
+                                            <span class="text-truncate" th:with="docName=${tool.documentNames != null && tool.documentNames.containsKey(docPath) ? 
+                                                               tool.documentNames.get(docPath) : 
+                                                               (docPath.contains('/') ? docPath.substring(docPath.lastIndexOf('/') + 1) : docPath)},
+                                                               cleanName=${#strings.contains(docName, ':') ? #strings.substringAfter(docName, ': ') : docName}"
+                                                  th:text="${cleanName}">document.pdf</span>
+                                        </div>
+                                        
+                                        <!-- Relationship Tags (Same as Pictures) -->
+                                        <div class="mt-1" th:if="${tool.documentNames != null && tool.documentNames.containsKey(docPath)}">
+                                            <div th:with="documentName=${tool.documentNames.get(docPath)}">
+                                                <span th:if="${#strings.contains(documentName, 'RMA-')}" 
+                                                      th:with="rmaInfo=${#strings.substringAfter(documentName, 'RMA-')},
+                                                               rmaId=${#strings.contains(rmaInfo, ':') ? #strings.substringBefore(rmaInfo, ':') : rmaInfo}">
+                                                    <a th:href="@{'/rma/' + ${rmaId}}" class="badge bg-info text-decoration-none me-1" 
+                                                       th:text="'RMA-' + ${rmaId}" title="View related RMA">RMA</a>
+                                                </span>
+                                                <span th:if="${#strings.contains(documentName, 'Tool-')}" 
+                                                      th:with="toolInfo=${#strings.substringAfter(documentName, 'Tool-')},
+                                                               toolId=${#strings.contains(toolInfo, ':') ? #strings.substringBefore(toolInfo, ':') : toolInfo}">
+                                                    <span class="badge bg-secondary me-1" th:text="'Tool: ' + ${toolId}">Tool</span>
+                                                </span>
+                                                <span th:if="${#strings.contains(documentName, 'Passdown-')}" 
+                                                      th:with="passdownInfo=${#strings.substringAfter(documentName, 'Passdown-')},
+                                                               passdownId=${#strings.contains(passdownInfo, ':') ? #strings.substringBefore(passdownInfo, ':') : passdownInfo}">
+                                                    <span class="badge bg-warning text-dark me-1" th:text="'Passdown: ' + ${passdownId}">Passdown</span>
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="btn-group btn-group-sm">
                                         <a th:href="@{'/uploads/' + ${docPath}}" class="btn btn-outline-primary" target="_blank" title="View">
@@ -800,10 +884,10 @@
                                                th:data-document-path="${docPath}" title="Delete">
                                             <i class="bi bi-trash"></i>
                                         </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
                         <!-- Pictures Section -->
                         <div th:if="${tool.picturePaths != null && !tool.picturePaths.isEmpty()}">
@@ -1386,11 +1470,7 @@
             });
         }
 
-        // Initialize expandable items when the page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            initExpandableItems();
-            console.log('Expandable items initialized');
-        });
+        // Expandable items will be initialized in the main DOMContentLoaded listener
 
         // Re-initialize expandable items after any dynamic content updates
         function reinitializeExpandableItems() {
@@ -1562,8 +1642,78 @@
          });
          }
          
-         }); // Close DOMContentLoaded
-      </script>
+                 // Initialize problem details lazy loading for Associated RMAs
+        initializeProblemDetailsLoading();
+        
+        // Initialize expandable items (Comments/Passdowns)
+        initExpandableItems();
+        
+        function initializeProblemDetailsLoading() {
+            const problemIcons = document.querySelectorAll('.problem-popover-icon');
+            
+            problemIcons.forEach(icon => {
+                const rmaId = icon.getAttribute('data-rma-id');
+                if (!rmaId) return;
+                
+                // Initialize hover-triggered popover with loading content
+                const popover = new bootstrap.Popover(icon, {
+                    html: true,
+                    placement: 'right',
+                    trigger: 'hover focus',
+                    title: icon.getAttribute('data-bs-title') || 'Problem Details',
+                    content: 'Loading problem details...',
+                    sanitize: false,
+                    fallbackPlacements: ['left', 'top', 'bottom'],
+                    container: 'body',
+                    delay: { show: 300, hide: 100 }
+                });
+                
+                // Load data on first hover
+                let dataLoaded = false;
+                icon.addEventListener('mouseenter', async () => {
+                    if (dataLoaded) return;
+                    
+                    try {
+                        const response = await fetch(`/rma/${rmaId}/problem-details`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            const formattedDetails = formatProblemDetailsForPopover(data.problemDetails);
+                            
+                            // Update the existing popover content
+                            popover.setContent({ '.popover-body': formattedDetails });
+                            dataLoaded = true;
+                        } else {
+                            popover.setContent({ '.popover-body': 'Error loading problem details' });
+                        }
+                    } catch (error) {
+                        console.error('Error loading problem details:', error);
+                        popover.setContent({ '.popover-body': 'Error loading problem details' });
+                    }
+                });
+            });
+        }
+        
+        function formatProblemDetailsForPopover(problemDetails) {
+            const formatDate = (dateStr) => {
+                if (!dateStr) return '-';
+                try {
+                    const date = new Date(dateStr);
+                    return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' });
+                } catch {
+                    return '-';
+                }
+            };
+
+            return `<strong>Who:</strong> ${problemDetails.problemDiscoverer || '-'}<br>` +
+                   `<strong>When:</strong> ${formatDate(problemDetails.problemDiscoveryDate)}<br>` +
+                   `<strong>What:</strong> ${problemDetails.whatHappened || '-'}<br>` +
+                   `<strong>Why:</strong> ${problemDetails.whyAndHowItHappened || '-'}<br>` +
+                   `<strong>How:</strong> ${problemDetails.howContained || '-'}<br>` +
+                   `<strong>By:</strong> ${problemDetails.whoContained || '-'}`;
+        }
+
+        }); // Close DOMContentLoaded
+    </script>
     
     <!-- Edit Comment Modal -->
     <div class="modal fade" id="editCommentModal" tabindex="-1" aria-labelledby="editCommentModalLabel" aria-hidden="true">

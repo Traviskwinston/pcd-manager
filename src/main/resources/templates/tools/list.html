@@ -24,20 +24,52 @@
             color: #0a58ca !important; /* Darker blue on hover */
         }
         
-        /* Table compact styling */
-        .table-compact {
-            font-size: 0.9rem;
-        }
-        
-        .table-compact th,
-        .table-compact td {
-            padding: 0.5rem;
-            vertical-align: middle;
-        }
+        /* Table compact styling handled by data-table.css */
         
         /* Tools specific table container */
         .tools-table-container {
             min-height: 600px;
+        }
+        
+        /* Enable horizontal scrolling - match RMA approach */
+        .tools-table-container {
+            min-height: 600px;
+        }
+        
+        /* Column min-widths to prevent squishing - match RMA approach */
+        .tools-name-column {
+            min-width: 300px !important;
+            width: 25% !important;
+        }
+        
+        .tools-type-column {
+            min-width: 120px !important;
+            width: 12% !important;
+        }
+        
+        .tools-serial-column {
+            min-width: 180px !important;
+            width: 18% !important;
+        }
+        
+        .tools-model-column {
+            min-width: 140px !important;
+            width: 14% !important;
+        }
+        
+        .tools-status-column {
+            min-width: 120px !important;
+            width: 10% !important;
+        }
+        
+        .tools-count-column {
+            min-width: 80px !important;
+            width: 8% !important;
+        }
+        
+        .tools-technicians-column {
+            min-width: 140px !important;
+            width: 14% !important;
         }
 
         /* Clickable row styling */
@@ -52,6 +84,32 @@
         /* Prevent row click when dragging */
         .dragging {
             pointer-events: none;
+        }
+        
+        /* Drag cursor feedback */
+        .tools-table-container:hover {
+            cursor: grab;
+        }
+        
+        /* When dragging, show grabbing cursor everywhere */
+        .tools-dragging,
+        .tools-dragging *,
+        .tools-dragging .clickable-row,
+        .tools-dragging .clickable-row *,
+        .tools-dragging td,
+        .tools-dragging th {
+            cursor: grabbing !important;
+        }
+        
+        /* Override grab cursor for interactive elements when not dragging */
+        .tools-table-container:hover .sortable-header,
+        .tools-table-container:hover .clickable-row a,
+        .tools-table-container:hover .clickable-row button,
+        .tools-table-container:hover .clickable-row input,
+        .tools-table-container:hover .clickable-row [data-bs-toggle],
+        .tools-table-container:hover .clickable-row .dropdown,
+        .tools-table-container:hover .clickable-row .info-icon-interactive {
+            cursor: pointer !important;
         }
 
         /* Status filter styling (copied from RMA) */
@@ -131,14 +189,29 @@
         }
         
         /* Status badge hover effect */
-        .status-badge.info-icon-interactive {
+        .status-badge:hover {
+            opacity: 0.8;
             cursor: pointer;
-            transition: transform 0.2s;
         }
         
-        .status-badge.info-icon-interactive:hover {
-            transform: scale(1.05);
+        /* Dark Mode Popover Arrows - Simple color overrides only */
+        [data-bs-theme="dark"] .popover {
+            background-color: #495057;
+            border-color: #6c757d;
         }
+
+        [data-bs-theme="dark"] .popover-header {
+            background-color: #6c757d;
+            border-bottom-color: #6c757d;
+            color: #f8f9fa;
+        }
+
+        [data-bs-theme="dark"] .popover-body {
+            background-color: #495057;
+            color: #f8f9fa;
+        }
+
+
     </style>
 </head>
 <body>
@@ -210,7 +283,7 @@
                 <table class="table table-striped data-table-compact">
                     <thead>
                         <tr>
-                            <th style="width: 25%; text-align: left;" class="sortable-header" data-sort="name">
+                            <th class="sortable-header tools-name-column" data-sort="name" style="text-align: left;">
                                 <div class="header-content">
                                     <span class="header-text">Tool Name</span>
                                     <span class="sort-arrows">
@@ -219,7 +292,7 @@
                                     </span>
                                 </div>
                             </th>
-                            <th style="width: 12%; text-align: left;" class="sortable-header" data-sort="toolType">
+                            <th class="sortable-header tools-type-column" data-sort="toolType" style="text-align: left;">
                                 <div class="header-content">
                                     <span class="header-text">Type</span>
                                     <span class="sort-arrows">
@@ -228,7 +301,7 @@
                                     </span>
                                 </div>
                             </th>
-                            <th style="width: 18%; text-align: left;" class="sortable-header" data-sort="serialNumber">
+                            <th class="sortable-header tools-serial-column" data-sort="serialNumber" style="text-align: left;">
                                 <div class="header-content">
                                     <span class="header-text">Serial Number</span>
                                     <span class="sort-arrows">
@@ -237,7 +310,7 @@
                                     </span>
                                 </div>
                             </th>
-                            <th style="width: 14%; text-align: left;" class="sortable-header" data-sort="model">
+                            <th class="sortable-header tools-model-column" data-sort="model" style="text-align: left;">
                                 <div class="header-content">
                                     <span class="header-text">Model</span>
                                     <span class="sort-arrows">
@@ -246,7 +319,7 @@
                                     </span>
                                 </div>
                             </th>
-                            <th style="width: 9%;" class="status-filter-header filter-header">
+                            <th class="status-filter-header filter-header tools-status-column">
                                 Status
                                 <div class="dropdown d-inline-block ms-1">
                                     <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -288,12 +361,12 @@
                                     </ul>
                                 </div>
                             </th>
-                            <th style="width: 8%; display: none;">Moving Parts</th>
-                            <th style="width: 8%;">RMAs</th>
-                            <th style="width: 8%;">Track/Trends</th>
-                            <th style="width: 8%;">Passdown</th>
-                            <th style="width: 8%;">Comments</th>
-                            <th style="width: 14%;">Technicians</th>
+                                                            <th class="tools-count-column" style="display: none;">Moving Parts</th>
+                                <th class="tools-count-column">RMAs</th>
+                                <th class="tools-count-column">Track/Trends</th>
+                                <th class="tools-count-column">Passdown</th>
+                                <th class="tools-count-column">Comments</th>
+                                <th class="tools-technicians-column">Technicians</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -311,22 +384,7 @@
                                 <span th:if="${tool.secondaryName != null}" 
                                       class="text-muted ms-1" 
                                       th:text="'(' + ${tool.secondaryName} + ')'"></span>
-                                <!-- Tool details tooltip -->
-                                <th:block th:with="toolType=${tool.toolType != null ? tool.toolType.displayName : 'Not specified'},
-                                                   modelInfo=${(tool.model1 != null ? tool.model1 : '') + (tool.model2 != null ? (tool.model1 != null ? '/' : '') + tool.model2 : '')},
-                                                   modelDisplay=${modelInfo != '' ? modelInfo : 'Not specified'},
-                                                   serialInfo=${(tool.serialNumber1 != null ? tool.serialNumber1 : '') + (tool.serialNumber2 != null ? (tool.serialNumber1 != null ? '/' : '') + tool.serialNumber2 : '')},
-                                                   serialDisplay=${serialInfo != '' ? serialInfo : 'Not specified'}">
-                                    <i class="bi bi-info-circle-fill info-icon-interactive ms-1"
-                                       data-bs-toggle="popover"
-                                       data-bs-placement="right"
-                                       data-bs-trigger="hover focus click"
-                                       data-bs-html="true"
-                                       data-bs-title="Tool Details"
-                                       th:attr="data-bs-content='<div class=&quot;mb-2&quot;><strong>Type:</strong> ' + ${toolType} + '</div><div class=&quot;mb-2&quot;><strong>Model:</strong> ' + ${modelDisplay} + '</div><div><strong>Serial Number:</strong> ' + ${serialDisplay} + '</div>'"
-                                       onclick="event.stopPropagation();">
-                                    </i>
-                                </th:block>
+
                             </td>
                             <td style="text-align: left;">
                                 <span th:if="${tool.toolType != null}" th:text="${tool.toolType}">Tool Type</span>
@@ -456,6 +514,11 @@
                                        '<div class=&quot;mb-2&quot;><small class=&quot;text-muted&quot;>' + 
                                        '<a href=&quot;/rma/' + get('id') + '&quot; class=&quot;text-decoration-none&quot; onclick=&quot;event.stopPropagation();&quot;>' +
                                        (get('rmaNumber') != null ? get('rmaNumber') : get('id')) + '</a> ' +
+                                       '<i class=&quot;bi bi-info-circle-fill ms-1 text-primary rma-problem-icon&quot; ' +
+                                       'data-rma-id=&quot;' + get('id') + '&quot; ' +
+                                       'data-bs-title=&quot;Problem Details&quot; ' +
+                                       'style=&quot;cursor: pointer; font-size: 0.8em;&quot; ' +
+                                       'onclick=&quot;event.stopPropagation();&quot;></i> ' +
                                        '<span class=&quot;badge bg-' + 
                                        (get('status').name() == 'COMPLETED' ? 'success' : 
                                         get('status').name() == 'IN_PROGRESS' ? 'primary' : 
@@ -792,67 +855,149 @@
                 });
             });
 
-            // Handle clickable rows with improved drag detection
-            document.querySelectorAll('.clickable-row').forEach(row => {
-                let mouseDownTime = 0;
-                let mouseDownX = 0;
-                let mouseDownY = 0;
-                let isDragging = false;
-                
-                row.addEventListener('mousedown', function(e) {
-                    mouseDownTime = Date.now();
-                    mouseDownX = e.clientX;
-                    mouseDownY = e.clientY;
-                    isDragging = false;
-                });
-                
-                row.addEventListener('mousemove', function(e) {
-                    if (mouseDownTime > 0) {
-                        const timeDiff = Date.now() - mouseDownTime;
-                        const distanceX = Math.abs(e.clientX - mouseDownX);
-                        const distanceY = Math.abs(e.clientY - mouseDownY);
-                        const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
-                        
-                        // Consider it dragging if moved more than 5 pixels or held for more than 200ms
-                        if (distance > 5 || timeDiff > 200) {
-                            isDragging = true;
-                            this.classList.add('dragging');
-                        }
+            // Handle RMA problem details icons in popovers (hover-based, non-interfering)
+            document.addEventListener('mouseenter', function(e) {
+                if (e.target.classList.contains('rma-problem-icon')) {
+                    const rmaId = e.target.getAttribute('data-rma-id');
+                    if (!rmaId) return;
+                    
+                    // Check if popover already exists
+                    let existingPopover = bootstrap.Popover.getInstance(e.target);
+                    if (existingPopover) {
+                        return; // Already has popover, let it handle hover
                     }
-                });
-                
-                row.addEventListener('mouseup', function(e) {
-                    setTimeout(() => {
-                        this.classList.remove('dragging');
-                        isDragging = false;
-                        mouseDownTime = 0;
-                    }, 50);
-                });
-                
-                row.addEventListener('click', function(e) {
-                    // Don't navigate if we were dragging or clicking on interactive elements
-                    if (isDragging || 
-                        e.target.closest('[data-bs-toggle="popover"]') || 
-                        e.target.closest('.info-icon-interactive')) {
+                    
+                    // Fetch problem details and create hover popover
+                    fetch(`/rma/${rmaId}/problem-details`)
+                        .then(response => {
+                            if (response.ok) {
+                                return response.json();
+                            }
+                            throw new Error('Failed to load problem details');
+                        })
+                        .then(data => {
+                            const formattedDetails = formatProblemDetailsForPopover(data.problemDetails);
+                            
+                            // Create hover-triggered popover that doesn't interfere with others
+                            const popover = new bootstrap.Popover(e.target, {
+                                html: true,
+                                placement: 'right',
+                                trigger: 'hover',
+                                title: 'Problem Details',
+                                content: formattedDetails,
+                                sanitize: false,
+                                fallbackPlacements: ['left', 'top', 'bottom'],
+                                container: 'body',
+                                delay: { show: 300, hide: 100 } // Slight delay to prevent flicker
+                            });
+                            
+                            // Show immediately since we're already hovering
+                            popover.show();
+                        })
+                        .catch(error => {
+                            console.error('Error loading problem details:', error);
+                        });
+                }
+            }, true); // Use capture phase to catch events in nested popovers
+
+            // Handle clickable rows with improved drag detection
+            // Simple drag to scroll functionality
+            const table = document.querySelector('.tools-table-container');
+            let isDragging = false;
+            let startX = 0;
+            let scrollStart = 0;
+            let hasMoved = false;
+            
+            // Make drag state accessible globally
+            window.toolsTableDragging = false;
+            
+            // Add drag functionality to all table rows
+            document.querySelectorAll('.clickable-row').forEach(row => {
+                row.addEventListener('mousedown', function(e) {
+                    // Skip if clicking on links, buttons, etc.
+                    if (e.target.closest('a, button, input, [data-bs-toggle]')) {
                         return;
                     }
                     
-                    // Navigate to tool detail page using the data-tool-id attribute
-                    const toolId = this.getAttribute('data-tool-id');
-                    if (toolId) {
-                        window.location.href = '/tools/' + toolId;
-                    }
-                });
-                
-                // Reset dragging state on mouse leave
-                row.addEventListener('mouseleave', function(e) {
-                    isDragging = false;
-                    mouseDownTime = 0;
-                    this.classList.remove('dragging');
+                    isDragging = true;
+                    hasMoved = false;
+                    startX = e.clientX;
+                    scrollStart = table.scrollLeft;
+                    
+                    // Add dragging visual feedback
+                    document.body.classList.add('tools-dragging');
+                    
+                    e.preventDefault();
                 });
             });
+            
+            // Handle mouse move for dragging
+            document.addEventListener('mousemove', function(e) {
+                if (!isDragging) return;
+                
+                const deltaX = e.clientX - startX;
+                
+                // Mark as moved if dragged more than 5 pixels
+                if (Math.abs(deltaX) > 5) {
+                    hasMoved = true;
+                    window.toolsTableDragging = true;
+                }
+                
+                // Scroll the table
+                table.scrollLeft = scrollStart - deltaX;
+                
+                e.preventDefault();
+            });
+            
+            // Handle mouse up to end dragging
+            document.addEventListener('mouseup', function() {
+                if (isDragging) {
+                    isDragging = false;
+                    
+                    // Remove dragging visual feedback
+                    document.body.classList.remove('tools-dragging');
+                    
+                    // Reset drag flag after delay to prevent immediate clicks
+                    setTimeout(() => {
+                        window.toolsTableDragging = false;
+                    }, 100);
+                }
+            });
 
+            // Initialize clickable table rows
+            initializeClickableRows();
         });
+        
+        // Function to initialize clickable table rows - copied from RMA
+        function initializeClickableRows() {
+            const toolRows = document.querySelectorAll('.clickable-row');
+            toolRows.forEach(row => {
+                // Check if already has click handler to avoid duplicates
+                if (row.hasAttribute('data-click-initialized')) {
+                    return;
+                }
+                
+                row.setAttribute('data-click-initialized', 'true');
+                                row.addEventListener('click', function(e) {
+                    // Don't navigate if we just finished dragging
+                    if (window.toolsTableDragging) {
+                        return;
+                    }
+                    
+                    // Don't navigate if clicking on interactive elements
+                    if (e.target.closest('a, button, input, .dropdown, [data-bs-toggle], .info-icon-interactive')) {
+                        return;
+                    }
+                    
+                    // Get the tool ID from the row's data attribute
+                    const toolId = row.getAttribute('data-tool-id');
+                    
+                    if (toolId) {
+                        window.location.href = `/tools/${toolId}`;
+                    }
+                });
+             });
+         }
     </script>
 
     <!-- Upload Tools Modal -->
@@ -1028,6 +1173,35 @@
                 uploadProgress.style.display = 'none';
             });
         });
+
+        // Format problem details for popover display
+        function formatProblemDetailsForPopover(problemDetails) {
+            if (!problemDetails) return '<p class="text-muted">No problem details available</p>';
+            
+            let content = '<div class="problem-details-popover">';
+            
+            if (problemDetails.whatHappened) {
+                content += `<div class="mb-2"><strong>What:</strong><br/>${problemDetails.whatHappened}</div>`;
+            }
+            if (problemDetails.whoContained) {
+                content += `<div class="mb-2"><strong>Who:</strong><br/>${problemDetails.whoContained}</div>`;
+            }
+            if (problemDetails.whenContained) {
+                content += `<div class="mb-2"><strong>When:</strong><br/>${problemDetails.whenContained}</div>`;
+            }
+            if (problemDetails.whereContained) {
+                content += `<div class="mb-2"><strong>Where:</strong><br/>${problemDetails.whereContained}</div>`;
+            }
+            if (problemDetails.whyContained) {
+                content += `<div class="mb-2"><strong>Why:</strong><br/>${problemDetails.whyContained}</div>`;
+            }
+            if (problemDetails.howContained) {
+                content += `<div class="mb-2"><strong>How:</strong><br/>${problemDetails.howContained}</div>`;
+            }
+            
+            content += '</div>';
+            return content;
+        }
     </script>
 </body>
 </html>

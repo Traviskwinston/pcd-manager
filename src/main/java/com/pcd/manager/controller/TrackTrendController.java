@@ -47,8 +47,8 @@ public class TrackTrendController {
     public String listTrackTrends(Model model) {
         logger.info("=== LOADING TRACK/TREND LIST PAGE (OPTIMIZED) ===");
         
-        // Use lightweight query for list view - only load essential fields
-        List<TrackTrend> trackTrends = trackTrendService.getAllTrackTrends();
+        // Use query with affected tools and comments loaded for list view icons
+        List<TrackTrend> trackTrends = trackTrendService.getAllTrackTrendsWithAffectedToolsAndComments();
         logger.info("Loaded {} track/trends for list view", trackTrends.size());
         
         if (trackTrends.isEmpty()) {
