@@ -35,6 +35,10 @@ public class LocationService {
     public Optional<Location> getLocationById(Long id) {
         return locationRepository.findById(id);
     }
+    
+    public Optional<Location> getLocationByName(String name) {
+        return locationRepository.findByNameOrDisplayName(name);
+    }
 
     @Cacheable(value = "default-location", key = "'default'")
     public Optional<Location> getDefaultLocation() {

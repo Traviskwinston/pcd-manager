@@ -70,7 +70,7 @@
                         <li th:each="rma : ${relatedRmas}" class="list-group-item d-flex justify-content-between align-items-center">
                             <div>
                                 <a th:href="@{'/rma/' + ${rma.id}}" 
-                                   th:text="${(rma.rmaNumber != null and rma.rmaNumber != '') ? rma.rmaNumber : (rma.sapNotificationNumber != null and rma.sapNotificationNumber != '') ? rma.sapNotificationNumber : 'RMA #' + rma.id}">RMA Number</a>
+                                   th:text="${rma.referenceNumber ?: ('RMA #' + rma.id)}">RMA Number</a>
                                 <small th:if="${rma.tool != null}" class="text-muted d-block" th:text="'Tool: ' + ${rma.tool.name}">Tool Name</small>
                             </div>
                             <div>

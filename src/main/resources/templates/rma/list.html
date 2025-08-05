@@ -597,6 +597,15 @@
                                 </th>
                                 <th style="width: 5%;">Moving<br/>Parts</th>
                                 <th style="width: 5%;">Comments</th>
+                                <th style="width: 10%;" class="sortable-header" data-sort="last-modified">
+                                    <div class="header-content">
+                                        <span class="header-text">Last Modified</span>
+                                        <span class="sort-arrows">
+                                            <i class="bi bi-caret-up sort-up"></i>
+                                            <i class="bi bi-caret-down sort-down"></i>
+                                        </span>
+                                    </div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -604,7 +613,7 @@
                                 th:attr="data-tool=*{tool != null ? tool.name : ''},
                                          data-parts=${#strings.listJoin(rma.partLineItems.![partName ?: partNumber ?: productDescription], ' ')},
                                          data-part-numbers=${#strings.listJoin(rma.partLineItems.![partNumber], ' ')},
-                                         data-rma-number=*{rmaNumber ?: sapNotificationNumber ?: ''},
+                                         data-rma-number=*{referenceNumber ?: ''},
                                          data-status=*{status != null ? status.name() : ''},
                                          data-priority=*{priority != null ? priority.name() : 'MEDIUM'},
                                          data-written-date=*{writtenDate != null ? #temporals.format(writtenDate, 'yyyy-MM-dd') : ''},
@@ -613,19 +622,21 @@
                                          data-parts-received-date=*{partsReceivedDate != null ? #temporals.format(partsReceivedDate, 'yyyy-MM-dd') : ''},
                                          data-parts-installed-date=*{installedPartsDate != null ? #temporals.format(installedPartsDate, 'yyyy-MM-dd') : ''},
                                          data-failed-parts-ready-date=*{failedPartsPackedDate != null ? #temporals.format(failedPartsPackedDate, 'yyyy-MM-dd') : ''},
-                                         data-failed-parts-shipped-date=*{failedPartsShippedDate != null ? #temporals.format(failedPartsShippedDate, 'yyyy-MM-dd') : ''}">
+                                         data-failed-parts-shipped-date=*{failedPartsShippedDate != null ? #temporals.format(failedPartsShippedDate, 'yyyy-MM-dd') : ''},
+                                         data-last-modified=*{updatedAt != null ? #temporals.format(updatedAt, 'yyyy-MM-dd HH:mm') : ''},
+                                         data-created-at=*{createdDate != null ? #temporals.format(createdDate, 'yyyy-MM-dd HH:mm') : ''}">
                                 <!-- RMA Number & Problem Description Popover -->
                                 <td>
-                                    <span class="rma-number" th:text="*{rmaNumber != null and rmaNumber != '' ? rmaNumber : (sapNotificationNumber != null and sapNotificationNumber != '' ? sapNotificationNumber : 'N/A')}"></span>
+                                    <span class="rma-number" th:text="*{referenceNumber ?: 'N/A'}">RMA/SAP Number</span>
                                     <!-- Problem details icon with lazy loading -->
                                     <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
                                        th:attr="data-rma-id=*{id},
-                                                data-rma-number=(*{rmaNumber} != null ? *{rmaNumber} : (*{sapNotificationNumber} != null ? *{sapNotificationNumber} : 'RMA-' + *{id}))"
+                                                data-rma-number=*{referenceNumber ?: ('RMA-' + id)}"
                                        data-bs-toggle="popover"
                                        data-bs-placement="right"
                                        data-bs-trigger="hover focus click"
                                        data-bs-html="true"
-                                       th:data-bs-title="'Problem Details for ' + (*{rmaNumber} != null ? *{rmaNumber} : (*{sapNotificationNumber} != null ? *{sapNotificationNumber} : 'RMA-' + *{id}))"
+                                       th:data-bs-title="'Problem Details for ' + (*{referenceNumber} ?: ('RMA-' + *{id}))"
                                        data-bs-content="Loading problem details..."
                                        title="Hover to load problem details"></i>
                                 </td>
@@ -735,6 +746,15 @@
                                     
                                     <!-- Comment count -->
                                     <span th:text="${rmaCommentsMap.get(rma.id) ?: 0}" class="ms-1 small"></span>
+                                </td>
+                                
+                                <!-- Last Modified -->
+                                <td class="text-center">
+                                    <span th:if="*{updatedAt != null}" class="small">
+                                        <span th:text="*{#temporals.format(updatedAt, 'MMM dd, yyyy')}">Date</span>
+                                        <span th:text="*{#temporals.format(updatedAt, 'h:mm a')}" class="text-muted ms-1">Time</span>
+                                    </span>
+                                    <span th:if="*{updatedAt == null}" class="text-muted small">-</span>
                                 </td>
 
                             </tr>
@@ -991,6 +1011,7 @@
                         case 'parts-installed-date':
                         case 'failed-parts-ready-date':
                         case 'failed-parts-shipped-date':
+                        case 'last-modified':
                             aVal = a.getAttribute(`data-${sortType}`) || '';
                             bVal = b.getAttribute(`data-${sortType}`) || '';
                             // Convert to date for comparison, empty dates go to end
@@ -1904,7 +1925,7 @@
                 row.setAttribute('data-tool', rma.tool?.name?.toLowerCase() || '');
                 row.setAttribute('data-parts', this.formatPartsForSearch(rma.partLineItems));
                 row.setAttribute('data-part-numbers', this.formatPartNumbersForSearch(rma.partLineItems));
-                row.setAttribute('data-rma-number', (rma.rmaNumber || rma.sapNotificationNumber || '').toLowerCase());
+                row.setAttribute('data-rma-number', (rma.rmaNumber || '').toLowerCase());
                 row.setAttribute('data-status', rma.status || '');
                 row.setAttribute('data-priority', rma.priority || 'MEDIUM');
                 
@@ -1916,6 +1937,8 @@
                 row.setAttribute('data-parts-installed-date', rma.installedPartsDate || '');
                 row.setAttribute('data-failed-parts-ready-date', rma.failedPartsPackedDate || '');
                 row.setAttribute('data-failed-parts-shipped-date', rma.failedPartsShippedDate || '');
+                row.setAttribute('data-last-modified', rma.updatedAt || '');
+                row.setAttribute('data-created-at', rma.createdDate || '');
                 
                 const formatDate = (dateStr) => {
                     if (!dateStr) return '-';
@@ -1971,17 +1994,17 @@
                 row.innerHTML = `
                     <td>
                         <span class="rma-number">
-                            ${rma.rmaNumber || rma.sapNotificationNumber || `RMA-${rma.id}`}
+                            ${rma.rmaNumber || `RMA-${rma.id}`}
                         </span>
 
                         <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
                            data-rma-id="${rma.id}"
-                           data-rma-number="${rma.rmaNumber || rma.sapNotificationNumber || 'RMA-' + rma.id}"
+                           data-rma-number="${rma.rmaNumber || 'RMA-' + rma.id}"
                            data-bs-toggle="popover"
                            data-bs-placement="right"
                            data-bs-trigger="hover focus click"
                            data-bs-html="true"
-                           data-bs-title="Problem Details for ${rma.rmaNumber || rma.sapNotificationNumber || 'RMA-' + rma.id}"
+                           data-bs-title="Problem Details for ${rma.rmaNumber || 'RMA-' + rma.id}"
                            data-bs-content="Loading problem details..."
                            title="Hover to load problem details"></i>
                     </td>
@@ -2032,6 +2055,14 @@
                            data-bs-content="Loading comments..."
                            ${commentCount > 0 ? 'title="Hover to load comments"' : ''}></i>
                         <span class="ms-1 small">${commentCount}</span>
+                    </td>
+                    <td class="text-center">
+                        ${rma.updatedAt ? `
+                            <span class="small">
+                                ${new Date(rma.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                <span class="text-muted ms-1">${new Date(rma.updatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
+                            </span>
+                        ` : '<span class="text-muted small">-</span>'}
                     </td>
                 `;
 

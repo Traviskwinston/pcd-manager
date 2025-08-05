@@ -370,7 +370,7 @@
                                   th:text="${tool.status != null ? tool.status.name().replace('_',' ') : 'UNKNOWN'}">Status</span>
                             <span class="text-muted">
                                 <i class="bi bi-geo-alt me-1"></i>
-                                <span th:text="${tool.location != null ? tool.location.displayName : 'No location assigned'}">Location</span>
+                                <span th:text="${tool.locationName ?: 'No location assigned'}">Location</span>
                             </span>
             </div>
                         <div class="mt-1">
@@ -643,16 +643,16 @@
                             <div class="d-flex align-items-center justify-content-between p-2 border rounded" th:each="rma : ${associatedRmas}">
                                 <div>
                                     <div class="fw-bold">
-                                        <span th:text="${rma.rmaNumber ?: ('RMA-' + rma.id)}">RMA-123</span>
+                                        <span th:text="${rma.referenceNumber ?: ('RMA-' + rma.id)}">RMA-123</span>
                                         <!-- Problem details icon with lazy loading -->
                                         <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
                                            th:attr="data-rma-id=${rma.id},
-                                                    data-rma-number=(${rma.rmaNumber} != null ? ${rma.rmaNumber} : (${rma.sapNotificationNumber} != null ? ${rma.sapNotificationNumber} : 'RMA-' + ${rma.id}))"
+                                                    data-rma-number=${rma.referenceNumber ?: ('RMA-' + rma.id)}"
                                            data-bs-toggle="popover"
                                            data-bs-placement="right"
                                            data-bs-trigger="hover focus click"
                                            data-bs-html="true"
-                                           th:data-bs-title="'Problem Details for ' + (${rma.rmaNumber} != null ? ${rma.rmaNumber} : (${rma.sapNotificationNumber} != null ? ${rma.sapNotificationNumber} : 'RMA-' + ${rma.id}))"
+                                           th:data-bs-title="'Problem Details for ' + (${rma.referenceNumber} ?: ('RMA-' + ${rma.id}))"
                                            data-bs-content="Loading problem details..."
                                            title="Hover to load problem details"
                                            style="color: #0d6efd; cursor: pointer;">

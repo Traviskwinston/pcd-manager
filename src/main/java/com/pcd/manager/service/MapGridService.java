@@ -19,6 +19,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.ArrayList;
+import java.util.Objects;
+import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Service for managing facility map grid items
@@ -66,16 +70,30 @@ public class MapGridService {
      * Create a tool grid item
      */
     @Transactional
-    public MapGridItem createToolGridItem(Long toolId, Integer x, Integer y, Integer width, Integer height, String userEmail, Long locationId) {
+    public MapGridItem createToolGridItem(Long toolId, Integer x, Integer y, Integer width, Integer height, String userEmail, Long locationId, boolean isFeedTool) {
         Tool tool = toolRepository.findById(toolId)
                 .orElseThrow(() -> new IllegalArgumentException("Tool not found with ID: " + toolId));
         
         Location location = locationRepository.findById(locationId)
                 .orElseThrow(() -> new IllegalArgumentException("Location not found with ID: " + locationId));
 
-        Optional<MapGridItem> existingItem = mapGridItemRepository.findByToolAndLocation(tool, location); // Check for tool at this specific location
-        if (existingItem.isPresent()) {
-            throw new IllegalStateException("This tool already exists on the map for this location");
+        // For feed tools, check if there's already a feed variant on the map
+        // For regular tools, check if there's already the tool on the map
+        String existingCheckKey = isFeedTool ? "FEED" : null;
+        
+        // Check for existing items based on tool and feed status
+        List<MapGridItem> existingItems = mapGridItemRepository.findByLocationIdAndType(locationId, MapGridItem.ItemType.TOOL);
+        Optional<MapGridItem> conflictingItem = existingItems.stream()
+                .filter(item -> item.getTool().getId().equals(toolId))
+                .filter(item -> {
+                    boolean itemIsFeed = "FEED".equals(item.getText());
+                    return itemIsFeed == isFeedTool; // Same feed status
+                })
+                .findFirst();
+                
+        if (conflictingItem.isPresent()) {
+            String itemType = isFeedTool ? "feed variant" : "tool";
+            throw new IllegalStateException("This " + itemType + " already exists on the map for this location");
         }
         
         // Find the user
@@ -92,7 +110,15 @@ public class MapGridService {
         gridItem.setHeight(height);
         gridItem.setCreatedBy(user);
         gridItem.setUpdatedBy(user);
-        gridItem.setLocation(location); // Set location
+        gridItem.setLocation(location);
+        
+        // Mark as feed tool if applicable
+        if (isFeedTool) {
+            gridItem.setText("FEED");
+            logger.info("Created feed variant grid item for tool: {} ({})", tool.getName(), tool.getId());
+        } else {
+            logger.info("Created regular grid item for tool: {} ({})", tool.getName(), tool.getId());
+        }
         
         return mapGridItemRepository.save(gridItem);
     }
@@ -180,8 +206,104 @@ public class MapGridService {
     }
     
     /**
-     * Get all available tools not yet placed on the map
+     * Get all available tools not yet placed on the map for the specified location
      */
+    public List<Tool> getAvailableTools(Long locationId) {
+        // Get tools for the specific location using the same method as dashboard to avoid duplicates
+        List<Tool> locationTools;
+        if (locationId != null) {
+            // Find location name from locationId to use with new method
+            Optional<Location> locationOpt = locationRepository.findById(locationId);
+            if (locationOpt.isPresent()) {
+                String locationName = locationOpt.get().getDisplayName() != null ? 
+                                    locationOpt.get().getDisplayName() : locationOpt.get().getName();
+                locationTools = toolRepository.findByLocationNameForDashboardView(locationName);
+            } else {
+                locationTools = new ArrayList<>();
+            }
+        } else {
+            // Fallback to all tools if no location specified
+            locationTools = toolRepository.findAllForDashboardView();
+        }
+        
+        // Get tools already on the map for this specific location
+        List<MapGridItem> placedItemsForLocation = mapGridItemRepository.findByLocationIdAndType(locationId, MapGridItem.ItemType.TOOL);
+        
+        // Track which specific variants are placed (regular vs feed)
+        Set<Long> placedRegularToolIds = placedItemsForLocation.stream()
+                .filter(item -> !"FEED".equals(item.getText())) // Regular tools (not feed)
+                .map(MapGridItem::getTool)
+                .filter(Objects::nonNull)
+                .map(Tool::getId)
+                .collect(Collectors.toSet());
+                
+        Set<Long> placedFeedToolIds = placedItemsForLocation.stream()
+                .filter(item -> "FEED".equals(item.getText())) // Feed variants only
+                .map(MapGridItem::getTool)
+                .filter(Objects::nonNull)
+                .map(Tool::getId)
+                .collect(Collectors.toSet());
+        
+        logger.info("Location {} has {} regular tools and {} feed variants placed", 
+                   locationId, placedRegularToolIds.size(), placedFeedToolIds.size());
+        
+        // Return all tools from this location - we'll handle variant filtering in the frontend
+        // Both regular and feed variants can coexist for the same tool
+        return locationTools;
+    }
+
+    /**
+     * Get available tools with information about which variants are already placed
+     */
+    public Map<String, Object> getAvailableToolsWithPlacementInfo(Long locationId) {
+        // Get tools for the specific location using the same method as dashboard to avoid duplicates
+        List<Tool> locationTools;
+        if (locationId != null) {
+            // Find location name from locationId to use with new method
+            Optional<Location> locationOpt = locationRepository.findById(locationId);
+            if (locationOpt.isPresent()) {
+                String locationName = locationOpt.get().getDisplayName() != null ? 
+                                    locationOpt.get().getDisplayName() : locationOpt.get().getName();
+                locationTools = toolRepository.findByLocationNameForDashboardView(locationName);
+            } else {
+                locationTools = new ArrayList<>();
+            }
+        } else {
+            // Fallback to all tools if no location specified
+            locationTools = toolRepository.findAllForDashboardView();
+        }
+        
+        // Get tools already on the map for this specific location
+        List<MapGridItem> placedItemsForLocation = mapGridItemRepository.findByLocationIdAndType(locationId, MapGridItem.ItemType.TOOL);
+        
+        // Track which specific variants are placed (regular vs feed)
+        List<Long> placedRegularToolIds = placedItemsForLocation.stream()
+                .filter(item -> !"FEED".equals(item.getText())) // Regular tools (not feed)
+                .map(MapGridItem::getTool)
+                .filter(Objects::nonNull)
+                .map(Tool::getId)
+                .collect(Collectors.toList());
+                
+        List<Long> placedFeedToolIds = placedItemsForLocation.stream()
+                .filter(item -> "FEED".equals(item.getText())) // Feed variants only
+                .map(MapGridItem::getTool)
+                .filter(Objects::nonNull)
+                .map(Tool::getId)
+                .collect(Collectors.toList());
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("tools", locationTools);
+        result.put("placedRegularIds", placedRegularToolIds);
+        result.put("placedFeedIds", placedFeedToolIds);
+        
+        return result;
+    }
+
+    /**
+     * Get all available tools not yet placed on any map (legacy method for backward compatibility)
+     * @deprecated Use getAvailableTools(Long locationId) instead
+     */
+    @Deprecated
     public List<Tool> getAvailableTools() {
         // Get all tools
         List<Tool> allTools = toolRepository.findAll();

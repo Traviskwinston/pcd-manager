@@ -107,8 +107,7 @@
                             <label for="location" class="form-label">Location</label>
                             <select class="form-select" id="location" th:field="*{location.id}">
                                 <option value="">-- Select Location --</option>
-                                <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.displayName}" 
-                                        th:selected="${loc.isDefault}">AZ F52</option>
+                                <option th:each="loc : ${locations}" th:value="${loc.id}" th:text="${loc.displayName}"></option>
                             </select>
                         </div>
                     </div>

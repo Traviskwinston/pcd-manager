@@ -144,48 +144,62 @@ public class RmaController {
                 
                 Map<String, Object> rmaMap = new HashMap<>();
                 rmaMap.put("id", rmaId);
-                rmaMap.put("rmaNumber", (String) row[1]);
-                rmaMap.put("sapNotificationNumber", (String) row[2]);
-                rmaMap.put("status", row[3] != null ? row[3].toString() : null);
-                rmaMap.put("statusDisplayName", row[3] != null ? ((RmaStatus) row[3]).getDisplayName() : null);
-                rmaMap.put("priority", row[4] != null ? ((RmaPriority) row[4]).name() : "MEDIUM");
-                rmaMap.put("priorityDisplayName", row[4] != null ? ((RmaPriority) row[4]).getDisplayName() : "Medium");
-                rmaMap.put("customerName", (String) row[5]);
-                rmaMap.put("writtenDate", row[6] != null ? row[6].toString() : null);
-                rmaMap.put("rmaNumberProvidedDate", row[7] != null ? row[7].toString() : null);
-                rmaMap.put("shippingMemoEmailedDate", row[8] != null ? row[8].toString() : null);
-                rmaMap.put("partsReceivedDate", row[9] != null ? row[9].toString() : null);
-                rmaMap.put("installedPartsDate", row[10] != null ? row[10].toString() : null);
-                rmaMap.put("failedPartsPackedDate", row[11] != null ? row[11].toString() : null);
-                rmaMap.put("failedPartsShippedDate", row[12] != null ? row[12].toString() : null);
+                // Store the reference number as both rmaNumber and sapNotificationNumber for backward compatibility
+                String referenceNumber = (String) row[1];
+                rmaMap.put("rmaNumber", referenceNumber);
+                rmaMap.put("sapNotificationNumber", referenceNumber);
+                rmaMap.put("status", row[2] != null ? row[2].toString() : null);
+                rmaMap.put("statusDisplayName", row[2] != null ? ((RmaStatus) row[2]).getDisplayName() : null);
+                rmaMap.put("priority", row[3] != null ? ((RmaPriority) row[3]).name() : "MEDIUM");
+                rmaMap.put("priorityDisplayName", row[3] != null ? ((RmaPriority) row[3]).getDisplayName() : "Medium");
+                rmaMap.put("customerName", (String) row[4]);
+                rmaMap.put("writtenDate", row[5] != null ? row[5].toString() : null);
+                rmaMap.put("rmaNumberProvidedDate", row[6] != null ? row[6].toString() : null);
+                rmaMap.put("shippingMemoEmailedDate", row[7] != null ? row[7].toString() : null);
+                rmaMap.put("partsReceivedDate", row[8] != null ? row[8].toString() : null);
+                rmaMap.put("installedPartsDate", row[9] != null ? row[9].toString() : null);
+                rmaMap.put("failedPartsPackedDate", row[10] != null ? row[10].toString() : null);
+                rmaMap.put("failedPartsShippedDate", row[11] != null ? row[11].toString() : null);
                 
-                // Handle tool data (row[13] = tool.id, row[14] = tool.name)
+                // Handle timestamp fields (row[12] = createdDate, row[13] = updatedAt)
+                if (row[12] != null) {
+                    rmaMap.put("createdDate", row[12].toString());
+                } else {
+                    rmaMap.put("createdDate", null);
+                }
                 if (row[13] != null) {
+                    rmaMap.put("updatedAt", row[13].toString());
+                } else {
+                    rmaMap.put("updatedAt", null);
+                }
+                
+                // Handle tool data (row[14] = tool.id, row[15] = tool.name)
+                if (row[14] != null) {
                     Map<String, Object> toolMap = new HashMap<>();
-                    toolMap.put("id", (Long) row[13]);
-                    toolMap.put("name", row[14] != null ? (String) row[14] : "");
+                    toolMap.put("id", (Long) row[14]);
+                    toolMap.put("name", row[15] != null ? (String) row[15] : "");
                     rmaMap.put("tool", toolMap);
                 } else {
                     rmaMap.put("tool", null);
                 }
                 
-                // Handle location data (row[15] = location.id, row[16] = location.name)
-                if (row[15] != null) {
+                // Handle location data (row[16] = location.id, row[17] = location.name)
+                if (row[16] != null) {
                     Map<String, Object> locationMap = new HashMap<>();
-                    locationMap.put("id", (Long) row[15]);
-                    locationMap.put("name", row[16] != null ? (String) row[16] : "");
+                    locationMap.put("id", (Long) row[16]);
+                    locationMap.put("name", row[17] != null ? (String) row[17] : "");
                     rmaMap.put("location", locationMap);
                 } else {
                     rmaMap.put("location", null);
                 }
                 
-                // Handle problem details for tooltip (row[17-22])
-                rmaMap.put("problemDiscoverer", (String) row[17]);
-                rmaMap.put("problemDiscoveryDate", row[18] != null ? row[18].toString() : null);
-                rmaMap.put("whatHappened", (String) row[19]);
-                rmaMap.put("whyAndHowItHappened", (String) row[20]);
-                rmaMap.put("howContained", (String) row[21]);
-                rmaMap.put("whoContained", (String) row[22]);
+                // Handle problem details for tooltip (row[18-23])
+                rmaMap.put("problemDiscoverer", (String) row[18]);
+                rmaMap.put("problemDiscoveryDate", row[19] != null ? row[19].toString() : null);
+                rmaMap.put("whatHappened", (String) row[20]);
+                rmaMap.put("whyAndHowItHappened", (String) row[21]);
+                rmaMap.put("howContained", (String) row[22]);
+                rmaMap.put("whoContained", (String) row[23]);
                 
                 rmaData.add(rmaMap);
             }
@@ -361,9 +375,13 @@ public class RmaController {
                 } else if (user.getDefaultLocation() != null) {
                     rma.setLocation(user.getDefaultLocation());
                     logger.info("Set default location to user's default location: {}", user.getDefaultLocation().getDisplayName());
-                } else if (user.getActiveTool() != null && user.getActiveTool().getLocation() != null) {
-                    rma.setLocation(user.getActiveTool().getLocation());
-                    logger.info("Set default location to user's active tool location: {}", user.getActiveTool().getLocation().getDisplayName());
+                } else if (user.getActiveTool() != null && user.getActiveTool().getLocationName() != null) {
+                    // Find the Location object by name from the tool's location name
+                    Optional<Location> toolLocation = locationService.getLocationByName(user.getActiveTool().getLocationName());
+                    if (toolLocation.isPresent()) {
+                        rma.setLocation(toolLocation.get());
+                        logger.info("Set default location to user's active tool location: {}", user.getActiveTool().getLocationName());
+                    }
                 } else {
                     // If no user-specific location, try to get the system default location
                     Optional<Location> defaultLocation = locationService.getDefaultLocation();
@@ -394,9 +412,13 @@ public class RmaController {
             toolService.getToolById(toolId).ifPresent(tool -> {
                 rma.setTool(tool);
                 // If we have a tool, use its location only if we don't already have a location from the user
-                if (tool.getLocation() != null && rma.getLocation() == null) {
-                    rma.setLocation(tool.getLocation());
-                    logger.info("Set location from provided tool: {}", tool.getLocation().getDisplayName());
+                if (tool.getLocationName() != null && rma.getLocation() == null) {
+                    // Find the Location object by name from the tool's location name
+                    Optional<Location> toolLocation = locationService.getLocationByName(tool.getLocationName());
+                    if (toolLocation.isPresent()) {
+                        rma.setLocation(toolLocation.get());
+                        logger.info("Set location from provided tool: {}", tool.getLocationName());
+                    }
                 }
                 logger.info("Pre-selected tool {} for new RMA", tool.getName());
             });
@@ -819,10 +841,9 @@ public class RmaController {
             result.put("chemicalGasService", tool.getChemicalGasService());
             result.put("startUpSl03Date", tool.getStartUpSl03Date());
             
-            if (tool.getLocation() != null) {
+            if (tool.getLocationName() != null) {
                 Map<String, Object> location = new HashMap<>();
-                location.put("id", tool.getLocation().getId());
-                location.put("displayName", tool.getLocation().getDisplayName());
+                location.put("displayName", tool.getLocationName());
                 result.put("location", location);
             }
         }
@@ -843,8 +864,8 @@ public class RmaController {
             toolMap.put("name", tool.getName());
             toolMap.put("chemicalGasService", tool.getChemicalGasService());
             
-            if (tool.getLocation() != null) {
-                toolMap.put("location", tool.getLocation().getDisplayName());
+            if (tool.getLocationName() != null) {
+                toolMap.put("location", tool.getLocationName());
             }
             
             result.add(toolMap);
@@ -1923,20 +1944,66 @@ public class RmaController {
             Rma rma = rmaOpt.get();
             
             // Get updated values from request
+            String referenceNumber = request.getParameter("referenceNumber");
             String rmaNumber = request.getParameter("rmaNumber");
             String sapNotificationNumber = request.getParameter("sapNotificationNumber");
+            String serviceOrder = request.getParameter("serviceOrder");
+            String reasonForRequest = request.getParameter("reasonForRequest");
+            String dssProductLine = request.getParameter("dssProductLine");
+            String systemDescription = request.getParameter("systemDescription");
             String toolIdStr = request.getParameter("toolId");
             String locationIdStr = request.getParameter("locationId"); 
             String technicianName = request.getParameter("technician"); 
 
-            // Update RMA number
-            if (rmaNumber != null) {
-                rma.setRmaNumber(rmaNumber.trim().isEmpty() ? null : rmaNumber.trim());
+            // Update reference number (prioritize the new consolidated field)
+            if (referenceNumber != null) {
+                rma.setReferenceNumber(referenceNumber.trim().isEmpty() ? null : referenceNumber.trim());
+            } else {
+                // Fallback to old separate fields for backward compatibility
+                if (rmaNumber != null) {
+                    rma.setRmaNumber(rmaNumber.trim().isEmpty() ? null : rmaNumber.trim());
+                }
+                if (sapNotificationNumber != null) {
+                    rma.setSapNotificationNumber(sapNotificationNumber.trim().isEmpty() ? null : sapNotificationNumber.trim());
+                }
             }
             
-            // Update SAP notification number
-            if (sapNotificationNumber != null) {
-                rma.setSapNotificationNumber(sapNotificationNumber.trim().isEmpty() ? null : sapNotificationNumber.trim());
+            // Update service order
+            if (serviceOrder != null) {
+                rma.setServiceOrder(serviceOrder.trim().isEmpty() ? null : serviceOrder.trim());
+            }
+            
+            // Update reason for request
+            if (reasonForRequest != null && !reasonForRequest.trim().isEmpty()) {
+                try {
+                    rma.setReasonForRequest(RmaReasonForRequest.valueOf(reasonForRequest.trim()));
+                } catch (IllegalArgumentException e) {
+                    rma.setReasonForRequest(null);
+                }
+            } else {
+                rma.setReasonForRequest(null);
+            }
+            
+            // Update DSS product line
+            if (dssProductLine != null && !dssProductLine.trim().isEmpty()) {
+                try {
+                    rma.setDssProductLine(DssProductLine.valueOf(dssProductLine.trim()));
+                } catch (IllegalArgumentException e) {
+                    rma.setDssProductLine(null);
+                }
+            } else {
+                rma.setDssProductLine(null);
+            }
+            
+            // Update system description
+            if (systemDescription != null && !systemDescription.trim().isEmpty()) {
+                try {
+                    rma.setSystemDescription(SystemDescription.valueOf(systemDescription.trim()));
+                } catch (IllegalArgumentException e) {
+                    rma.setSystemDescription(null);
+                }
+            } else {
+                rma.setSystemDescription(null);
             }
             
             // Update tool
@@ -2018,11 +2085,16 @@ public class RmaController {
                 response.put("toolChemicalGasService", null);
             }
             
+            // Add response data for Basic Information fields
+            response.put("serviceOrder", rma.getServiceOrder());
+            response.put("reasonForRequestDisplay", rma.getReasonForRequest() != null ? rma.getReasonForRequest().getDisplayName() : null);
+            response.put("dssProductLineDisplay", rma.getDssProductLine() != null ? rma.getDssProductLine().getDisplayName() : null);
+            response.put("systemDescriptionDisplay", rma.getSystemDescription() != null ? rma.getSystemDescription().getDisplayName() : null);
             response.put("locationName", rma.getLocation() != null ? rma.getLocation().getDisplayName() : "N/A"); 
             response.put("technicianName", rma.getTechnician() != null ? rma.getTechnician() : "Not assigned"); 
             
-            logger.info("Updated header for RMA ID {}: RMA Number: {}, SAP Number: {}, Tool: {}, Location: {}, Technician: {}", 
-                       id, rma.getRmaNumber(), rma.getSapNotificationNumber(), 
+            logger.info("Updated header for RMA ID {}: Reference Number: {}, Tool: {}, Location: {}, Technician: {}", 
+                       id, rma.getReferenceNumber(), 
                        rma.getTool() != null ? rma.getTool().getName() : "None",
                        rma.getLocation() != null ? rma.getLocation().getDisplayName() : "None", 
                        rma.getTechnician() != null ? rma.getTechnician() : "None"); 
@@ -2058,20 +2130,60 @@ public class RmaController {
             rma.getPartLineItems().clear();
             logger.info("Cleared existing parts");
             
-            // Create hardcoded part with specified values
-            PartLineItem hardcodedPart = new PartLineItem();
-            hardcodedPart.setPartName("Part Name 1");
-            hardcodedPart.setPartNumber("Part Number 1");
-            hardcodedPart.setProductDescription("Part Description");
-            hardcodedPart.setQuantity(2);
-            hardcodedPart.setReplacementRequired(true);
+            // Process parts array from form
+            int partIndex = 0;
+            int addedParts = 0;
             
-            // Add the hardcoded part to RMA
-            rma.getPartLineItems().add(hardcodedPart);
-            logger.info("Added hardcoded part: name='{}', number='{}', desc='{}', qty={}, replacement={}", 
-                hardcodedPart.getPartName(), hardcodedPart.getPartNumber(), 
-                hardcodedPart.getProductDescription(), hardcodedPart.getQuantity(), 
-                hardcodedPart.getReplacementRequired());
+            while (true) {
+                String partName = request.getParameter("parts[" + partIndex + "][partName]");
+                String partNumber = request.getParameter("parts[" + partIndex + "][partNumber]");
+                String productDescription = request.getParameter("parts[" + partIndex + "][productDescription]");
+                String quantityStr = request.getParameter("parts[" + partIndex + "][quantity]");
+                String replacementRequiredStr = request.getParameter("parts[" + partIndex + "][replacementRequired]");
+                
+                // If no part name parameter exists, we've reached the end
+                if (partName == null) {
+                    break;
+                }
+                
+                // Only create part if at least one field has data
+                if ((partName != null && !partName.trim().isEmpty()) ||
+                    (partNumber != null && !partNumber.trim().isEmpty()) ||
+                    (productDescription != null && !productDescription.trim().isEmpty())) {
+                    
+                    PartLineItem part = new PartLineItem();
+                    part.setPartName(partName != null && !partName.trim().isEmpty() ? partName.trim() : null);
+                    part.setPartNumber(partNumber != null && !partNumber.trim().isEmpty() ? partNumber.trim() : null);
+                    part.setProductDescription(productDescription != null && !productDescription.trim().isEmpty() ? productDescription.trim() : null);
+                    
+                    // Parse quantity
+                    int quantity = 1;
+                    if (quantityStr != null && !quantityStr.trim().isEmpty()) {
+                        try {
+                            quantity = Integer.parseInt(quantityStr.trim());
+                            if (quantity < 1) quantity = 1;
+                        } catch (NumberFormatException e) {
+                            logger.warn("Invalid quantity '{}' for part {}, defaulting to 1", quantityStr, partIndex);
+                        }
+                    }
+                    part.setQuantity(quantity);
+                    
+                    // Parse replacement required
+                    boolean replacementRequired = "true".equals(replacementRequiredStr);
+                    part.setReplacementRequired(replacementRequired);
+                    
+                    rma.getPartLineItems().add(part);
+                    addedParts++;
+                    
+                    logger.info("Added part {}: name='{}', number='{}', desc='{}', qty={}, replacement={}", 
+                        partIndex, part.getPartName(), part.getPartNumber(), 
+                        part.getProductDescription(), part.getQuantity(), part.getReplacementRequired());
+                }
+                
+                partIndex++;
+            }
+            
+            logger.info("Processed {} parts, added {} to RMA", partIndex, addedParts);
             
             // Save the RMA
             Rma savedRma = rmaService.saveRma(rma, null);
@@ -2090,7 +2202,7 @@ public class RmaController {
             
             response.put("success", true);
             response.put("message", "Parts information updated successfully");
-            response.put("addedCount", 1);
+            response.put("addedCount", addedParts);
             
         } catch (Exception e) {
             logger.error("Error updating parts for RMA ID " + id, e);
@@ -2904,5 +3016,174 @@ public class RmaController {
         }
         
         return rmas.stream().sorted(comparator).collect(Collectors.toList());
+    }
+
+    @PostMapping("/{id}/update-location")
+    @ResponseBody
+    public Map<String, Object> updateRmaLocation(@PathVariable Long id, HttpServletRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (!rmaOpt.isPresent()) {
+                response.put("success", false);
+                response.put("message", "RMA not found");
+                return response;
+            }
+
+            Rma rma = rmaOpt.get();
+            String locationIdStr = request.getParameter("locationId");
+            
+            if (locationIdStr != null && !locationIdStr.trim().isEmpty()) {
+                Long locationId = Long.parseLong(locationIdStr);
+                Optional<Location> locationOpt = locationService.getLocationById(locationId);
+                if (locationOpt.isPresent()) {
+                    rma.setLocation(locationOpt.get());
+                } else {
+                    response.put("success", false);
+                    response.put("message", "Location not found");
+                    return response;
+                }
+            } else {
+                rma.setLocation(null);
+            }
+
+            rmaService.saveRma(rma, null);
+            
+            response.put("success", true);
+            response.put("message", "Location updated successfully");
+            response.put("locationName", rma.getLocation() != null ? rma.getLocation().getDisplayName() : "No location");
+            
+        } catch (Exception e) {
+            logger.error("Error updating RMA location", e);
+            response.put("success", false);
+            response.put("message", "Error updating location: " + e.getMessage());
+        }
+        
+        return response;
+    }
+
+    @PostMapping("/{id}/update-tool")
+    @ResponseBody
+    public Map<String, Object> updateRmaTool(@PathVariable Long id, HttpServletRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (!rmaOpt.isPresent()) {
+                response.put("success", false);
+                response.put("message", "RMA not found");
+                return response;
+            }
+
+            Rma rma = rmaOpt.get();
+            String toolIdStr = request.getParameter("toolId");
+            
+            if (toolIdStr != null && !toolIdStr.trim().isEmpty()) {
+                Long toolId = Long.parseLong(toolIdStr);
+                Optional<Tool> toolOpt = toolService.getToolById(toolId);
+                if (toolOpt.isPresent()) {
+                    rma.setTool(toolOpt.get());
+                } else {
+                    response.put("success", false);
+                    response.put("message", "Tool not found");
+                    return response;
+                }
+            } else {
+                rma.setTool(null);
+            }
+
+            rmaService.saveRma(rma, null);
+            
+            response.put("success", true);
+            response.put("message", "Tool updated successfully");
+            response.put("toolName", rma.getTool() != null ? rma.getTool().getName() : "No tool assigned");
+            
+        } catch (Exception e) {
+            logger.error("Error updating RMA tool", e);
+            response.put("success", false);
+            response.put("message", "Error updating tool: " + e.getMessage());
+        }
+        
+        return response;
+    }
+
+
+
+    @PostMapping("/{id}/update-process-impact")
+    @ResponseBody
+    public Map<String, Object> updateProcessImpact(@PathVariable Long id, HttpServletRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (!rmaOpt.isPresent()) {
+                response.put("success", false);
+                response.put("message", "RMA not found");
+                return response;
+            }
+
+            Rma rma = rmaOpt.get();
+            
+            // Update process impact fields
+            String interruptionToFlow = request.getParameter("interruptionToFlow");
+            if (interruptionToFlow != null) {
+                rma.setInterruptionToFlow("true".equals(interruptionToFlow));
+            }
+            
+            String interruptionToProduction = request.getParameter("interruptionToProduction");
+            if (interruptionToProduction != null) {
+                rma.setInterruptionToProduction("true".equals(interruptionToProduction));
+            }
+            
+            String downtimeHoursStr = request.getParameter("downtimeHours");
+            if (downtimeHoursStr != null && !downtimeHoursStr.trim().isEmpty()) {
+                try {
+                    rma.setDowntimeHours(Double.parseDouble(downtimeHoursStr));
+                } catch (NumberFormatException e) {
+                    logger.warn("Invalid number format for downtimeHours: {}", downtimeHoursStr);
+                    rma.setDowntimeHours(null);
+                }
+            } else {
+                rma.setDowntimeHours(null);
+            }
+            
+            String exposedToProcessGasOrChemicals = request.getParameter("exposedToProcessGasOrChemicals");
+            if (exposedToProcessGasOrChemicals != null) {
+                rma.setExposedToProcessGasOrChemicals("true".equals(exposedToProcessGasOrChemicals));
+            }
+            
+            String purged = request.getParameter("purged");
+            if (purged != null) {
+                rma.setPurged("true".equals(purged));
+            }
+            
+            String startupSo3Complete = request.getParameter("startupSo3Complete");
+            if (startupSo3Complete != null) {
+                rma.setStartupSo3Complete("true".equals(startupSo3Complete));
+            }
+            
+            String failedOnInstall = request.getParameter("failedOnInstall");
+            if (failedOnInstall != null) {
+                rma.setFailedOnInstall("true".equals(failedOnInstall));
+            }
+            
+            String instructionsForExposedComponent = request.getParameter("instructionsForExposedComponent");
+            if (instructionsForExposedComponent != null) {
+                rma.setInstructionsForExposedComponent(instructionsForExposedComponent.trim().isEmpty() ? null : instructionsForExposedComponent.trim());
+            }
+
+            rmaService.saveRma(rma, null);
+            
+            response.put("success", true);
+            response.put("message", "Process impact updated successfully");
+            
+        } catch (Exception e) {
+            logger.error("Error updating process impact for RMA {}", id, e);
+            response.put("success", false);
+            response.put("message", "Error updating process impact: " + e.getMessage());
+        }
+        
+        return response;
     }
 } 

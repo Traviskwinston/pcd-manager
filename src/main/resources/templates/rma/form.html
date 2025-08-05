@@ -351,10 +351,9 @@
                     <div class="row mb-3">
                         <div class="col-md-8">
                             <div class="mb-3">
-                                <label for="combinedRmaField" class="form-label">RMA Number/SAP Notification Number</label>
-                                <input type="text" id="combinedRmaField" class="form-control" placeholder="Enter RMA/SAP Number" />
-                                <input type="hidden" id="rmaNumber" th:field="*{rmaNumber}" />
-                                <input type="hidden" id="sapNotificationNumber" th:field="*{sapNotificationNumber}" />
+                                <label for="referenceNumber" class="form-label">RMA/SAP Number</label>
+                                <input type="text" id="referenceNumber" class="form-control" th:field="*{referenceNumber}" placeholder="Enter RMA or SAP number" />
+                                <small class="form-text text-muted">Enter either RMA number or SAP notification number</small>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -475,6 +474,34 @@
                                         <div class="mb-3">
                                             <label for="instructionsForExposedComponent" class="form-label">Instructions for Exposed Component:</label>
                                             <textarea id="instructionsForExposedComponent" class="form-control" th:field="*{instructionsForExposedComponent}" rows="3"></textarea>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Start-up/SO3 Complete?</label>
+                                        <div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="startupSo3Complete" id="startupSo3CompleteYes" th:field="*{startupSo3Complete}" value="true">
+                                                <label class="form-check-label" for="startupSo3CompleteYes">Yes</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="startupSo3Complete" id="startupSo3CompleteNo" th:field="*{startupSo3Complete}" value="false">
+                                                <label class="form-check-label" for="startupSo3CompleteNo">No</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Failed on Install?</label>
+                                        <div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="failedOnInstall" id="failedOnInstallYes" th:field="*{failedOnInstall}" value="true">
+                                                <label class="form-check-label" for="failedOnInstallYes">Yes</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="radio" name="failedOnInstall" id="failedOnInstallNo" th:field="*{failedOnInstall}" value="false">
+                                                <label class="form-check-label" for="failedOnInstallNo">No</label>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -724,6 +751,22 @@
                                     <input type="text" id="whoContained" class="form-control" th:field="*{whoContained}" />
                                 </div>
                             </div>
+                        </div>
+                        
+                        <!-- Additional Problem Details -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="rootCause" class="form-label">Root Cause:</label>
+                                    <textarea id="rootCause" class="form-control" th:field="*{rootCause}" rows="3" placeholder="Root cause analysis"></textarea>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="resolution" class="form-label">Resolution:</label>
+                                    <textarea id="resolution" class="form-control" th:field="*{resolution}" rows="3" placeholder="Resolution details"></textarea>
+                                </div>
+                            </div>  
                         </div>
                     </div>
 

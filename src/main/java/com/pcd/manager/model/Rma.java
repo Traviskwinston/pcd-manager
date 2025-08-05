@@ -30,7 +30,8 @@ public class Rma {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String rmaNumber;
+    @Column(name = "reference_number")
+    private String referenceNumber; // Can be either RMA number or SAP notification number
 
     private String customerName;
 
@@ -84,7 +85,6 @@ public class Rma {
     private LocalDate rmaNumberProvidedDate;
 
     private String salesOrder;
-    private String sapNotificationNumber;
     private String serviceOrder;
 
     @ManyToOne
@@ -154,12 +154,17 @@ public class Rma {
     private Double downtimeHours = 0.0;
     private Boolean exposedToProcessGasOrChemicals = false;
     private Boolean purged = false;
+    private Boolean startupSo3Complete = false;
+    private Boolean failedOnInstall = false;
     
     @Column(columnDefinition = "TEXT")
     private String instructionsForExposedComponent;
     
     @Column(nullable = false)
     private LocalDateTime createdDate;
+    
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     // Part line items (up to 4)
     @ElementCollection
@@ -182,9 +187,16 @@ public class Rma {
         if (priority == null) {
             priority = RmaPriority.MEDIUM;
         }
+        LocalDateTime now = LocalDateTime.now();
         if (createdDate == null) {
-            createdDate = LocalDateTime.now();
+            createdDate = now;
         }
+        updatedAt = now;
+    }
+    
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
     // Ensure collections are never null
@@ -200,5 +212,55 @@ public class Rma {
             pictures = new ArrayList<>();
         }
         return pictures;
+    }
+    
+    // Convenience methods for backward compatibility and semantic clarity
+    
+    /**
+     * Gets the reference number (can be RMA number or SAP notification number)
+     * @return the reference number
+     */
+    public String getRmaNumber() {
+        return referenceNumber;
+    }
+    
+    /**
+     * Sets the reference number (can be RMA number or SAP notification number)
+     * @param rmaNumber the reference number to set
+     */
+    public void setRmaNumber(String rmaNumber) {
+        this.referenceNumber = rmaNumber;
+    }
+    
+    /**
+     * Gets the reference number (can be RMA number or SAP notification number)
+     * @return the reference number
+     */
+    public String getSapNotificationNumber() {
+        return referenceNumber;
+    }
+    
+    /**
+     * Sets the reference number (can be RMA number or SAP notification number)
+     * @param sapNotificationNumber the reference number to set
+     */
+    public void setSapNotificationNumber(String sapNotificationNumber) {
+        this.referenceNumber = sapNotificationNumber;
+    }
+    
+    /**
+     * Gets the reference number directly
+     * @return the reference number
+     */
+    public String getReferenceNumber() {
+        return referenceNumber;
+    }
+    
+    /**
+     * Sets the reference number directly
+     * @param referenceNumber the reference number to set
+     */
+    public void setReferenceNumber(String referenceNumber) {
+        this.referenceNumber = referenceNumber;
     }
 } 

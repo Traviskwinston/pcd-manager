@@ -53,9 +53,9 @@ public interface RmaRepository extends JpaRepository<Rma, Long> {
     
     /**
      * Lightweight query for tools list view - only loads essential RMA fields
-     * Returns: id, rmaNumber, status, tool.id
+     * Returns: id, referenceNumber, status, tool.id
      */
-    @Query("SELECT r.id, r.rmaNumber, r.status, r.tool.id FROM Rma r WHERE r.tool.id IN :toolIds ORDER BY r.id DESC")
+    @Query("SELECT r.id, r.referenceNumber, r.status, r.tool.id FROM Rma r WHERE r.tool.id IN :toolIds ORDER BY r.id DESC")
     List<Object[]> findRmaListDataByToolIds(@Param("toolIds") List<Long> toolIds);
     
     /**
@@ -69,9 +69,9 @@ public interface RmaRepository extends JpaRepository<Rma, Long> {
     
     /**
      * Ultra-lightweight query for very large lists - only essential fields
-     * Returns: id, rmaNumber, status, writtenDate, location.name, tool.name
+     * Returns: id, referenceNumber, status, writtenDate, location.name, tool.name
      */
-    @Query("SELECT r.id, r.rmaNumber, r.status, r.writtenDate, " +
+    @Query("SELECT r.id, r.referenceNumber, r.status, r.writtenDate, " +
            "CASE WHEN l.name IS NOT NULL THEN l.name ELSE '' END, " +
            "CASE WHEN t.name IS NOT NULL THEN t.name ELSE '' END " +
            "FROM Rma r LEFT JOIN r.location l LEFT JOIN r.tool t " +
@@ -80,20 +80,21 @@ public interface RmaRepository extends JpaRepository<Rma, Long> {
     
     /**
      * Optimized query for async list view - fetches all fields needed for the list display
-     * Returns: id, rmaNumber, sapNotificationNumber, status, priority, customerName,
+     * Returns: id, referenceNumber, status, priority, customerName,
      *          writtenDate, rmaNumberProvidedDate, shippingMemoEmailedDate, partsReceivedDate,
-     *          installedPartsDate, failedPartsPackedDate, failedPartsShippedDate,
-     *          tool.id, tool.name, location.id, location.name
+     *          installedPartsDate, failedPartsPackedDate, failedPartsShippedDate, createdDate, updatedAt,
+     *          tool.id, tool.name, location.id, location.name,
+     *          problemDiscoverer, problemDiscoveryDate, whatHappened, whyAndHowItHappened, howContained, whoContained
      */
-    @Query("SELECT r.id, r.rmaNumber, r.sapNotificationNumber, r.status, r.priority, r.customerName, " +
+    @Query("SELECT r.id, r.referenceNumber, r.status, r.priority, r.customerName, " +
            "r.writtenDate, r.rmaNumberProvidedDate, r.shippingMemoEmailedDate, r.partsReceivedDate, " +
-           "r.installedPartsDate, r.failedPartsPackedDate, r.failedPartsShippedDate, " +
+           "r.installedPartsDate, r.failedPartsPackedDate, r.failedPartsShippedDate, r.createdDate, r.updatedAt, " +
            "t.id, t.name, l.id, l.name, " +
            "r.problemDiscoverer, r.problemDiscoveryDate, r.whatHappened, r.whyAndHowItHappened, r.howContained, r.whoContained " +
            "FROM Rma r " +
            "LEFT JOIN r.tool t " +
            "LEFT JOIN r.location l " +
-           "ORDER BY r.writtenDate DESC NULLS LAST, r.id DESC")
+           "ORDER BY r.updatedAt DESC NULLS LAST, r.createdDate DESC NULLS LAST, r.id DESC")
     List<Object[]> findAllForAsyncListView();
     
     /**

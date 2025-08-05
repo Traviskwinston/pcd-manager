@@ -12,25 +12,30 @@ import java.util.Optional;
 @Repository
 public interface ToolRepository extends JpaRepository<Tool, Long> {
     Optional<Tool> findByName(String name);
+    Optional<Tool> findByNameIgnoreCase(String name);
     Optional<Tool> findBySerialNumber1(String serialNumber);
     Optional<Tool> findBySerialNumber2(String serialNumber2);
-    List<Tool> findByLocationId(Long locationId);
     
-    @Query("SELECT t FROM Tool t JOIN t.location l WHERE l.fab = :fab AND l.state = :state")
-    List<Tool> findByFabAndState(@Param("fab") String fab, @Param("state") String state);
+    @Query("SELECT t FROM Tool t WHERE " +
+           "LOWER(t.model1) = LOWER(:model) AND " +
+           "LOWER(t.name) LIKE LOWER(CONCAT('%', :namePattern, '%'))")
+    List<Tool> findByModelAndNameSimilarity(@Param("model") String model, @Param("namePattern") String namePattern);
+    List<Tool> findByLocationName(String locationName);
+    
+    // Legacy method - no longer needed with simple location field
+    // @Query("SELECT t FROM Tool t JOIN t.location l WHERE l.fab = :fab AND l.state = :state")
+    // List<Tool> findByFabAndState(@Param("fab") String fab, @Param("state") String state);
     
     @Query("SELECT t FROM Tool t JOIN User u WHERE u.activeTool.id = t.id AND u.id = :userId")
     Optional<Tool> findActiveToolByUserId(@Param("userId") Long userId);
     
-    @Query("SELECT t FROM Tool t JOIN FETCH t.location WHERE t.status = :status")
+    @Query("SELECT t FROM Tool t WHERE t.status = :status")
     List<Tool> findByStatusWithLocation(@Param("status") String status);
     
     @Query("SELECT t FROM Tool t " +
-           "JOIN t.location l " +
            "WHERE LOWER(t.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
            "OR LOWER(t.serialNumber1) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
-           "OR (LOWER(l.state) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
-           "    OR LOWER(l.fab) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+           "OR LOWER(t.locationName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     List<Tool> findBySearchTerm(@Param("searchTerm") String searchTerm);
     
     @Query(value = "SELECT t.* FROM tools t " +
@@ -57,7 +62,6 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
      */
     @Query("SELECT DISTINCT t FROM Tool t " +
            "LEFT JOIN FETCH t.currentTechnicians " +
-           "LEFT JOIN FETCH t.location " +
            "LEFT JOIN FETCH t.tags")
     List<Tool> findAllWithAllRelations();
     
@@ -66,27 +70,24 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
      * Avoids loading heavy relationships that will be bulk-loaded separately
      */
     @Query("SELECT DISTINCT t FROM Tool t " +
-           "LEFT JOIN FETCH t.location " +
            "LEFT JOIN FETCH t.currentTechnicians")
     List<Tool> findAllForListView();
     
     /**
      * Ultra-lightweight query for tools list view - loads core tool data and checklist date fields
      * Returns: id, name, secondaryName, toolType, serialNumber1, serialNumber2, 
-     *          model1, model2, status, location.id, location.name,
+     *          model1, model2, status, locationName, createdAt, updatedAt,
      *          commissionDate, preSl1Date, sl1Date, mechanicalPreSl1Date, mechanicalPostSl1Date,
      *          specificInputFunctionalityDate, modesOfOperationDate, specificSoosDate,
      *          fieldServiceReportDate, certificateOfApprovalDate, turnedOverToCustomerDate, startUpSl03Date
      */
-    @Query("SELECT t.id, t.name, t.secondaryName, t.toolType, t.serialNumber1, t.serialNumber2, " +
-           "t.model1, t.model2, t.status, " +
-           "CASE WHEN l.id IS NOT NULL THEN l.id ELSE 0 END, " +
-           "CASE WHEN l.name IS NOT NULL THEN l.name ELSE '' END, " +
-           "t.commissionDate, t.preSl1Date, t.sl1Date, t.mechanicalPreSl1Date, t.mechanicalPostSl1Date, " +
-           "t.specificInputFunctionalityDate, t.modesOfOperationDate, t.specificSoosDate, " +
-           "t.fieldServiceReportDate, t.certificateOfApprovalDate, t.turnedOverToCustomerDate, t.startUpSl03Date " +
-           "FROM Tool t LEFT JOIN t.location l " +
-           "ORDER BY t.name")
+    @Query(value = "SELECT t.id, t.name, t.secondary_name, t.tool_type, t.serial_number1, t.serial_number2, " +
+           "t.model1, t.model2, t.status, t.location_name, t.created_at, t.updated_at, " +
+           "t.commission_date, t.pre_sl1date, t.sl1date, t.mechanical_pre_sl1date, t.mechanical_post_sl1date, " +
+           "t.specific_input_functionality_date, t.modes_of_operation_date, t.specific_soos_date, " +
+           "t.field_service_report_date, t.certificate_of_approval_date, t.turned_over_to_customer_date, t.start_up_sl03date " +
+           "FROM tools t " +
+           "ORDER BY t.updated_at DESC, t.created_at DESC", nativeQuery = true)
     List<Object[]> findAllForAsyncListView();
     
     /**
@@ -98,12 +99,12 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
     
     /**
      * Ultra-lightweight query for grid view - only loads essential fields needed for grid display
-     * Returns minimal data: id, name, model1, serialNumber1, status, toolType, location.name, hasAssignedUsers
+     * Returns minimal data: id, name, model1, serialNumber1, status, toolType, locationName, hasAssignedUsers
      */
     @Query("SELECT t.id, t.name, t.model1, t.serialNumber1, t.status, t.toolType, " +
-           "CASE WHEN l.name IS NOT NULL THEN l.name ELSE '' END, " +
+           "CASE WHEN t.locationName IS NOT NULL THEN t.locationName ELSE '' END, " +
            "CASE WHEN SIZE(t.currentTechnicians) > 0 THEN true ELSE false END " +
-           "FROM Tool t LEFT JOIN t.location l")
+           "FROM Tool t")
     List<Object[]> findGridViewData();
     
     /**
@@ -111,7 +112,40 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
      * Loads tools with location and technicians but avoids heavy collections like tags
      */
     @Query("SELECT DISTINCT t FROM Tool t " +
-           "LEFT JOIN FETCH t.location " +
            "LEFT JOIN FETCH t.currentTechnicians")
     List<Tool> findAllForDashboardView();
+    
+    /**
+     * Optimized query for dashboard list view filtered by location
+     * Loads tools with location and technicians but avoids heavy collections like tags
+     */
+    @Query("SELECT DISTINCT t FROM Tool t " +
+           "LEFT JOIN FETCH t.currentTechnicians " +
+           "WHERE t.locationName = :locationName")
+    List<Tool> findByLocationNameForDashboardView(@Param("locationName") String locationName);
+
+    /**
+     * Get document counts for multiple tools
+     * Returns: toolId, documentCount
+     */
+    @Query(value = "SELECT t.id, COALESCE(doc_count.count, 0) " +
+           "FROM tools t " +
+           "LEFT JOIN (SELECT tool_id, COUNT(*) as count FROM tool_documents GROUP BY tool_id) doc_count " +
+           "ON t.id = doc_count.tool_id " +
+           "WHERE t.id IN :toolIds", nativeQuery = true)
+    List<Object[]> findDocumentCountsByToolIds(@Param("toolIds") List<Long> toolIds);
+
+    /**
+     * Get picture counts for multiple tools (combining legacy and new picture systems)
+     * Returns: toolId, pictureCount
+     */
+    @Query(value = "SELECT t.id, " +
+           "COALESCE(legacy_pics.count, 0) + COALESCE(new_pics.count, 0) as total_count " +
+           "FROM tools t " +
+           "LEFT JOIN (SELECT tool_id, COUNT(*) as count FROM tool_pictures_legacy GROUP BY tool_id) legacy_pics " +
+           "ON t.id = legacy_pics.tool_id " +
+           "LEFT JOIN (SELECT tool_id, COUNT(*) as count FROM tool_pictures GROUP BY tool_id) new_pics " +
+           "ON t.id = new_pics.tool_id " +
+           "WHERE t.id IN :toolIds", nativeQuery = true)
+    List<Object[]> findPictureCountsByToolIds(@Param("toolIds") List<Long> toolIds);
 } 

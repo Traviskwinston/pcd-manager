@@ -41,4 +41,9 @@ public interface MapGridItemRepository extends JpaRepository<MapGridItem, Long> 
      * Find a grid item associated with a specific tool at a specific location.
      */
     Optional<MapGridItem> findByToolAndLocation(Tool tool, Location location);
+
+    /**
+     * Find grid items by location and type
+     */
+    List<MapGridItem> findByLocationIdAndType(Long locationId, MapGridItem.ItemType type);
 } 

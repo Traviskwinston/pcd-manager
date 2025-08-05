@@ -48,9 +48,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.Set;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Optional;
 import java.security.Principal;
 import java.util.concurrent.CompletableFuture;
@@ -153,7 +155,16 @@ public class ToolController {
             tool.setId((Long) row[0]);
             tool.setName((String) row[1]);
             tool.setSecondaryName((String) row[2]);
-            tool.setToolType((Tool.ToolType) row[3]);
+            // Convert String from native query to ToolType enum
+            String toolTypeStr = (String) row[3];
+            if (toolTypeStr != null) {
+                try {
+                    tool.setToolType(Tool.ToolType.valueOf(toolTypeStr));
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Unknown tool type '{}' for tool {}, setting to null", toolTypeStr, tool.getName());
+                    tool.setToolType(null);
+                }
+            }
             tool.setSerialNumber1((String) row[4]);
             tool.setSerialNumber2((String) row[5]);
             tool.setModel1((String) row[6]);
@@ -161,29 +172,29 @@ public class ToolController {
             // Skip the stored status - we'll calculate it dynamically
             // tool.setStatus((Tool.ToolStatus) row[8]);
             
-            // Create minimal location object if location exists
-            Long locationId = (Long) row[9];
-            String locationName = (String) row[10];
-            if (locationId != null && locationId > 0) {
-                Location location = new Location();
-                location.setId(locationId);
-                location.setName(locationName);
-                tool.setLocation(location);
-            }
+            // Set location name directly from query
+            String locationName = (String) row[9];
+            tool.setLocationName(locationName != null ? locationName : "Unknown Location");
             
-            // Set checklist date fields for status popover (completion status is determined by helper methods)
-            tool.setCommissionDate((java.time.LocalDate) row[11]);
-            tool.setPreSl1Date((java.time.LocalDate) row[12]);
-            tool.setSl1Date((java.time.LocalDate) row[13]);
-            tool.setMechanicalPreSl1Date((java.time.LocalDate) row[14]);
-            tool.setMechanicalPostSl1Date((java.time.LocalDate) row[15]);
-            tool.setSpecificInputFunctionalityDate((java.time.LocalDate) row[16]);
-            tool.setModesOfOperationDate((java.time.LocalDate) row[17]);
-            tool.setSpecificSoosDate((java.time.LocalDate) row[18]);
-            tool.setFieldServiceReportDate((java.time.LocalDate) row[19]);
-            tool.setCertificateOfApprovalDate((java.time.LocalDate) row[20]);
-            tool.setTurnedOverToCustomerDate((java.time.LocalDate) row[21]);
-            tool.setStartUpSl03Date((java.time.LocalDate) row[22]);
+            // Set timestamp fields (convert from Timestamp to LocalDateTime)
+            java.sql.Timestamp createdTimestamp = (java.sql.Timestamp) row[10];
+            java.sql.Timestamp updatedTimestamp = (java.sql.Timestamp) row[11];
+            tool.setCreatedAt(createdTimestamp != null ? createdTimestamp.toLocalDateTime() : null);
+            tool.setUpdatedAt(updatedTimestamp != null ? updatedTimestamp.toLocalDateTime() : null);
+            
+            // Set checklist date fields for status popover (convert from java.sql.Date to LocalDate)
+            tool.setCommissionDate(convertSqlDateToLocalDate((java.sql.Date) row[12]));
+            tool.setPreSl1Date(convertSqlDateToLocalDate((java.sql.Date) row[13]));
+            tool.setSl1Date(convertSqlDateToLocalDate((java.sql.Date) row[14]));
+            tool.setMechanicalPreSl1Date(convertSqlDateToLocalDate((java.sql.Date) row[15]));
+            tool.setMechanicalPostSl1Date(convertSqlDateToLocalDate((java.sql.Date) row[16]));
+            tool.setSpecificInputFunctionalityDate(convertSqlDateToLocalDate((java.sql.Date) row[17]));
+            tool.setModesOfOperationDate(convertSqlDateToLocalDate((java.sql.Date) row[18]));
+            tool.setSpecificSoosDate(convertSqlDateToLocalDate((java.sql.Date) row[19]));
+            tool.setFieldServiceReportDate(convertSqlDateToLocalDate((java.sql.Date) row[20]));
+            tool.setCertificateOfApprovalDate(convertSqlDateToLocalDate((java.sql.Date) row[21]));
+            tool.setTurnedOverToCustomerDate(convertSqlDateToLocalDate((java.sql.Date) row[22]));
+            tool.setStartUpSl03Date(convertSqlDateToLocalDate((java.sql.Date) row[23]));
             
             // Set the calculated status based on checklist completion
             tool.setStatus(tool.getCalculatedStatus());
@@ -212,6 +223,41 @@ public class ToolController {
         for (Tool tool : allTools) {
             List<User> technicians = toolTechniciansMap.getOrDefault(tool.getId(), new ArrayList<>());
             tool.setCurrentTechnicians(new HashSet<>(technicians));
+        }
+        
+        // Load document and picture counts
+        Map<Long, Integer> documentCountsMap = new HashMap<>();
+        Map<Long, Integer> pictureCountsMap = new HashMap<>();
+        
+        if (!toolIds.isEmpty()) {
+            // Load document counts
+            List<Object[]> documentCounts = toolRepository.findDocumentCountsByToolIds(toolIds);
+            for (Object[] row : documentCounts) {
+                Long toolId = (Long) row[0];
+                Integer count = ((Number) row[1]).intValue();
+                documentCountsMap.put(toolId, count);
+            }
+            
+            // Load picture counts
+            List<Object[]> pictureCounts = toolRepository.findPictureCountsByToolIds(toolIds);
+            for (Object[] row : pictureCounts) {
+                Long toolId = (Long) row[0];
+                Integer count = ((Number) row[1]).intValue();
+                pictureCountsMap.put(toolId, count);
+            }
+            
+            // Set the document and picture data on Tool objects for Thymeleaf access
+            for (Tool tool : allTools) {
+                // Initialize collections so Thymeleaf can count them
+                int docCount = documentCountsMap.getOrDefault(tool.getId(), 0);
+                int picCount = pictureCountsMap.getOrDefault(tool.getId(), 0);
+                
+                // Create dummy collections with the right size for Thymeleaf counting
+                tool.setDocumentPaths(new HashSet<>(Collections.nCopies(docCount, "dummy")));
+                tool.setPicturePaths(new HashSet<>(Collections.nCopies(picCount, "dummy")));
+                
+                logger.debug("Tool {}: {} documents, {} pictures", tool.getName(), docCount, picCount);
+            }
         }
         
         // Initialize all maps to ensure they're never null
@@ -278,6 +324,17 @@ public class ToolController {
         model.addAttribute("toolCommentsMap", toolCommentsMap);
         model.addAttribute("toolTrackTrendsMap", toolTrackTrendsMap);
         
+        // Add all locations for the location filter
+        model.addAttribute("locations", locationService.getAllLocations());
+        
+        // Add current user for default location filter
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            userService.getUserByEmail(auth.getName()).ifPresent(currentUser -> {
+                model.addAttribute("currentUser", currentUser);
+            });
+        }
+        
         logger.info("=== COMPLETED TOOLS LIST PAGE LOADING (ULTRA-OPTIMIZED) ===");
         logger.info("Final counts - Tools: {}, RMAs: {}, Passdowns: {}, Comments: {}, Track/Trends: {}", 
                    allTools.size(),
@@ -290,11 +347,36 @@ public class ToolController {
     }
 
     @GetMapping("/new")
-    public String showCreateForm(Model model) {
+    public String showCreateForm(Model model, Authentication authentication) {
         Tool tool = new Tool();
         
-        // Set default location if available
-        locationService.getDefaultLocation().ifPresent(tool::setLocation);
+        // Set location to user's active site if available, otherwise fall back to system default
+        if (authentication != null && authentication.isAuthenticated() && !authentication.getName().equals("anonymousUser")) {
+            String userEmail = authentication.getName();
+            Optional<User> userOpt = userService.getUserByEmail(userEmail);
+            
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                if (user.getActiveSite() != null) {
+                    tool.setLocationName(user.getActiveSite().getDisplayName() != null ? 
+                                       user.getActiveSite().getDisplayName() : user.getActiveSite().getName());
+                    logger.info("Set tool location to user's active site: {}", user.getActiveSite().getDisplayName());
+                } else {
+                    // Fall back to system default if user has no active site
+                    locationService.getDefaultLocation().ifPresent(defaultLocation -> {
+                        tool.setLocationName(defaultLocation.getDisplayName() != null ? 
+                                           defaultLocation.getDisplayName() : defaultLocation.getName());
+                        logger.info("User has no active site, using system default location: {}", defaultLocation.getDisplayName());
+                    });
+                }
+            }
+        } else {
+            // User not authenticated, use system default
+            locationService.getDefaultLocation().ifPresent(defaultLocation -> {
+                tool.setLocationName(defaultLocation.getDisplayName() != null ? 
+                                   defaultLocation.getDisplayName() : defaultLocation.getName());
+            });
+        }
         
         model.addAttribute("tool", tool);
         model.addAttribute("locations", locationService.getAllLocations());
@@ -455,10 +537,11 @@ public class ToolController {
             }
             
             // Set default location if none selected
-            if (tool.getLocation() == null) {
+            if (tool.getLocationName() == null || tool.getLocationName().trim().isEmpty()) {
                 logger.info("No location selected, attempting to set default location");
                 locationService.getDefaultLocation().ifPresent(location -> {
-                    tool.setLocation(location);
+                    tool.setLocationName(location.getDisplayName() != null ? 
+                                       location.getDisplayName() : location.getName());
                     logger.info("Default location set to: {}", location.getDisplayName());
                 });
             }
@@ -1065,6 +1148,7 @@ public class ToolController {
     public String handleFileUpload(
             @PathVariable Long id,
             @RequestParam("files") MultipartFile[] files,
+            @RequestParam(value = "documentTag", required = false) String documentTag,
             RedirectAttributes redirectAttributes) {
         
         logger.info("Attempting to upload {} files to tool ID: {}", files.length, id);
@@ -1106,7 +1190,13 @@ public class ToolController {
                 } else {
                     tool.getDocumentPaths().add(filePath);
                     tool.getDocumentNames().put(filePath, originalFilename);
-                    logger.info("Added document: {} to tool {}", filePath, tool.getId());
+                    // Store document tag if provided
+                    if (documentTag != null && !documentTag.trim().isEmpty()) {
+                        tool.getDocumentTags().put(filePath, documentTag.trim());
+                        logger.info("Added document: {} with tag: {} to tool {}", filePath, documentTag, tool.getId());
+                    } else {
+                        logger.info("Added document: {} to tool {}", filePath, tool.getId());
+                    }
                 }
                 uploadedCount++;
             } else {
@@ -1302,13 +1392,13 @@ public class ToolController {
     
     // Moving parts functionality is handled by MovingPartController
 
-    @PostMapping("/upload-excel")
+    @PostMapping("/analyze-excel")
     @ResponseBody
-    public Map<String, Object> uploadToolsFromExcel(@RequestParam("file") MultipartFile file) {
+    public Map<String, Object> analyzeExcelForDuplicates(@RequestParam("file") MultipartFile file) {
         Map<String, Object> response = new HashMap<>();
         
         try {
-            logger.info("=== TOOL EXCEL UPLOAD STARTED ===");
+            logger.info("=== TOOL EXCEL ANALYSIS STARTED ===");
             logger.info("Received file: {}, size: {} bytes, content type: {}", 
                 file.getOriginalFilename(), file.getSize(), file.getContentType());
             
@@ -1329,7 +1419,91 @@ public class ToolController {
                 return response;
             }
 
-            // Parse Excel file and create tools
+            // Analyze Excel file for duplicates
+            Map<String, Object> analysisResult = toolService.analyzeExcelForDuplicates(file);
+            response.putAll(analysisResult);
+            response.put("success", true);
+            
+            logger.info("Excel analysis completed. {} duplicates found, {} valid rows", 
+                       analysisResult.get("duplicateCount"), analysisResult.get("validCount"));
+            
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid Excel format: {}", e.getMessage());
+            response.put("success", false);
+            response.put("error", e.getMessage());
+        } catch (Exception e) {
+            logger.error("Error analyzing Excel file: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("error", "Error analyzing Excel file: " + e.getMessage());
+        }
+        
+        return response;
+    }
+
+    @PostMapping("/process-excel-with-duplicates")
+    @ResponseBody
+    public Map<String, Object> processExcelWithDuplicates(
+            @RequestBody Map<String, Object> requestData,
+            Principal principal) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            logger.info("=== PROCESSING EXCEL WITH DUPLICATE RESOLUTIONS ===");
+            
+            List<Map<String, Object>> validRows = (List<Map<String, Object>>) requestData.get("validRows");
+            List<Map<String, Object>> duplicateResolutions = (List<Map<String, Object>>) requestData.get("duplicateResolutions");
+            
+            if (validRows == null) validRows = new ArrayList<>();
+            if (duplicateResolutions == null) duplicateResolutions = new ArrayList<>();
+            
+            String currentUserName = principal != null ? principal.getName() : "Unknown";
+            
+            // Process the Excel data with user's duplicate resolutions
+            Map<String, Object> result = toolService.processExcelWithDuplicateResolutions(
+                validRows, duplicateResolutions, currentUserName);
+            
+            response.putAll(result);
+            
+            logger.info("Excel processing completed. Result: {}", result);
+            
+        } catch (Exception e) {
+            logger.error("Error processing Excel with duplicates: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("error", "Error processing Excel: " + e.getMessage());
+        }
+        
+        return response;
+    }
+
+    @PostMapping("/upload-excel")
+    @ResponseBody
+    public Map<String, Object> uploadToolsFromExcel(@RequestParam("file") MultipartFile file) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            logger.info("=== TOOL EXCEL UPLOAD STARTED (LEGACY) ===");
+            logger.info("Received file: {}, size: {} bytes, content type: {}", 
+                file.getOriginalFilename(), file.getSize(), file.getContentType());
+            
+            if (file.isEmpty()) {
+                logger.warn("Uploaded file is empty");
+                response.put("success", false);
+                response.put("error", "Please select a file to upload");
+                return response;
+            }
+
+            // Validate file type
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null || 
+                (!originalFilename.toLowerCase().endsWith(".xlsx") && 
+                 !originalFilename.toLowerCase().endsWith(".xls"))) {
+                response.put("success", false);
+                response.put("error", "Please upload an Excel file (.xlsx or .xls)");
+                return response;
+            }
+
+            // Parse Excel file and create tools (legacy method - kept for backward compatibility)
             int toolsCreated = toolService.createToolsFromExcel(file);
             
             if (toolsCreated > 0) {
@@ -1362,37 +1536,110 @@ public class ToolController {
                 return ResponseEntity.badRequest().build();
             }
             
-            // Load resource from classpath
+            // Try to load from file system first (for latest version)
+            Path filePath = Paths.get("src/main/resources/reference-documents", filename);
+            if (Files.exists(filePath)) {
+                logger.info("Serving reference document from file system: {}", filePath);
+                Resource resource = new FileSystemResource(filePath);
+                
+                if (resource.exists() && resource.isReadable()) {
+                    return createResponseForReferenceDocument(filename, resource);
+                }
+            }
+            
+            // Fallback to classpath if file system version doesn't exist
             String resourcePath = "/reference-documents/" + filename;
             InputStream resourceStream = getClass().getResourceAsStream(resourcePath);
             
             if (resourceStream == null) {
-                logger.warn("Reference document not found in classpath: {}", filename);
+                logger.warn("Reference document not found in classpath or file system: {}", filename);
                 return ResponseEntity.notFound().build();
             }
             
+            logger.info("Serving reference document from classpath: {}", resourcePath);
             // Create resource from input stream
             Resource resource = new InputStreamResource(resourceStream);
             
-            // Determine content type
-            String contentType = "application/octet-stream";
-            if (filename.toLowerCase().endsWith(".xlsx")) {
-                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-            } else if (filename.toLowerCase().endsWith(".xls")) {
-                contentType = "application/vnd.ms-excel";
-            } else if (filename.toLowerCase().endsWith(".pdf")) {
-                contentType = "application/pdf";
-            }
-            
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION, 
-                           "attachment; filename=\"" + filename + "\"")
-                    .body(resource);
+            return createResponseForReferenceDocument(filename, resource);
                     
         } catch (Exception e) {
             logger.error("Error serving reference document: {}", filename, e);
             return ResponseEntity.internalServerError().build();
         }
+    }
+    
+    /**
+     * Helper method to create the HTTP response for reference document downloads
+     */
+    private ResponseEntity<Resource> createResponseForReferenceDocument(String filename, Resource resource) {
+        // Determine content type
+        String contentType = "application/octet-stream";
+        if (filename.toLowerCase().endsWith(".xlsx")) {
+            contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        } else if (filename.toLowerCase().endsWith(".xls")) {
+            contentType = "application/vnd.ms-excel";
+        } else if (filename.toLowerCase().endsWith(".pdf")) {
+            contentType = "application/pdf";
+        } else if (filename.toLowerCase().endsWith(".docx")) {
+            contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        } else if (filename.toLowerCase().endsWith(".doc")) {
+            contentType = "application/msword";
+        }
+        
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, 
+                       "attachment; filename=\"" + filename + "\"")
+                .body(resource);
+    }
+    
+    /**
+     * API endpoint to get all tools for selection modal
+     */
+    @GetMapping("/api/list")
+    @ResponseBody
+    public List<Map<String, Object>> getToolsForApi() {
+        try {
+            logger.debug("Loading tools for API list");
+            List<Object[]> toolData = toolRepository.findAllForAsyncListView();
+            logger.debug("Found {} tools for API list", toolData.size());
+            
+            return toolData.stream().map(row -> {
+                Map<String, Object> toolMap = new HashMap<>();
+                toolMap.put("id", row[0]);
+                toolMap.put("name", row[1] != null ? row[1].toString() : "");
+                toolMap.put("secondaryName", row[2] != null ? row[2].toString() : null);
+                toolMap.put("toolType", row[3] != null ? row[3].toString() : null);
+                toolMap.put("serialNumber1", row[4] != null ? row[4].toString() : null);
+                toolMap.put("serialNumber2", row[5] != null ? row[5].toString() : null);
+                toolMap.put("model1", row[6] != null ? row[6].toString() : null);
+                toolMap.put("model2", row[7] != null ? row[7].toString() : null);
+                toolMap.put("status", row[8] != null ? row[8].toString() : null);
+                toolMap.put("locationName", row[9] != null ? row[9].toString() : null);
+                
+                // Handle timestamps
+                if (row[10] != null) {
+                    java.sql.Timestamp createdTimestamp = (java.sql.Timestamp) row[10];
+                    toolMap.put("createdAt", createdTimestamp.toLocalDateTime().toString());
+                }
+                if (row[11] != null) {
+                    java.sql.Timestamp updatedTimestamp = (java.sql.Timestamp) row[11];
+                    toolMap.put("updatedAt", updatedTimestamp.toLocalDateTime().toString());
+                }
+                
+                return toolMap;
+            }).collect(Collectors.toList());
+            
+        } catch (Exception e) {
+            logger.error("Error loading tools for API", e);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Helper method to safely convert java.sql.Date to LocalDate
+     */
+    private static java.time.LocalDate convertSqlDateToLocalDate(java.sql.Date sqlDate) {
+        return sqlDate != null ? sqlDate.toLocalDate() : null;
     }
 } 

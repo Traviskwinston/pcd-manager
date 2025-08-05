@@ -146,7 +146,23 @@ public class DashboardController {
 
         // Fetch tools with optimized loading - only loads location and technicians (not heavy collections like tags)
         // This is used for the dashboard list with 4 icon columns that need Tool objects
-        List<Tool> allTools = toolRepository.findAllForDashboardView();
+        // Filter tools by the current user's location
+        List<Tool> allTools;
+        if (currentLocationId != null) {
+            // Find location name from locationId to use with new method
+            Optional<Location> locationOpt = locationRepository.findById(currentLocationId);
+            if (locationOpt.isPresent()) {
+                String locationName = locationOpt.get().getDisplayName() != null ? 
+                                    locationOpt.get().getDisplayName() : locationOpt.get().getName();
+                allTools = toolRepository.findByLocationNameForDashboardView(locationName);
+            } else {
+                allTools = new ArrayList<>();
+            }
+            logger.info("Fetched {} tools for dashboard filtered by location ID: {}", allTools.size(), currentLocationId);
+        } else {
+            allTools = toolRepository.findAllForDashboardView();
+            logger.info("No location filter applied, fetched {} tools for dashboard", allTools.size());
+        }
 
         // Sort tools: Assigned tools first, then by name
         List<Tool> sortedTools = allTools.stream()

@@ -33,6 +33,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import java.io.InputStream;
 import java.io.IOException;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -579,7 +582,129 @@ public class ToolService {
     }
 
     @Transactional
-    @CacheEvict(value = {"tool-list", "dashboard-data"}, allEntries = true)  
+    @CacheEvict(value = {"tools-list", "dashboard-data"}, allEntries = true)  
+    public Map<String, Object> analyzeExcelForDuplicates(MultipartFile file) throws Exception {
+        logger.info("Starting Excel analysis for duplicates");
+        
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> duplicates = new ArrayList<>();
+        List<Map<String, Object>> validRows = new ArrayList<>();
+        
+        try (InputStream inputStream = file.getInputStream();
+             Workbook workbook = WorkbookFactory.create(inputStream)) {
+            
+            Sheet sheet = workbook.getSheetAt(0);
+            if (sheet == null) {
+                throw new IllegalArgumentException("Excel file is empty or corrupted");
+            }
+            
+            // Validate headers (same as before)
+            Row headerRow = sheet.getRow(0);
+            if (headerRow == null) {
+                throw new IllegalArgumentException("Excel file must have a header row");
+            }
+            
+            String[] expectedHeaders = {
+                "Tool Name", "Tool Name 2", "Type", "Model Number 1", 
+                "Model Number 2", "Serial Number 1", "Serial Number 2", "Location"
+            };
+            
+            // Validate header format
+            for (int i = 0; i < expectedHeaders.length; i++) {
+                Cell cell = headerRow.getCell(i);
+                String cellValue = cell != null ? cell.getStringCellValue().trim() : "";
+                
+                if (!expectedHeaders[i].equals(cellValue)) {
+                    throw new IllegalArgumentException(
+                        String.format("Invalid header at column %c. Expected '%s' but found '%s'. " +
+                                    "Please ensure headers match exactly: %s", 
+                                    (char)('A' + i), expectedHeaders[i], cellValue, 
+                                    String.join(", ", expectedHeaders))
+                    );
+                }
+            }
+            
+            logger.info("Excel headers validated successfully");
+            
+            int rowNum = 1; // Start after header row
+            
+            while (rowNum <= sheet.getLastRowNum()) {
+                Row row = sheet.getRow(rowNum);
+                
+                if (row == null) {
+                    rowNum++;
+                    continue;
+                }
+                
+                try {
+                    // Extract data from row
+                    String toolName = getCellValueAsString(row.getCell(0));
+                    String toolName2 = getCellValueAsString(row.getCell(1));
+                    String type = getCellValueAsString(row.getCell(2));
+                    String modelNumber1 = getCellValueAsString(row.getCell(3));
+                    String modelNumber2 = getCellValueAsString(row.getCell(4));
+                    String serialNumber1 = getCellValueAsString(row.getCell(5));
+                    String serialNumber2 = getCellValueAsString(row.getCell(6));
+                    String locationName = getCellValueAsString(row.getCell(7));
+                    
+                    // Skip rows where tool name is empty
+                    if (toolName == null || toolName.trim().isEmpty()) {
+                        logger.debug("Skipping row {} - no tool name", rowNum + 1);
+                        rowNum++;
+                        continue;
+                    }
+                    
+                    // Create row data map
+                    Map<String, Object> rowData = new HashMap<>();
+                    rowData.put("rowNumber", rowNum + 1);
+                    rowData.put("toolName", toolName != null ? toolName.trim() : "");
+                    rowData.put("toolName2", toolName2 != null ? toolName2.trim() : "");
+                    rowData.put("type", type != null ? type.trim() : "");
+                    rowData.put("modelNumber1", modelNumber1 != null ? modelNumber1.trim() : "");
+                    rowData.put("modelNumber2", modelNumber2 != null ? modelNumber2.trim() : "");
+                    rowData.put("serialNumber1", serialNumber1 != null ? serialNumber1.trim() : "");
+                    rowData.put("serialNumber2", serialNumber2 != null ? serialNumber2.trim() : "");
+                    rowData.put("locationName", locationName != null ? locationName.trim() : "");
+                    
+                    // Check for duplicates using enhanced logic
+                    Tool existingTool = findPotentialDuplicate(rowData);
+                    
+                    if (existingTool != null) {
+                        // Found a potential duplicate
+                        Map<String, Object> duplicateInfo = createDuplicateComparisonData(existingTool, rowData);
+                        duplicates.add(duplicateInfo);
+                        logger.info("Found potential duplicate for row {}: existing tool ID {}", rowNum + 1, existingTool.getId());
+                    } else {
+                        // No duplicate found - this is a valid new tool
+                        validRows.add(rowData);
+                    }
+                    
+                } catch (Exception e) {
+                    logger.error("Error analyzing row {}: {}", rowNum + 1, e.getMessage());
+                    // Continue processing other rows
+                }
+                
+                rowNum++;
+            }
+            
+            result.put("duplicates", duplicates);
+            result.put("validRows", validRows);
+            result.put("totalRows", rowNum - 1);
+            result.put("duplicateCount", duplicates.size());
+            result.put("validCount", validRows.size());
+            
+            logger.info("Excel analysis completed. {} duplicates found, {} valid new tools", 
+                       duplicates.size(), validRows.size());
+            return result;
+            
+        } catch (IOException e) {
+            logger.error("Error reading Excel file", e);
+            throw new IllegalArgumentException("Error reading Excel file: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    @CacheEvict(value = {"tools-list", "dashboard-data"}, allEntries = true)  
     public int createToolsFromExcel(MultipartFile file) throws Exception {
         logger.info("Starting Excel tool creation process");
         
@@ -600,7 +725,7 @@ public class ToolService {
             // Expected headers in order
             String[] expectedHeaders = {
                 "Tool Name", "Tool Name 2", "Type", "Model Number 1", 
-                "Model Number 2", "Serial Number 1", "Serial Number 2"
+                "Model Number 2", "Serial Number 1", "Serial Number 2", "Location"
             };
             
             // Validate header format
@@ -646,6 +771,7 @@ public class ToolService {
                     String modelNumber2 = getCellValueAsString(row.getCell(4));
                     String serialNumber1 = getCellValueAsString(row.getCell(5));
                     String serialNumber2 = getCellValueAsString(row.getCell(6));
+                    String locationName = getCellValueAsString(row.getCell(7));
                     
                     // Skip rows where tool name is empty
                     if (toolName == null || toolName.trim().isEmpty()) {
@@ -670,10 +796,15 @@ public class ToolService {
                     }
                     
                     if (type != null && !type.trim().isEmpty()) {
-                        try {
-                            tool.setToolType(Tool.ToolType.valueOf(type.trim().toUpperCase()));
-                        } catch (IllegalArgumentException e) {
-                            logger.warn("Invalid tool type '{}' for tool '{}' at row {}. Setting to null.", 
+                        Tool.ToolType normalizedType = normalizeToolType(type.trim());
+                        if (normalizedType != null) {
+                            tool.setToolType(normalizedType);
+                            logger.debug("Normalized tool type '{}' to {} for tool '{}' at row {}", 
+                                       type, normalizedType, toolName, rowNum + 1);
+                        } else {
+                            logger.warn("Invalid tool type '{}' for tool '{}' at row {}. Setting to null. " +
+                                      "Supported values: CHEMBLEND (C, Chemrinse, Chem rinse, Chemblend, Chem Blend) " +
+                                      "or SLURRY (Slurry, S, Feed, F)", 
                                       type, toolName, rowNum + 1);
                         }
                     }
@@ -694,8 +825,22 @@ public class ToolService {
                         tool.setSerialNumber2(serialNumber2.trim());
                     }
                     
-                    // Assign default location if available
-                    defaultLocationOpt.ifPresent(tool::setLocation);
+                    // Set location name directly from Excel data
+                    String finalLocationName = "AZ F52"; // Default location
+                    if (locationName != null && !locationName.trim().isEmpty()) {
+                        // Use location matching logic to normalize the name
+                        Location matchedLocation = findLocationByName(locationName.trim());
+                        if (matchedLocation != null) {
+                            finalLocationName = matchedLocation.getDisplayName() != null ? 
+                                              matchedLocation.getDisplayName() : matchedLocation.getName();
+                            logger.debug("Matched location '{}' to '{}' for tool '{}' at row {}", 
+                                       locationName, finalLocationName, toolName, rowNum + 1);
+                        } else {
+                            logger.warn("Could not match location '{}' for tool '{}' at row {}. Using default '{}'.", 
+                                      locationName, toolName, rowNum + 1, finalLocationName);
+                        }
+                    }
+                    tool.setLocationName(finalLocationName);
                     
                     // Set default status and dates
                     tool.setStatus(Tool.ToolStatus.NOT_STARTED);
@@ -753,5 +898,546 @@ public class ToolService {
             default:
                 return null;
         }
+    }
+    
+    /**
+     * Normalizes various tool type aliases to the correct ToolType enum values
+     * CHEMBLEND aliases: C, Chemrinse, Chem rinse, Chemblend, Chem Blend
+     * SLURRY aliases: Slurry, S, Feed, F
+     */
+    private Tool.ToolType normalizeToolType(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return null;
+        }
+        
+        // Normalize: trim, lowercase, remove extra spaces
+        String normalized = input.trim().toLowerCase().replaceAll("\\s+", "");
+        
+        // CHEMBLEND aliases (case insensitive, space insensitive)
+        switch (normalized) {
+            case "c":
+            case "chemrinse":
+            case "chemblend":
+            // Handle "chem rinse" -> "chemrinse" 
+            case "chemrins":
+            case "chemrin":
+            // Handle "chem blend" -> "chemblend"
+            case "chemblnd":
+            case "chemblen":
+            case "chemble":
+                return Tool.ToolType.CHEMBLEND;
+                
+            // SLURRY aliases (case insensitive)    
+            case "s":
+            case "slurry":
+            case "feed":
+            case "f":
+                return Tool.ToolType.SLURRY;
+                
+            default:
+                // Try exact enum match as fallback (for backward compatibility)
+                try {
+                    return Tool.ToolType.valueOf(input.trim().toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    return null; // Invalid type - will be logged as warning
+                }
+        }
+    }
+
+    /**
+     * Enhanced duplicate detection logic
+     * Checks multiple fields for potential duplicates:
+     * 1. Exact tool name match (case insensitive)
+     * 2. Serial number matches (either serial1 or serial2)
+     * 3. Model number + partial name match
+     */
+    private Tool findPotentialDuplicate(Map<String, Object> rowData) {
+        String toolName = (String) rowData.get("toolName");
+        String serialNumber1 = (String) rowData.get("serialNumber1");
+        String serialNumber2 = (String) rowData.get("serialNumber2");
+        String modelNumber1 = (String) rowData.get("modelNumber1");
+        
+        // Check 1: Exact tool name match (case insensitive)
+        if (toolName != null && !toolName.isEmpty()) {
+            Optional<Tool> byName = toolRepository.findByNameIgnoreCase(toolName);
+            if (byName.isPresent()) {
+                logger.debug("Found duplicate by name: {}", toolName);
+                return byName.get();
+            }
+        }
+        
+        // Check 2: Serial number matches
+        if (serialNumber1 != null && !serialNumber1.isEmpty()) {
+            Optional<Tool> bySerial1 = toolRepository.findBySerialNumber1(serialNumber1);
+            if (bySerial1.isPresent()) {
+                logger.debug("Found duplicate by serial number 1: {}", serialNumber1);
+                return bySerial1.get();
+            }
+            
+            // Also check if the new serial1 matches any existing serial2
+            Optional<Tool> bySerial2AsSerial1 = toolRepository.findBySerialNumber2(serialNumber1);
+            if (bySerial2AsSerial1.isPresent()) {
+                logger.debug("Found duplicate by serial number 1 matching existing serial 2: {}", serialNumber1);
+                return bySerial2AsSerial1.get();
+            }
+        }
+        
+        if (serialNumber2 != null && !serialNumber2.isEmpty()) {
+            Optional<Tool> bySerial2 = toolRepository.findBySerialNumber2(serialNumber2);
+            if (bySerial2.isPresent()) {
+                logger.debug("Found duplicate by serial number 2: {}", serialNumber2);
+                return bySerial2.get();
+            }
+            
+            // Also check if the new serial2 matches any existing serial1
+            Optional<Tool> bySerial1AsSerial2 = toolRepository.findBySerialNumber1(serialNumber2);
+            if (bySerial1AsSerial2.isPresent()) {
+                logger.debug("Found duplicate by serial number 2 matching existing serial 1: {}", serialNumber2);
+                return bySerial1AsSerial2.get();
+            }
+        }
+        
+        // Check 3: Model number + partial name similarity (fuzzy matching)
+        if (modelNumber1 != null && !modelNumber1.isEmpty() && toolName != null && toolName.length() > 3) {
+            List<Tool> potentialMatches = toolRepository.findByModelAndNameSimilarity(modelNumber1, toolName);
+            if (!potentialMatches.isEmpty()) {
+                logger.debug("Found potential duplicate by model + name similarity: {} + {}", modelNumber1, toolName);
+                return potentialMatches.get(0); // Return the first match
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Creates detailed comparison data for duplicate resolution UI
+     */
+    private Map<String, Object> createDuplicateComparisonData(Tool existingTool, Map<String, Object> newData) {
+        Map<String, Object> comparison = new HashMap<>();
+        
+        // Basic info
+        comparison.put("existingToolId", existingTool.getId());
+        comparison.put("rowNumber", newData.get("rowNumber"));
+        
+        // Existing tool data
+        Map<String, Object> existing = new HashMap<>();
+        existing.put("toolName", existingTool.getName());
+        existing.put("toolName2", existingTool.getSecondaryName());
+        existing.put("type", existingTool.getToolType() != null ? existingTool.getToolType().toString() : "");
+        existing.put("modelNumber1", existingTool.getModel1());
+        existing.put("modelNumber2", existingTool.getModel2());
+        existing.put("serialNumber1", existingTool.getSerialNumber1());
+        existing.put("serialNumber2", existingTool.getSerialNumber2());
+        existing.put("location", existingTool.getLocationName() != null ? existingTool.getLocationName() : "");
+        existing.put("status", existingTool.getStatus() != null ? existingTool.getStatus().toString() : "");
+        existing.put("setDate", existingTool.getSetDate() != null ? existingTool.getSetDate().toString() : "");
+        
+        comparison.put("existing", existing);
+        comparison.put("new", newData);
+        
+        // Highlight differences
+        Map<String, Boolean> differences = new HashMap<>();
+        differences.put("toolName", !Objects.equals(normalizeString(existingTool.getName()), normalizeString((String) newData.get("toolName"))));
+        differences.put("toolName2", !Objects.equals(normalizeString(existingTool.getSecondaryName()), normalizeString((String) newData.get("toolName2"))));
+        differences.put("type", !Objects.equals(
+            existingTool.getToolType() != null ? existingTool.getToolType().toString() : "", 
+            normalizeString((String) newData.get("type"))
+        ));
+        differences.put("modelNumber1", !Objects.equals(normalizeString(existingTool.getModel1()), normalizeString((String) newData.get("modelNumber1"))));
+        differences.put("modelNumber2", !Objects.equals(normalizeString(existingTool.getModel2()), normalizeString((String) newData.get("modelNumber2"))));
+        differences.put("serialNumber1", !Objects.equals(normalizeString(existingTool.getSerialNumber1()), normalizeString((String) newData.get("serialNumber1"))));
+        differences.put("serialNumber2", !Objects.equals(normalizeString(existingTool.getSerialNumber2()), normalizeString((String) newData.get("serialNumber2"))));
+        
+        String existingLocation = existingTool.getLocationName() != null ? existingTool.getLocationName() : "";
+        String newLocationName = (String) newData.get("locationName");
+        Location newLocation = newLocationName != null && !newLocationName.isEmpty() ? findLocationByName(newLocationName) : null;
+        String newLocationDisplay = newLocation != null ? newLocation.getDisplayName() : newLocationName;
+        differences.put("location", !Objects.equals(normalizeString(existingLocation), normalizeString(newLocationDisplay)));
+        
+        comparison.put("differences", differences);
+        
+        // Determine duplicate reason
+        List<String> reasons = new ArrayList<>();
+        if (Objects.equals(normalizeString(existingTool.getName()), normalizeString((String) newData.get("toolName")))) {
+            reasons.add("Exact name match");
+        }
+        if (Objects.equals(existingTool.getSerialNumber1(), newData.get("serialNumber1")) || 
+            Objects.equals(existingTool.getSerialNumber2(), newData.get("serialNumber1")) ||
+            Objects.equals(existingTool.getSerialNumber1(), newData.get("serialNumber2")) || 
+            Objects.equals(existingTool.getSerialNumber2(), newData.get("serialNumber2"))) {
+            reasons.add("Serial number match");
+        }
+        if (Objects.equals(existingTool.getModel1(), newData.get("modelNumber1"))) {
+            reasons.add("Model number match");
+        }
+        
+        comparison.put("duplicateReasons", reasons);
+        comparison.put("action", "overwrite"); // Default action
+        
+        return comparison;
+    }
+    
+    /**
+     * Normalize strings for comparison (null-safe, trimmed, lowercase)
+     */
+    private String normalizeString(String str) {
+        return str == null ? "" : str.trim().toLowerCase();
+    }
+
+    /**
+     * Finds a location by name using flexible matching for common variations
+     * Supports variations like:
+     * - "Arizona Fab 52", "AZ F52", "AZ52", "AZF52"
+     * - "New Mexico Fab 11", "NM F11", "NM11", "NMF11"
+     * - "Ireland Fab 24", "IE F24", "IE24", "IEF24"
+     */
+    private Location findLocationByName(String locationName) {
+        if (locationName == null || locationName.trim().isEmpty()) {
+            return null;
+        }
+        
+        // Get all locations to match against
+        List<Location> allLocations = locationRepository.findAll();
+        
+        // Normalize the input for matching
+        String normalized = locationName.trim().toLowerCase()
+            .replaceAll("\\s+", "") // Remove all spaces
+            .replaceAll("fab", "f") // Convert "fab" to "f"  
+            .replaceAll("factory", "f") // Convert "factory" to "f"
+            .replaceAll("[^a-z0-9]", ""); // Remove special characters
+        
+        logger.debug("Normalized location input '{}' to '{}'", locationName, normalized);
+        
+        // Try to match against each location
+        for (Location location : allLocations) {
+            if (matchesLocation(location, normalized)) {
+                return location;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Checks if a normalized location name matches a specific location
+     */
+    private boolean matchesLocation(Location location, String normalizedInput) {
+        String state = location.getState();
+        String fab = location.getFab();
+        
+        if (state == null || fab == null) {
+            return false;
+        }
+        
+        // Generate various patterns for this location
+        String stateAbbr = getStateAbbreviation(state);
+        String stateLower = state.toLowerCase();
+        String fabNumber = fab.toLowerCase();
+        
+        // Patterns to match (all normalized, no spaces, lowercase)
+        String[] patterns = {
+            // Full state name patterns
+            stateLower + "fab" + fabNumber,           // "arizonafab52"
+            stateLower + "f" + fabNumber,             // "arizonaf52"
+            stateLower + fabNumber,                   // "arizona52"
+            
+            // State abbreviation patterns  
+            stateAbbr.toLowerCase() + "fab" + fabNumber,  // "azfab52"
+            stateAbbr.toLowerCase() + "f" + fabNumber,    // "azf52"
+            stateAbbr.toLowerCase() + fabNumber,          // "az52"
+            
+            // Display name pattern (what's shown in UI)
+            stateAbbr.toLowerCase() + "f" + fabNumber     // "azf52" (same as above but explicit)
+        };
+        
+        // Check if normalized input matches any pattern
+        for (String pattern : patterns) {
+            if (pattern.equals(normalizedInput)) {
+                logger.debug("Matched location pattern '{}' for {}", pattern, location.getDisplayName());
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Gets the abbreviation for a state name
+     */
+    private String getStateAbbreviation(String stateName) {
+        if (stateName == null) return "";
+        
+        switch (stateName.toLowerCase()) {
+            case "arizona":
+                return "AZ";
+            case "new mexico":
+                return "NM";
+            case "ireland":
+                return "IE";
+            default:
+                // Fallback to first 2 characters
+                return stateName.length() >= 2 ? stateName.substring(0, 2).toUpperCase() : stateName.toUpperCase();
+        }
+    }
+
+    /**
+     * Process Excel upload with duplicate resolutions
+     * Creates new tools and updates existing ones based on user choices
+     */
+    @Transactional
+    @CacheEvict(value = {"tools-list", "dashboard-data"}, allEntries = true)
+    public Map<String, Object> processExcelWithDuplicateResolutions(
+            List<Map<String, Object>> validRows, 
+            List<Map<String, Object>> duplicateResolutions,
+            String currentUserName) throws Exception {
+        
+        logger.info("Processing Excel upload with {} valid rows and {} duplicate resolutions", 
+                   validRows.size(), duplicateResolutions.size());
+        
+        Map<String, Object> result = new HashMap<>();
+        int toolsCreated = 0;
+        int toolsUpdated = 0;
+        int toolsSkipped = 0;
+        List<String> auditMessages = new ArrayList<>();
+        
+        // Find default location for new tools
+        Optional<Location> defaultLocationOpt = locationRepository.findByDefaultLocationIsTrue();
+        
+        try {
+            // Process valid new tools first
+            for (Map<String, Object> rowData : validRows) {
+                try {
+                    Tool newTool = createToolFromRowData(rowData, defaultLocationOpt);
+                    toolRepository.save(newTool);
+                    toolsCreated++;
+                    logger.debug("Created new tool: {}", newTool.getName());
+                } catch (Exception e) {
+                    logger.error("Error creating tool from row {}: {}", rowData.get("rowNumber"), e.getMessage());
+                }
+            }
+            
+            // Process duplicate resolutions
+            for (Map<String, Object> resolution : duplicateResolutions) {
+                String action = (String) resolution.get("action");
+                Long existingToolId = ((Number) resolution.get("existingToolId")).longValue();
+                Map<String, Object> newData = (Map<String, Object>) resolution.get("new");
+                
+                if ("skip".equals(action)) {
+                    toolsSkipped++;
+                    logger.debug("Skipped duplicate for existing tool ID: {}", existingToolId);
+                    continue;
+                }
+                
+                if ("overwrite".equals(action)) {
+                    try {
+                        String auditMessage = updateExistingTool(existingToolId, newData, currentUserName);
+                        auditMessages.add(auditMessage);
+                        toolsUpdated++;
+                        logger.debug("Updated existing tool ID: {}", existingToolId);
+                    } catch (Exception e) {
+                        logger.error("Error updating tool ID {}: {}", existingToolId, e.getMessage());
+                        toolsSkipped++;
+                    }
+                }
+            }
+            
+            result.put("success", true);
+            result.put("toolsCreated", toolsCreated);
+            result.put("toolsUpdated", toolsUpdated);
+            result.put("toolsSkipped", toolsSkipped);
+            result.put("auditMessages", auditMessages);
+            result.put("totalProcessed", toolsCreated + toolsUpdated + toolsSkipped);
+            
+            logger.info("Excel processing completed. Created: {}, Updated: {}, Skipped: {}", 
+                       toolsCreated, toolsUpdated, toolsSkipped);
+            
+        } catch (Exception e) {
+            logger.error("Error processing Excel upload: {}", e.getMessage(), e);
+            result.put("success", false);
+            result.put("error", "Error processing upload: " + e.getMessage());
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Creates a new Tool entity from row data
+     */
+    private Tool createToolFromRowData(Map<String, Object> rowData, Optional<Location> defaultLocationOpt) {
+        Tool tool = new Tool();
+        
+        // Basic tool properties
+        String toolName = (String) rowData.get("toolName");
+        tool.setName(toolName != null ? toolName.trim() : "");
+        
+        String toolName2 = (String) rowData.get("toolName2");
+        if (toolName2 != null && !toolName2.trim().isEmpty()) {
+            tool.setSecondaryName(toolName2.trim());
+        }
+        
+        String type = (String) rowData.get("type");
+        if (type != null && !type.trim().isEmpty()) {
+            Tool.ToolType normalizedType = normalizeToolType(type.trim());
+            if (normalizedType != null) {
+                tool.setToolType(normalizedType);
+            }
+        }
+        
+        String modelNumber1 = (String) rowData.get("modelNumber1");
+        if (modelNumber1 != null && !modelNumber1.trim().isEmpty()) {
+            tool.setModel1(modelNumber1.trim());
+        }
+        
+        String modelNumber2 = (String) rowData.get("modelNumber2");
+        if (modelNumber2 != null && !modelNumber2.trim().isEmpty()) {
+            tool.setModel2(modelNumber2.trim());
+        }
+        
+        String serialNumber1 = (String) rowData.get("serialNumber1");
+        if (serialNumber1 != null && !serialNumber1.trim().isEmpty()) {
+            tool.setSerialNumber1(serialNumber1.trim());
+        }
+        
+        String serialNumber2 = (String) rowData.get("serialNumber2");
+        if (serialNumber2 != null && !serialNumber2.trim().isEmpty()) {
+            tool.setSerialNumber2(serialNumber2.trim());
+        }
+        
+        // Handle location - set as simple string
+        String locationName = (String) rowData.get("locationName");
+        String finalLocationName = "AZ F52"; // Default location
+        if (locationName != null && !locationName.trim().isEmpty()) {
+            // Use location matching logic to normalize the name
+            Location matchedLocation = findLocationByName(locationName.trim());
+            if (matchedLocation != null) {
+                finalLocationName = matchedLocation.getDisplayName() != null ? 
+                                  matchedLocation.getDisplayName() : matchedLocation.getName();
+            }
+        }
+        tool.setLocationName(finalLocationName);
+        
+        // Set default status and dates
+        tool.setStatus(Tool.ToolStatus.NOT_STARTED);
+        tool.setSetDate(LocalDate.now());
+        
+        return tool;
+    }
+    
+    /**
+     * Updates an existing tool with new data and creates audit trail
+     */
+    private String updateExistingTool(Long toolId, Map<String, Object> newData, String currentUserName) {
+        Optional<Tool> toolOpt = toolRepository.findById(toolId);
+        if (!toolOpt.isPresent()) {
+            throw new RuntimeException("Tool not found with ID: " + toolId);
+        }
+        
+        Tool tool = toolOpt.get();
+        List<String> changes = new ArrayList<>();
+        
+        // Track and update each field
+        String newToolName = (String) newData.get("toolName");
+        if (newToolName != null && !newToolName.trim().isEmpty() && 
+            !Objects.equals(tool.getName(), newToolName.trim())) {
+            changes.add(String.format("Name: '%s' → '%s'", tool.getName(), newToolName.trim()));
+            tool.setName(newToolName.trim());
+        }
+        
+        String newToolName2 = (String) newData.get("toolName2");
+        if (!Objects.equals(tool.getSecondaryName(), newToolName2)) {
+            String oldValue = tool.getSecondaryName() != null ? tool.getSecondaryName() : "(empty)";
+            String newValue = newToolName2 != null && !newToolName2.trim().isEmpty() ? newToolName2.trim() : "(empty)";
+            changes.add(String.format("Secondary Name: '%s' → '%s'", oldValue, newValue));
+            tool.setSecondaryName(newToolName2 != null && !newToolName2.trim().isEmpty() ? newToolName2.trim() : null);
+        }
+        
+        String newType = (String) newData.get("type");
+        Tool.ToolType newToolType = newType != null && !newType.trim().isEmpty() ? normalizeToolType(newType.trim()) : null;
+        if (!Objects.equals(tool.getToolType(), newToolType)) {
+            String oldValue = tool.getToolType() != null ? tool.getToolType().toString() : "(empty)";
+            String newValue = newToolType != null ? newToolType.toString() : "(empty)";
+            changes.add(String.format("Type: '%s' → '%s'", oldValue, newValue));
+            tool.setToolType(newToolType);
+        }
+        
+        String newModel1 = (String) newData.get("modelNumber1");
+        if (!Objects.equals(tool.getModel1(), newModel1)) {
+            String oldValue = tool.getModel1() != null ? tool.getModel1() : "(empty)";
+            String newValue = newModel1 != null && !newModel1.trim().isEmpty() ? newModel1.trim() : "(empty)";
+            changes.add(String.format("Model 1: '%s' → '%s'", oldValue, newValue));
+            tool.setModel1(newModel1 != null && !newModel1.trim().isEmpty() ? newModel1.trim() : null);
+        }
+        
+        String newModel2 = (String) newData.get("modelNumber2");
+        if (!Objects.equals(tool.getModel2(), newModel2)) {
+            String oldValue = tool.getModel2() != null ? tool.getModel2() : "(empty)";
+            String newValue = newModel2 != null && !newModel2.trim().isEmpty() ? newModel2.trim() : "(empty)";
+            changes.add(String.format("Model 2: '%s' → '%s'", oldValue, newValue));
+            tool.setModel2(newModel2 != null && !newModel2.trim().isEmpty() ? newModel2.trim() : null);
+        }
+        
+        String newSerial1 = (String) newData.get("serialNumber1");
+        if (!Objects.equals(tool.getSerialNumber1(), newSerial1)) {
+            String oldValue = tool.getSerialNumber1() != null ? tool.getSerialNumber1() : "(empty)";
+            String newValue = newSerial1 != null && !newSerial1.trim().isEmpty() ? newSerial1.trim() : "(empty)";
+            changes.add(String.format("Serial 1: '%s' → '%s'", oldValue, newValue));
+            tool.setSerialNumber1(newSerial1 != null && !newSerial1.trim().isEmpty() ? newSerial1.trim() : null);
+        }
+        
+        String newSerial2 = (String) newData.get("serialNumber2");
+        if (!Objects.equals(tool.getSerialNumber2(), newSerial2)) {
+            String oldValue = tool.getSerialNumber2() != null ? tool.getSerialNumber2() : "(empty)";
+            String newValue = newSerial2 != null && !newSerial2.trim().isEmpty() ? newSerial2.trim() : "(empty)";
+            changes.add(String.format("Serial 2: '%s' → '%s'", oldValue, newValue));
+            tool.setSerialNumber2(newSerial2 != null && !newSerial2.trim().isEmpty() ? newSerial2.trim() : null);
+        }
+        
+        // Handle location update
+        String newLocationName = (String) newData.get("locationName");
+        String finalLocationName = "AZ F52"; // Default location
+        if (newLocationName != null && !newLocationName.trim().isEmpty()) {
+            // Use location matching logic to normalize the name
+            Location matchedLocation = findLocationByName(newLocationName.trim());
+            if (matchedLocation != null) {
+                finalLocationName = matchedLocation.getDisplayName() != null ? 
+                                  matchedLocation.getDisplayName() : matchedLocation.getName();
+            }
+        }
+        
+        if (!Objects.equals(tool.getLocationName(), finalLocationName)) {
+            String oldValue = tool.getLocationName() != null ? tool.getLocationName() : "(empty)";
+            changes.add(String.format("Location: '%s' → '%s'", oldValue, finalLocationName));
+            tool.setLocationName(finalLocationName);
+        }
+        
+        // Save the updated tool
+        toolRepository.save(tool);
+        
+        // Create audit comment if there were changes
+        if (!changes.isEmpty()) {
+            String changesSummary = String.join(", ", changes);
+            String commentText = String.format("Tool updated via Excel upload by %s. Changes: %s", 
+                                             currentUserName != null ? currentUserName : "System", 
+                                             changesSummary);
+            
+            // Create and save the comment
+            ToolComment comment = new ToolComment();
+            comment.setTool(tool);
+            comment.setContent(commentText);
+            comment.setCreatedDate(LocalDateTime.now());
+            comment.setSystemGenerated(true);
+            
+            // Try to set the user if available
+            if (currentUserName != null) {
+                Optional<User> userOpt = userRepository.findByEmailIgnoreCase(currentUserName);
+                userOpt.ifPresent(comment::setUser);
+            }
+            
+            toolCommentRepository.save(comment);
+            
+            return String.format("Updated tool '%s' (ID: %d): %s", tool.getName(), tool.getId(), changesSummary);
+        }
+        
+        return String.format("No changes needed for tool '%s' (ID: %d)", tool.getName(), tool.getId());
     }
 } 

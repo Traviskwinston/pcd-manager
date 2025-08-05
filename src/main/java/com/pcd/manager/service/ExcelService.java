@@ -65,7 +65,7 @@ public class ExcelService {
      */
     public byte[] populateRmaTemplate(Rma rma, User currentUser) throws IOException {
         // Load the template from classpath
-        try (InputStream templateStream = getClass().getResourceAsStream("/reference-documents/BlankRMA.xlsx")) {
+        try (InputStream templateStream = getClass().getResourceAsStream("/reference-documents/BlankRMAcustom.xlsx")) {
             
             if (templateStream == null) {
                 logger.error("RMA template file not found in classpath");
@@ -115,11 +115,8 @@ public class ExcelService {
      * @param rma The RMA to get data from
      */
     private void populateRmaFields(Sheet sheet, Rma rma) {
-        // RMA Number in B4
-        setCellValue(sheet, "B4", rma.getRmaNumber());
-        
-        // SAP Notification Number in J4
-        setCellValue(sheet, "J4", rma.getSapNotificationNumber());
+        // RMA Number in J4 (SAP Notification Number is the same as RMA Number)
+        setCellValue(sheet, "J4", rma.getRmaNumber());
         
         // Service Order in J5
         setCellValue(sheet, "J5", rma.getServiceOrder());
@@ -166,35 +163,34 @@ public class ExcelService {
         // Contact Phone Number in B17
         setCellValue(sheet, "B17", rma.getCustomerPhone()); // Contact Phone Number
         
-        // Location info in E14
-        if (rma.getLocation() != null) {
-            setCellValue(sheet, "E14", rma.getLocation().getDisplayName()); // Location information
-        }
-        
         // Tool Information
         Tool tool = rma.getTool();
         if (tool != null) {
-            // Equipment Number(s) with Serial Number in F14
-            String equipmentInfo = "";
+            // Model Numbers in J16
+            String modelNumbers = "";
             if (tool.getModel1() != null && !tool.getModel1().isEmpty()) {
-                equipmentInfo += tool.getModel1();
+                modelNumbers += tool.getModel1();
             }
             if (tool.getModel2() != null && !tool.getModel2().isEmpty()) {
-                equipmentInfo += "/" + tool.getModel2();
+                if (!modelNumbers.isEmpty()) {
+                    modelNumbers += "/";
+                }
+                modelNumbers += tool.getModel2();
             }
+            setCellValue(sheet, "J16", modelNumbers); // Model Numbers
             
-            if (!equipmentInfo.isEmpty()) {
-                equipmentInfo += " ";
-            }
-            
+            // Serial Numbers in F14
+            String serialNumbers = "";
             if (tool.getSerialNumber1() != null && !tool.getSerialNumber1().isEmpty()) {
-                equipmentInfo += tool.getSerialNumber1();
+                serialNumbers += tool.getSerialNumber1();
             }
             if (tool.getSerialNumber2() != null && !tool.getSerialNumber2().isEmpty()) {
-                equipmentInfo += "/" + tool.getSerialNumber2();
+                if (!serialNumbers.isEmpty()) {
+                    serialNumbers += "/";
+                }
+                serialNumbers += tool.getSerialNumber2();
             }
-            
-            setCellValue(sheet, "F14", equipmentInfo); // Equipment Number(s) + Serial Number
+            setCellValue(sheet, "F14", serialNumbers); // Serial Numbers
             
             // Commission Date in J17
             if (tool.getCommissionDate() != null) {
@@ -205,10 +201,26 @@ public class ExcelService {
             setCellValue(sheet, "J18", tool.getChemicalGasService());
         }
         
+        // Process Impact Checkboxes
+        // Start-up/SO3 complete in J19
+        setCellValue(sheet, "J19", rma.getStartupSo3Complete() != null && rma.getStartupSo3Complete() ? "X" : "");
+        
+        // Interruption to Flow in J20
+        setCellValue(sheet, "J20", rma.getInterruptionToFlow() != null && rma.getInterruptionToFlow() ? "X" : "");
+        
+        // Interruption to Production in J21
+        setCellValue(sheet, "J21", rma.getInterruptionToProduction() != null && rma.getInterruptionToProduction() ? "X" : "");
+        
         // Downtime (hrs) in J22
         if (rma.getDowntimeHours() != null) {
             setCellValue(sheet, "J22", rma.getDowntimeHours().toString());
         }
+        
+        // Exposed to Process Gas or Chemicals checkbox in B34
+        setCellValue(sheet, "B34", rma.getExposedToProcessGasOrChemicals() != null && rma.getExposedToProcessGasOrChemicals() ? "X" : "");
+        
+        // Purged checkbox in B35
+        setCellValue(sheet, "B35", rma.getPurged() != null && rma.getPurged() ? "X" : "");
         
         // Instructions for exposed component in F35
         setCellValue(sheet, "F35", rma.getInstructionsForExposedComponent());
@@ -223,20 +235,8 @@ public class ExcelService {
         setCellValue(sheet, "B46", rma.getHowContained());      // How contained - B46
         setCellValue(sheet, "B47", rma.getWhoContained());      // Who contained - B47
         
-        // Comments - format the list of comments as a string
-        if (rma.getComments() != null && !rma.getComments().isEmpty()) {
-            StringBuilder commentsStr = new StringBuilder();
-            for (RmaComment comment : rma.getComments()) {
-                if (commentsStr.length() > 0) {
-                    commentsStr.append("\n");
-                }
-                if (comment.getUser() != null) {
-                    commentsStr.append(comment.getUser().getName()).append(": ");
-                }
-                commentsStr.append(comment.getContent());
-            }
-            setCellValue(sheet, "B36", commentsStr.toString());
-        }
+        // Failed on Install checkbox in B43
+        setCellValue(sheet, "B43", rma.getFailedOnInstall() != null && rma.getFailedOnInstall() ? "X" : "");
         
         // Parts (up to 4) - using the correct template layout
         if (rma.getPartLineItems() != null && !rma.getPartLineItems().isEmpty()) {
@@ -244,29 +244,33 @@ public class ExcelService {
             List<PartLineItem> parts = new ArrayList<>(rma.getPartLineItems());
             
             // Part layout in template:
-            // Part 1: PN (B26), Desc (B27), Qty (B25)
-            // Part 2: PN (I26), Desc (I27), Qty (I25)  
-            // Part 3: PN (B31), Desc (B32), Qty (B30)
-            // Part 4: PN (I31), Desc (I32), Qty (I30)
+            // Part 1: Replacement (B24), Qty (B25), PN (B26), Desc (B27)
+            // Part 2: Replacement (J24), Qty (J25), PN (I26), Desc (I27)
+            // Part 3: Replacement (B29), Qty (B30), PN (B31), Desc (B32)
+            // Part 4: Replacement (J29), Qty (J30), PN (I31), Desc (I32)
             
             String[][] partCells = {
-                {"B25", "B26", "B27"}, // Part 1: Qty, PN, Desc
-                {"I25", "I26", "I27"}, // Part 2: Qty, PN, Desc
-                {"B30", "B31", "B32"}, // Part 3: Qty, PN, Desc
-                {"I30", "I31", "I32"}  // Part 4: Qty, PN, Desc
+                {"B24", "B25", "B26", "B27"}, // Part 1: Replacement, Qty, PN, Desc
+                {"J24", "J25", "I26", "I27"}, // Part 2: Replacement, Qty, PN, Desc
+                {"B29", "B30", "B31", "B32"}, // Part 3: Replacement, Qty, PN, Desc
+                {"J29", "J30", "I31", "I32"}  // Part 4: Replacement, Qty, PN, Desc
             };
             
             // Limit to first 4 parts
             for (int i = 0; i < Math.min(parts.size(), 4); i++) {
                 PartLineItem part = parts.get(i);
                 String[] cells = partCells[i];
-                String qtyCell = cells[0];
-                String pnCell = cells[1];
-                String descCell = cells[2];
+                String replacementCell = cells[0];
+                String qtyCell = cells[1];
+                String pnCell = cells[2];
+                String descCell = cells[3];
                 
-                logger.info("EXCEL EXPORT - Part #{}: Qty={}, PN={}, Desc={}, Name='{}', Number='{}', Description='{}', Qty={}, Replacement={}", 
-                           i+1, qtyCell, pnCell, descCell, part.getPartName(), part.getPartNumber(), part.getProductDescription(), 
+                logger.info("EXCEL EXPORT - Part #{}: Replacement={}, Qty={}, PN={}, Desc={}, Name='{}', Number='{}', Description='{}', Qty={}, Replacement={}", 
+                           i+1, replacementCell, qtyCell, pnCell, descCell, part.getPartName(), part.getPartNumber(), part.getProductDescription(), 
                            part.getQuantity(), part.getReplacementRequired());
+                
+                // Set replacement required checkbox
+                setCellValue(sheet, replacementCell, part.getReplacementRequired() != null && part.getReplacementRequired() ? "X" : "");
                 
                 // Set quantity
                 if (part.getQuantity() != null) {
@@ -278,8 +282,6 @@ public class ExcelService {
                 
                 // Set description
                 setCellValue(sheet, descCell, part.getProductDescription());
-                
-                // Note: Part Name and Replacement Required don't have designated cells in this template layout
             }
         } else {
             logger.warn("EXCEL EXPORT - No part line items found for RMA {}", rma.getId());

@@ -12,6 +12,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,6 +32,7 @@ import java.util.Set;
     "partsMovedTo",
     "documentPaths",
     "documentNames",
+    "documentTags",
     "picturePaths",
     "pictureNames"
 })
@@ -65,9 +67,14 @@ public class Tool {
     @Column
     private String chemicalGasService;
     
-    @ManyToOne
-    @JoinColumn(name = "location_id")
-    private Location location;
+    // Location as simple string field (converted from foreign key for performance)
+    @Column(name = "location_name", nullable = false)
+    private String locationName;
+    
+    // Legacy location relationship - kept for potential rollback
+    // @ManyToOne
+    // @JoinColumn(name = "location_id")
+    // private Location location;
     
     @NotNull
     @Enumerated(EnumType.STRING)
@@ -76,6 +83,12 @@ public class Tool {
     
     @Column
     private LocalDate setDate;
+    
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+    
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
     
     @Column(length = 1000)
     private String notes;
@@ -137,6 +150,12 @@ public class Tool {
     @MapKeyColumn(name = "document_path")
     @Column(name = "original_filename")
     private Map<String, String> documentNames = new HashMap<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "tool_document_tags", joinColumns = @JoinColumn(name = "tool_id"))
+    @MapKeyColumn(name = "document_path")
+    @Column(name = "document_tag")
+    private Map<String, String> documentTags = new HashMap<>();
 
     // Pictures with upload tracking
     @OneToMany(mappedBy = "tool", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
@@ -318,6 +337,18 @@ public class Tool {
         }
     }
     
+    @PrePersist
+    protected void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
     @Override
     public String toString() {
         return "Tool{" +

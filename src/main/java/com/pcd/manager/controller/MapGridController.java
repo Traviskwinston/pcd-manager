@@ -3,7 +3,9 @@ package com.pcd.manager.controller;
 import com.pcd.manager.model.MapGridItem;
 import com.pcd.manager.model.Tool;
 import com.pcd.manager.model.User;
+import com.pcd.manager.model.Location;
 import com.pcd.manager.repository.UserRepository;
+import com.pcd.manager.repository.LocationRepository;
 import com.pcd.manager.service.MapGridService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,11 +33,13 @@ public class MapGridController {
     
     private final MapGridService mapGridService;
     private final UserRepository userRepository;
+    private final LocationRepository locationRepository;
     
     @Autowired
-    public MapGridController(MapGridService mapGridService, UserRepository userRepository) {
+    public MapGridController(MapGridService mapGridService, UserRepository userRepository, LocationRepository locationRepository) {
         this.mapGridService = mapGridService;
         this.userRepository = userRepository;
+        this.locationRepository = locationRepository;
     }
     
     /**
@@ -70,9 +74,44 @@ public class MapGridController {
      * Get available tools for placement
      */
     @GetMapping("/available-tools")
-    public ResponseEntity<List<Map<String, Object>>> getAvailableTools() {
-        List<Tool> availableTools = mapGridService.getAvailableTools();
-        // Map each Tool to a simple DTO to avoid deep object nesting
+    public ResponseEntity<Map<String, Object>> getAvailableTools(Authentication authentication) {
+        // Determine the user's current location (same logic as DashboardController)
+        Long currentLocationId = null;
+        if (authentication != null && authentication.isAuthenticated()) {
+            String userEmail = authentication.getName();
+            Optional<User> userOpt = userRepository.findByEmailIgnoreCase(userEmail);
+            
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                if (user.getActiveSite() != null) {
+                    currentLocationId = user.getActiveSite().getId();
+                    logger.info("Using user's active site for available tools: {}", user.getActiveSite().getDisplayName());
+                } else {
+                    // Fall back to system default if user has no active site
+                    Optional<Location> defaultLocationOpt = locationRepository.findByDefaultLocationIsTrue();
+                    if (defaultLocationOpt.isPresent()) {
+                        currentLocationId = defaultLocationOpt.get().getId();
+                        logger.info("User has no active site, using system default for available tools: {}", defaultLocationOpt.get().getDisplayName());
+                    } else {
+                        logger.warn("No location available for user {}, returning tools from all locations", userEmail);
+                    }
+                }
+            }
+        }
+        
+        Map<String, Object> result = mapGridService.getAvailableToolsWithPlacementInfo(currentLocationId);
+        @SuppressWarnings("unchecked")
+        List<Tool> availableTools = (List<Tool>) result.get("tools");
+        @SuppressWarnings("unchecked")
+        List<Long> placedRegularIds = (List<Long>) result.get("placedRegularIds");
+        @SuppressWarnings("unchecked")
+        List<Long> placedFeedIds = (List<Long>) result.get("placedFeedIds");
+        
+        logger.info("Found {} available tools for location ID: {}", availableTools.size(), currentLocationId);
+        
+        // Map each Tool to a DTO with placement information
+        Map<String, Object> response = new HashMap<>();
+        
         List<Map<String, Object>> toolDtos = availableTools.stream().map(tool -> {
             Map<String, Object> dto = new HashMap<>();
             dto.put("id", tool.getId());
@@ -81,9 +120,13 @@ public class MapGridController {
             dto.put("status", tool.getStatus() != null ? tool.getStatus().toString() : null);
             dto.put("model", tool.getModel1());
             dto.put("serial", tool.getSerialNumber1());
+            dto.put("regularPlaced", placedRegularIds.contains(tool.getId()));
+            dto.put("feedPlaced", placedFeedIds.contains(tool.getId()));
             return dto;
         }).collect(Collectors.toList());
-        return ResponseEntity.ok(toolDtos);
+        
+        response.put("tools", toolDtos);
+        return ResponseEntity.ok(response);
     }
     
     /**
@@ -101,11 +144,26 @@ public class MapGridController {
         User currentUser = userRepository.findByEmailIgnoreCase(userEmail)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + userEmail));
 
-        Long toolId = Long.valueOf(payload.get("toolId").toString());
+        String toolIdString = payload.get("toolId").toString();
         Integer x = (Integer) payload.get("x");
         Integer y = (Integer) payload.get("y");
         Integer width = (Integer) payload.get("width");
         Integer height = (Integer) payload.get("height");
+        
+        // Check if this is a Feed tool (ends with "_FEED")
+        boolean isFeedTool = toolIdString.endsWith("_FEED");
+        Long actualToolId;
+        String feedSuffix = "";
+        
+        if (isFeedTool) {
+            // Extract the original tool ID (remove "_FEED" suffix)
+            String originalToolIdString = toolIdString.replace("_FEED", "");
+            actualToolId = Long.valueOf(originalToolIdString);
+            feedSuffix = "_FEED";
+            logger.info("Processing Feed tool placement for original tool ID: {}", actualToolId);
+        } else {
+            actualToolId = Long.valueOf(toolIdString);
+        }
         
         // Determine locationId: from payload or user's active/default location
         Long locationId = payload.containsKey("locationId") ? Long.valueOf(payload.get("locationId").toString()) : null;
@@ -120,8 +178,8 @@ public class MapGridController {
             }
         }
         
-        MapGridItem gridItem = mapGridService.createToolGridItem(toolId, x, y, width, height, userEmail, locationId);
-        logger.info("Created tool grid item with ID: {}", gridItem.getId());
+        MapGridItem gridItem = mapGridService.createToolGridItem(actualToolId, x, y, width, height, userEmail, locationId, isFeedTool);
+        logger.info("Created {} grid item with ID: {}", isFeedTool ? "feed tool" : "tool", gridItem.getId());
         
         return ResponseEntity.status(HttpStatus.CREATED).body(gridItem);
     }

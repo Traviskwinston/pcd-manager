@@ -31,4 +31,7 @@ public class ToolComment {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id")
     private User user;
+    
+    @Column(name = "system_generated", nullable = false)
+    private Boolean systemGenerated = false;
 } 

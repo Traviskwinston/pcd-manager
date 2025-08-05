@@ -54,7 +54,12 @@
         
         .tools-model-column {
             min-width: 140px !important;
-            width: 14% !important;
+            width: 12% !important;
+        }
+        
+        .tools-location-column {
+            min-width: 120px !important;
+            width: 12% !important;
         }
         
         .tools-status-column {
@@ -64,12 +69,18 @@
         
         .tools-count-column {
             min-width: 80px !important;
-            width: 8% !important;
+            width: 7% !important;
         }
         
         .tools-technicians-column {
             min-width: 140px !important;
             width: 14% !important;
+        }
+        
+        .tools-date-column {
+            min-width: 160px !important;
+            width: 15% !important;
+            text-align: center;
         }
 
         /* Clickable row styling */
@@ -112,6 +123,30 @@
             cursor: pointer !important;
         }
 
+        /* Custom table striping that works with dynamic sorting/filtering */
+        .table-stripe-even td {
+            background-color: var(--bs-table-striped-bg) !important;
+        }
+        
+        .table-stripe-odd td {
+            background-color: var(--bs-table-bg) !important;
+        }
+        
+        /* Dark mode support for custom striping */
+        [data-bs-theme="dark"] .table-stripe-even td {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+        
+        [data-bs-theme="dark"] .table-stripe-odd td {
+            background-color: var(--bs-table-bg) !important;
+        }
+        
+        /* Hover effects that work with custom striping */
+        .table-stripe-even:hover td,
+        .table-stripe-odd:hover td {
+            background-color: rgba(0, 123, 255, 0.1) !important;
+        }
+
         /* Status filter styling (copied from RMA) */
         .status-filter-header .dropdown-toggle {
             border: none;
@@ -146,10 +181,88 @@
             flex-grow: 1;
         }
         
+        /* Location filter styling */
+        .location-filter-header .dropdown-toggle {
+            border: none;
+            padding: 2px 6px;
+        }
+        .location-filter-header .dropdown-toggle:focus {
+            box-shadow: none;
+        }
+        
+        .location-count-square {
+            display: inline-block;
+            min-width: 20px;
+            padding: 2px 4px;
+            font-size: 0.75em;
+            text-align: center;
+            border-radius: 3px;
+            margin-right: 8px;
+        }
+        .location-filter-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            width: 100%;
+        }
+        .location-filter-left {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+        }
+        
+        /* Type filter styling */
+        .type-filter-header .dropdown-toggle {
+            border: none;
+            padding: 2px 6px;
+        }
+        .type-filter-header .dropdown-toggle:focus {
+            box-shadow: none;
+        }
+        
+        .type-count-square {
+            display: inline-block;
+            min-width: 20px;
+            padding: 2px 4px;
+            font-size: 0.75em;
+            text-align: center;
+            border-radius: 3px;
+            margin-right: 8px;
+        }
+        .type-filter-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            width: 100%;
+        }
+        .type-filter-left {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+        }
+        
         /* Checklist Popover Styling */
         .checklist-popover {
             max-width: 300px;
             font-size: 0.875rem;
+        }
+        
+        /* Document/Picture Popover Styling */
+        .popover-body .badge {
+            font-size: 0.6em !important;
+            margin-top: 2px;
+        }
+        
+        .docs-pics-popover {
+            min-width: 200px;
+            font-size: 0.875rem;
+        }
+        
+        .docs-pics-popover .btn-sm {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
         }
         
         .checklist-item-popup {
@@ -280,7 +393,7 @@
 
             <!-- Responsive Table Container -->
             <div th:if="${!tools.empty}" class="data-table-responsive table-responsive tools-table-container" id="tools-table-container">
-                <table class="table table-striped data-table-compact">
+                <table class="table data-table-compact">
                     <thead>
                         <tr>
                             <th class="sortable-header tools-name-column" data-sort="name" style="text-align: left;">
@@ -292,13 +405,28 @@
                                     </span>
                                 </div>
                             </th>
-                            <th class="sortable-header tools-type-column" data-sort="toolType" style="text-align: left;">
-                                <div class="header-content">
-                                    <span class="header-text">Type</span>
-                                    <span class="sort-arrows">
-                                        <i class="bi bi-caret-up sort-up"></i>
-                                        <i class="bi bi-caret-down sort-down"></i>
-                                    </span>
+                            <th class="type-filter-header filter-header tools-type-column">
+                                Type
+                                <div class="dropdown d-inline-block ms-1">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="typeFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-funnel"></i>
+                                    </button>
+                                    <ul class="dropdown-menu p-2" aria-labelledby="typeFilterDropdown" style="min-width: 250px;">
+                                        <li class="dropdown-item-text">
+                                            <small class="text-muted">Filter by Type:</small>
+                                            <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="showAllTypes">Show All</button>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li class="dropdown-item-text" th:each="type : ${T(com.pcd.manager.model.Tool.ToolType).values()}">
+                                            <div class="type-filter-item">
+                                                <div class="type-filter-left">
+                                                    <span class="badge bg-primary type-count-square type-count" th:data-type="${type.name()}">0</span>
+                                                    <span th:text="${type.displayName}">Type Name</span>
+                                                </div>
+                                                <input class="form-check-input type-filter" type="checkbox" th:value="${type.name()}" th:id="'type-' + ${type.name()}" checked>
+                                            </div>
+                                        </li>
+                                    </ul>
                                 </div>
                             </th>
                             <th class="sortable-header tools-serial-column" data-sort="serialNumber" style="text-align: left;">
@@ -317,6 +445,31 @@
                                         <i class="bi bi-caret-up sort-up"></i>
                                         <i class="bi bi-caret-down sort-down"></i>
                                     </span>
+                                </div>
+                            </th>
+                            <th class="location-filter-header filter-header tools-location-column">
+                                Location
+                                <div class="dropdown d-inline-block ms-1">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="locationFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-funnel"></i>
+                                    </button>
+                                    <ul class="dropdown-menu p-2" aria-labelledby="locationFilterDropdown" style="min-width: 250px;">
+                                        <li class="dropdown-item-text">
+                                            <small class="text-muted">Filter by Location:</small>
+                                            <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="showAllLocations">Show All</button>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li class="dropdown-item-text" th:each="location : ${locations}">
+                                            <div class="location-filter-item">
+                                                <div class="location-filter-left">
+                                                    <span class="badge bg-info location-count-square location-count" th:data-location="${location.displayName ?: location.name}">0</span>
+                                                    <span th:text="${location.displayName}">Location Name</span>
+                                                </div>
+                                                <input class="form-check-input location-filter" type="checkbox" th:value="${location.displayName ?: location.name}" th:id="'location-' + ${location.id}" 
+                                                       th:checked="${currentUser != null && currentUser.activeSite != null && (currentUser.activeSite.displayName ?: currentUser.activeSite.name) == (location.displayName ?: location.name)}">
+                                            </div>
+                                        </li>
+                                    </ul>
                                 </div>
                             </th>
                             <th class="status-filter-header filter-header tools-status-column">
@@ -366,7 +519,15 @@
                                 <th class="tools-count-column">Track/Trends</th>
                                 <th class="tools-count-column">Passdown</th>
                                 <th class="tools-count-column">Comments</th>
+                                <th class="tools-count-column">Docs/Pics</th>
                                 <th class="tools-technicians-column">Technicians</th>
+                                <th class="sortable-header tools-date-column" data-sort="last-modified">
+                                    Last Modified
+                                    <span class="sort-icons">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -377,8 +538,13 @@
                                      data-model=${(tool.model1 != null ? tool.model1 : '') + (tool.model2 != null ? (tool.model1 != null ? '/' : '') + tool.model2 : '')},
                                      data-tool-type=${tool.toolType != null ? tool.toolType : 'Not specified'},
                                      data-status=${tool.status != null ? tool.status.name() : 'NOT_STARTED'},
+                                     data-location-name=${tool.locationName != null ? tool.locationName : 'Unknown Location'},
                                      data-technicians=${#strings.listJoin(tool.currentTechnicians.![name], ' ')},
-                                     data-notes=${tool.notes != null ? tool.notes : ''}">
+                                     data-notes=${tool.notes != null ? tool.notes : ''},
+                                     data-docs-count=${tool.documentPaths != null ? #lists.size(tool.documentPaths) : 0},
+                                     data-pics-count=${(tool.picturePaths != null ? #lists.size(tool.picturePaths) : 0) + (tool.pictures != null ? #lists.size(tool.pictures) : 0)},
+                                     data-last-modified=${tool.updatedAt != null ? #temporals.format(tool.updatedAt, 'yyyy-MM-dd HH:mm') : ''},
+                                     data-created-at=${tool.createdAt != null ? #temporals.format(tool.createdAt, 'yyyy-MM-dd HH:mm') : ''}">
                             <td style="text-align: left;">
                                 <strong th:text="${tool.name}">Tool Name</strong>
                                 <span th:if="${tool.secondaryName != null}" 
@@ -397,6 +563,9 @@
                             <td style="text-align: left;">
                                 <span th:if="${tool.model1 != null}" th:text="${tool.model1}">Model 1</span><span th:if="${tool.model1 != null and tool.model2 != null}">/</span><span th:if="${tool.model2 != null}" th:text="${tool.model2}">Model 2</span>
                                 <span th:if="${tool.model1 == null and tool.model2 == null}" class="text-muted">-</span>
+                            </td>
+                            <td style="text-align: left;">
+                                                            <span th:text="${tool.locationName ?: 'Unknown Location'}">Location</span>
                             </td>
                             <td class="text-center">
                                 <span th:if="${tool.status != null}" th:switch="${tool.status.name()}">
@@ -617,13 +786,50 @@
                                 <!-- Comment count -->
                                 <span th:text="${toolCommentsMap[tool.id] != null ? #lists.size(toolCommentsMap[tool.id]) : 0}" class="ms-1 small"></span>
                             </td>
+                            <td class="text-center">
+                                <!-- Interactive Docs/Pics icon when documents or pictures exist -->
+                                <i th:class="${'bi bi-file-earmark-text ' + ((tool.documentPaths != null and not #lists.isEmpty(tool.documentPaths)) or (tool.picturePaths != null and not #lists.isEmpty(tool.picturePaths)) or (tool.pictures != null and not #lists.isEmpty(tool.pictures)) ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${(tool.documentPaths != null and not #lists.isEmpty(tool.documentPaths)) or (tool.picturePaths != null and not #lists.isEmpty(tool.picturePaths)) or (tool.pictures != null and not #lists.isEmpty(tool.pictures))}"
+                                   data-bs-toggle="popover"
+                                   data-bs-placement="left"
+                                   data-bs-trigger="hover focus click"
+                                   data-bs-html="true"
+                                   th:attr="data-bs-title='Documents & Pictures (' + ${(tool.documentPaths != null ? #lists.size(tool.documentPaths) : 0) + (tool.picturePaths != null ? #lists.size(tool.picturePaths) : 0) + (tool.pictures != null ? #lists.size(tool.pictures) : 0)} + ')'"
+                                   data-tool-docs-pics="true"
+                                   onclick="event.stopPropagation();">
+                                </i>
+                                
+                                <!-- Greyed out icon when no documents or pictures -->
+                                <i th:if="${(tool.documentPaths == null or #lists.isEmpty(tool.documentPaths)) and (tool.picturePaths == null or #lists.isEmpty(tool.picturePaths)) and (tool.pictures == null or #lists.isEmpty(tool.pictures))}" 
+                                   class="bi bi-file-earmark-text text-muted">
+                                </i>
+                                
+                                <!-- Docs/Pics count -->
+                                <span th:text="${(tool.documentPaths != null ? #lists.size(tool.documentPaths) : 0) + (tool.picturePaths != null ? #lists.size(tool.picturePaths) : 0) + (tool.pictures != null ? #lists.size(tool.pictures) : 0)}" class="ms-1 small"></span>
+                            </td>
                             <td>
                                 <span th:if="${!tool.currentTechnicians.empty}" th:text="${#strings.listJoin(tool.currentTechnicians.![name], ', ')}">Technicians</span>
                                 <span th:if="${tool.currentTechnicians.empty}" class="text-muted">-</span>
                             </td>
+                            <td class="text-center">
+                                <span th:if="${tool.updatedAt != null}" class="small">
+                                    <span th:text="${#temporals.format(tool.updatedAt, 'MMM dd, yyyy')}">Date</span>
+                                    <span th:text="${#temporals.format(tool.updatedAt, 'h:mm a')}" class="text-muted ms-1">Time</span>
+                                </span>
+                                <span th:if="${tool.updatedAt == null}" class="text-muted small">-</span>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
+                
+                <!-- No Tools Found Message -->
+                <div id="noToolsFound" class="text-center py-5" style="display: none;">
+                    <div class="d-flex flex-column align-items-center">
+                        <i class="bi bi-tools text-muted mb-3" style="font-size: 4rem;"></i>
+                        <h4 class="text-muted mb-2">No Tools Found</h4>
+                        <p class="text-muted">No tools match the current filters. Try adjusting your search criteria or filters.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -639,26 +845,28 @@
                 this.sortDirection = 'asc';
                 this.currentSearch = '';
                 this.visibleStatuses = new Set(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED']);
+                this.visibleLocations = new Set(); // Will be populated from checkboxes
+                this.visibleTypes = new Set(['CHEMBLEND', 'SLURRY']); // Track visible tool types
                 this.totalStatusCounts = {}; // Track total counts across all tools
+                this.totalLocationCounts = {}; // Track total counts by location
+                this.totalTypeCounts = {}; // Track total counts by type
                 
                 this.init();
+                this.initSorting();
                 this.calculateTotalStatusCounts();
+                this.calculateTotalLocationCounts();
+                this.calculateTotalTypeCounts();
+                this.initializeLocationFilter();
                 this.updateStatusCounts();
+                this.updateLocationCounts();
+                this.updateTypeCounts();
                 this.updateToolsCount();
                 
+                // Apply initial row striping
+                this.reapplyRowStripes();
+                
                 // DEBUG: Show what data-status values actually exist
-                console.log('🔧 DEBUGGING TOOL STATUSES:');
-                const rows = document.querySelectorAll('.tool-row');
-                const actualStatuses = new Set();
-                rows.forEach((row, index) => {
-                    const status = row.getAttribute('data-status');
-                    actualStatuses.add(status);
-                    if (index < 5) { // Show first 5 tools
-                        console.log(`🔧 Tool ${index}: data-status="${status}"`);
-                    }
-                });
-                console.log('🔧 All unique statuses found:', Array.from(actualStatuses));
-                console.log('🔧 Expected statuses:', Array.from(this.visibleStatuses));
+
             }
 
             init() {
@@ -712,11 +920,74 @@
                         this.filterTable();
                     });
                 }
+
+                // Location filtering
+                document.querySelectorAll('.location-filter').forEach(checkbox => {
+                    console.log('🏢 Found location filter checkbox:', checkbox.value);
+                    checkbox.addEventListener('change', (e) => {
+                        const locationId = e.target.value;
+                        if (e.target.checked) {
+                            this.visibleLocations.add(locationId);
+                        } else {
+                            this.visibleLocations.delete(locationId);
+                        }
+                        this.filterTable();
+                    });
+                });
+
+                // Show All Locations button
+                const showAllLocationsButton = document.getElementById('showAllLocations');
+                if (showAllLocationsButton) {
+                    showAllLocationsButton.addEventListener('click', () => {
+                        // Check all location checkboxes
+                        document.querySelectorAll('.location-filter').forEach(checkbox => {
+                            checkbox.checked = true;
+                            this.visibleLocations.add(checkbox.value);
+                        });
+                        this.filterTable();
+                    });
+                }
+
+                // Type filtering
+                document.querySelectorAll('.type-filter').forEach(checkbox => {
+                    console.log('🔧 Found type filter checkbox:', checkbox.value);
+                    checkbox.addEventListener('change', (e) => {
+                        const toolType = e.target.value;
+                        console.log(`🔧 Type checkbox ${toolType} changed to:`, e.target.checked);
+                        if (e.target.checked) {
+                            this.visibleTypes.add(toolType);
+                        } else {
+                            // Prevent unchecking all types (keep at least one visible)
+                            if (this.visibleTypes.size === 1) {
+                                console.log('🚫 Cannot uncheck all types');
+                                e.preventDefault();
+                                e.target.checked = true;
+                                return;
+                            }
+                            this.visibleTypes.delete(toolType);
+                        }
+                        console.log('🔧 Visible types now:', Array.from(this.visibleTypes));
+                        this.filterTable();
+                    });
+                });
+
+                // Show All Types button
+                const showAllTypesButton = document.getElementById('showAllTypes');
+                if (showAllTypesButton) {
+                    showAllTypesButton.addEventListener('click', () => {
+                        // Check all type checkboxes
+                        document.querySelectorAll('.type-filter').forEach(checkbox => {
+                            checkbox.checked = true;
+                            this.visibleTypes.add(checkbox.value);
+                        });
+                        this.filterTable();
+                    });
+                }
             }
 
             filterTable() {
                 const rows = document.querySelectorAll('.tool-row');
-                console.log('🔧 Filtering', rows.length, 'tool rows');
+
                 
                 let visibleCount = 0;
                 rows.forEach(row => {
@@ -739,10 +1010,16 @@
 
                     // Check status filter
                     const matchesStatus = this.visibleStatuses.has(status);
+                    
+                    // Check location filter
+                    const locationName = row.getAttribute('data-location-name') || '';
+                    const matchesLocation = this.visibleLocations.size === 0 || this.visibleLocations.has(locationName);
 
-                    console.log(`🔧 Row with status ${status}: matches search=${matchesSearch}, matches status=${matchesStatus}`);
+                    // Check type filter
+                    const toolTypeValue = row.getAttribute('data-tool-type') || '';
+                    const matchesType = this.visibleTypes.has(toolTypeValue);
 
-                    if (matchesSearch && matchesStatus) {
+                    if (matchesSearch && matchesStatus && matchesLocation && matchesType) {
                         row.style.display = '';
                         visibleCount++;
                     } else {
@@ -750,9 +1027,14 @@
                     }
                 });
 
-                console.log('🔧 Visible rows after filtering:', visibleCount);
+
                 this.updateStatusCounts();
+                this.updateLocationCounts();
+                this.updateTypeCounts();
                 this.updateToolsCount();
+                
+                // Reapply alternating row colors after filtering
+                this.reapplyRowStripes();
             }
 
             updateToolsCount() {
@@ -760,9 +1042,18 @@
                 const count = visibleRows.length;
                 const visibleCountSpan = document.getElementById('visibleCount');
                 const totalCountSpan = document.getElementById('totalCount');
+                const noToolsFound = document.getElementById('noToolsFound');
+                const toolsTable = document.querySelector('.tools-table-container table');
                 
                 if (visibleCountSpan) visibleCountSpan.textContent = count;
                 if (totalCountSpan) totalCountSpan.textContent = document.querySelectorAll('.tool-row').length;
+                
+                // Show/hide no tools found message - but keep table visible
+                if (count === 0) {
+                    if (noToolsFound) noToolsFound.style.display = 'block';
+                } else {
+                    if (noToolsFound) noToolsFound.style.display = 'none';
+                }
             }
 
             calculateTotalStatusCounts() {
@@ -783,6 +1074,170 @@
                     badge.textContent = this.totalStatusCounts[status] || 0;
                 });
             }
+
+            initializeLocationFilter() {
+                // Initialize visible locations with checked checkboxes (current user's location by default)
+                document.querySelectorAll('.location-filter').forEach(checkbox => {
+                    if (checkbox.checked) {
+                        this.visibleLocations.add(checkbox.value);
+                    }
+                });
+                
+                // Apply initial filtering based on checked locations
+                this.filterTable();
+            }
+
+            calculateTotalLocationCounts() {
+                // Count all tools by location (regardless of filters)
+                document.querySelectorAll('.tool-row').forEach(row => {
+                    const locationName = row.getAttribute('data-location-name') || 'Unknown Location';
+                    if (locationName) {
+                        this.totalLocationCounts[locationName] = (this.totalLocationCounts[locationName] || 0) + 1;
+                    }
+                });
+            }
+
+            updateLocationCounts() {
+                // Always show total counts, not filtered counts
+                document.querySelectorAll('.location-count').forEach(badge => {
+                    const locationDisplayName = badge.getAttribute('data-location');
+                    // Count tools that match this display name in their data-location-name
+                    let count = 0;
+                    document.querySelectorAll('.tool-row').forEach(row => {
+                        const toolLocationName = row.getAttribute('data-location-name') || '';
+                        // Match if the tool's location name equals the badge's display name
+                        if (toolLocationName === locationDisplayName) {
+                            count++;
+                        }
+                    });
+                    badge.textContent = count;
+                });
+            }
+
+            calculateTotalTypeCounts() {
+                // Count all tools by type (regardless of filters)
+                document.querySelectorAll('.tool-row').forEach(row => {
+                    const toolType = row.getAttribute('data-tool-type') || '';
+                    if (toolType) {
+                        this.totalTypeCounts[toolType] = (this.totalTypeCounts[toolType] || 0) + 1;
+                    }
+                });
+            }
+
+            updateTypeCounts() {
+                // Always show total counts, not filtered counts
+                document.querySelectorAll('.type-count').forEach(badge => {
+                    const toolType = badge.getAttribute('data-type');
+                    badge.textContent = this.totalTypeCounts[toolType] || 0;
+                });
+            }
+
+            initSorting() {
+                // Add click handlers to sortable headers
+                document.querySelectorAll('.sortable-header').forEach(header => {
+                    header.addEventListener('click', (e) => {
+                        // Ignore clicks on dropdowns or their children
+                        if (e.target.closest('[data-bs-toggle="dropdown"]') || 
+                            e.target.closest('.dropdown') || 
+                            e.target.closest('.dropdown-menu')) {
+                            return;
+                        }
+                        
+                        const sortType = header.getAttribute('data-sort');
+                        this.handleSort(sortType, header);
+                    });
+                });
+            }
+
+            handleSort(sortType, header) {
+                // Remove sort classes from all headers
+                document.querySelectorAll('.sortable-header').forEach(h => {
+                    h.classList.remove('sort-asc', 'sort-desc');
+                });
+
+                // Determine sort direction
+                if (this.currentSort === sortType) {
+                    this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.sortDirection = 'asc';
+                }
+
+                this.currentSort = sortType;
+                header.classList.add(this.sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+
+                this.sortTable(sortType, this.sortDirection);
+            }
+
+            sortTable(sortType, direction) {
+                const tbody = document.querySelector('.tools-table-container tbody');
+                const rows = Array.from(document.querySelectorAll('.tool-row'));
+
+                rows.sort((a, b) => {
+                    let aVal = '';
+                    let bVal = '';
+
+                    // Get values based on sort type
+                    switch(sortType) {
+                        case 'name':
+                            aVal = a.getAttribute('data-name') || '';
+                            bVal = b.getAttribute('data-name') || '';
+                            break;
+                        case 'serialNumber':
+                            aVal = a.getAttribute('data-serial-number') || '';
+                            bVal = b.getAttribute('data-serial-number') || '';
+                            break;
+                        case 'model':
+                            aVal = a.getAttribute('data-model') || '';
+                            bVal = b.getAttribute('data-model') || '';
+                            break;
+                        default:
+                            aVal = a.getAttribute(`data-${sortType}`) || '';
+                            bVal = b.getAttribute(`data-${sortType}`) || '';
+                    }
+
+                    // Handle date sorting
+                    if (sortType.includes('date') || sortType === 'last-modified') {
+                        aVal = aVal ? new Date(aVal) : new Date('9999-12-31');
+                        bVal = bVal ? new Date(bVal) : new Date('9999-12-31');
+                        return direction === 'asc' ? aVal - bVal : bVal - aVal;
+                    }
+
+                    // String sorting (case insensitive)
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                    return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                });
+
+                // Re-append sorted rows
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    rows.forEach(row => tbody.appendChild(row));
+                }
+                
+                // Reapply alternating row colors after sorting
+                this.reapplyRowStripes();
+            }
+
+            reapplyRowStripes() {
+                // Get all tool rows (both visible and hidden)
+                const allRows = document.querySelectorAll('.tool-row');
+                let visibleRowIndex = 0;
+                
+                allRows.forEach(row => {
+                    // Remove existing stripe classes
+                    row.classList.remove('table-stripe-even', 'table-stripe-odd');
+                    
+                    // Only apply stripes to visible rows
+                    if (row.style.display !== 'none') {
+                        if (visibleRowIndex % 2 === 0) {
+                            row.classList.add('table-stripe-even');
+                        } else {
+                            row.classList.add('table-stripe-odd');
+                        }
+                        visibleRowIndex++;
+                    }
+                });
+            }
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -792,12 +1247,68 @@
             // Initialize Bootstrap Popovers
             var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
             var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
-                return new bootstrap.Popover(popoverTriggerEl, {
-                    sanitize: false, // Allow HTML in content
-                    fallbackPlacements: ['left', 'top', 'bottom'],
-                    container: 'body' // Added to help with potential positioning/event issues
-                });
+                // Special handling for docs/pics popovers
+                if (popoverTriggerEl.hasAttribute('data-tool-docs-pics')) {
+                    return new bootstrap.Popover(popoverTriggerEl, {
+                        sanitize: false,
+                        fallbackPlacements: ['left', 'top', 'bottom'],
+                        container: 'body',
+                        content: function() {
+                            return generateDocsListContent(popoverTriggerEl);
+                        }
+                    });
+                } else {
+                    return new bootstrap.Popover(popoverTriggerEl, {
+                        sanitize: false, // Allow HTML in content
+                        fallbackPlacements: ['left', 'top', 'bottom'],
+                        container: 'body' // Added to help with potential positioning/event issues
+                    });
+                }
             });
+            
+            // Function to generate docs/pics popover content
+            function generateDocsListContent(triggerElement) {
+                const toolRow = triggerElement.closest('tr');
+                const toolId = toolRow.getAttribute('data-tool-id');
+                const docsCount = parseInt(toolRow.getAttribute('data-docs-count') || '0');
+                const picsCount = parseInt(toolRow.getAttribute('data-pics-count') || '0');
+                const toolName = toolRow.getAttribute('data-name');
+                
+                let content = '<div class="docs-pics-popover">';
+                
+                if (docsCount > 0 || picsCount > 0) {
+                    content += `<div class="mb-2"><strong>${toolName}</strong></div>`;
+                    
+                    if (docsCount > 0) {
+                        content += `<div class="mb-1">`;
+                        content += `<i class="bi bi-file-earmark-text me-2 text-primary"></i>`;
+                        content += `<strong>Documents:</strong> ${docsCount}`;
+                        content += `</div>`;
+                    }
+                    
+                    if (picsCount > 0) {
+                        content += `<div class="mb-1">`;
+                        content += `<i class="bi bi-image me-2 text-success"></i>`;
+                        content += `<strong>Pictures:</strong> ${picsCount}`;
+                        content += `</div>`;
+                    }
+                    
+                    content += '<hr class="my-2">';
+                    content += `<div class="text-center">`;
+                    content += `<a href="/tools/${toolId}" class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation();">`;
+                    content += `<i class="bi bi-eye me-1"></i>View Details`;
+                    content += `</a>`;
+                    content += `</div>`;
+                } else {
+                    content += '<div class="text-muted text-center">';
+                    content += '<i class="bi bi-file-earmark-x fs-4 mb-2"></i>';
+                    content += '<div>No documents or pictures</div>';
+                    content += '</div>';
+                }
+                
+                content += '</div>';
+                return content;
+            }
 
             // Track currently pinned popovers
             var currentlyPinnedPopover = null;
@@ -966,6 +1477,28 @@
 
             // Initialize clickable table rows
             initializeClickableRows();
+            
+            // Make type filter rows clickable to toggle checkboxes
+            document.querySelectorAll('.type-filter-item').forEach(function(item) {
+                item.style.cursor = 'pointer';
+                item.addEventListener('click', function(e) {
+                    // Don't trigger if clicking directly on the checkbox
+                    if (e.target.type === 'checkbox') {
+                        return;
+                    }
+                    
+                    // Find the checkbox within this item
+                    const checkbox = item.querySelector('.type-filter');
+                    if (checkbox) {
+                        // Toggle the checkbox
+                        checkbox.checked = !checkbox.checked;
+                        
+                        // Trigger the change event to update the filtering
+                        const event = new Event('change', { bubbles: true });
+                        checkbox.dispatchEvent(event);
+                    }
+                });
+            });
         });
         
         // Function to initialize clickable table rows - copied from RMA
@@ -1046,11 +1579,50 @@
                                         <li><span class="badge bg-primary me-2">E</span><code>Model Number 2</code></li>
                                         <li><span class="badge bg-primary me-2">F</span><code>Serial Number 1</code></li>
                                         <li><span class="badge bg-primary me-2">G</span><code>Serial Number 2</code></li>
+                                        <li><span class="badge bg-primary me-2">H</span><code>Location</code></li>
                                     </ul>
                                 </div>
                             </div>
                             <div class="alert alert-warning mt-3 mb-0">
                                 <small><i class="fas fa-exclamation-triangle me-1"></i>Headers are case-sensitive and must match exactly as shown above.</small>
+                            </div>
+                            
+                            <!-- Location Format Information -->
+                            <div class="mt-3">
+                                <h6><i class="fas fa-map-marker-alt me-2"></i>Location Column Format</h6>
+                                <p class="mb-2">The Location column (H) supports flexible matching for the following formats:</p>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <strong>Arizona Locations:</strong>
+                                        <ul class="small">
+                                            <li>Arizona Fab 52</li>
+                                            <li>AZ F52</li>
+                                            <li>AZ52</li>
+                                            <li>AZF52</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>New Mexico Locations:</strong>
+                                        <ul class="small">
+                                            <li>New Mexico Fab 11</li>
+                                            <li>NM F11</li>
+                                            <li>NM11</li>
+                                            <li>NMF11</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Ireland Locations:</strong>
+                                        <ul class="small">
+                                            <li>Ireland Fab 24</li>
+                                            <li>IE F24</li>
+                                            <li>IE24</li>
+                                            <li>IEF24</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info mt-2">
+                                    <small><i class="fas fa-info-circle me-1"></i>Location matching is case-insensitive and flexible. If no match is found, the default location will be used.</small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1100,8 +1672,189 @@
         </div>
     </div>
 
+    <!-- Duplicate Resolution Modal -->
+    <style>
+        /* Duplicate item highlighting */
+        .duplicate-item .text-changed {
+            background-color: rgba(253, 126, 20, 0.2);
+            padding: 2px 4px;
+            border-radius: 3px;
+            border-left: 3px solid #fd7e14;
+        }
+        
+        .duplicate-item .text-added {
+            background-color: rgba(40, 167, 69, 0.2);
+            padding: 2px 4px;
+            border-radius: 3px;
+            border-left: 3px solid #28a745;
+        }
+        
+        .duplicate-item .text-missing {
+            background-color: rgba(220, 53, 69, 0.2);
+            padding: 2px 4px;
+            border-radius: 3px;
+            border-left: 3px solid #dc3545;
+        }
+        
+        /* Exact match highlighting */
+        .duplicate-item.exact-match {
+            border-color: #28a745;
+            background-color: rgba(40, 167, 69, 0.05);
+        }
+        
+        .duplicate-item.exact-match .card-header {
+            background-color: rgba(40, 167, 69, 0.1);
+            border-bottom: 1px solid #28a745;
+        }
+        
+        .tool-comparison {
+            font-size: 0.9rem;
+        }
+        
+        /* Theme-appropriate colors */
+        .duplicate-item .card-header {
+            background-color: var(--bs-secondary-bg);
+            border-bottom: 1px solid var(--bs-border-color);
+        }
+        
+        .duplicates-container {
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.375rem;
+            padding: 1rem;
+            background-color: var(--bs-body-bg);
+        }
+        
+        .duplicate-item .card {
+            background-color: var(--bs-body-bg);
+            border: 1px solid var(--bs-border-color);
+        }
+        
+        .duplicate-item .card-body {
+            background-color: var(--bs-body-bg);
+        }
+        
+        /* Collapse button styling */
+        .collapse-toggle {
+            background: none;
+            border: none;
+            color: var(--bs-body-color);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            padding: 0.25rem;
+            border-radius: 0.25rem;
+        }
+        
+        .collapse-toggle:hover {
+            color: var(--bs-primary);
+            background-color: var(--bs-secondary-bg);
+        }
+        
+        .collapse-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+        
+        .collapse-toggle:not(.collapsed) {
+            transform: rotate(0deg);
+        }
+        
+        .btn-check:checked + .btn-outline-warning {
+            background-color: #ffc107;
+            border-color: #ffc107;
+            color: #000;
+        }
+        
+        .btn-check:checked + .btn-outline-secondary {
+            background-color: #6c757d;
+            border-color: #6c757d;
+            color: #fff;
+        }
+        
+        /* Extra small buttons for more compact layout */
+        .btn-xs {
+            padding: 0.125rem 0.25rem;
+            font-size: 0.75rem;
+            line-height: 1.2;
+        }
+        
+
+    </style>
+    
+    <div class="modal fade" id="duplicateResolutionModal" tabindex="-1" aria-labelledby="duplicateResolutionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="duplicateResolutionModalLabel">
+                        <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                        Duplicate Tools Detected
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i>
+                        We found <span id="duplicateCount">0</span> potential duplicate(s) in your Excel file. 
+                        Please review and choose whether to <strong>skip</strong> or <strong>overwrite</strong> each duplicate.
+                        <strong>Overwrite is selected by default.</strong>
+                        
+                        <!-- Color Legend Information -->
+                        <div class="mt-3 small">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <span class="d-inline-block me-2" style="width: 16px; height: 12px; background-color: rgba(253, 126, 20, 0.6); border-left: 3px solid #fd7e14; border-radius: 3px;"></span>
+                                    <strong>Orange:</strong> Changed field values
+                                </div>
+                                <div class="col-md-4">
+                                    <span class="d-inline-block me-2" style="width: 16px; height: 12px; background-color: rgba(40, 167, 69, 0.6); border-left: 3px solid #28a745; border-radius: 3px;"></span>
+                                    <strong>Green:</strong> New values being added
+                                </div>
+                                <div class="col-md-4">
+                                    <span class="d-inline-block me-2" style="width: 16px; height: 12px; background-color: rgba(220, 53, 69, 0.6); border-left: 3px solid #dc3545; border-radius: 3px;"></span>
+                                    <strong>Red:</strong> Won't migrate (data missing)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Control Bar -->
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <!-- Bulk Selection Controls -->
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllDuplicateActions('overwrite')">
+                                <i class="fas fa-check-double me-1"></i>Overwrite All
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="selectAllDuplicateActions('skip')">
+                                <i class="fas fa-times me-1"></i>Skip All
+                            </button>
+                        </div>
+                        
+                        <!-- Collapse/Expand All -->
+                        <div>
+                            <button type="button" class="btn btn-outline-info btn-sm" id="collapseExpandAllBtn" onclick="toggleAllCollapses()">
+                                <i class="fas fa-compress-alt me-1"></i>Collapse All
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Duplicates List -->
+                    <div id="duplicatesList" class="duplicates-container" style="max-height: 600px; overflow-y: auto;">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="processDuplicateResolutions()">
+                        <i class="fas fa-upload me-2"></i>Process Upload
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Tool Upload JavaScript -->
     <script>
+        // Global variables for the upload process
+        let currentAnalysisData = null;
+
         document.getElementById('toolsExcelFile').addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1113,15 +1866,15 @@
 
             uploadStatus.style.display = 'block';
             uploadProgress.style.display = 'block';
-            uploadStatus.innerHTML = '<div class="alert alert-info mb-0"><i class="fas fa-spinner fa-spin me-2"></i>Processing Excel file...</div>';
+            uploadStatus.innerHTML = '<div class="alert alert-info mb-0"><i class="fas fa-spinner fa-spin me-2"></i>Analyzing Excel file for duplicates...</div>';
             progressBar.style.width = '30%';
 
             // Create FormData
             const formData = new FormData();
             formData.append('file', file);
 
-            // Upload file
-            fetch('/tools/upload-excel', {
+            // First, analyze file for duplicates
+            fetch('/tools/analyze-excel', {
                 method: 'POST',
                 body: formData
             })
@@ -1131,28 +1884,29 @@
             })
             .then(data => {
                 progressBar.style.width = '100%';
+                currentAnalysisData = data;
                 
                 if (data.success) {
-                    uploadStatus.innerHTML = `
-                        <div class="alert alert-success mb-0">
-                            <i class="fas fa-check-circle me-2"></i>
-                            Successfully uploaded ${data.toolsCreated} tools! 
-                            <a href="#" onclick="location.reload()" class="alert-link">Refresh page to see new tools.</a>
-                        </div>
-                    `;
-                    
-                    // Reset file input
-                    document.getElementById('toolsExcelFile').value = '';
-                    
-                    // Auto-refresh after 3 seconds
-                    setTimeout(() => {
-                        location.reload();
-                    }, 3000);
+                    if (data.duplicateCount > 0) {
+                        // Show duplicate resolution modal
+                        showDuplicateResolutionModal(data);
+                        
+                        uploadStatus.innerHTML = `
+                            <div class="alert alert-warning mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Found ${data.duplicateCount} duplicate(s). Please review and resolve conflicts.
+                            </div>
+                        `;
+                    } else {
+                        // No duplicates, process directly
+                        uploadStatus.innerHTML = '<div class="alert alert-info mb-0"><i class="fas fa-spinner fa-spin me-2"></i>Processing Excel file...</div>';
+                        processFinalUpload(data.validRows, []);
+                    }
                 } else {
                     uploadStatus.innerHTML = `
                         <div class="alert alert-danger mb-0">
                             <i class="fas fa-exclamation-circle me-2"></i>
-                            ${data.error || 'Upload failed. Please check your file format and try again.'}
+                            ${data.error || 'Analysis failed. Please check your file format and try again.'}
                         </div>
                     `;
                 }
@@ -1163,7 +1917,7 @@
                 }, 2000);
             })
             .catch(error => {
-                console.error('Error uploading file:', error);
+                console.error('Error analyzing file:', error);
                 uploadStatus.innerHTML = `
                     <div class="alert alert-danger mb-0">
                         <i class="fas fa-exclamation-circle me-2"></i>
@@ -1173,6 +1927,402 @@
                 uploadProgress.style.display = 'none';
             });
         });
+
+        function showDuplicateResolutionModal(data) {
+            const modal = new bootstrap.Modal(document.getElementById('duplicateResolutionModal'));
+            
+            // Update duplicate count
+            document.getElementById('duplicateCount').textContent = data.duplicateCount;
+            
+            // Populate duplicates list
+            const duplicatesList = document.getElementById('duplicatesList');
+            duplicatesList.innerHTML = '';
+            
+            data.duplicates.forEach((duplicate, index) => {
+                const duplicateElement = createDuplicateElement(duplicate, index);
+                duplicatesList.appendChild(duplicateElement);
+            });
+            
+            // Initialize collapse event listeners after modal is shown
+            modal._element.addEventListener('shown.bs.modal', function () {
+                // Add event listeners to collapse elements to update the toggle all button
+                const collapseElements = document.querySelectorAll('.duplicate-item .collapse');
+                collapseElements.forEach(el => {
+                    el.addEventListener('shown.bs.collapse', updateToggleAllButton);
+                    el.addEventListener('hidden.bs.collapse', updateToggleAllButton);
+                });
+            });
+            
+            modal.show();
+        }
+
+        function createDuplicateElement(duplicate, index) {
+            const div = document.createElement('div');
+            div.className = 'card mb-3 duplicate-item';
+            div.setAttribute('data-index', index);
+            
+            const existing = duplicate.existing;
+            const newData = duplicate.new;
+            const differences = duplicate.differences;
+            const existingLocation = existing.location || 'No location';
+            
+            // Check if this is an exact match
+            const isExactMatch = isDataExactMatch(existing, newData);
+            if (isExactMatch) {
+                div.classList.add('exact-match');
+            }
+            
+            div.innerHTML = `
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col-md-1">
+                            <button class="collapse-toggle collapsed" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#duplicateCollapse${index}" aria-expanded="false" 
+                                    aria-controls="duplicateCollapse${index}">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-tools me-1"></i>
+                                    <strong>Row ${newData.rowNumber}:</strong> "${newData.toolName}"${isExactMatch ? ' <span class="badge bg-success">Exact Match</span>' : ''}
+                                </div>
+                                <div class="text-muted small">
+                                    Matches: ${existing.toolName} in ${existingLocation}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="btn-group float-end" role="group">
+                                <input type="radio" class="btn-check" name="action_${index}" id="overwrite_${index}" value="overwrite" checked>
+                                <label class="btn btn-outline-warning btn-xs" for="overwrite_${index}">
+                                    <i class="fas fa-edit"></i> Overwrite
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="action_${index}" id="skip_${index}" value="skip">
+                                <label class="btn btn-outline-secondary btn-xs" for="skip_${index}">
+                                    <i class="fas fa-times"></i> Skip
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="collapse" id="duplicateCollapse${index}">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-primary"><i class="fas fa-database me-2"></i>Existing Tool</h6>
+                                ${createToolComparisonHtml(existing, differences, 'existing', newData)}
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-success"><i class="fas fa-file-excel me-2"></i>Excel Data</h6>
+                                ${createToolComparisonHtml(newData, differences, 'new', existing)}
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-info">
+                                <i class="fas fa-lightbulb me-1"></i>
+                                <strong>Duplicate Reason(s):</strong> ${duplicate.duplicateReasons.join(', ')}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            return div;
+        }
+
+        function isDataExactMatch(existing, newData) {
+            const fields = [
+                'toolName', 'toolName2', 'type', 'modelNumber1', 'modelNumber2', 
+                'serialNumber1', 'serialNumber2', 'location'
+            ];
+            
+            return fields.every(field => {
+                const existingValue = normalizeFieldValue(existing[field]);
+                const newValue = normalizeFieldValue(newData[field]);
+                
+                // Special case for type - case insensitive comparison
+                if (field === 'type') {
+                    return existingValue.toLowerCase() === newValue.toLowerCase();
+                }
+                
+                return existingValue === newValue;
+            });
+        }
+        
+        function normalizeFieldValue(value) {
+            if (value === null || value === undefined || value === '') {
+                return '(empty)';
+            }
+            return String(value).trim();
+        }
+        
+        function getFieldHighlightType(existingValue, newValue, fieldKey) {
+            const normalizedExisting = normalizeFieldValue(existingValue);
+            const normalizedNew = normalizeFieldValue(newValue);
+            
+            // Special case for type - case insensitive comparison
+            if (fieldKey === 'type') {
+                if (normalizedExisting.toLowerCase() === normalizedNew.toLowerCase()) {
+                    return 'none'; // No highlighting for case-insensitive matches
+                }
+            } else {
+                if (normalizedExisting === normalizedNew) {
+                    return 'none'; // No highlighting for exact matches
+                }
+            }
+            
+            // Data won't migrate (existing has data, new is empty)
+            if (normalizedExisting !== '(empty)' && normalizedNew === '(empty)') {
+                return 'missing';
+            }
+            
+            // New data being added (existing is empty, new has data)
+            if (normalizedExisting === '(empty)' && normalizedNew !== '(empty)') {
+                return 'added';
+            }
+            
+            // Data is being changed (both have data but different)
+            if (normalizedExisting !== '(empty)' && normalizedNew !== '(empty)') {
+                return 'changed';
+            }
+            
+            return 'none';
+        }
+
+        function createToolComparisonHtml(data, differences, side, existingData = null) {
+            const fields = [
+                { key: 'toolName', label: 'Tool Name' },
+                { key: 'toolName2', label: 'Tool Name 2' },
+                { key: 'type', label: 'Type' },
+                { key: 'modelNumber1', label: 'Model 1' },
+                { key: 'modelNumber2', label: 'Model 2' },
+                { key: 'serialNumber1', label: 'Serial 1' },
+                { key: 'serialNumber2', label: 'Serial 2' },
+                { key: 'location', label: 'Location' }
+            ];
+            
+            let html = '<div class="tool-comparison">';
+            
+            fields.forEach(field => {
+                const value = normalizeFieldValue(data[field.key]);
+                let cssClass = '';
+                
+                if (side === 'new' && existingData) {
+                    // For new side, show what's being added, changed, or missing
+                    const existingValue = existingData[field.key];
+                    const highlightType = getFieldHighlightType(existingValue, data[field.key], field.key);
+                    
+                    switch (highlightType) {
+                        case 'added':
+                            cssClass = 'text-added fw-bold';
+                            break;
+                        case 'changed':
+                            cssClass = 'text-changed fw-bold';
+                            break;
+                        case 'missing':
+                            cssClass = 'text-missing fw-bold';
+                            break;
+                    }
+                }
+                
+                html += `
+                    <div class="mb-1">
+                        <small class="text-muted">${field.label}:</small>
+                        <div class="${cssClass}">${value}</div>
+                    </div>
+                `;
+            });
+            
+            // Add additional existing tool info
+            if (side === 'existing') {
+                if (data.status) {
+                    html += `
+                        <div class="mb-1">
+                            <small class="text-muted">Status:</small>
+                            <div>${data.status}</div>
+                        </div>
+                    `;
+                }
+                if (data.setDate) {
+                    html += `
+                        <div class="mb-1">
+                            <small class="text-muted">Set Date:</small>
+                            <div>${data.setDate}</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        function selectAllDuplicateActions(action) {
+            const radioInputs = document.querySelectorAll(`input[type="radio"][value="${action}"]`);
+            radioInputs.forEach(input => {
+                input.checked = true;
+            });
+        }
+
+        function toggleAllCollapses() {
+            const collapseElements = document.querySelectorAll('.duplicate-item .collapse');
+            const collapseButtons = document.querySelectorAll('.collapse-toggle');
+            const toggleButton = document.getElementById('collapseExpandAllBtn');
+            
+            // Check if any are expanded
+            const anyExpanded = Array.from(collapseElements).some(el => el.classList.contains('show'));
+            
+            if (anyExpanded) {
+                // Collapse all
+                collapseElements.forEach(el => {
+                    const bsCollapse = bootstrap.Collapse.getOrCreateInstance(el);
+                    bsCollapse.hide();
+                });
+                collapseButtons.forEach(btn => btn.classList.add('collapsed'));
+                toggleButton.innerHTML = '<i class="fas fa-expand-alt me-1"></i>Expand All';
+            } else {
+                // Expand all
+                collapseElements.forEach(el => {
+                    const bsCollapse = bootstrap.Collapse.getOrCreateInstance(el);
+                    bsCollapse.show();
+                });
+                collapseButtons.forEach(btn => btn.classList.remove('collapsed'));
+                toggleButton.innerHTML = '<i class="fas fa-compress-alt me-1"></i>Collapse All';
+            }
+        }
+
+        function updateToggleAllButton() {
+            const collapseElements = document.querySelectorAll('.duplicate-item .collapse');
+            const toggleButton = document.getElementById('collapseExpandAllBtn');
+            
+            if (!collapseElements.length || !toggleButton) return;
+            
+            const anyExpanded = Array.from(collapseElements).some(el => el.classList.contains('show'));
+            
+            if (anyExpanded) {
+                toggleButton.innerHTML = '<i class="fas fa-compress-alt me-1"></i>Collapse All';
+            } else {
+                toggleButton.innerHTML = '<i class="fas fa-expand-alt me-1"></i>Expand All';
+            }
+        }
+
+        function processDuplicateResolutions() {
+            if (!currentAnalysisData) {
+                alert('No analysis data available. Please restart the upload process.');
+                return;
+            }
+            
+            // Collect user choices
+            const duplicateResolutions = [];
+            const duplicateItems = document.querySelectorAll('.duplicate-item');
+            
+            duplicateItems.forEach((item, index) => {
+                const actionInput = item.querySelector(`input[name="action_${index}"]:checked`);
+                const action = actionInput ? actionInput.value : 'skip';
+                
+                const originalDuplicate = currentAnalysisData.duplicates[index];
+                duplicateResolutions.push({
+                    existingToolId: originalDuplicate.existingToolId,
+                    action: action,
+                    new: originalDuplicate.new
+                });
+            });
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('duplicateResolutionModal'));
+            modal.hide();
+            
+            // Process the final upload
+            processFinalUpload(currentAnalysisData.validRows, duplicateResolutions);
+        }
+
+        function processFinalUpload(validRows, duplicateResolutions) {
+            const uploadStatus = document.getElementById('uploadStatus');
+            const uploadProgress = document.getElementById('uploadProgress');
+            const progressBar = uploadProgress.querySelector('.progress-bar');
+            
+            uploadStatus.style.display = 'block';
+            uploadProgress.style.display = 'block';
+            uploadStatus.innerHTML = '<div class="alert alert-info mb-0"><i class="fas fa-spinner fa-spin me-2"></i>Creating and updating tools...</div>';
+            progressBar.style.width = '30%';
+            
+            const requestData = {
+                validRows: validRows,
+                duplicateResolutions: duplicateResolutions
+            };
+            
+            fetch('/tools/process-excel-with-duplicates', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                progressBar.style.width = '70%';
+                return response.json();
+            })
+            .then(data => {
+                progressBar.style.width = '100%';
+                
+                if (data.success) {
+                    let message = `Successfully processed ${data.totalProcessed} tools! `;
+                    if (data.toolsCreated > 0) message += `Created: ${data.toolsCreated}. `;
+                    if (data.toolsUpdated > 0) message += `Updated: ${data.toolsUpdated}. `;
+                    if (data.toolsSkipped > 0) message += `Skipped: ${data.toolsSkipped}. `;
+                    
+                    uploadStatus.innerHTML = `
+                        <div class="alert alert-success mb-0">
+                            <i class="fas fa-check-circle me-2"></i>
+                            ${message}
+                            <a href="#" onclick="location.reload()" class="alert-link">Refresh page to see changes.</a>
+                        </div>
+                    `;
+                    
+                    // Show audit messages if any
+                    if (data.auditMessages && data.auditMessages.length > 0) {
+                        const auditDiv = document.createElement('div');
+                        auditDiv.className = 'alert alert-info mt-2';
+                        auditDiv.innerHTML = '<strong>Changes made:</strong><ul class="mb-0">' + 
+                            data.auditMessages.map(msg => `<li>${msg}</li>`).join('') + '</ul>';
+                        uploadStatus.appendChild(auditDiv);
+                    }
+                    
+                    // Reset file input
+                    document.getElementById('toolsExcelFile').value = '';
+                    
+                    // Auto-refresh after 5 seconds
+                    setTimeout(() => {
+                        location.reload();
+                    }, 5000);
+                } else {
+                    uploadStatus.innerHTML = `
+                        <div class="alert alert-danger mb-0">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            ${data.error || 'Upload failed. Please try again.'}
+                        </div>
+                    `;
+                }
+                
+                // Hide progress bar after a delay
+                setTimeout(() => {
+                    uploadProgress.style.display = 'none';
+                }, 3000);
+            })
+            .catch(error => {
+                console.error('Error processing upload:', error);
+                uploadStatus.innerHTML = `
+                    <div class="alert alert-danger mb-0">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Network error occurred. Please try again.
+                    </div>
+                `;
+                uploadProgress.style.display = 'none';
+            });
+        }
 
         // Format problem details for popover display
         function formatProblemDetailsForPopover(problemDetails) {

@@ -222,7 +222,7 @@ public class DataInitializer implements CommandLineRunner {
                 tool.setSerialNumber2(td.serialNumber2);
             }
 
-            tool.setLocation(f52Location); 
+            tool.setLocationName("AZ F52"); 
             
             // Set specific tool statuses based on user requirements
             if ("RAK152D".equals(td.name)) {

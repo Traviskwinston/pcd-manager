@@ -277,10 +277,16 @@ function setupEventListeners() {
  * Setup control buttons
  */
 function setupControlButtons() {
-    // Mode buttons
+    // Mode buttons - remove any existing event listeners first
     document.querySelectorAll('.grid-control-btn[data-mode]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            setMode(btn.dataset.mode);
+        // Remove existing event listeners by cloning and replacing the element
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        // Add the event listener to the new element
+        newBtn.addEventListener('click', () => {
+            console.log('Mode button clicked:', newBtn.dataset.mode);
+            setMode(newBtn.dataset.mode);
         });
     });
     
@@ -1328,65 +1334,112 @@ function saveGridState() {
     }
 }
 
+// Flag to prevent multiple simultaneous calls
+let isPopulatingToolDropdown = false;
+
 /**
  * Populate tool dropdown with available tools
+ * Always fetch from API to ensure proper filtering (location-based, excluding tools already on map)
  */
 function populateToolDropdown() {
+    // Prevent multiple simultaneous calls
+    if (isPopulatingToolDropdown) {
+        console.log('populateToolDropdown already in progress, skipping...');
+        return;
+    }
+    
     const toolSelect = document.getElementById('tool-select');
     if (!toolSelect) return;
+    
+    // Set flag to prevent duplicate calls
+    isPopulatingToolDropdown = true;
     
     // Clear existing options
     toolSelect.innerHTML = '';
     
-    // Check if we have already loaded the tools from window.allToolsData
-    if (window.allToolsData && Array.isArray(window.allToolsData)) {
-        // Use the data that was already loaded with the page
-        window.allToolsData.forEach(tool => {
-            const option = document.createElement('option');
-            option.value = tool.id;
-            option.text = `${tool.name} - ${tool.model || ''}`;
-            option.setAttribute('data-type', tool.type || '');
-            option.setAttribute('data-model', tool.model || '');
-            option.setAttribute('data-serial', tool.serial || '');
-            option.setAttribute('data-status', tool.status || '');
-            toolSelect.appendChild(option);
-        });
-        
-        // Set default selection if available
-        if (window.allToolsData.length > 0) {
-            selectedToolId = window.allToolsData[0].id;
-            toolSelect.value = selectedToolId;
-        }
-        
-        console.log(`Populated dropdown with ${window.allToolsData.length} tools from cached data`);
-        return;
-    }
+    console.log('Starting populateToolDropdown...');
     
-    // If we don't have the data cached, fetch it from the API
+    // Always fetch from API to get properly filtered tools (by location, excluding tools already on map)
+    // window.allToolsData includes all tools from location but doesn't filter out tools already on the map
     fetch('/api/map/available-tools')
         .then(response => response.json())
-        .then(tools => {
-            tools.forEach(tool => {
+        .then(data => {
+            const tools = data.tools || data; // Handle both new and old response format
+            console.log(`Loading ${tools.length} available tools for map`);
+            
+            // Create expanded tool list with Feed variants for slurry tools
+            const expandedTools = [];
+            
+            tools.forEach((tool, index) => {
+                // Check placement status for this tool
+                const regularPlaced = tool.regularPlaced || false;
+                const feedPlaced = tool.feedPlaced || false;
+                
+                // Add the original tool only if it's not already placed
+                if (!regularPlaced) {
+                    expandedTools.push({
+                        id: tool.id,
+                        name: tool.name,
+                        model: tool.model,
+                        serial: tool.serial,
+                        type: tool.type,
+                        status: tool.status,
+                        isFeed: false
+                    });
+                }
+                
+                // Check if this is a slurry tool (ends with 'D') and feed variant not placed
+                if (tool.name && tool.name.toUpperCase().endsWith('D') && !feedPlaced) {
+                    // Create Feed variant (replace 'D' with 'F')
+                    const feedName = tool.name.slice(0, -1) + 'F';
+                    expandedTools.push({
+                        id: `${tool.id}_FEED`, // Special ID to indicate this is a feed variant
+                        name: feedName,
+                        model: tool.model,
+                        serial: tool.serial,
+                        type: tool.type,
+                        status: tool.status,
+                        isFeed: true,
+                        originalToolId: tool.id // Keep reference to original tool
+                    });
+                    console.log(`Added Feed variant: ${feedName} for slurry tool: ${tool.name} (regular placed: ${regularPlaced}, feed placed: ${feedPlaced})`);
+                }
+            });
+            
+            // Populate dropdown with expanded tool list
+            expandedTools.forEach((tool, index) => {
                 const option = document.createElement('option');
                 option.value = tool.id;
-                option.text = `${tool.name} - ${tool.model1 || ''}`;
-                option.setAttribute('data-type', tool.toolType || '');
-                option.setAttribute('data-model', tool.model1 || '');
-                option.setAttribute('data-serial', tool.serialNumber1 || '');
+                option.text = `${tool.name} - ${tool.model || ''}${tool.isFeed ? ' (Feed)' : ''}`;
+                option.setAttribute('data-type', tool.type || '');
+                option.setAttribute('data-model', tool.model || '');
+                option.setAttribute('data-serial', tool.serial || '');
                 option.setAttribute('data-status', tool.status || '');
+                option.setAttribute('data-is-feed', tool.isFeed || false);
+                option.setAttribute('data-original-tool-id', tool.originalToolId || tool.id);
                 toolSelect.appendChild(option);
             });
             
             // Set default selection if available
-            if (tools.length > 0) {
-                selectedToolId = tools[0].id;
+            if (expandedTools.length > 0) {
+                selectedToolId = expandedTools[0].id;
                 toolSelect.value = selectedToolId;
             }
             
-            console.log(`Populated dropdown with ${tools.length} tools from API`);
+            console.log(`Successfully populated dropdown with ${expandedTools.length} available variants`);
         })
         .catch(error => {
             console.error('Error loading available tools:', error);
+            // Show user-friendly message in dropdown if API fails
+            const option = document.createElement('option');
+            option.value = '';
+            option.text = 'Error loading tools - please refresh page';
+            option.disabled = true;
+            toolSelect.appendChild(option);
+        })
+        .finally(() => {
+            // Reset flag regardless of success or failure
+            isPopulatingToolDropdown = false;
         });
 }
 
@@ -1429,9 +1482,9 @@ function createToolPreview() {
             width = 4 * gridSize;
             height = 2 * gridSize;
             break;
-        case '2x2':
-            width = 2 * gridSize;
-            height = 2 * gridSize;
+        case '3x3':
+            width = 3 * gridSize;
+            height = 3 * gridSize;
             break;
         case '2x4':
             width = 2 * gridSize;
@@ -1495,9 +1548,20 @@ function createToolPreview() {
         name: 'mainRect'
     });
     
+    // Format tool name for display with line breaks
+    let displayName = toolName;
+    if (displayName) {
+        const match = displayName.match(/^([A-Za-z]+)(\d+[A-Za-z]*)$/);
+        if (match) {
+            const letterPrefix = match[1]; // e.g., "RAK"
+            const numberSuffix = match[2]; // e.g., "151F"
+            displayName = letterPrefix + '\n' + numberSuffix;
+        }
+    }
+    
     // Create text label
     const text = new Konva.Text({
-        text: toolName,
+        text: displayName,
         fontSize: 14,
         fontFamily: 'Arial',
         fill: colors.textFill,
@@ -1505,6 +1569,7 @@ function createToolPreview() {
         verticalAlign: 'middle',
         width: width,
         height: height,
+        lineHeight: 1.2, // Adjust line spacing for multi-line text
         name: 'text'
     });
     
@@ -1628,9 +1693,9 @@ function placeTool() {
             width = 4 * gridSize;
             height = 2 * gridSize;
             break;
-        case '2x2':
-            width = 2 * gridSize;
-            height = 2 * gridSize;
+        case '3x3':
+            width = 3 * gridSize;
+            height = 3 * gridSize;
             break;
         case '2x4':
             width = 2 * gridSize;
@@ -1671,6 +1736,9 @@ function placeTool() {
         
         // Reset to select mode
         setMode('select');
+        
+        // Refresh the tool dropdown to remove the placed tool/feed variant
+        populateToolDropdown();
     })
     .catch(error => {
         console.error('Error placing tool:', error);
@@ -2122,6 +2190,25 @@ function createToolShape(data) {
     // Format tool name for display
     let displayName = toolData.name;
     
+    // Check if this is a feed tool (indicated by the 'text' field being 'FEED')
+    const isFeedTool = data.text === 'FEED';
+    if (isFeedTool && displayName.toUpperCase().endsWith('D')) {
+        // Convert tool name from 'D' ending to 'F' ending for feed tools
+        displayName = displayName.slice(0, -1) + 'F';
+        console.log(`Displaying feed tool: ${displayName} (original: ${toolData.name})`);
+    }
+    
+    // Add line break between letter prefix and number+letter suffix
+    // Example: "RAK151F" becomes "RAK\n151F"
+    if (displayName) {
+        const match = displayName.match(/^([A-Za-z]+)(\d+[A-Za-z]*)$/);
+        if (match) {
+            const letterPrefix = match[1]; // e.g., "RAK"
+            const numberSuffix = match[2]; // e.g., "151F"
+            displayName = letterPrefix + '\n' + numberSuffix;
+        }
+    }
+    
     // Create text label
     const text = new Konva.Text({
         text: displayName,
@@ -2132,6 +2219,7 @@ function createToolShape(data) {
         verticalAlign: 'middle',
         width: width,
         height: height,
+        lineHeight: 1.2, // Adjust line spacing for multi-line text
         name: 'text'
     });
     

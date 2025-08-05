@@ -28,4 +28,8 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
 
     // Method to find a location by state and fab
     Optional<Location> findByStateAndFab(String state, String fab);
+    
+    // Method to find a location by name or display_name
+    @Query("SELECT l FROM Location l WHERE l.name = :name OR l.displayName = :name")
+    Optional<Location> findByNameOrDisplayName(@Param("name") String name);
 } 
