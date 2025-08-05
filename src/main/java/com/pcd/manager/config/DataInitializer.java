@@ -2,59 +2,24 @@ package com.pcd.manager.config;
 
 import com.pcd.manager.model.User;
 import com.pcd.manager.model.Tool;
-import com.pcd.manager.model.Passdown;
 import com.pcd.manager.model.Location;
 import com.pcd.manager.model.MapGridItem;
 import com.pcd.manager.repository.UserRepository;
 import com.pcd.manager.repository.ToolRepository;
-import com.pcd.manager.repository.PassdownRepository;
 import com.pcd.manager.repository.LocationRepository;
 import com.pcd.manager.repository.MapGridItemRepository;
-// import com.pcd.manager.repository.TrackTrendRepository; 
-// import com.pcd.manager.model.TrackTrend; // No longer creating sample track trends here
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-// import java.util.Arrays; // No longer needed for old sample tools
-// import java.util.HashSet; // No longer needed for sample passdowns/tracktrends
-// import java.util.HashMap; // No longer needed for sample passdowns
-import java.util.Optional;
-// import java.util.Collections; // No longer needed for sample track trends
 import java.util.ArrayList;
-import jakarta.annotation.PostConstruct;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.MonthDay;
-import com.pcd.manager.model.Rma;
-import com.pcd.manager.model.RmaStatus;
-import com.pcd.manager.model.RmaPriority;
-import com.pcd.manager.model.RmaReasonForRequest;
-import com.pcd.manager.model.PartLineItem;
-import com.pcd.manager.repository.RmaRepository;
-import com.pcd.manager.model.RmaComment;
-import com.pcd.manager.repository.RmaCommentRepository;
-import com.pcd.manager.model.TrackTrend;
-import com.pcd.manager.model.TrackTrendComment;
-import com.pcd.manager.model.ToolComment;
-import com.pcd.manager.repository.TrackTrendRepository;
-import com.pcd.manager.repository.TrackTrendCommentRepository;
-import com.pcd.manager.repository.ToolCommentRepository;
+import java.util.List;
+import java.util.Optional;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -62,50 +27,36 @@ public class DataInitializer implements CommandLineRunner {
     private static final Logger logger = LoggerFactory.getLogger(DataInitializer.class);
     private final UserRepository userRepository;
     private final ToolRepository toolRepository;
-    private final PassdownRepository passdownRepository;
     private final LocationRepository locationRepository;
     private final PasswordEncoder passwordEncoder;
     private final MapGridItemRepository mapGridItemRepository;
-    private final RmaRepository rmaRepository;
-    private final RmaCommentRepository rmaCommentRepository;
-    private final ToolCommentRepository toolCommentRepository;
-    private final TrackTrendRepository trackTrendRepository;
-    private final TrackTrendCommentRepository trackTrendCommentRepository;
 
     @Autowired
     public DataInitializer(
             UserRepository userRepository,
             ToolRepository toolRepository,
-            PassdownRepository passdownRepository,
             LocationRepository locationRepository,
             PasswordEncoder passwordEncoder,
-            MapGridItemRepository mapGridItemRepository,
-            RmaRepository rmaRepository,
-            RmaCommentRepository rmaCommentRepository,
-            ToolCommentRepository toolCommentRepository,
-            TrackTrendRepository trackTrendRepository,
-            TrackTrendCommentRepository trackTrendCommentRepository) {
+            MapGridItemRepository mapGridItemRepository) {
         this.userRepository = userRepository;
         this.toolRepository = toolRepository;
-        this.passdownRepository = passdownRepository;
         this.locationRepository = locationRepository;
         this.passwordEncoder = passwordEncoder;
         this.mapGridItemRepository = mapGridItemRepository;
-        this.rmaRepository = rmaRepository;
-        this.rmaCommentRepository = rmaCommentRepository;
-        this.toolCommentRepository = toolCommentRepository;
-        this.trackTrendRepository = trackTrendRepository;
-        this.trackTrendCommentRepository = trackTrendCommentRepository;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
         try {
-            // Create default admin user if no users exist
+            // Create users if none exist
             if (userRepository.count() == 0) {
                 createDefaultAdmin();
                 createTestUsers();
+                createSpecificUsers();
+            } else {
+                // Update existing users if needed
+                updateExistingUsers();
             }
             
             // Create tools from CSV if none exist
@@ -116,21 +67,6 @@ public class DataInitializer implements CommandLineRunner {
             // Create specific user and assign to tool for testing
             // This should run after tools are potentially created from CSV
             createAndAssignDuaneSmith();
-            
-            // Create historical RMAs
-            createHistoricalRmas();
-            
-            // Create RMA comments
-            createRmaComments();
-            
-            // Create tool comments
-            createToolComments();
-            
-            // Create historical Passdowns
-            createHistoricalPassdowns();
-            
-            // Create Track/Trends
-            createTrackTrends();
             
             // Create facility grid layout
             createFacilityGridLayout();
@@ -177,6 +113,116 @@ public class DataInitializer implements CommandLineRunner {
         userRepository.save(techUser);
         
         logger.info("Test technician user created: tech@pcd.com / tech123");
+    }
+    
+    private void createSpecificUsers() {
+        // Create Travis Winston (Admin)
+        User travisUser = new User();
+        travisUser.setEmail("Travis.Winston@emdgroup.com");
+        travisUser.setPassword(passwordEncoder.encode("5Z2eyQfc!"));
+        travisUser.setName("Travis Winston");
+        travisUser.setRole("ADMIN");
+        travisUser.setActive(true);
+        
+        // Set default location as active site if available
+        Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
+        defaultLocation.ifPresent(travisUser::setActiveSite);
+        
+        userRepository.save(travisUser);
+        logger.info("Travis Winston user created: Travis.Winston@emdgroup.com");
+        
+        // Create Casey James (Technician)
+        User caseyUser = new User();
+        caseyUser.setEmail("Casey.James@emdgroup.com");
+        caseyUser.setPassword(passwordEncoder.encode("emdpassword1"));
+        caseyUser.setName("Casey James");
+        caseyUser.setRole("TECHNICIAN");
+        caseyUser.setActive(true);
+        
+        defaultLocation.ifPresent(caseyUser::setActiveSite);
+        
+        userRepository.save(caseyUser);
+        logger.info("Casey James user created: Casey.James@emdgroup.com");
+        
+        // Create Guest user
+        User guestUser = new User();
+        guestUser.setEmail("Guest@pcdmanager.com");
+        guestUser.setPassword(passwordEncoder.encode("emdpassword1"));
+        guestUser.setName("Guest User");
+        guestUser.setRole("TECHNICIAN");
+        guestUser.setActive(true);
+        
+        defaultLocation.ifPresent(guestUser::setActiveSite);
+        
+        userRepository.save(guestUser);
+        logger.info("Guest user created: Guest@pcdmanager.com");
+    }
+    
+    private void updateExistingUsers() {
+        // Update Duane Smith password if he exists
+        Optional<User> duaneUser = userRepository.findByEmailIgnoreCase("duane.smith@emdgroup.com");
+        if (duaneUser.isPresent()) {
+            User duane = duaneUser.get();
+            duane.setPassword(passwordEncoder.encode("emdpassword1"));
+            userRepository.save(duane);
+            logger.info("Updated Duane Smith password");
+        }
+        
+        // Ensure Travis exists and is admin
+        Optional<User> travisUser = userRepository.findByEmailIgnoreCase("Travis.Winston@emdgroup.com");
+        if (travisUser.isEmpty()) {
+            User travis = new User();
+            travis.setEmail("Travis.Winston@emdgroup.com");
+            travis.setPassword(passwordEncoder.encode("5Z2eyQfc!"));
+            travis.setName("Travis Winston");
+            travis.setRole("ADMIN");
+            travis.setActive(true);
+            
+            Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
+            defaultLocation.ifPresent(travis::setActiveSite);
+            
+            userRepository.save(travis);
+            logger.info("Created Travis Winston user: Travis.Winston@emdgroup.com");
+        } else {
+            User travis = travisUser.get();
+            travis.setRole("ADMIN");
+            userRepository.save(travis);
+            logger.info("Updated Travis Winston role to ADMIN");
+        }
+        
+        // Ensure Casey exists
+        Optional<User> caseyUser = userRepository.findByEmailIgnoreCase("Casey.James@emdgroup.com");
+        if (caseyUser.isEmpty()) {
+            User casey = new User();
+            casey.setEmail("Casey.James@emdgroup.com");
+            casey.setPassword(passwordEncoder.encode("emdpassword1"));
+            casey.setName("Casey James");
+            casey.setRole("TECHNICIAN");
+            casey.setActive(true);
+            
+            Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
+            defaultLocation.ifPresent(casey::setActiveSite);
+            
+            userRepository.save(casey);
+            logger.info("Created Casey James user: Casey.James@emdgroup.com");
+        }
+        
+        // Ensure Guest exists
+        Optional<User> guestUser = userRepository.findByEmailIgnoreCase("Guest@pcdmanager.com");
+        if (guestUser.isEmpty()) {
+            User guest = new User();
+            guest.setEmail("Guest@pcdmanager.com");
+            guest.setPassword(passwordEncoder.encode("emdpassword1"));
+            guest.setName("Guest User");
+            guest.setRole("TECHNICIAN");
+            guest.setActive(true);
+            
+            Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
+            defaultLocation.ifPresent(guest::setActiveSite);
+            
+            userRepository.save(guest);
+            logger.info("Created Guest user: Guest@pcdmanager.com");
+        }
     }
     
     private void createHardcodedTools() {
@@ -326,7 +372,7 @@ public class DataInitializer implements CommandLineRunner {
         if (existingUser.isEmpty()) {
             duaneSmithUser = new User();
             duaneSmithUser.setEmail("duane.smith@emdgroup.com");
-            duaneSmithUser.setPassword(passwordEncoder.encode("password123")); 
+            duaneSmithUser.setPassword(passwordEncoder.encode("emdpassword1")); 
             duaneSmithUser.setName("Duane Smith");
             duaneSmithUser.setRole("TECHNICIAN");
             duaneSmithUser.setActive(true);
@@ -369,844 +415,6 @@ public class DataInitializer implements CommandLineRunner {
         } else {
              logger.info("Tool RR151D not found, cannot update its technician list with Duane Smith.");
         }
-    }
-
-    private void createHistoricalRmas() {
-        logger.info("=== CHECKING HISTORICAL RMA CREATION ===");
-        long rmaCount = rmaRepository.count();
-        logger.info("Current RMA count: {}", rmaCount);
-        
-        if (rmaCount > 0) {
-            logger.info("RMAs already exist, skipping historical RMA creation");
-            return;
-        }
-        
-        logger.info("Creating historical RMA data from CSV...");
-        
-        // Check if tools exist
-        long toolCount = toolRepository.count();
-        logger.info("Available tools count: {}", toolCount);
-        if (toolCount == 0) {
-            logger.warn("No tools found in database - RMA creation may fail");
-        }
-        
-        // RMA Numbers from company records
-        String[] rmaNumbers = {
-            "300030625", "300030952", "300030947", "300030626", "300030633", "300030624", "300029336", "300031325",
-            "300030951", "300031245", "300033169", "300031369", "300031311", "300031160", "300031359", "300031592",
-            "300032324", "300031407", "300031498", "300031417", "300031923", "300031962", "300031409", "300031749",
-            "300031763", "300031947", "300031926", "300032220", "300032229", "300032116", "300032144", "300032257",
-            "300032380", "300032343", "300032115", "300032145", "300032224", "300032221", "300032223", "300032188"
-        };
-        
-        // Random statuses - using only valid enum values
-        RmaStatus[] statuses = {RmaStatus.RMA_WRITTEN_EMAILED, RmaStatus.NUMBER_PROVIDED, RmaStatus.MEMO_EMAILED, 
-                               RmaStatus.RECEIVED_PARTS, RmaStatus.WAITING_CUSTOMER, RmaStatus.WAITING_FSE, RmaStatus.COMPLETED};
-        
-        // Generic comments from Travis and Duane
-        String[] travisComments = {
-            "Travis: Replaced faulty component, tested and verified working properly.",
-            "Travis: Customer reported intermittent issues, running diagnostics.",
-            "Travis: Completed repair and calibration, ready for pickup.",
-            "Travis: Standard maintenance completed, all systems operational.",
-            "Travis: Emergency repair completed ahead of schedule.",
-            "Travis: Quality check passed, unit performing to specifications.",
-            "Travis: Warranty work completed, no charge to customer.",
-            "Travis: Software update applied, issue resolved.",
-            "Travis: Preventive maintenance performed during repair.",
-            "Travis: Rush job completed for critical production tool.",
-            "Travis: Documented issue for engineering review.",
-            "Travis: Completed troubleshooting, root cause identified.",
-            "Travis: Unit tested extensively, all parameters within spec.",
-            "Travis: Customer training provided on proper operation.",
-            "Travis: Field repair completed at customer site."
-        };
-        
-        String[] duaneComments = {
-            "Duane: Initial inspection complete, ordering replacement parts.",
-            "Duane: Part arrived damaged, requesting replacement from vendor.",
-            "Duane: Troubleshooting electrical issue, may need circuit board replacement.",
-            "Duane: Waiting for customer approval on additional repair costs.",
-            "Duane: Part is backordered, customer notified of delay.",
-            "Duane: Complex repair required, additional time needed.",
-            "Duane: Investigating root cause of recurring failure.",
-            "Duane: Mechanical adjustment made, retesting in progress.",
-            "Duane: Collaborated with engineering on unusual failure mode.",
-            "Duane: Detailed diagnostics completed, part replacement needed.",
-            "Duane: Coordinating with vendor for expedited shipping.",
-            "Duane: Customer consultation scheduled for repair options.",
-            "Duane: Specialized tooling required for this repair.",
-            "Duane: Multiple components need replacement, preparing quote.",
-            "Duane: Environmental testing completed, unit ready for service."
-        };
-        
-        // Historical RMA data from CSV - Fixed tool names to match actual tool names in database
-        String[][] rmaData = {
-            {"KOR151", "UPW Incident", "10/1/2024", "", "", "UPW Incident with contractor", "Track & Trend"},
-            {"Atomizers", "Multiple Slurry Tools", "12/10/2024", "Yes", "Some", "Some has been cleaned and some were shipped out.", ""},
-            {"KOR151", "Photohelic", "12/10/2024", "2/27/2025", "", "UPW Incident with contractor - Contractor quote for parts.", "Track & Trend"},
-            {"BH151", "HV121", "11/14/2024", "4/24/2025", "4/24/2025", "Upw supply HV121 3/4\" Fluoroware leaking from weep hole - HV121 & HV221 were removed and placed in BH151D due to different model.", ""},
-            {"BH151", "Commons Door", "10/31/2024", "4/18/2025", "", "Door was cracked from over torqued with electrical drill", ""},
-            {"WL151D", "Inner connects", "11/15/2024", "", "", "1\" Prime Lock flare to 3/4\" male - Inner Connections for 5 and 7 Blend", "5/6/2025"},
-            {"WK151D", "Feed Tank", "8/12/2024", "24-Sep", "", "While opening door. Door was heavy slipped and fell on grating. The door cracked on bottom.", "4/9/2025"},
-            {"TM151D", "IY replacements", "12/11/2024", "1/28/2025", "", "2 IY for the scale needed for install", "Yes"},
-            {"JS151D", "CF01B Grey Peg", "12/10/2024", "12/18/2025", "", "Grey Standoff and plastic screw for CF01B - Received parts from Mike Southwell he had extra", "Yes"},
-            {"AH151", "HG01 hook & PS003", "12/16/2024", "Yes", "Yes", "PS003 not functioning correctly and Broken HG01 Hook", ""},
-            {"EF151D", "HG02 hook & Tank 1 lid handle", "12/19/2024", "Yes", "", "HG02 Hook Broken and Tank 1 Lid handle Broken", "5/23/2025"},
-            {"SSC151", "PV005", "12/30/2024", "4/18/2025", "4/22/2025", "PV005 Leaking from weep hole. RMA for SSC151D PV005 will go to KF152", ""},
-            {"KG151", "PV005", "12/30/2024", "4/18/2025", "4/22/2025", "PV005 Leaking from weep hole", ""},
-            {"VC151D", "PV009/PC009", "12/30/2024", "1/28/2025", "Yes", "Feed PV009/PC009 Failed", ""},
-            {"VC151D", "Wiring Track and Trend", "12/23/2024", "", "", "AT24 was not registering a reading. It was found that the green wire 467 was landed in the com location just above V/I 3- instead of V/I 3- itself.", "Track & Trend"},
-            {"FU151D", "AT023/AT025 wiring", "1/6/2025", "1/13/2025", "", "AT023/AT025 Wiring - Finishing kit", "AT025 - 1/14/2025"},
-            {"VC151D", "fast n tight reducer", "12/23/2024", "2/26/2025", "", "Leaking OFA from Fast n tight fitting in feed station after HV031 feeds OFA to PV009/PC009 DP01", "Installed"},
-            {"JP151D", "Tank 1", "1/14/2025", "4/10/2025", "", "JP151 Tank 1 cracked", ""},
-            {"JT151", "AE24", "1/14/2025", "Yes", "Yes", "Damaged while installing in tool", "In JP151 parts kit"},
-            {"KOR151", "McMillan", "1/16/2025", "2/26/2025", "", "McMillan failed not holding set point as desired", "3/20/2025"},
-            {"FU151D", "Stylus", "1/15/2025", "2/26/2025", "", "Stylus missing tip", ""},
-            {"HG151D", "HV035", "1/30/2025", "4/3/2025", "Yes", "Leaking UPW from weephole", ""},
-            {"HG151D", "PV015", "2/3/2025", "", "Yes", "Water pressure hammering due to regulator. Also broke the needle on the gauge", ""},
-            {"TM151D", "Dist Pump 1 IY3", "1/8/2025", "1/28/2025", "", "IY3 and PLC Interface not working well. Adjusted and could not calibrate", ""},
-            {"WC151D", "PV004", "2/7/2025", "2/20/2025", "Yes", "Leaking UPW from weephole", ""},
-            {"WC151D", "3-way valve base", "2/7/2025", "", "Yes", "Broken tabs on valve base", ""},
-            {"HG151D", "1/4\" elbow", "2/20/2025", "", "", "Leaking 1/4\" elbow at FT030", ""},
-            {"EK151D", "Feed Tank", "2/18/2025", "", "", "EK151D - Found small dots on the bottom of tank thank looked like rust. Unsure", ""},
-            {"EK151D", "LPC Cal. Loop & Return Supply", "2/18/2025", "3/20/2025", "", "EK151D - LPC Cal. Loop & Return Supply both fittings were broken and leaking", ""},
-            {"EK151D", "Blue Tags HV064 & HV065", "2/18/2025", "3/20/2025", "", "EK151D - Blue Tags HV064 & HV065 were found as CV064 &CV065", ""},
-            {"EK151D", "Feed Non-Commpression fitting", "2/18/2025", "3/25/2025", "", "EK151D - Feed Non-Commpression fitting that is off of the main OFA manifold feeding to PV010", ""},
-            {"BT151", "DT1 and DT2 Filters leaking", "2/18/2025", "4/2/2025", "", "BT151D - DT1 and DT2 Filters leaking", ""},
-            {"WR151D", "Tank 2 Crack and indent", "2/18/2025", "4/15/2025", "", "WR151D - Tank 2 Crack and indent", ""},
-            {"WR151D", "Tank 1 Track and trend", "2/26/2025", "", "", "WR151D - Tank 1 found a piece of broken plastic screw at the bottom of tank drain manifold.", "Track & Trend"},
-            {"BT152", "PV005, PV202, HV121", "2/26/2025", "4/18/2025", "", "PV005 not holding pressure, HV121 leaking at weep hole, PV202 not depressureizing correctly.", "5/12/2025"},
-            {"BT152", "Flow Controller Cable", "2/26/2025", "4/10/2025", "", "FC connector for UPW FC 121, was found damaged when removing heat shrink from connector.", "2/17/2025"},
-            {"HD152", "PV005", "2/27/2025", "4/18/2025", "4/22/2025", "Leaking from weephole. This part was removed and installed into BT152D NEEDED TO START TOOL UP ASAP", ""},
-            {"AH151", "Leaking Filters", "3/5/2025", "4/2/2025", "", "AH151D - Leaking filters on FL102 & FL201.", "Track & Trend"},
-            {"JP151D", "PV009/PC009", "3/6/2025", "3/14/2025", "", "JP151F - PV009/PC009 failed after", "Installed"},
-            {"JP151D", "FT002", "3/6/2025", "", "", "JP151F FT002 Wiring landed wrong", "Track & Trend"},
-            {"RE151D", "Tank 2 Crack", "3/11/2025", "4/15/2025", "", "RE151D - Crack Tank 2", ""},
-            {"GR151", "CV203", "3/12/2025", "5/16/2025", "", "GR151D - CV203", "5/20/2025"},
-            {"WK151D", "CP02", "3/13/2025", "4/2/2025", "", "CP02 leaking from side wall one of the plastic screw is not tightening", "Track & Trend"},
-            {"WK151D", "PV015, PI012, FT030", "3/21/2025", "", "", "Water pressure hammering due to regulator. Also broke the needle on the gauge. FT030 not giving feedback to FC030", "5/19/2025"},
-            {"WK151D", "PI012", "4/14/2025", "5/7/2025", "", "This part was replaced before and was damaged during start up.", ""},
-            {"JK151D", "Feed tank leak", "4/15/2025", "", "", "Cracked weld on Feed tank bottom fitting", ""},
-            {"JK151D", "Leak sensor retaining clips", "4/15/2025", "5/16/2025", "", "Missing leak sensor retaining clips", "5/21/2025"},
-            {"KF151", "PV005", "3/19/2025", "4/3/2025", "", "PV005 is Leaking from weep hole", ""},
-            {"RE151D", "FT002", "3/19/2025", "5/27/2025", "", "Intel was pulling chemical from the drum and noticed the FT002 on flow was constantly reading 0.", ""},
-            {"AR151", "PV005", "4/8/2025", "", "", "PV005 is Leaking from weep hole", ""},
-            {"KOR152", "Power Supply", "4/14/2025", "", "4/14/2025", "Power Supply 4PWS Sparked and smoked when power was turned on by Intel", "4/11/2025"},
-            {"XJ151D", "NV01 & NV02", "4/17/2025", "4/23/2025", "", "Valves are stripped on thread can't close or open. The valves keep turning.", ""},
-            {"JK151D", "Distribution Tank 2", "4/17/2025", "", "", "Distribution Tank 2 had gouge on the left side of the tank interior and scratch on the outerside of tank near gouge.", "Track & Trend"},
-            {"JK151D", "Distribution Tank 1", "4/17/2025", "", "", "Tank 1 has gouge on righ side of tank", "Track & Trend"},
-            {"JK151D", "Feed Tank", "4/15/2025", "", "", "Tank was leaking from weld on bottom of tank", ""},
-            {"JK151D", "Level sensor Clips", "4/15/2025", "", "", "Level sensors were missing retaining clips", ""},
-            {"JK151D", "Pneumatic lines swapped", "4/21/2025", "", "", "Feed and Blend solenoid lines were swapped front to back", "Track & Trend"},
-            {"RAK151D", "SOL #2", "4/10/2025", "", "", "Pin # 3 bent on SOL #2 wulit-wire connector, could not make connection", ""},
-            {"JP151D", "Flow line ultrasonic sensor", "4/28/2025", "", "", "Sensor was stuck on 100% ful when tank was empty and filled at 50%", ""},
-            {"JK151D", "HV013 Leak", "4/29/2025", "Yes", "Yes", "Intel was flushing system with UPW and noticed HV013 was leaking from side wall.", ""},
-            {"KT151D", "Tank 2 gouge", "5/1/2025", "", "", "Tank 2 has a gouge in the back of the tank.", ""},
-            {"RAK151D", "PI012", "4/8/2025", "5/5/2025", "Yes", "Pressure gauge needle broke and was not functioning correctly. The needle was slamming hard.", "5/19/2025"},
-            {"KT151D", "Feed tank scratches", "5/7/2025", "", "", "Scratches and small gouges in Feed Tank", "Track and Trend"},
-            {"KT151D", "PV004", "5/12/2025", "5/27/2025", "", "Leaking from weephole", ""},
-            {"JP151D", "non compression fitting", "5/16/2025", "", "", "Non compression fitting blew off", ""},
-            {"KT151D", "Oversized distribution tank", "5/14/2025", "", "", "Replacement tank was oversized and the standoff pegs had to be trimmed to make the tank fit", "Track and Trend"},
-            {"KT151D", "NV003 leaking", "5/20/2025", "", "", "NV003 leaking even after tightening", ""},
-            {"RAK152D", "HV038 leaking by", "5/22/2025", "", "", "HV038 leaking by", ""}
-        };
-        
-        int successCount = 0;
-        int failureCount = 0;
-        Random random = new Random();
-        
-        for (int i = 0; i < rmaData.length; i++) {
-            try {
-                String[] rmaRow = rmaData[i];
-                
-                // Get RMA number (cycle through if we have more RMAs than numbers)
-                String rmaNumber = rmaNumbers[i % rmaNumbers.length];
-                
-                // Get random status
-                RmaStatus randomStatus = statuses[random.nextInt(statuses.length)];
-                
-                // Get random comment (50/50 chance Travis or Duane)
-                String randomComment;
-                if (random.nextBoolean()) {
-                    randomComment = travisComments[random.nextInt(travisComments.length)];
-                } else {
-                    randomComment = duaneComments[random.nextInt(duaneComments.length)];
-                }
-                
-                createHistoricalRma(rmaRow, rmaNumber, randomStatus, randomComment);
-                successCount++;
-            } catch (Exception e) {
-                failureCount++;
-                logger.warn("Failed to create historical RMA for tool {}: {}", rmaData[i][0], e.getMessage());
-            }
-        }
-        
-        logger.info("Historical RMA data creation complete: {} successful, {} failed", successCount, failureCount);
-        
-        // Final count
-        long finalRmaCount = rmaRepository.count();
-        logger.info("Final RMA count in database: {}", finalRmaCount);
-    }
-    
-    private void createHistoricalRma(String[] rmaRow, String rmaNumber, RmaStatus randomStatus, String randomComment) {
-        String toolName = rmaRow[0];
-        String partName = rmaRow[1];
-        String writtenDate = rmaRow[2];
-        String partsReceivedDate = rmaRow[3];
-        String partsShippedDate = rmaRow[4];
-        String comments = rmaRow[5];
-        String closedIndicator = rmaRow[6];
-        
-        // Skip if essential info is missing
-        if (toolName == null || toolName.trim().isEmpty() || partName == null || partName.trim().isEmpty()) {
-            return;
-        }
-        
-        // Find the tool by name
-        Optional<Tool> toolOpt = toolRepository.findByName(toolName.trim());
-        if (!toolOpt.isPresent()) {
-            logger.warn("Tool not found: '{}'. Available tools: {}", toolName, 
-                      toolRepository.findAll().stream()
-                          .map(Tool::getName)
-                          .limit(10)
-                          .toArray());
-            return;
-        }
-        
-        logger.debug("Found tool: {} for RMA part: {}", toolName, partName);
-        
-        Tool tool = toolOpt.get();
-        Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
-        
-        // Create the RMA
-        Rma rma = new Rma();
-        rma.setTool(tool);
-        rma.setRmaNumber(rmaNumber);  // Use the provided RMA number
-        
-        // Set location to default if available
-        defaultLocation.ifPresent(rma::setLocation);
-        
-        // Parse and set written date
-        if (writtenDate != null && !writtenDate.trim().isEmpty()) {
-            try {
-                LocalDate date = parseFlexibleDate(writtenDate.trim());
-                if (date != null) {
-                    rma.setWrittenDate(date);
-                }
-            } catch (Exception e) {
-                logger.debug("Could not parse written date: {}", writtenDate);
-            }
-        }
-        
-        // Parse and set parts received date
-        if (partsReceivedDate != null && !partsReceivedDate.trim().isEmpty() && 
-            !partsReceivedDate.equalsIgnoreCase("Yes") && !partsReceivedDate.equalsIgnoreCase("N/A")) {
-            try {
-                LocalDate date = parseFlexibleDate(partsReceivedDate.trim());
-                if (date != null) {
-                    rma.setPartsReceivedDate(date);
-                }
-            } catch (Exception e) {
-                logger.debug("Could not parse parts received date: {}", partsReceivedDate);
-            }
-        }
-        
-        // Parse and set shipped date
-        if (partsShippedDate != null && !partsShippedDate.trim().isEmpty() && 
-            !partsShippedDate.equalsIgnoreCase("Yes") && !partsShippedDate.equalsIgnoreCase("N/A")) {
-            try {
-                LocalDate date = parseFlexibleDate(partsShippedDate.trim());
-                if (date != null) {
-                    rma.setFailedPartsShippedDate(date);
-                }
-            } catch (Exception e) {
-                logger.debug("Could not parse shipped date: {}", partsShippedDate);
-            }
-        }
-        
-        // Use the random status instead of original logic
-        rma.setStatus(randomStatus);
-        
-        // Set priority and reason
-        rma.setPriority(RmaPriority.MEDIUM);
-        rma.setReasonForRequest(RmaReasonForRequest.WARRANTY_REPLACEMENT);
-        
-        // Set problem information with original comments and random technician comments
-        String combinedComments = "";
-        if (comments != null && !comments.trim().isEmpty()) {
-            combinedComments = comments.trim() + "\n\n" + randomComment;
-        } else {
-            combinedComments = randomComment;
-        }
-        rma.setWhatHappened(combinedComments);
-        
-        // Create part line item
-        PartLineItem partLineItem = new PartLineItem();
-        partLineItem.setPartName(partName.trim());
-        partLineItem.setQuantity(1);
-        partLineItem.setReplacementRequired(true);
-        
-        List<PartLineItem> partLineItems = new ArrayList<>();
-        partLineItems.add(partLineItem);
-        rma.setPartLineItems(partLineItems);
-        
-        // Save the RMA
-        rmaRepository.save(rma);
-        
-        logger.debug("Created historical RMA for tool {} with part {}", toolName, partName);
-    }
-    
-    private void createRmaComments() {
-        logger.info("Creating RMA comments...");
-        
-        // Check if comments already exist
-        if (rmaCommentRepository.count() > 0) {
-            logger.info("RMA comments already exist, skipping comment creation");
-            return;
-        }
-        
-        List<Rma> allRmas = rmaRepository.findAll();
-        if (allRmas.isEmpty()) {
-            logger.warn("No RMAs found, cannot create comments");
-            return;
-        }
-        
-        // Get users for comments
-        List<User> users = userRepository.findAll();
-        if (users.isEmpty()) {
-            logger.warn("No users found, cannot create comments");
-            return;
-        }
-        
-        Random random = new Random();
-        
-        // Comment content arrays
-        String[] techComments = {
-            "Initial assessment complete. Ordering replacement parts from vendor.",
-            "Part received and inspected. Beginning repair work.",
-            "Repair completed successfully. Testing all functions.",
-            "Quality control check passed. Ready for customer pickup.",
-            "Customer notified of completion. Scheduling delivery.",
-            "Issue resolved. Root cause identified as normal wear.",
-            "Warranty claim approved. No charge to customer.",
-            "Additional testing required due to complexity of failure.",
-            "Collaborating with engineering team on unusual failure mode.",
-            "Expedited repair due to customer production requirements.",
-            "Preventive maintenance recommendations provided to customer.",
-            "Software update applied along with hardware repair.",
-            "Field service support requested for on-site installation.",
-            "Training provided to customer technician during delivery.",
-            "Documentation updated with repair details and recommendations."
-        };
-        
-        String[] statusComments = {
-            "Status updated - waiting for customer response on quote.",
-            "Parts shipped from supplier. Expected delivery tomorrow.",
-            "Customer approved additional repair work. Proceeding.",
-            "Temporary hold pending availability of specialized technician.",
-            "Priority upgraded due to customer production impact.",
-            "Coordinating with customer for convenient pickup time.",
-            "Final inspection completed. All specifications met.",
-            "Rush delivery requested by customer. Coordinating logistics.",
-            "Additional documentation required for warranty claim.",
-            "Customer satisfied with repair quality and turnaround time."
-        };
-        
-        String[] followUpComments = {
-            "Follow-up call scheduled for next week to check performance.",
-            "Recommended maintenance schedule provided to customer.",
-            "Similar issue patterns noted. Engineering review initiated.",
-            "Customer feedback positive. No further issues reported.",
-            "Monitoring for any recurring issues with this part type.",
-            "Vendor notified of part quality concerns for improvement.",
-            "Standard repair completed within expected timeframe.",
-            "Customer training completed on proper operation procedures.",
-            "Backup parts inventory updated based on failure analysis.",
-            "Process improvement suggestions documented for future reference."
-        };
-        
-        int commentsCreated = 0;
-        
-        // Create 0-3 comments per RMA, with some having 5-6
-        for (Rma rma : allRmas) {
-            int numComments;
-            // 85% chance of 0-3 comments, 15% chance of 5-6 comments
-            if (random.nextDouble() < 0.85) {
-                numComments = random.nextInt(4); // 0 to 3 comments
-            } else {
-                numComments = 5 + random.nextInt(2); // 5 or 6 comments
-            }
-            
-            for (int i = 0; i < numComments; i++) {
-                RmaComment comment = new RmaComment();
-                comment.setRma(rma);
-                comment.setUser(users.get(random.nextInt(users.size())));
-                
-                // Select comment type based on order
-                String content;
-                if (i == 0) {
-                    content = techComments[random.nextInt(techComments.length)];
-                } else if (i == 1) {
-                    content = statusComments[random.nextInt(statusComments.length)];
-                } else {
-                    content = followUpComments[random.nextInt(followUpComments.length)];
-                }
-                
-                comment.setContent(content);
-                
-                // Set creation date randomly within the past 3 weeks
-                LocalDateTime baseDate = LocalDateTime.now().minusWeeks(3);
-                long randomDays = random.nextInt(21); // 0-20 days
-                long randomHours = random.nextInt(24);
-                comment.setCreatedDate(baseDate.plusDays(randomDays).plusHours(randomHours));
-                
-                rmaCommentRepository.save(comment);
-                commentsCreated++;
-            }
-        }
-        
-        logger.info("Created {} RMA comments across {} RMAs", commentsCreated, allRmas.size());
-    }
-    
-    private void createToolComments() {
-        logger.info("Creating tool comments...");
-        
-        // Check if comments already exist
-        long existingCommentCount = toolCommentRepository.count();
-        logger.info("Found {} existing tool comments in database", existingCommentCount);
-        
-        // TEMPORARY: Force recreation of tool comments for debugging
-        if (existingCommentCount > 0) {
-            logger.info("Deleting existing {} tool comments to recreate them", existingCommentCount);
-            toolCommentRepository.deleteAll();
-            logger.info("Deleted all existing tool comments, proceeding with creation");
-        }
-        
-        List<Tool> allTools = toolRepository.findAll();
-        logger.info("Found {} tools for comment creation", allTools.size());
-        if (allTools.isEmpty()) {
-            logger.warn("No tools found, cannot create comments");
-            return;
-        }
-        
-        // Get users for comments
-        List<User> users = userRepository.findAll();
-        logger.info("Found {} users for comment creation", users.size());
-        if (users.isEmpty()) {
-            logger.warn("No users found, cannot create comments");
-            return;
-        }
-        
-        Random random = new Random();
-        
-        // Tool comment content arrays
-        String[] maintenanceComments = {
-            "Completed routine calibration check. All parameters within specification. Tool ready for production.",
-            "Performed quarterly preventive maintenance. Replaced filters and lubricated moving parts.",
-            "Updated tool software to latest version. Performance improvements noted in testing.",
-            "Cleaned process chambers and replaced worn seals. System performance back to baseline.",
-            "Conducted annual certification inspection. All safety systems functioning properly.",
-            "Replaced aging temperature sensor that was showing drift. Calibration verified.",
-            "Performed deep cleaning of slurry delivery system. Flow rates now consistent.",
-            "Updated PLC program with latest process improvements from engineering.",
-            "Replaced worn pump components during scheduled downtime. Testing shows improved reliability.",
-            "Completed tool qualification after major maintenance. All specs met or exceeded."
-        };
-        
-        String[] operationalComments = {
-            "Tool running smoothly after recent process optimization. Customer very satisfied with results.",
-            "Minor alarm occurred during shift - traced to environmental condition. No action required.",
-            "Process recipe updated per customer request. Initial results look promising.",
-            "Tool utilization increased to 95% this month. Excellent performance metrics.",
-            "Customer technician training completed successfully. They are now fully certified.",
-            "New process window established for customer's latest product. Validation in progress.",
-            "Tool performed flawlessly during 72-hour stress test. Reliability confirmed.",
-            "Productivity targets exceeded for third consecutive month. Outstanding performance.",
-            "Customer audit completed with zero findings. Tool documentation up to date.",
-            "Process yield improved 3% after implementing engineering recommendations."
-        };
-        
-        String[] troubleshootingComments = {
-            "Investigated intermittent pressure alarm. Root cause identified and corrected.",
-            "Responded to customer concern about process variation. Adjusted control parameters.",
-            "Electrical noise issue resolved by improving cabinet grounding. System stable.",
-            "Flow controller replaced after showing erratic behavior. Backup unit installed.",
-            "Temperature control instability traced to faulty RTD. Replacement ordered.",
-            "Pneumatic actuator response slow. Cleaned and adjusted valve trim successfully.",
-            "Process timing optimized to reduce cycle time while maintaining quality.",
-            "HMI touchscreen replaced due to responsiveness issues. System restored.",
-            "Chemical delivery pump rebuilt after 18 months of service. Performance excellent.",
-            "Vacuum system performance degraded. Scheduled thorough inspection and cleaning."
-        };
-        
-        String[] qualityComments = {
-            "Quality control inspection passed with flying colors. All measurements within tolerance.",
-            "Process capability study completed. Cpk values exceed customer requirements.",
-            "Statistical process control charts show excellent stability over past month.",
-            "Customer quality audit successful. Commended for documentation and procedures.",
-            "Metrology verification completed. All measurement systems certified accurate.",
-            "Process validation package approved by customer quality team. Production authorized.",
-            "Continuous improvement project implemented. Defect rate reduced by 40%.",
-            "Six Sigma analysis identified key process parameters for optimization.",
-            "Quality metrics dashboard updated with real-time performance indicators.",
-            "Best practices documented and shared with other similar tools in facility."
-        };
-        
-        String[] teamComments = {
-            "Great teamwork during emergency repair. Tool back online ahead of schedule.",
-            "Excellent collaboration between engineering and operations teams on this improvement.",
-            "Training session well received by technicians. Knowledge retention test scores high.",
-            "Cross-functional team meeting scheduled to review lessons learned.",
-            "Mentoring new technician going well. They show strong aptitude for troubleshooting.",
-            "Process knowledge transfer completed from day shift to night shift team.",
-            "Safety meeting highlighted importance of proper PPE during maintenance.",
-            "Team celebration for achieving 6 months without lost time incident.",
-            "Suggestion box idea implemented successfully. Team member recognized.",
-            "Communication improvement noted between shifts. Handoff quality much better."
-        };
-        
-        int commentsCreated = 0;
-        
-        // Create 1-3 comments per tool, with some having 5-6 (every tool gets at least 1 comment)
-        for (Tool tool : allTools) {
-            int numComments;
-            // 85% chance of 1-3 comments, 15% chance of 5-6 comments
-            if (random.nextDouble() < 0.85) {
-                numComments = 1 + random.nextInt(3); // 1 to 3 comments
-            } else {
-                numComments = 5 + random.nextInt(2); // 5 or 6 comments
-            }
-            
-            for (int i = 0; i < numComments; i++) {
-                ToolComment comment = new ToolComment();
-                comment.setTool(tool);
-                comment.setUser(users.get(random.nextInt(users.size())));
-                
-                // Select comment type based on random distribution
-                String content;
-                double commentType = random.nextDouble();
-                if (commentType < 0.3) {
-                    content = maintenanceComments[random.nextInt(maintenanceComments.length)];
-                } else if (commentType < 0.5) {
-                    content = operationalComments[random.nextInt(operationalComments.length)];
-                } else if (commentType < 0.7) {
-                    content = troubleshootingComments[random.nextInt(troubleshootingComments.length)];
-                } else if (commentType < 0.9) {
-                    content = qualityComments[random.nextInt(qualityComments.length)];
-                } else {
-                    content = teamComments[random.nextInt(teamComments.length)];
-                }
-                
-                comment.setContent(content);
-                
-                // Set creation date randomly within the past 4 weeks
-                LocalDateTime baseDate = LocalDateTime.now().minusWeeks(4);
-                long randomDays = random.nextInt(28); // 0-27 days
-                long randomHours = random.nextInt(24);
-                long randomMinutes = random.nextInt(60);
-                comment.setCreatedDate(baseDate.plusDays(randomDays).plusHours(randomHours).plusMinutes(randomMinutes));
-                
-                toolCommentRepository.save(comment);
-                commentsCreated++;
-            }
-        }
-        
-        logger.info("Created {} tool comments across {} tools", commentsCreated, allTools.size());
-        
-        // Final verification - check actual count in database
-        long finalCount = toolCommentRepository.count();
-        logger.info("Final tool comment count in database: {}", finalCount);
-    }
-    
-    private void createHistoricalPassdowns() {
-        logger.info("Creating historical passdowns...");
-        
-        // Check if passdowns already exist
-        if (passdownRepository.count() > 0) {
-            logger.info("Passdowns already exist, skipping passdown creation");
-            return;
-        }
-        
-        List<Tool> tools = toolRepository.findAll();
-        List<User> users = userRepository.findAll();
-        
-        if (tools.isEmpty() || users.isEmpty()) {
-            logger.warn("No tools or users found, cannot create passdowns");
-            return;
-        }
-        
-        Random random = new Random();
-        
-        // Passdown content arrays
-        String[] maintenanceComments = {
-            "Completed routine maintenance check. All systems operating normally. Lubricated moving parts and checked all connections.",
-            "Performed daily calibration verification. Minor adjustment made to pressure sensor. Tool running within specifications.",
-            "Cleaned feed lines and replaced inline filters. System flow rates improved significantly after maintenance.",
-            "Investigated customer report of intermittent alarm. Found loose electrical connection in panel. Repaired and tested.",
-            "Replaced worn valve actuator that was causing slow response times. Customer satisfied with improved performance.",
-            "Updated tool software to latest version. All previous bugs resolved, system stability improved.",
-            "Completed preventive maintenance per schedule. No issues found. Next service due in 6 months.",
-            "Responded to emergency call for system shutdown. Faulty sensor replaced, tool back in production.",
-            "Installed customer-requested modifications to improve throughput. Testing shows 15% improvement.",
-            "Performed annual calibration and certification. All measurements within tolerance. Certificate updated."
-        };
-        
-        String[] troubleshootingComments = {
-            "Tool throwing intermittent flow alarms. Checked all connections and cleaned sensors. Monitoring for stability.",
-            "Customer reported erratic readings on Tank 2 level sensor. Sensor appears to be failing. Ordering replacement.",
-            "Pressure control system not maintaining setpoint. Suspect regulator issue. Scheduled detailed inspection.",
-            "Feed pump running rough. Checked alignment and coupling. May need bearing replacement soon.",
-            "HMI screen showing occasional communication errors. Updated drivers and reset network settings.",
-            "Chemical delivery timing seems inconsistent. Investigating valve response times and control logic.",
-            "Temperature control hunting around setpoint. Tuned PID parameters for better stability.",
-            "Flow controller giving erroneous readings. Suspect electronic module failure. Testing continues.",
-            "Multiple nuisance alarms on startup sequence. Reviewing logic and adjusting delay timers.",
-            "Customer requests training on new operating procedures. Session scheduled for next week."
-        };
-        
-        String[] completionComments = {
-            "Successfully completed all scheduled maintenance tasks. Tool performance excellent. Customer very satisfied.",
-            "Issue resolved after replacing faulty component. Tool tested thoroughly and returned to service.",
-            "Modification work completed ahead of schedule. Customer production resumed with improved efficiency.",
-            "Training session completed with customer technicians. They are now fully qualified on new procedures.",
-            "Emergency repair completed in under 2 hours. Customer production downtime minimized.",
-            "Quality inspection passed with flying colors. Tool meets all specifications and requirements.",
-            "Software upgrade successful. All new features operational and customer trained on usage.",
-            "Parts replacement completed using warranty coverage. No charge to customer for repair.",
-            "Performance optimization complete. Tool now exceeds original specification by 10%.",
-            "Annual certification completed successfully. Tool approved for another year of operation."
-        };
-        
-        int passdownsCreated = 0;
-        
-        // Create passdowns for the past 3 weeks
-        LocalDate startDate = LocalDate.now().minusWeeks(3);
-        LocalDate endDate = LocalDate.now();
-        
-        // Create 2-8 passdowns per day
-        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
-            int numPassdowns = 2 + random.nextInt(7); // 2 to 8 passdowns per day
-            
-            for (int i = 0; i < numPassdowns; i++) {
-                Passdown passdown = new Passdown();
-                passdown.setDate(date);
-                passdown.setUser(users.get(random.nextInt(users.size())));
-                
-                // 80% chance to assign to a tool, 20% chance for general passdown
-                if (random.nextDouble() < 0.8) {
-                    passdown.setTool(tools.get(random.nextInt(tools.size())));
-                }
-                
-                // Select comment type based on random distribution
-                String comment;
-                double commentType = random.nextDouble();
-                if (commentType < 0.4) {
-                    comment = maintenanceComments[random.nextInt(maintenanceComments.length)];
-                } else if (commentType < 0.8) {
-                    comment = troubleshootingComments[random.nextInt(troubleshootingComments.length)];
-                } else {
-                    comment = completionComments[random.nextInt(completionComments.length)];
-                }
-                
-                passdown.setComment(comment);
-                
-                // Set creation time randomly during the day
-                LocalDateTime createdDateTime = date.atTime(8 + random.nextInt(10), random.nextInt(60)); // 8 AM to 6 PM
-                passdown.setCreatedDate(createdDateTime);
-                
-                passdownRepository.save(passdown);
-                passdownsCreated++;
-            }
-        }
-        
-        logger.info("Created {} historical passdowns over {} days", passdownsCreated, 
-                   startDate.until(endDate).getDays() + 1);
-    }
-    
-    private void createTrackTrends() {
-        logger.info("Creating Track/Trends...");
-        
-        // Check if Track/Trends already exist
-        if (trackTrendRepository.count() > 0) {
-            logger.info("Track/Trends already exist, skipping Track/Trend creation");
-            return;
-        }
-        
-        List<Tool> tools = toolRepository.findAll();
-        List<User> users = userRepository.findAll();
-        
-        if (tools.isEmpty() || users.isEmpty()) {
-            logger.warn("No tools or users found, cannot create Track/Trends");
-            return;
-        }
-        
-        Random random = new Random();
-        
-        // Track/Trend data with realistic titles and descriptions
-        String[][] trackTrendData = {
-            {"Valve Weep Hole Leaking Pattern", "Multiple tools experiencing weep hole leaks in pressure valves. Investigating if this is a batch issue or wear pattern."},
-            {"Feed Tank Structural Issues", "Several feed tanks showing cracks and gouges. Investigating manufacturing defects or installation issues."},
-            {"Pressure Control Inconsistency", "Pressure regulators not maintaining setpoints consistently across multiple tools. May be supplier quality issue."},
-            {"HMI Communication Errors", "Intermittent communication failures between HMI screens and PLCs. Software or network infrastructure related."},
-            {"Flow Controller Calibration Drift", "Flow controllers requiring frequent recalibration. Investigating sensor degradation or electronic module issues."},
-            {"UPW Supply Contamination Events", "Multiple contamination incidents in UPW supply lines. Investigating source and mitigation strategies."},
-            {"Chemical Delivery Timing Issues", "Inconsistent chemical delivery timing affecting process repeatability. Control logic or valve response investigation."},
-            {"Temperature Control Hunting", "Temperature controllers oscillating around setpoints rather than maintaining steady state."},
-            {"Level Sensor False Readings", "Tank level sensors providing erroneous readings. Investigating sensor reliability and calibration procedures."},
-            {"Pneumatic System Pressure Loss", "Gradual pressure loss in pneumatic systems requiring investigation of fittings and actuators."},
-            {"Filter Premature Clogging", "Inline filters clogging faster than expected. Investigating upstream contamination sources."},
-            {"Pump Bearing Wear Pattern", "Chemical pumps showing accelerated bearing wear. Investigating chemical compatibility and maintenance schedules."},
-            {"Electrical Connector Corrosion", "Corrosion found in electrical connectors in chemical areas. Environmental protection assessment needed."},
-            {"Software Update Compatibility", "Issues arising after software updates. Compatibility testing and rollback procedures review."},
-            {"Calibration Equipment Drift", "Test equipment used for calibration showing drift. Metrology standards review required."},
-            {"Emergency Shutdown Delays", "Emergency shutdown sequences taking longer than specified. Safety system optimization needed."},
-            {"Chemical Cross-Contamination", "Trace contamination between different chemical lines. Purge procedures and isolation review."},
-            {"Vibration Analysis Abnormalities", "Unusual vibration patterns detected during routine monitoring. Mechanical integrity assessment."},
-            {"Power Supply Fluctuations", "Electrical power quality issues affecting sensitive equipment. Infrastructure stability investigation."},
-            {"Documentation Discrepancies", "Procedures not matching actual field configurations. Documentation update and training needed."}
-        };
-        
-        // Comments for Track/Trends
-        String[] investigationComments = {
-            "Initial data collection complete. Pattern observed across 5 tools in the last month.",
-            "Engineering review scheduled for next week. Preliminary findings suggest supplier issue.",
-            "Correlation found with environmental conditions. Temperature and humidity factors being investigated.",
-            "Maintenance procedures updated based on initial findings. Monitoring effectiveness.",
-            "Customer notification sent regarding potential impact. No production delays expected.",
-            "Vendor contacted for technical support. Expecting response within 48 hours.",
-            "Temporary workaround implemented while investigating root cause. Monitoring stability.",
-            "Historical data analysis reveals this is a recurring seasonal issue. Preventive measures needed.",
-            "Similar issue reported at other sites. Industry-wide investigation may be warranted.",
-            "Cost-benefit analysis complete. Replacement parts ordered for affected tools."
-        };
-        
-        String[] progressComments = {
-            "Root cause identified as supplier manufacturing defect. Batch recall initiated.",
-            "Software patch developed and tested. Rollout scheduled for next maintenance window.",
-            "Training session completed with all technicians. Updated procedures in effect.",
-            "Monitoring data shows improvement after implementing corrective actions.",
-            "Quality control measures enhanced to prevent recurrence. New inspection protocols active.",
-            "Engineering change request submitted for permanent fix. Awaiting approval.",
-            "Field modification kits received from supplier. Installation starting this week.",
-            "Process parameters adjusted based on investigation findings. Performance improving.",
-            "Additional sensors installed for better monitoring. Data collection ongoing.",
-            "Preventive maintenance schedule updated to address identified failure modes."
-        };
-        
-        String[] resolutionComments = {
-            "Issue resolved through component replacement. No further incidents in 2 weeks.",
-            "Process optimization complete. Performance now exceeds original specifications.",
-            "Long-term solution implemented. Monitoring will continue for 30 days before closure.",
-            "All affected tools updated. Customer satisfaction ratings improved significantly.",
-            "Knowledge base updated with lessons learned. Training materials revised.",
-            "Supplier corrective action verified effective. Quality agreement updated.",
-            "Emergency response procedures updated based on incident learnings.",
-            "Cost savings achieved through process improvement. ROI exceeded expectations.",
-            "Industry best practices adopted. Sharing findings with professional networks.",
-            "Continuous improvement process established to prevent similar issues."
-        };
-        
-        int trackTrendsCreated = 0;
-        
-        // Create Track/Trends
-        for (int i = 0; i < trackTrendData.length; i++) {
-            String[] ttData = trackTrendData[i];
-            
-            TrackTrend trackTrend = new TrackTrend();
-            trackTrend.setName(ttData[0]);
-            trackTrend.setDescription(ttData[1]);
-            
-            // Assign 1-5 random tools to each Track/Trend
-            Set<Tool> affectedTools = new HashSet<>();
-            int numTools = 1 + random.nextInt(5); // 1 to 5 tools
-            Set<Integer> usedToolIndices = new HashSet<>();
-            
-            for (int j = 0; j < numTools && usedToolIndices.size() < tools.size(); j++) {
-                int toolIndex;
-                do {
-                    toolIndex = random.nextInt(tools.size());
-                } while (usedToolIndices.contains(toolIndex));
-                
-                usedToolIndices.add(toolIndex);
-                affectedTools.add(tools.get(toolIndex));
-            }
-            
-            trackTrend.setAffectedTools(affectedTools);
-            
-            // Save the Track/Trend first
-            TrackTrend savedTrackTrend = trackTrendRepository.save(trackTrend);
-            
-            // Add 2-6 comments per Track/Trend
-            int numComments = 2 + random.nextInt(5); // 2 to 6 comments
-            for (int k = 0; k < numComments; k++) {
-                TrackTrendComment comment = new TrackTrendComment();
-                comment.setTrackTrend(savedTrackTrend);
-                comment.setUser(users.get(random.nextInt(users.size())));
-                
-                // Select comment type based on order
-                String content;
-                if (k < 2) {
-                    content = investigationComments[random.nextInt(investigationComments.length)];
-                } else if (k < 4) {
-                    content = progressComments[random.nextInt(progressComments.length)];
-                } else {
-                    content = resolutionComments[random.nextInt(resolutionComments.length)];
-                }
-                
-                comment.setContent(content);
-                
-                // Set creation date randomly within the past 4 weeks
-                LocalDateTime baseDate = LocalDateTime.now().minusWeeks(4);
-                long randomDays = random.nextInt(28); // 0-27 days
-                long randomHours = random.nextInt(24);
-                comment.setCreatedDate(baseDate.plusDays(randomDays).plusHours(randomHours));
-                
-                trackTrendCommentRepository.save(comment);
-            }
-            
-            trackTrendsCreated++;
-        }
-        
-        logger.info("Created {} Track/Trends with associated comments", trackTrendsCreated);
-    }
-    
-    private LocalDate parseFlexibleDate(String dateStr) {
-        if (dateStr == null || dateStr.trim().isEmpty()) {
-            return null;
-        }
-        
-        dateStr = dateStr.trim();
-        
-        // Try different date formats
-        String[] patterns = {
-            "M/d/yyyy",    // 10/1/2024
-            "MM/dd/yyyy",  // 12/10/2024  
-            "d-MMM",       // 24-Sep (assume current year)
-            "M/d/yy",      // 1/14/25
-            "MM/dd/yy",    // 12/18/25
-            "yyyy-MM-dd"   // 2025-01-14
-        };
-        
-        for (String pattern : patterns) {
-            try {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
-                
-                if (pattern.equals("d-MMM")) {
-                    // For patterns like "24-Sep", assume current year
-                    MonthDay monthDay = MonthDay.parse(dateStr, DateTimeFormatter.ofPattern("d-MMM"));
-                    return monthDay.atYear(LocalDate.now().getYear());
-                } else {
-                    return LocalDate.parse(dateStr, formatter);
-                }
-            } catch (DateTimeParseException e) {
-                // Try next pattern
-                continue;
-            }
-        }
-        
-        logger.debug("Could not parse date: {}", dateStr);
-        return null;
     }
     
     private void createFacilityGridLayout() {
