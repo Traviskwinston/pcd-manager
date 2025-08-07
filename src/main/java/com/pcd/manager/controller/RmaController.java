@@ -2410,6 +2410,11 @@ public class RmaController {
             rma.setCustomerEmail(request.getParameter("customerEmail"));
             rma.setSalesOrder(request.getParameter("salesOrder"));
             
+            // Update field technician information
+            rma.setFieldTechName(request.getParameter("fieldTechName"));
+            rma.setFieldTechPhone(request.getParameter("fieldTechPhone"));
+            rma.setFieldTechEmail(request.getParameter("fieldTechEmail"));
+            
             // Save the updated RMA
             rmaService.saveRma(rma, null);
             

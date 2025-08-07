@@ -321,6 +321,10 @@
                     <a th:href="@{/rma/{id}/excel(id=${rma.id})}" class="btn btn-success detail-action-btn">
                         <i class="bi bi-file-excel"></i> Export
                     </a>
+                    
+                    <button type="button" class="btn btn-danger detail-action-btn" onclick="confirmDeleteRma()">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
                                         </div>
             </div>
                                     </div>
@@ -1700,6 +1704,7 @@
     <script th:src="@{/js/theme-toggle.js}"></script>
     <script th:inline="javascript">
         const rmaPageId = document.getElementById('rmaPageEntityIdForJs').value;
+        console.log('RMA Page ID initialized:', rmaPageId);
         
         // START: Generic Edit/Save/Cancel Logic (Modified for Header)
         function enterHeaderEditMode() {
@@ -1761,6 +1766,12 @@
                     // Update the reference number display (data.rmaNumber and data.sapNotificationNumber are the same value now)
                     if (viewReferenceNumber) {
                         viewReferenceNumber.textContent = data.rmaNumber || 'N/A';
+                    }
+                    
+                    // Update the page title (h1) with the new RMA/SAP number
+                    const pageTitle = document.querySelector('h1 span');
+                    if (pageTitle) {
+                        pageTitle.textContent = data.rmaNumber || 'New RMA';
                     }
 
                     // Update other information with error handling
@@ -2213,24 +2224,31 @@
         // END: JavaScript for Editable Priority
 
         function saveProblemDetails() {
+            console.log('saveProblemDetails called, rmaPageId:', rmaPageId);
             const form = document.getElementById('problem-details-form');
             const formData = new FormData(form);
             
-            fetch(`/rma/${rmaPageId}/update-problem`, {
+            const url = `/rma/${rmaPageId}/update-problem`;
+            console.log('Making request to:', url);
+            
+            fetch(url, {
                 method: 'POST',
                 body: formData
             })
             .then(response => {
+                console.log('Response status:', response.status, 'OK:', response.ok);
                 if (!response.ok) {
                     return response.json().then(data => { throw new Error(data.message || 'Failed to update problem details') });
                 }
                 return response.json();
             })
             .then(data => {
+                console.log('Response data:', data);
                 if (data.success) {
                     // Update the view mode with new values instead of reloading
                     updateProblemDetailsView(formData);
                     cancelInlineEdit('problem-details');
+                    console.log('Problem details saved successfully');
                 } else {
                     alert('Error updating problem details: ' + (data.message || 'Unknown error'));
                 }
@@ -3306,6 +3324,38 @@
             const totalElement = document.getElementById('totalLaborModalCost');
             if (totalElement) {
                 totalElement.textContent = '$' + total.toFixed(2);
+            }
+        }
+        
+        // Delete RMA functionality
+        function confirmDeleteRma() {
+            if (confirm('Are you sure you want to delete this RMA? This action cannot be undone.')) {
+                const rmaId = document.getElementById('rmaPageEntityIdForJs').value;
+                
+                if (!rmaId || rmaId === 'null') {
+                    alert('Error: RMA ID not found');
+                    return;
+                }
+                
+                // Create a form and submit it
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/rma/' + rmaId + '/delete';
+                
+                // Add CSRF token if needed
+                const csrfToken = document.querySelector('meta[name="_csrf"]');
+                const csrfHeader = document.querySelector('meta[name="_csrf_header"]');
+                
+                if (csrfToken && csrfHeader) {
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = csrfToken.getAttribute('content');
+                    csrfInput.value = csrfHeader.getAttribute('content');
+                    form.appendChild(csrfInput);
+                }
+                
+                document.body.appendChild(form);
+                form.submit();
             }
         }
     </script>
