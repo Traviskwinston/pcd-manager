@@ -2,6 +2,7 @@ package com.pcd.manager.service;
 
 import com.pcd.manager.model.PartLineItem;
 import com.pcd.manager.model.Rma;
+import com.pcd.manager.model.LaborEntry;
 import com.pcd.manager.model.RmaComment;
 import com.pcd.manager.model.Tool;
 import com.pcd.manager.model.User;
@@ -285,6 +286,52 @@ public class ExcelService {
             }
         } else {
             logger.warn("EXCEL EXPORT - No part line items found for RMA {}", rma.getId());
+        }
+        
+        // Labor entries (up to 5) - A51-A55 (Description), D51-D55 (Technician), G51-G55 (Hours), H51-H55 (Date), I51-I55 (Price/Hr)
+        if (rma.getLaborEntries() != null && !rma.getLaborEntries().isEmpty()) {
+            logger.info("EXCEL EXPORT - Processing {} labor entries for RMA {}", rma.getLaborEntries().size(), rma.getId());
+            List<LaborEntry> laborEntries = new ArrayList<>(rma.getLaborEntries());
+            
+            // Labor layout in template:
+            // Labor 1: Description (A51), Technician (D51), Hours (G51), Date (H51), Price/Hr (I51)
+            // Labor 2: Description (A52), Technician (D52), Hours (G52), Date (H52), Price/Hr (I52)
+            // Labor 3: Description (A53), Technician (D53), Hours (G53), Date (H53), Price/Hr (I53)
+            // Labor 4: Description (A54), Technician (D54), Hours (G54), Date (H54), Price/Hr (I54)
+            // Labor 5: Description (A55), Technician (D55), Hours (G55), Date (H55), Price/Hr (I55)
+            
+            // Limit to first 5 labor entries
+            for (int i = 0; i < Math.min(laborEntries.size(), 5); i++) {
+                LaborEntry labor = laborEntries.get(i);
+                int rowNum = 51 + i; // A51, A52, A53, A54, A55
+                
+                logger.info("EXCEL EXPORT - Labor #{}: Description='{}', Technician='{}', Hours={}, Date={}, Price/Hr={}", 
+                           i+1, labor.getDescription(), labor.getTechnician(), labor.getHours(), 
+                           labor.getLaborDate(), labor.getPricePerHour());
+                
+                // Set description in A51-A55
+                setCellValue(sheet, "A" + rowNum, labor.getDescription());
+                
+                // Set technician in D51-D55
+                setCellValue(sheet, "D" + rowNum, labor.getTechnician());
+                
+                // Set hours in G51-G55
+                if (labor.getHours() != null) {
+                    setCellValue(sheet, "G" + rowNum, labor.getHours().toString());
+                }
+                
+                // Set date in H51-H55
+                if (labor.getLaborDate() != null) {
+                    setCellValue(sheet, "H" + rowNum, labor.getLaborDate().format(DateTimeFormatter.ofPattern("MM/dd/yyyy")));
+                }
+                
+                // Set price per hour in I51-I55
+                if (labor.getPricePerHour() != null) {
+                    setCellValue(sheet, "I" + rowNum, labor.getPricePerHour().toString());
+                }
+            }
+        } else {
+            logger.info("EXCEL EXPORT - No labor entries found for RMA {}", rma.getId());
         }
     }
     
@@ -595,6 +642,66 @@ public class ExcelService {
             // Boolean flags (exposedToProcessGasOrChemicals, purged) - these were removed as per user request
             // as they should not be extracted from Excel.
 
+            // Extract Labor entries from A51-A55 (Description), D51-D55 (Technician), G51-G55 (Hours), H51-H55 (Date), I51-I55 (Price/Hr)
+            List<Map<String, Object>> laborEntries = new ArrayList<>();
+            for (int i = 0; i < 5; i++) {
+                int rowNum = 51 + i;
+                String description = getCellStringValue(sheet, "A" + rowNum);
+                String technician = getCellStringValue(sheet, "D" + rowNum);
+                String hoursStr = getCellStringValue(sheet, "G" + rowNum);
+                String dateStr = getCellStringValue(sheet, "H" + rowNum);
+                String pricePerHourStr = getCellStringValue(sheet, "I" + rowNum);
+                
+                // Only add labor entry if at least description or technician is present
+                if ((description != null && !description.isEmpty()) || (technician != null && !technician.isEmpty())) {
+                    Map<String, Object> laborData = new HashMap<>();
+                    laborData.put("description", description);
+                    laborData.put("technician", technician);
+                    
+                    // Parse hours
+                    if (hoursStr != null && !hoursStr.isEmpty()) {
+                        try {
+                            laborData.put("hours", Double.parseDouble(hoursStr));
+                        } catch (NumberFormatException e) {
+                            logger.warn("Could not parse hours from {}{}: {}", "G", rowNum, hoursStr);
+                        }
+                    }
+                    
+                    // Parse date
+                    if (dateStr != null && !dateStr.isEmpty()) {
+                        try {
+                            LocalDate parsedDate = parseDate(dateStr);
+                            if (parsedDate != null) {
+                                laborData.put("laborDate", parsedDate.format(DateTimeFormatter.ISO_DATE));
+                            } else {
+                                logger.warn("Could not parse labor date from {}{}: {}", "H", rowNum, dateStr);
+                            }
+                        } catch (Exception e) {
+                            logger.warn("Error parsing labor date from {}{}: {}", "H", rowNum, dateStr, e);
+                        }
+                    }
+                    
+                    // Parse price per hour
+                    if (pricePerHourStr != null && !pricePerHourStr.isEmpty()) {
+                        try {
+                            laborData.put("pricePerHour", Double.parseDouble(pricePerHourStr));
+                        } catch (NumberFormatException e) {
+                            logger.warn("Could not parse price per hour from {}{}: {}", "I", rowNum, pricePerHourStr);
+                        }
+                    }
+                    
+                    laborEntries.add(laborData);
+                    logger.info("Extracted labor entry #{}: {}", i+1, laborData);
+                }
+            }
+            
+            if (!laborEntries.isEmpty()) {
+                extractedData.put("laborEntries", laborEntries);
+                logger.info("Extracted {} labor entries", laborEntries.size());
+            } else {
+                logger.info("No labor entries found in Excel");
+            }
+
             logger.info("Final extracted data: {}", extractedData);
 
         } catch (IOException e) {
@@ -792,7 +899,7 @@ public class ExcelService {
                 "Status", "Priority", "Customer Name", "Location", "Technician",
                 "Written Date", "RMA # Provided Date", "Shipping Memo Date", "Parts Received Date",
                 "Installed Parts Date", "Failed Parts Packed Date", "Failed Parts Shipped Date",
-                "Part Names", "Part Numbers", "Root Cause", "Resolution", "Notes"
+                "Part Names", "Part Numbers", "Notes"
             };
             
             for (int i = 0; i < headers.length; i++) {
@@ -892,9 +999,7 @@ public class ExcelService {
                 setCellValueSafe(row, colNum++, partNames.toString());
                 setCellValueSafe(row, colNum++, partNumbers.toString());
                 
-                // Root Cause, Resolution, Notes
-                setCellValueSafe(row, colNum++, rma.getRootCause());
-                setCellValueSafe(row, colNum++, rma.getResolution());
+                // Notes only (Root Cause and Resolution removed)
                 setCellValueSafe(row, colNum++, rma.getNotes());
             }
             

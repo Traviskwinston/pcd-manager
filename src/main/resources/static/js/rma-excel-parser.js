@@ -185,6 +185,15 @@ function populateFormWithExcelData(data) {
             populatePartLineItems(data.parts);
         }
         
+        // If labor entries exist, populate them
+        console.log('Checking labor entries:', data.laborEntries);
+        if (data.laborEntries && data.laborEntries.length > 0) {
+            console.log('Found labor entries, calling populateLaborEntries');
+            populateLaborEntries(data.laborEntries);
+        } else {
+            console.log('No labor entries found in data');
+        }
+        
         // Show success message
         showExcelResult('Form populated with Excel data successfully!', 'success');
         
@@ -304,4 +313,120 @@ function populateFormWithExcelData(data) {
             }
         }
     }
+}
+
+// Helper function to populate labor entries
+function populateLaborEntries(laborEntries) {
+        console.log('Populating labor entries:', laborEntries);
+        
+        // Clear existing labor rows except the first one
+        const tbody = document.getElementById('laborTableBody');
+        if (!tbody) {
+            console.warn('Labor table body not found');
+            return;
+        }
+        
+        // Remove all existing rows
+        tbody.innerHTML = '';
+        
+        // Add each labor entry
+        laborEntries.forEach((labor, index) => {
+            const newRow = document.createElement('tr');
+            newRow.className = 'labor-row';
+            
+            newRow.innerHTML = `
+                <td>
+                    <input type="text" class="form-control" name="laborEntries[${index}].description" value="${labor.description || ''}" placeholder="Labor description">
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="laborEntries[${index}].technician" value="${labor.technician || ''}" placeholder="Technician name">
+                </td>
+                <td>
+                    <input type="number" class="form-control hours-input" name="laborEntries[${index}].hours" value="${labor.hours || ''}" step="0.01" min="0" placeholder="0.00">
+                </td>
+                <td>
+                    <input type="date" class="form-control" name="laborEntries[${index}].laborDate" value="${labor.laborDate || ''}" >
+                </td>
+                <td>
+                    <input type="number" class="form-control price-input" name="laborEntries[${index}].pricePerHour" value="${labor.pricePerHour || ''}" step="0.01" min="0" placeholder="0.00">
+                </td>
+                <td>
+                    <input type="text" class="form-control ext-cost" readonly value="$${labor.hours && labor.pricePerHour ? (labor.hours * labor.pricePerHour).toFixed(2) : '0.00'}">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-labor-row">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            
+            tbody.appendChild(newRow);
+            
+            // Add event listeners for calculation
+            const hoursInput = newRow.querySelector('.hours-input');
+            const priceInput = newRow.querySelector('.price-input');
+            const extCostInput = newRow.querySelector('.ext-cost');
+            
+            function calculateExtCost() {
+                const hours = parseFloat(hoursInput.value) || 0;
+                const price = parseFloat(priceInput.value) || 0;
+                const extCost = hours * price;
+                extCostInput.value = '$' + extCost.toFixed(2);
+                
+                // Update total if the function exists
+                if (typeof calculateTotalLaborCost === 'function') {
+                    calculateTotalLaborCost();
+                }
+            }
+            
+            hoursInput.addEventListener('input', calculateExtCost);
+            priceInput.addEventListener('input', calculateExtCost);
+            
+            // Calculate initial value
+            calculateExtCost();
+        });
+        
+        // If no labor entries, add at least one empty row
+        if (laborEntries.length === 0) {
+            const emptyRow = document.createElement('tr');
+            emptyRow.className = 'labor-row';
+            emptyRow.innerHTML = `
+                <td>
+                    <input type="text" class="form-control" name="laborEntries[0].description" placeholder="Labor description">
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="laborEntries[0].technician" placeholder="Technician name">
+                </td>
+                <td>
+                    <input type="number" class="form-control hours-input" name="laborEntries[0].hours" step="0.01" min="0" placeholder="0.00">
+                </td>
+                <td>
+                    <input type="date" class="form-control" name="laborEntries[0].laborDate">
+                </td>
+                <td>
+                    <input type="number" class="form-control price-input" name="laborEntries[0].pricePerHour" step="0.01" min="0" placeholder="0.00">
+                </td>
+                <td>
+                    <input type="text" class="form-control ext-cost" readonly placeholder="$0.00">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-labor-row" disabled>
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(emptyRow);
+        }
+        
+        // Update labor row count if the variable exists
+        if (typeof laborRowCount !== 'undefined') {
+            window.laborRowCount = Math.max(laborEntries.length, 1);
+        }
+        
+        // Update remove button states if the function exists
+        if (typeof updateRemoveButtonStates === 'function') {
+            updateRemoveButtonStates();
+        }
+        
+        console.log(`Populated ${laborEntries.length} labor entries`);
 } 

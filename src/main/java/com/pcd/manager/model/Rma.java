@@ -15,6 +15,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.pcd.manager.model.PartLineItem;
 import com.pcd.manager.model.MovementEntry;
+import com.pcd.manager.model.LaborEntry;
+import java.math.BigDecimal;
 
 /**
  * Rma entity representing a Return Merchandise Authorization
@@ -63,12 +65,6 @@ public class Rma {
 
     @Enumerated(EnumType.STRING)
     private SystemDescription systemDescription;
-
-    @Column(columnDefinition = "TEXT")
-    private String rootCause;
-
-    @Column(columnDefinition = "TEXT")
-    private String resolution;
 
     @Column(columnDefinition = "TEXT")
     private String notes;
@@ -176,6 +172,11 @@ public class Rma {
     @CollectionTable(name = "rma_movements", joinColumns = @JoinColumn(name = "rma_id"))
     private List<MovementEntry> movementEntries = new ArrayList<>();
 
+    // Labor entries
+    @ElementCollection
+    @CollectionTable(name = "rma_labor_entries", joinColumns = @JoinColumn(name = "rma_id"))
+    private List<LaborEntry> laborEntries = new ArrayList<>();
+
     @PrePersist
     public void prePersist() {
         if (receivedDate == null) {
@@ -197,6 +198,19 @@ public class Rma {
     @PreUpdate
     public void preUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Calculate total labor cost from all labor entries
+     * @return total labor cost
+     */
+    public BigDecimal getTotalLaborCost() {
+        if (laborEntries == null || laborEntries.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return laborEntries.stream()
+                .map(LaborEntry::getExtendedCost)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     // Ensure collections are never null

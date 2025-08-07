@@ -536,12 +536,26 @@
                         <!-- Edit Mode -->
                         <div id="parts-info-edit-mode" class="d-none rma-edit-mode">
                             <form id="parts-info-form">
-                                <div id="parts-edit-container">
-                                    <!-- Dynamic parts will be added here -->
+                                <div class="table-responsive">
+                                    <table class="table table-bordered" id="partsEditTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Part Name</th>
+                                                <th>Part #</th>
+                                                <th>Description</th>
+                                                <th>QTY</th>
+                                                <th>Replace?</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="partsEditTableBody">
+                                            <!-- Dynamic parts will be added here -->
+                                        </tbody>
+                                    </table>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-3">
-                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="addPartRow()">
-                                        <i class="bi bi-plus"></i> Add Part
+                                    <button type="button" class="btn btn-success btn-sm" id="addPartEditRowBtn">
+                                        <i class="bi bi-plus-circle me-1"></i> Add Part
                                     </button>
                                     <div>
                                         <button type="button" class="btn btn-success detail-action-btn" onclick="savePartsInfo()">
@@ -615,20 +629,7 @@
                                         <span class="detail-text-muted" th:if="${rma.whoContained == null}">Not specified</span>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="d-flex flex-column">
-                                        <small class="detail-text-muted">Root Cause</small>
-                                        <p class="mb-0" th:if="${rma.rootCause != null}" th:text="${rma.rootCause}">Root cause</p>
-                                        <span class="detail-text-muted" th:if="${rma.rootCause == null}">No root cause identified</span>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="d-flex flex-column">
-                                        <small class="detail-text-muted">Resolution</small>
-                                        <p class="mb-0" th:if="${rma.resolution != null}" th:text="${rma.resolution}">Resolution</p>
-                                        <span class="detail-text-muted" th:if="${rma.resolution == null}">No resolution provided</span>
-                                    </div>
-                                </div>
+
                             </div>
                         </div>
                         
@@ -660,14 +661,7 @@
                                         <label class="form-label fw-bold">Who Contained</label>
                                         <input type="text" class="form-control" name="whoContained" th:value="${rma.whoContained}" placeholder="Who contained it">
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">Root Cause</label>
-                                        <textarea class="form-control" name="rootCause" rows="2" th:text="${rma.rootCause}" placeholder="Root cause analysis"></textarea>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">Resolution</label>
-                                        <textarea class="form-control" name="resolution" rows="2" th:text="${rma.resolution}" placeholder="Resolution details"></textarea>
-                                    </div>
+
                                 </div>
                                 <div class="mt-3 d-flex gap-2">
                                     <button type="button" class="btn btn-success detail-action-btn" onclick="saveProblemDetails()">
@@ -1222,26 +1216,52 @@
                         </div>
                                     </div>
 
-            <!-- Notes Section -->
+            <!-- Labor Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-journal-text me-2"></i>Notes
+                            <i class="bi bi-clock me-2"></i>Labor
                         </h6>
-                        <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" data-bs-toggle="modal" data-bs-target="#notesModal">
+                        <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" data-bs-toggle="modal" data-bs-target="#laborModal">
                             <i class="bi bi-plus"></i>
                         </button>
                     </div>
                     <div class="card-body">
-                        <div th:if="${rma.notes == null || rma.notes.isEmpty()}" class="detail-empty-state">
-                            <i class="bi bi-journal-text"></i>
-                            <p>No notes available</p>
+                        <div th:if="${rma.laborEntries == null || rma.laborEntries.isEmpty()}" class="detail-empty-state">
+                            <i class="bi bi-clock"></i>
+                            <p>No labor entries available</p>
                         </div>
                         
-                        <div th:if="${rma.notes != null && !rma.notes.isEmpty()}" class="d-flex flex-column">
-                            <div class="border rounded p-3 detail-interactive">
-                                <p class="mb-0" th:text="${rma.notes}">Notes content</p>
+                        <div th:if="${rma.laborEntries != null && !rma.laborEntries.isEmpty()}">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Description</th>
+                                            <th>Technician</th>
+                                            <th>Hours</th>
+                                            <th>Date</th>
+                                            <th>Price/Hr</th>
+                                            <th>Ext/Cost</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="labor : ${rma.laborEntries}">
+                                            <td th:text="${labor.description ?: '-'}">Description</td>
+                                            <td th:text="${labor.technician ?: '-'}">Technician</td>
+                                            <td th:text="${labor.hours != null ? labor.hours : '0.00'}">0.00</td>
+                                            <td th:text="${labor.laborDate != null ? #temporals.format(labor.laborDate, 'MM/dd/yy') : '-'}">Date</td>
+                                            <td th:text="${labor.pricePerHour != null ? '$' + #numbers.formatDecimal(labor.pricePerHour, 1, 2) : '$0.00'}">$0.00</td>
+                                            <td th:text="${labor.extendedCost != null ? '$' + #numbers.formatDecimal(labor.extendedCost, 1, 2) : '$0.00'}">$0.00</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="mt-3 text-end">
+                                <strong>Total Labor Cost: 
+                                    <span th:text="${rma.totalLaborCost != null ? '$' + #numbers.formatDecimal(rma.totalLaborCost, 1, 2) : '$0.00'}">$0.00</span>
+                                </strong>
                             </div>
                         </div>
                     </div>
@@ -1461,28 +1481,100 @@
                                     </div>
                                 </div>
 
-    <!-- Notes Modal -->
-    <div class="modal fade" id="notesModal" tabindex="-1" aria-labelledby="notesModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+    <!-- Labor Modal -->
+    <div class="modal fade" id="laborModal" tabindex="-1" aria-labelledby="laborModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="notesModalLabel">
-                        <i class="bi bi-journal-text me-2"></i>Add/Edit Notes
+                    <h5 class="modal-title" id="laborModalLabel">
+                        <i class="bi bi-clock me-2"></i>Manage Labor Entries
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form th:action="@{/rma/{id}/update-notes(id=${rma.id})}" method="post">
+                <form th:action="@{/rma/{id}/update-labor(id=${rma.id})}" method="post">
                     <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="notesContent" class="form-label">Notes</label>
-                            <textarea class="form-control" id="notesContent" name="notes" rows="6" 
-                                      placeholder="Enter notes..." th:text="${rma.notes}"></textarea>
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="laborModalTable">
+                                <thead>
+                                    <tr>
+                                        <th>Description</th>
+                                        <th>Technician</th>
+                                        <th>Hours</th>
+                                        <th>Date</th>
+                                        <th>Price/Hr</th>
+                                        <th>Ext/Cost</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="laborModalTableBody">
+                                    <!-- Existing labor entries -->
+                                    <tr th:each="labor, iterStat : ${rma.laborEntries}" class="labor-modal-row">
+                                        <td>
+                                            <input type="text" class="form-control" th:name="|laborEntries[${iterStat.index}].description|" th:value="${labor.description}" placeholder="Labor description">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control" th:name="|laborEntries[${iterStat.index}].technician|" th:value="${labor.technician}" placeholder="Technician name">
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control hours-modal-input" th:name="|laborEntries[${iterStat.index}].hours|" th:value="${labor.hours}" step="0.01" min="0" placeholder="0.00">
+                                        </td>
+                                        <td>
+                                            <input type="date" class="form-control" th:name="|laborEntries[${iterStat.index}].laborDate|" th:value="${labor.laborDate}">
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control price-modal-input" th:name="|laborEntries[${iterStat.index}].pricePerHour|" th:value="${labor.pricePerHour}" step="0.01" min="0" placeholder="0.00">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control ext-cost-modal" readonly th:value="${labor.extendedCost != null ? '$' + #numbers.formatDecimal(labor.extendedCost, 1, 2) : '$0.00'}">
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-danger btn-sm remove-labor-modal-row">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <!-- Default empty row if no entries exist -->
+                                    <tr th:if="${rma.laborEntries == null || rma.laborEntries.isEmpty()}" class="labor-modal-row">
+                                        <td>
+                                            <input type="text" class="form-control" name="laborEntries[0].description" placeholder="Labor description">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control" name="laborEntries[0].technician" placeholder="Technician name">
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control hours-modal-input" name="laborEntries[0].hours" step="0.01" min="0" placeholder="0.00">
+                                        </td>
+                                        <td>
+                                            <input type="date" class="form-control" name="laborEntries[0].laborDate">
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control price-modal-input" name="laborEntries[0].pricePerHour" step="0.01" min="0" placeholder="0.00">
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control ext-cost-modal" readonly placeholder="$0.00">
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-danger btn-sm remove-labor-modal-row" disabled>
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="button" class="btn btn-success btn-sm" id="addLaborModalRowBtn">
+                                <i class="bi bi-plus-circle me-1"></i> Add Labor Row
+                            </button>
+                            <div class="fw-bold">
+                                Total Labor Cost: <span id="totalLaborModalCost">$0.00</span>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save me-2"></i>Save Notes
+                            <i class="bi bi-save me-2"></i>Save Labor Entries
                         </button>
                     </div>
                 </form>
@@ -2189,8 +2281,7 @@
             updateElement('#problem-details-view-mode .col-md-6:nth-child(6) strong', formData.get('whoContained'));
             updateElement('#problem-details-view-mode .col-md-6:nth-child(6) span', formData.get('whoContained'), 'Not specified');
             
-            updateElement('#problem-details-view-mode .col-md-6:nth-child(7) p', formData.get('rootCause'), 'No root cause identified');
-            updateElement('#problem-details-view-mode .col-md-6:nth-child(8) p', formData.get('resolution'), 'No resolution provided');
+            // Root cause and resolution fields removed
         }
 
         function saveProcessImpact() {
@@ -2473,22 +2564,9 @@
         let partRowIndex = 0;
         
         function initializePartsEdit() {
-            const container = document.getElementById('parts-edit-container');
-            container.innerHTML = ''; // Clear existing
+            const tbody = document.getElementById('partsEditTableBody');
+            tbody.innerHTML = ''; // Clear existing
             partRowIndex = 0;
-            
-            // Add header row
-            const headerDiv = document.createElement('div');
-            headerDiv.className = 'row mb-2';
-            headerDiv.innerHTML = `
-                <div class="col-md-2"><strong>Part Name</strong></div>
-                <div class="col-md-3"><strong>Part Number</strong></div>
-                <div class="col-md-3"><strong>Description</strong></div>
-                <div class="col-md-1"><strong>Qty</strong></div>
-                <div class="col-md-2"><strong>Replace?</strong></div>
-                <div class="col-md-1"></div>
-            `;
-            container.appendChild(headerDiv);
             
             // Add existing parts as editable rows
             const existingParts = document.querySelectorAll('#parts-info-view-mode tbody tr');
@@ -2507,80 +2585,115 @@
                 // Add at least one empty row
                 addPartRow();
             }
+            
+            updateRemovePartEditButtonStates();
         }
         
         function addPartRow() {
-            const container = document.getElementById('parts-edit-container');
-            const rowDiv = document.createElement('div');
-            rowDiv.className = 'row mb-2 part-row';
+            const tbody = document.getElementById('partsEditTableBody');
+            const newRow = document.createElement('tr');
+            newRow.className = 'part-edit-row';
             
-            rowDiv.innerHTML = `
-                <div class="col-md-2">
-                    <input type="text" class="form-control form-control-sm" name="parts[${partRowIndex}][partName]" placeholder="Part Name">
-                </div>
-                <div class="col-md-3">
-                    <input type="text" class="form-control form-control-sm" name="parts[${partRowIndex}][partNumber]" placeholder="Part Number">
-                </div>
-                <div class="col-md-3">
-                    <input type="text" class="form-control form-control-sm" name="parts[${partRowIndex}][productDescription]" placeholder="Description">
-                </div>
-                <div class="col-md-1">
-                    <input type="number" class="form-control form-control-sm" name="parts[${partRowIndex}][quantity]" value="1" min="1">
-                </div>
-                <div class="col-md-2">
-                    <select class="form-select form-select-sm" name="parts[${partRowIndex}][replacementRequired]">
-                        <option value="false">No</option>
-                        <option value="true">Yes</option>
-                    </select>
-                </div>
-                <div class="col-md-1">
-                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removePartRow(this)">
+            newRow.innerHTML = `
+                <td>
+                    <input type="text" class="form-control" name="parts[${partRowIndex}][partName]" placeholder="Part Name">
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="parts[${partRowIndex}][partNumber]" placeholder="Part Number">
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="parts[${partRowIndex}][productDescription]" placeholder="Description">
+                </td>
+                <td>
+                    <input type="number" class="form-control" name="parts[${partRowIndex}][quantity]" value="1" min="1">
+                </td>
+                <td>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="parts[${partRowIndex}][replacementRequired]">
+                    </div>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-part-edit-row">
                         <i class="bi bi-trash"></i>
                     </button>
-                </div>
+                </td>
             `;
             
-            container.appendChild(rowDiv);
+            tbody.appendChild(newRow);
             partRowIndex++;
+            updateRemovePartEditButtonStates();
         }
         
         function addPartRowWithData(partName, partNumber, description, quantity, replacement) {
-            const container = document.getElementById('parts-edit-container');
-            const rowDiv = document.createElement('div');
-            rowDiv.className = 'row mb-2 part-row';
+            const tbody = document.getElementById('partsEditTableBody');
+            const newRow = document.createElement('tr');
+            newRow.className = 'part-edit-row';
             
-            rowDiv.innerHTML = `
-                <div class="col-md-2">
-                    <input type="text" class="form-control form-control-sm" name="parts[${partRowIndex}][partName]" value="${partName}" placeholder="Part Name">
-                </div>
-                <div class="col-md-3">
-                    <input type="text" class="form-control form-control-sm" name="parts[${partRowIndex}][partNumber]" value="${partNumber}" placeholder="Part Number">
-                </div>
-                <div class="col-md-3">
-                    <input type="text" class="form-control form-control-sm" name="parts[${partRowIndex}][productDescription]" value="${description}" placeholder="Description">
-                </div>
-                <div class="col-md-1">
-                    <input type="number" class="form-control form-control-sm" name="parts[${partRowIndex}][quantity]" value="${quantity}" min="1">
-                </div>
-                <div class="col-md-2">
-                    <select class="form-select form-select-sm" name="parts[${partRowIndex}][replacementRequired]">
-                        <option value="false" ${!replacement ? 'selected' : ''}>No</option>
-                        <option value="true" ${replacement ? 'selected' : ''}>Yes</option>
-                    </select>
-                </div>
-                <div class="col-md-1">
-                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removePartRow(this)">
+            newRow.innerHTML = `
+                <td>
+                    <input type="text" class="form-control" name="parts[${partRowIndex}][partName]" value="${partName}" placeholder="Part Name">
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="parts[${partRowIndex}][partNumber]" value="${partNumber}" placeholder="Part Number">
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="parts[${partRowIndex}][productDescription]" value="${description}" placeholder="Description">
+                </td>
+                <td>
+                    <input type="number" class="form-control" name="parts[${partRowIndex}][quantity]" value="${quantity}" min="1">
+                </td>
+                <td>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="parts[${partRowIndex}][replacementRequired]" ${replacement ? 'checked' : ''}>
+                    </div>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-part-edit-row">
                         <i class="bi bi-trash"></i>
                     </button>
-                </div>
+                </td>
             `;
             
-            container.appendChild(rowDiv);
+            tbody.appendChild(newRow);
             partRowIndex++;
+            updateRemovePartEditButtonStates();
         }
-        
-        function removePartRow(button) {
-            button.closest('.part-row').remove();
+
+        // Add part edit row button functionality
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('#addPartEditRowBtn')) {
+                addPartRow();
+            }
+            if (e.target.closest('.remove-part-edit-row')) {
+                const button = e.target.closest('.remove-part-edit-row');
+                const row = button.closest('tr');
+                row.remove();
+                updateRemovePartEditButtonStates();
+                reindexPartEditRows();
+            }
+        });
+
+        // Update remove button states for part edit rows
+        function updateRemovePartEditButtonStates() {
+            const removeButtons = document.querySelectorAll('.remove-part-edit-row');
+            const hasMultipleRows = removeButtons.length > 1;
+            removeButtons.forEach(button => {
+                button.disabled = !hasMultipleRows;
+            });
+        }
+
+        // Reindex part edit rows after removal
+        function reindexPartEditRows() {
+            const rows = document.querySelectorAll('.part-edit-row');
+            rows.forEach((row, index) => {
+                const inputs = row.querySelectorAll('input[name*="parts"]');
+                inputs.forEach(input => {
+                    const name = input.getAttribute('name');
+                    const newName = name.replace(/parts\[\d+\]/, `parts[${index}]`);
+                    input.setAttribute('name', newName);
+                });
+            });
+            partRowIndex = rows.length;
         }
 
         function saveDates() {
@@ -3073,6 +3186,128 @@
                 dropdown.classList.add('d-none');
             }
         });
+
+        // Labor Modal functionality
+        let laborModalRowCount = 0;
+
+        // Initialize labor modal row count based on existing entries
+        document.addEventListener('DOMContentLoaded', function() {
+            const existingRows = document.querySelectorAll('.labor-modal-row');
+            laborModalRowCount = existingRows.length;
+            
+            // Add event listeners for existing rows
+            existingRows.forEach(addLaborModalRowEventListeners);
+            updateRemoveLaborModalButtonStates();
+            calculateTotalLaborModalCost();
+        });
+
+        // Add labor modal row
+        document.getElementById('addLaborModalRowBtn').addEventListener('click', function() {
+            const tbody = document.getElementById('laborModalTableBody');
+            const newRow = document.createElement('tr');
+            newRow.className = 'labor-modal-row';
+            newRow.innerHTML = `
+                <td>
+                    <input type="text" class="form-control" name="laborEntries[${laborModalRowCount}].description" placeholder="Labor description">
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="laborEntries[${laborModalRowCount}].technician" placeholder="Technician name">
+                </td>
+                <td>
+                    <input type="number" class="form-control hours-modal-input" name="laborEntries[${laborModalRowCount}].hours" step="0.01" min="0" placeholder="0.00">
+                </td>
+                <td>
+                    <input type="date" class="form-control" name="laborEntries[${laborModalRowCount}].laborDate">
+                </td>
+                <td>
+                    <input type="number" class="form-control price-modal-input" name="laborEntries[${laborModalRowCount}].pricePerHour" step="0.01" min="0" placeholder="0.00">
+                </td>
+                <td>
+                    <input type="text" class="form-control ext-cost-modal" readonly placeholder="$0.00">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-labor-modal-row">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(newRow);
+            laborModalRowCount++;
+            
+            // Add event listeners for the new row
+            addLaborModalRowEventListeners(newRow);
+            updateRemoveLaborModalButtonStates();
+        });
+
+        // Remove labor modal row
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-labor-modal-row')) {
+                const button = e.target.closest('.remove-labor-modal-row');
+                const row = button.closest('tr');
+                row.remove();
+                updateRemoveLaborModalButtonStates();
+                calculateTotalLaborModalCost();
+                reindexLaborModalRows();
+            }
+        });
+
+        // Update remove button states for labor modal
+        function updateRemoveLaborModalButtonStates() {
+            const removeButtons = document.querySelectorAll('.remove-labor-modal-row');
+            const hasMultipleRows = removeButtons.length > 1;
+            removeButtons.forEach(button => {
+                button.disabled = !hasMultipleRows;
+            });
+        }
+
+        // Reindex labor modal rows after removal
+        function reindexLaborModalRows() {
+            const rows = document.querySelectorAll('.labor-modal-row');
+            rows.forEach((row, index) => {
+                const inputs = row.querySelectorAll('input[name*="laborEntries"]');
+                inputs.forEach(input => {
+                    const name = input.getAttribute('name');
+                    const newName = name.replace(/laborEntries\[\d+\]/, `laborEntries[${index}]`);
+                    input.setAttribute('name', newName);
+                });
+            });
+            laborModalRowCount = rows.length;
+        }
+
+        // Add event listeners for labor modal calculations
+        function addLaborModalRowEventListeners(row) {
+            const hoursInput = row.querySelector('.hours-modal-input');
+            const priceInput = row.querySelector('.price-modal-input');
+            const extCostInput = row.querySelector('.ext-cost-modal');
+
+            function calculateModalExtCost() {
+                const hours = parseFloat(hoursInput.value) || 0;
+                const price = parseFloat(priceInput.value) || 0;
+                const extCost = hours * price;
+                extCostInput.value = '$' + extCost.toFixed(2);
+                calculateTotalLaborModalCost();
+            }
+
+            if (hoursInput) hoursInput.addEventListener('input', calculateModalExtCost);
+            if (priceInput) priceInput.addEventListener('input', calculateModalExtCost);
+            
+            // Calculate initial value
+            calculateModalExtCost();
+        }
+
+        // Calculate total labor modal cost
+        function calculateTotalLaborModalCost() {
+            let total = 0;
+            document.querySelectorAll('.labor-modal-row').forEach(row => {
+                const hours = parseFloat(row.querySelector('.hours-modal-input')?.value) || 0;
+                const price = parseFloat(row.querySelector('.price-modal-input')?.value) || 0;
+                total += hours * price;
+            });
+            const totalElement = document.getElementById('totalLaborModalCost');
+            if (totalElement) {
+                totalElement.textContent = '$' + total.toFixed(2);
+            }
+        }
     </script>
     
     <!-- Moving Part Modal JavaScript Fragment -->

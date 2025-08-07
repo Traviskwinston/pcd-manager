@@ -186,86 +186,77 @@
 
                         <!-- Right Column: Parts Info -->
                         <div class="col-md-9">
-                            <!-- Column Headers -->
-                            <div class="row mb-2">
-                                <div class="col-md-2"><strong>Part Name:</strong></div>
-                                <div class="col-md-3"><strong>Part Number:</strong></div>
-                                <div class="col-md-3"><strong>Item Description:</strong></div>
-                                <div class="col-md-1"><strong>Qty:</strong></div>
-                                <div class="col-md-2"><strong>Replace?</strong></div>
-                                <div class="col-md-1"></div>
-                            </div>
-                            <!-- Parts Items Container -->
-                            <div id="parts-container">
-                                <!-- Existing Part Lines (Loop if editing) -->
-                                <th:block th:if="${rma.partLineItems != null}" th:each="item, itemStat : *{partLineItems}">
-                                    <div class="part-item">
-                                        <div class="row mb-2">
-                                            <div class="col-md-2">
-                                                <input type="text" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].partName}" placeholder="Part Name" />
-                                            </div>
-                                            <div class="col-md-3">
-                                                <input type="text" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].partNumber}" placeholder="Part Number" />
-                                            </div>
-                                            <div class="col-md-3">
-                                                <input type="text" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].productDescription}" placeholder="Item Description" style="width: 100%; box-sizing: border-box;" />
-                                            </div>
-                                            <div class="col-md-1">
-                                                <input type="number" class="form-control form-control-sm" th:field="*{partLineItems[__${itemStat.index}__].quantity}" placeholder="Qty" min="0" style="min-width: 60px;" />
-                                            </div>
-                                            <div class="col-md-2">
+                            <div class="table-responsive">
+                                <table class="table table-bordered" id="partsTable">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 20%;">Part Name</th>
+                                            <th style="width: 25%;">Part Number</th>
+                                            <th style="width: 30%;">Item Description</th>
+                                            <th style="width: 10%;">Qty</th>
+                                            <th style="width: 10%;">Replace?</th>
+                                            <th style="width: 5%;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="partsTableBody">
+                                        <!-- Existing Part Lines (Loop if editing) -->
+                                        <tr th:each="item, itemStat : ${rma.partLineItems}" class="part-row">
+                                            <td>
+                                                <input type="text" class="form-control" th:name="|partLineItems[${itemStat.index}].partName|" th:value="${item.partName}" placeholder="Part Name">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control" th:name="|partLineItems[${itemStat.index}].partNumber|" th:value="${item.partNumber}" placeholder="Part Number">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control" th:name="|partLineItems[${itemStat.index}].productDescription|" th:value="${item.productDescription}" placeholder="Item Description">
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control" th:name="|partLineItems[${itemStat.index}].quantity|" th:value="${item.quantity}" min="0" placeholder="Qty">
+                                            </td>
+                                            <td>
                                                 <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" th:field="*{partLineItems[__${itemStat.index}__].replacementRequired}">
+                                                    <input class="form-check-input" type="checkbox" th:name="|partLineItems[${itemStat.index}].replacementRequired|" th:checked="${item.replacementRequired}">
                                                 </div>
-                                            </div>
-                                            <div class="col-md-1">
-                                                <button type="button" class="btn btn-sm btn-outline-danger remove-part" title="Remove Part">
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-danger btn-sm remove-part-row">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </th:block>
-
-                                <!-- Template Row for Adding New Parts -->
-                                <div class="part-item template d-none" data-index="__INDEX__"></div>
-                                
-                                <!-- Show at least one empty row if there are no parts -->
-                                <th:block th:if="${rma.partLineItems == null || rma.partLineItems.empty}">
-                                    <div class="part-item">
-                                        <div class="row mb-2">
-                                            <div class="col-md-2">
-                                                <input type="text" class="form-control form-control-sm" name="partLineItems[0].partName" placeholder="Part Name" />
-                                            </div>
-                                            <div class="col-md-3">
-                                                <input type="text" class="form-control form-control-sm" name="partLineItems[0].partNumber" placeholder="Part Number" />
-                                            </div>
-                                            <div class="col-md-3">
-                                                <input type="text" class="form-control form-control-sm" name="partLineItems[0].productDescription" placeholder="Item Description" style="width: 100%; box-sizing: border-box;" />
-                                            </div>
-                                            <div class="col-md-1">
-                                                <input type="number" class="form-control form-control-sm" name="partLineItems[0].quantity" value="1" min="1" placeholder="Qty" style="min-width: 60px;" />
-                                            </div>
-                                            <div class="col-md-2">
+                                            </td>
+                                        </tr>
+                                        <!-- Default empty row if no parts exist -->
+                                        <tr th:if="${rma.partLineItems == null || rma.partLineItems.isEmpty()}" class="part-row">
+                                            <td>
+                                                <input type="text" class="form-control" name="partLineItems[0].partName" placeholder="Part Name">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control" name="partLineItems[0].partNumber" placeholder="Part Number">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control" name="partLineItems[0].productDescription" placeholder="Item Description">
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control" name="partLineItems[0].quantity" value="1" min="1" placeholder="Qty">
+                                            </td>
+                                            <td>
                                                 <div class="form-check form-switch">
                                                     <input class="form-check-input" type="checkbox" name="partLineItems[0].replacementRequired">
                                                 </div>
-                                            </div>
-                                            <div class="col-md-1">
-                                                <button type="button" class="btn btn-sm btn-outline-danger remove-part" title="Remove Part">
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-danger btn-sm remove-part-row" disabled>
                                                     <i class="bi bi-trash"></i>
                                                 </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </th:block>
-                                
-                                <!-- Add Part button -->
-                                <div class="text-end mt-2">
-                                    <button type="button" id="addPartBtn" class="btn btn-sm btn-primary">
-                                        <i class="bi bi-plus-circle me-1"></i> Add Part
-                                    </button>
-                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <!-- Add Part button -->
+                            <div class="text-end mt-2">
+                                <button type="button" id="addPartBtn" class="btn btn-success btn-sm">
+                                    <i class="bi bi-plus-circle me-1"></i> Add Part
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -351,8 +342,9 @@
                     <div class="row mb-3">
                         <div class="col-md-8">
                             <div class="mb-3">
-                                <label for="referenceNumber" class="form-label">RMA/SAP Number</label>
-                                <input type="text" id="referenceNumber" class="form-control" th:field="*{referenceNumber}" placeholder="Enter RMA or SAP number" />
+                                <label for="combinedRmaField" class="form-label">RMA/SAP Number</label>
+                                <input type="text" id="combinedRmaField" class="form-control" th:field="*{referenceNumber}" placeholder="Enter RMA or SAP number" />
+                                <input type="hidden" id="rmaNumber" th:field="*{rmaNumber}" />
                                 <small class="form-text text-muted">Enter either RMA number or SAP notification number</small>
                             </div>
                         </div>
@@ -753,20 +745,89 @@
                             </div>
                         </div>
                         
-                        <!-- Additional Problem Details -->
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="rootCause" class="form-label">Root Cause:</label>
-                                    <textarea id="rootCause" class="form-control" th:field="*{rootCause}" rows="3" placeholder="Root cause analysis"></textarea>
+                    </div>
+
+                    <!-- Labor Section -->
+                    <h5 class="section-title">Labor</h5>
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered" id="laborTable">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 30%;">Description</th>
+                                            <th style="width: 15%;">Technician</th>
+                                            <th style="width: 10%;">Hours</th>
+                                            <th style="width: 15%;">Date</th>
+                                            <th style="width: 12%;">Price/Hr</th>
+                                            <th style="width: 13%;">Ext/Cost</th>
+                                            <th style="width: 5%;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="laborTableBody">
+                                        <!-- Existing labor entries -->
+                                        <tr th:each="labor, iterStat : ${rma.laborEntries}" class="labor-row">
+                                            <td>
+                                                <input type="text" class="form-control" th:name="|laborEntries[${iterStat.index}].description|" th:value="${labor.description}" placeholder="Labor description">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control" th:name="|laborEntries[${iterStat.index}].technician|" th:value="${labor.technician}" placeholder="Technician name">
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control hours-input" th:name="|laborEntries[${iterStat.index}].hours|" th:value="${labor.hours}" step="0.01" min="0" placeholder="0.00">
+                                            </td>
+                                            <td>
+                                                <input type="date" class="form-control" th:name="|laborEntries[${iterStat.index}].laborDate|" th:value="${labor.laborDate}">
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control price-input" th:name="|laborEntries[${iterStat.index}].pricePerHour|" th:value="${labor.pricePerHour}" step="0.01" min="0" placeholder="0.00">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control ext-cost" readonly th:value="${labor.extendedCost != null ? '$' + #numbers.formatDecimal(labor.extendedCost, 1, 2) : '$0.00'}">
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-danger btn-sm remove-labor-row">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <!-- Default empty row if no entries exist -->
+                                        <tr th:if="${rma.laborEntries == null || rma.laborEntries.isEmpty()}" class="labor-row">
+                                            <td>
+                                                <input type="text" class="form-control" name="laborEntries[0].description" placeholder="Labor description">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control" name="laborEntries[0].technician" placeholder="Technician name">
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control hours-input" name="laborEntries[0].hours" step="0.01" min="0" placeholder="0.00">
+                                            </td>
+                                            <td>
+                                                <input type="date" class="form-control" name="laborEntries[0].laborDate">
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control price-input" name="laborEntries[0].pricePerHour" step="0.01" min="0" placeholder="0.00">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control ext-cost" readonly placeholder="$0.00">
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-danger btn-sm remove-labor-row" disabled>
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <button type="button" class="btn btn-success btn-sm" id="addLaborRowBtn">
+                                    <i class="bi bi-plus-circle me-1"></i> Add Labor Row
+                                </button>
+                                <div class="fw-bold">
+                                    Total Labor Cost: <span id="totalLaborCost">$0.00</span>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="resolution" class="form-label">Resolution:</label>
-                                    <textarea id="resolution" class="form-control" th:field="*{resolution}" rows="3" placeholder="Resolution details"></textarea>
-                                </div>
-                            </div>  
                         </div>
                     </div>
 
@@ -1096,6 +1157,189 @@
                 }
             };
         });
+
+        // Labor table functionality
+        let laborRowCount = document.querySelectorAll('.labor-row').length;
+
+        // Add labor row
+        document.getElementById('addLaborRowBtn').addEventListener('click', function() {
+            const tbody = document.getElementById('laborTableBody');
+            const newRow = document.createElement('tr');
+            newRow.className = 'labor-row';
+            newRow.innerHTML = `
+                <td>
+                    <input type="text" class="form-control" name="laborEntries[${laborRowCount}].description" placeholder="Labor description">
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="laborEntries[${laborRowCount}].technician" placeholder="Technician name">
+                </td>
+                <td>
+                    <input type="number" class="form-control hours-input" name="laborEntries[${laborRowCount}].hours" step="0.01" min="0" placeholder="0.00">
+                </td>
+                <td>
+                    <input type="date" class="form-control" name="laborEntries[${laborRowCount}].laborDate">
+                </td>
+                <td>
+                    <input type="number" class="form-control price-input" name="laborEntries[${laborRowCount}].pricePerHour" step="0.01" min="0" placeholder="0.00">
+                </td>
+                <td>
+                    <input type="text" class="form-control ext-cost" readonly placeholder="$0.00">
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-labor-row">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(newRow);
+            laborRowCount++;
+            
+            // Add event listeners for the new row
+            addLaborRowEventListeners(newRow);
+            updateRemoveButtonStates();
+        });
+
+        // Remove labor row
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-labor-row')) {
+                const button = e.target.closest('.remove-labor-row');
+                const row = button.closest('tr');
+                row.remove();
+                updateRemoveButtonStates();
+                calculateTotalLaborCost();
+                reindexLaborRows();
+            }
+        });
+
+        // Update remove button states
+        function updateRemoveButtonStates() {
+            const removeButtons = document.querySelectorAll('.remove-labor-row');
+            const hasMultipleRows = removeButtons.length > 1;
+            removeButtons.forEach(button => {
+                button.disabled = !hasMultipleRows;
+            });
+        }
+
+        // Reindex labor rows after removal
+        function reindexLaborRows() {
+            const rows = document.querySelectorAll('.labor-row');
+            rows.forEach((row, index) => {
+                const inputs = row.querySelectorAll('input[name*="laborEntries"]');
+                inputs.forEach(input => {
+                    const name = input.getAttribute('name');
+                    const newName = name.replace(/laborEntries\[\d+\]/, `laborEntries[${index}]`);
+                    input.setAttribute('name', newName);
+                });
+            });
+            laborRowCount = rows.length;
+        }
+
+        // Add event listeners for labor calculations
+        function addLaborRowEventListeners(row) {
+            const hoursInput = row.querySelector('.hours-input');
+            const priceInput = row.querySelector('.price-input');
+            const extCostInput = row.querySelector('.ext-cost');
+
+            function calculateExtCost() {
+                const hours = parseFloat(hoursInput.value) || 0;
+                const price = parseFloat(priceInput.value) || 0;
+                const extCost = hours * price;
+                extCostInput.value = '$' + extCost.toFixed(2);
+                calculateTotalLaborCost();
+            }
+
+            hoursInput.addEventListener('input', calculateExtCost);
+            priceInput.addEventListener('input', calculateExtCost);
+        }
+
+        // Calculate total labor cost
+        function calculateTotalLaborCost() {
+            let total = 0;
+            document.querySelectorAll('.labor-row').forEach(row => {
+                const hours = parseFloat(row.querySelector('.hours-input').value) || 0;
+                const price = parseFloat(row.querySelector('.price-input').value) || 0;
+                total += hours * price;
+            });
+            document.getElementById('totalLaborCost').textContent = '$' + total.toFixed(2);
+        }
+
+        // Initialize event listeners for existing rows
+        document.querySelectorAll('.labor-row').forEach(addLaborRowEventListeners);
+        updateRemoveButtonStates();
+
+        // Parts table functionality
+        let partRowCount = document.querySelectorAll('.part-row').length;
+
+        // Add part row
+        document.getElementById('addPartBtn').addEventListener('click', function() {
+            const tbody = document.getElementById('partsTableBody');
+            const newRow = document.createElement('tr');
+            newRow.className = 'part-row';
+            newRow.innerHTML = `
+                <td>
+                    <input type="text" class="form-control" name="partLineItems[${partRowCount}].partName" placeholder="Part Name">
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="partLineItems[${partRowCount}].partNumber" placeholder="Part Number">
+                </td>
+                <td>
+                    <input type="text" class="form-control" name="partLineItems[${partRowCount}].productDescription" placeholder="Item Description">
+                </td>
+                <td>
+                    <input type="number" class="form-control" name="partLineItems[${partRowCount}].quantity" value="1" min="1" placeholder="Qty">
+                </td>
+                <td>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="partLineItems[${partRowCount}].replacementRequired">
+                    </div>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm remove-part-row">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(newRow);
+            partRowCount++;
+            updateRemovePartButtonStates();
+        });
+
+        // Remove part row
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-part-row')) {
+                const button = e.target.closest('.remove-part-row');
+                const row = button.closest('tr');
+                row.remove();
+                updateRemovePartButtonStates();
+                reindexPartRows();
+            }
+        });
+
+        // Update remove button states for parts
+        function updateRemovePartButtonStates() {
+            const removeButtons = document.querySelectorAll('.remove-part-row');
+            const hasMultipleRows = removeButtons.length > 1;
+            removeButtons.forEach(button => {
+                button.disabled = !hasMultipleRows;
+            });
+        }
+
+        // Reindex part rows after removal
+        function reindexPartRows() {
+            const rows = document.querySelectorAll('.part-row');
+            rows.forEach((row, index) => {
+                const inputs = row.querySelectorAll('input[name*="partLineItems"]');
+                inputs.forEach(input => {
+                    const name = input.getAttribute('name');
+                    const newName = name.replace(/partLineItems\[\d+\]/, `partLineItems[${index}]`);
+                    input.setAttribute('name', newName);
+                });
+            });
+            partRowCount = rows.length;
+        }
+
+        // Initialize parts functionality
+        updateRemovePartButtonStates();
     </script>
 </body>
 </html> 

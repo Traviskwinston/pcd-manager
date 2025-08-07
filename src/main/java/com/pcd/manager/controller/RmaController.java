@@ -28,6 +28,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.io.FileNotFoundException;
 import java.nio.file.Path;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collections;
@@ -2424,6 +2425,102 @@ public class RmaController {
         }
         
         return response;
+    }
+
+    @PostMapping("/{id}/update-labor")
+    public String updateLabor(@PathVariable Long id, HttpServletRequest request, RedirectAttributes redirectAttributes) {
+        try {
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (!rmaOpt.isPresent()) {
+                redirectAttributes.addFlashAttribute("error", "RMA not found");
+                return "redirect:/rma/" + id;
+            }
+            
+            Rma rma = rmaOpt.get();
+            
+            // Clear existing labor entries
+            rma.getLaborEntries().clear();
+            
+            // Process labor entries from form
+            int laborIndex = 0;
+            
+            while (true) {
+                String description = request.getParameter("laborEntries[" + laborIndex + "].description");
+                String technician = request.getParameter("laborEntries[" + laborIndex + "].technician");
+                String hoursStr = request.getParameter("laborEntries[" + laborIndex + "].hours");
+                String laborDateStr = request.getParameter("laborEntries[" + laborIndex + "].laborDate");
+                String pricePerHourStr = request.getParameter("laborEntries[" + laborIndex + "].pricePerHour");
+                
+                // Break if we've reached the end of labor entries
+                if (description == null && technician == null && hoursStr == null) {
+                    break;
+                }
+                
+                // Skip empty entries
+                if ((description == null || description.trim().isEmpty()) && 
+                    (technician == null || technician.trim().isEmpty()) &&
+                    (hoursStr == null || hoursStr.trim().isEmpty()) &&
+                    (pricePerHourStr == null || pricePerHourStr.trim().isEmpty())) {
+                    laborIndex++;
+                    continue;
+                }
+                
+                LaborEntry laborEntry = new LaborEntry();
+                laborEntry.setDescription(description != null ? description.trim() : "");
+                laborEntry.setTechnician(technician != null ? technician.trim() : "");
+                
+                // Parse hours
+                if (hoursStr != null && !hoursStr.trim().isEmpty()) {
+                    try {
+                        laborEntry.setHours(new BigDecimal(hoursStr.trim()));
+                    } catch (NumberFormatException e) {
+                        logger.warn("Invalid hours value: {}", hoursStr);
+                        laborEntry.setHours(BigDecimal.ZERO);
+                    }
+                } else {
+                    laborEntry.setHours(BigDecimal.ZERO);
+                }
+                
+                // Parse labor date
+                if (laborDateStr != null && !laborDateStr.trim().isEmpty()) {
+                    try {
+                        laborEntry.setLaborDate(LocalDate.parse(laborDateStr.trim()));
+                    } catch (Exception e) {
+                        logger.warn("Invalid labor date value: {}", laborDateStr);
+                        laborEntry.setLaborDate(null);
+                    }
+                } else {
+                    laborEntry.setLaborDate(null);
+                }
+                
+                // Parse price per hour
+                if (pricePerHourStr != null && !pricePerHourStr.trim().isEmpty()) {
+                    try {
+                        laborEntry.setPricePerHour(new BigDecimal(pricePerHourStr.trim()));
+                    } catch (NumberFormatException e) {
+                        logger.warn("Invalid price per hour value: {}", pricePerHourStr);
+                        laborEntry.setPricePerHour(BigDecimal.ZERO);
+                    }
+                } else {
+                    laborEntry.setPricePerHour(BigDecimal.ZERO);
+                }
+                
+                rma.getLaborEntries().add(laborEntry);
+                laborIndex++;
+            }
+            
+            // Save the updated RMA
+            rmaService.saveRma(rma, null);
+            
+            redirectAttributes.addFlashAttribute("message", "Labor entries updated successfully");
+            logger.info("Updated labor entries for RMA ID {}: {} entries", id, rma.getLaborEntries().size());
+            
+        } catch (Exception e) {
+            logger.error("Error updating labor entries for RMA ID " + id, e);
+            redirectAttributes.addFlashAttribute("error", "Error updating labor entries: " + e.getMessage());
+        }
+        
+        return "redirect:/rma/" + id;
     }
 
     @PostMapping("/{id}/test-parts")
