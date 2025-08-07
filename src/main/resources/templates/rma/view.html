@@ -322,7 +322,7 @@
                         <i class="bi bi-file-excel"></i> Export
                     </a>
                     
-                    <button type="button" class="btn btn-danger detail-action-btn" onclick="confirmDeleteRma()">
+                    <button type="button" class="btn btn-danger detail-action-btn" data-bs-toggle="modal" data-bs-target="#deleteModal">
                         <i class="bi bi-trash"></i> Delete
                     </button>
                                         </div>
@@ -505,37 +505,37 @@
                     <div class="card-body">
                         <!-- View Mode -->
                         <div id="parts-info-view-mode">
-                            <div th:if="${rma.partLineItems == null || rma.partLineItems.isEmpty()}" class="detail-empty-state">
-                                <i class="bi bi-boxes"></i>
-                                <p>No parts information available</p>
+                        <div th:if="${rma.partLineItems == null || rma.partLineItems.isEmpty()}" class="detail-empty-state">
+                            <i class="bi bi-boxes"></i>
+                            <p>No parts information available</p>
                             </div>
-                            
-                            <div th:if="${rma.partLineItems != null && !rma.partLineItems.isEmpty()}" class="table-responsive">
-                                <table class="table table-striped detail-section-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Part Name</th>
-                                            <th>Part #</th>
-                                            <th>Desc.</th>
-                                            <th>QTY</th>
-                                            <th>Replace?</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr th:each="partItem : ${rma.partLineItems}">
-                                            <td th:text="${partItem.partName ?: '-'}">Part Name</td>
-                                            <td th:text="${partItem.partNumber ?: '-'}">Part Number</td>
-                                            <td th:text="${partItem.productDescription ?: '-'}">Description</td>
-                                            <td th:text="${partItem.quantity ?: '1'}">Quantity</td>
-                                            <td>
-                                                <span th:if="${partItem.replacementRequired}" class="badge bg-danger">Yes</span>
-                                                <span th:if="${!partItem.replacementRequired}" class="badge bg-success">No</span>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                        
+                        <div th:if="${rma.partLineItems != null && !rma.partLineItems.isEmpty()}" class="table-responsive">
+                            <table class="table table-striped detail-section-table">
+                                <thead>
+                                    <tr>
+                                        <th>Part Name</th>
+                                        <th>Part #</th>
+                                        <th>Desc.</th>
+                                        <th>QTY</th>
+                                        <th>Replace?</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="partItem : ${rma.partLineItems}">
+                                        <td th:text="${partItem.partName ?: '-'}">Part Name</td>
+                                        <td th:text="${partItem.partNumber ?: '-'}">Part Number</td>
+                                        <td th:text="${partItem.productDescription ?: '-'}">Description</td>
+                                        <td th:text="${partItem.quantity ?: '1'}">Quantity</td>
+                                        <td>
+                                            <span th:if="${partItem.replacementRequired}" class="badge bg-danger">Yes</span>
+                                            <span th:if="${!partItem.replacementRequired}" class="badge bg-success">No</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                                </div>
                             </div>
-                        </div>
                         
                         <!-- Edit Mode -->
                         <div id="parts-info-edit-mode" class="d-none rma-edit-mode">
@@ -944,7 +944,7 @@
                     <div class="card-body">
                         <!-- View Mode -->
                         <div id="customer-view-mode">
-                            <div class="row g-3">
+                        <div class="row g-3">
                             <div class="col-md-6">
                                 <div class="d-flex flex-column">
                                     <small class="detail-text-muted">Customer Name</small>
@@ -1003,7 +1003,7 @@
                                 </div>
                             </div>
                         </div>
-                        </div>
+                    </div>
                         
                         <!-- Edit Mode -->
                         <div id="customer-edit-mode" class="d-none rma-edit-mode">
@@ -1704,7 +1704,9 @@
     <script th:src="@{/js/theme-toggle.js}"></script>
     <script th:inline="javascript">
         const rmaPageId = document.getElementById('rmaPageEntityIdForJs').value;
+        const rmaConnectedToolId = /*[[${rma.tool?.id}]]*/ null;
         console.log('RMA Page ID initialized:', rmaPageId);
+        console.log('RMA Connected Tool ID:', rmaConnectedToolId);
         
         // START: Generic Edit/Save/Cancel Logic (Modified for Header)
         function enterHeaderEditMode() {
@@ -1745,7 +1747,7 @@
             payload.append('systemDescription', systemDescription);
             payload.append('technician', technician);
 
-            fetch(`/rma/${rmaPageId}/update-header`, {
+            fetch('/rma/' + rmaPageId + '/update-header', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -1807,7 +1809,7 @@
         function deleteDocumentFromData(element) {
             const documentId = element.getAttribute('data-document-id');
             if (confirm('Are you sure you want to delete this document?')) {
-                fetch(`/rma/${rmaPageId}/documents/${documentId}/delete`, {
+                fetch('/rma/' + rmaPageId + '/documents/' + documentId + '/delete', {
                     method: 'POST'
                 })
                 .then(response => {
@@ -1827,7 +1829,7 @@
         function showPictureModal(pictureId) {
             try {
                 const modalImg = document.getElementById('modalPictureImg');
-                const imgElement = document.querySelector(`img[onclick*="${pictureId}"]`);
+                const imgElement = document.querySelector('img[onclick*="' + pictureId + '"]');
                 if (imgElement) {
                     modalImg.src = imgElement.src;
                     const modal = new bootstrap.Modal(document.getElementById('pictureModal'));
@@ -1841,7 +1843,7 @@
         function deletePictureFromData(element) {
             const pictureId = element.getAttribute('data-picture-id');
             if (confirm('Are you sure you want to delete this picture?')) {
-                fetch(`/rma/${rmaPageId}/pictures/${pictureId}/delete`, {
+                fetch('/rma/' + rmaPageId + '/pictures/' + pictureId + '/delete', {
                     method: 'POST'
                 })
                 .then(response => {
@@ -1968,15 +1970,14 @@
             const firstSelect = container.querySelector('.destination-select');
             const toolOptions = firstSelect.innerHTML;
             
-            newRow.innerHTML = `
-                <strong class="me-2">To:</strong>
-                <select class="form-select destination-select" name="destinationToolIds" required>
-                    ${toolOptions}
-                </select>
-                <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-destination">
-                    <i class="bi bi-dash"></i>
-                </button>
-            `;
+            newRow.innerHTML = 
+                '<strong class="me-2">To:</strong>' +
+                '<select class="form-select destination-select" name="destinationToolIds" required>' +
+                    toolOptions +
+                '</select>' +
+                '<button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-destination">' +
+                    '<i class="bi bi-dash"></i>' +
+                '</button>';
             
             container.appendChild(newRow);
             updateRemoveButtons(containerId);
@@ -2089,7 +2090,7 @@
             try {
                 const response = await fetch(fileUrl);
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    throw new Error('HTTP error! status: ' + response.status);
                 }
                 const arrayBuffer = await response.arrayBuffer();
                 const data = new Uint8Array(arrayBuffer);
@@ -2127,12 +2128,12 @@
             const newStatus = document.getElementById('status-select').value;
             const rmaId = rmaPageId; // Assuming rmaPageId is globally available from hidden input
 
-            fetch(`/rma/${rmaId}/update-status`, {
+            fetch('/rma/' + rmaId + '/update-status', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `newStatus=${encodeURIComponent(newStatus)}`
+                body: 'newStatus=' + encodeURIComponent(newStatus)
             })
             .then(response => {
                 if (!response.ok) {
@@ -2185,12 +2186,12 @@
             const newPriority = document.getElementById('priority-select').value;
             const rmaId = rmaPageId; // Assuming rmaPageId is globally available
 
-            fetch(`/rma/${rmaId}/update-priority`, {
+            fetch('/rma/' + rmaId + '/update-priority', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `newPriority=${encodeURIComponent(newPriority)}`
+                body: 'newPriority=' + encodeURIComponent(newPriority)
             })
             .then(response => {
                 if (!response.ok) {
@@ -2228,7 +2229,7 @@
             const form = document.getElementById('problem-details-form');
             const formData = new FormData(form);
             
-            const url = `/rma/${rmaPageId}/update-problem`;
+            const url = '/rma/' + rmaPageId + '/update-problem';
             console.log('Making request to:', url);
             
             fetch(url, {
@@ -2306,7 +2307,7 @@
             const form = document.getElementById('process-impact-form');
             const formData = new FormData(form);
             
-            fetch(`/rma/${rmaPageId}/update-process-impact`, {
+            fetch('/rma/' + rmaPageId + '/update-process-impact', {
                 method: 'POST',
                 body: formData
             })
@@ -2333,11 +2334,11 @@
         function updateProcessImpactView(formData) {
             // Update badge fields (Yes/No with colored badges)
             const updateBadge = (colIndex, value, yesClass = 'bg-danger', noClass = 'bg-success') => {
-                const col = document.querySelector(`#process-impact-view-mode .col-md-6:nth-child(${colIndex}) div span.badge`);
+                const col = document.querySelector('#process-impact-view-mode .col-md-6:nth-child(' + colIndex + ') div span.badge');
                 if (col) {
                     const isYes = value === 'true';
                     col.textContent = isYes ? 'Yes' : 'No';
-                    col.className = `badge ${isYes ? yesClass : noClass}`;
+                    col.className = 'badge ' + (isYes ? yesClass : noClass);
                 }
             };
 
@@ -2405,7 +2406,7 @@
             const form = document.getElementById('customer-form');
             const formData = new FormData(form);
             
-            fetch(`/rma/${rmaPageId}/update-customer`, {
+            fetch('/rma/' + rmaPageId + '/update-customer', {
                 method: 'POST',
                 body: formData
             })
@@ -2431,8 +2432,8 @@
 
         function updateCustomerView(formData) {
             const updateField = (selector, value, fallback = 'Not specified') => {
-                const pElement = document.querySelector(`${selector} p`);
-                const spanElement = document.querySelector(`${selector} span`);
+                            const pElement = document.querySelector(selector + ' p');
+            const spanElement = document.querySelector(selector + ' span');
                 
                 if (value && value.trim()) {
                     if (pElement) {
@@ -2510,9 +2511,16 @@
             }
             
             // Contact Phone Number - use more specific selector
-            const phoneContainer = Array.from(document.querySelectorAll('#customer-view-mode .col-md-6')).find(col => 
-                col.querySelector('small')?.textContent?.includes('Contact Phone Number')
-            );
+            var phoneContainer = null;
+            var customerColumns = document.querySelectorAll('#customer-view-mode .col-md-6');
+            for (var i = 0; i < customerColumns.length; i++) {
+                var col = customerColumns[i];
+                var smallElement = col.querySelector('small');
+                if (smallElement && smallElement.textContent && smallElement.textContent.includes('Contact Phone Number')) {
+                    phoneContainer = col;
+                    break;
+                }
+            }
             if (phoneContainer) {
                 const phoneValue = formData.get('customerPhone');
                 const pElement = phoneContainer.querySelector('p');
@@ -2544,60 +2552,115 @@
         }
 
         function savePartsInfo() {
-            const form = document.getElementById('parts-info-form');
-            const formData = new FormData(form);
-            
-            fetch(`/rma/${rmaPageId}/update-parts`, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(data => { throw new Error(data.message || 'Failed to update parts') });
+            try {
+                console.log('savePartsInfo called');
+                console.log('Current theme before save:', document.documentElement.getAttribute('data-bs-theme'));
+                console.log('LocalStorage theme:', localStorage.getItem('pcd-manager-theme'));
+                
+                const form = document.getElementById('parts-info-form');
+                console.log('Form element:', form);
+                
+                if (!form) {
+                    throw new Error('Form element not found');
                 }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    // Switch back to view mode (parts doesn't have separate view mode div)
-                    cancelInlineEdit('parts-info');
-                    
-                    // Show success message
-                    console.log('Parts updated successfully');
-                    
-                    // Reload page to show updated parts
-                    setTimeout(() => {
-                        location.reload();
-                    }, 500);
-                } else {
-                    throw new Error(data.message || 'Failed to update parts');
+                
+                const formData = new FormData(form);
+                
+                // Debug: Log all form data
+                console.log('Form data entries:');
+                var entries = [];
+                var iterator = formData.entries();
+                var entry = iterator.next();
+                while (!entry.done) {
+                    entries.push(entry.value);
+                    entry = iterator.next();
                 }
-            })
-            .catch(error => {
-                console.error('Error saving parts:', error);
-                alert('Error updating parts: ' + error.message);
-            });
+                for (var i = 0; i < entries.length; i++) {
+                    var entry = entries[i];
+                    var key = entry[0];
+                    var value = entry[1];
+                    console.log(key + ': "' + value + '"');
+                }
+                
+                const url = '/rma/' + rmaPageId + '/update-parts';
+                console.log('Making request to:', url);
+                
+                fetch(url, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    console.log('Response status:', response.status, 'OK:', response.ok);
+                    if (!response.ok) {
+                        return response.json().then(data => { throw new Error(data.message || 'Failed to update parts') });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+                    if (data.success) {
+                        // Switch back to view mode (parts doesn't have separate view mode div)
+                        cancelInlineEdit('parts-info');
+                        
+                        // Show success message
+                        console.log('Parts updated successfully');
+                        console.log('Current theme after save:', document.documentElement.getAttribute('data-bs-theme'));
+                        console.log('LocalStorage theme after save:', localStorage.getItem('pcd-manager-theme'));
+                        
+                        // No popup - just log success and reload after delay
+                        console.log('Parts save completed, reloading page in 1 second...');
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1000);
+                        
+                        // Don't auto-reload to avoid breaking theme
+                        // setTimeout(() => {
+                        //     location.reload();
+                        // }, 500);
+                    } else {
+                        throw new Error(data.message || 'Failed to update parts');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving parts:', error);
+                    alert('Error updating parts: ' + error.message);
+                });
+                
+            } catch (error) {
+                console.error('JavaScript error in savePartsInfo:', error);
+                alert('JavaScript error: ' + error.message);
+            }
         }
 
-        let partRowIndex = 0;
+        var partRowIndex = 0;
         
         function initializePartsEdit() {
+            console.log('initializePartsEdit called');
             const tbody = document.getElementById('partsEditTableBody');
+            console.log('partsEditTableBody element:', tbody);
+            if (!tbody) {
+                console.error('partsEditTableBody not found!');
+                return;
+            }
             tbody.innerHTML = ''; // Clear existing
             partRowIndex = 0;
             
             // Add existing parts as editable rows
             const existingParts = document.querySelectorAll('#parts-info-view-mode tbody tr');
+            console.log('Found existing parts:', existingParts.length);
             if (existingParts.length > 0) {
                 existingParts.forEach((row, index) => {
-                    const cells = row.querySelectorAll('td');
-                    addPartRowWithData(
-                        cells[0]?.textContent === '-' ? '' : cells[0]?.textContent || '',
-                        cells[1]?.textContent === '-' ? '' : cells[1]?.textContent || '',
-                        cells[2]?.textContent === '-' ? '' : cells[2]?.textContent || '',
-                        cells[3]?.textContent || '1',
-                        cells[4]?.querySelector('.badge')?.textContent === 'Yes'
-                    );
+                    var cells = row.querySelectorAll('td');
+                    var partName = (cells[0] && cells[0].textContent === '-') ? '' : (cells[0] && cells[0].textContent) || '';
+                    var partNumber = (cells[1] && cells[1].textContent === '-') ? '' : (cells[1] && cells[1].textContent) || '';
+                    var description = (cells[2] && cells[2].textContent === '-') ? '' : (cells[2] && cells[2].textContent) || '';
+                    var quantity = (cells[3] && cells[3].textContent) || '1';
+                    var badgeElement = cells[4] && cells[4].querySelector('.badge');
+                    var replacement = badgeElement && badgeElement.textContent === 'Yes';
+                    
+                    console.log('Existing part ' + index + ':', partName, partNumber, description, quantity, replacement);
+                    
+                    addPartRowWithData(partName, partNumber, description, quantity, replacement);
                 });
             } else {
                 // Add at least one empty row
@@ -2612,30 +2675,29 @@
             const newRow = document.createElement('tr');
             newRow.className = 'part-edit-row';
             
-            newRow.innerHTML = `
-                <td>
-                    <input type="text" class="form-control" name="parts[${partRowIndex}][partName]" placeholder="Part Name">
-                </td>
-                <td>
-                    <input type="text" class="form-control" name="parts[${partRowIndex}][partNumber]" placeholder="Part Number">
-                </td>
-                <td>
-                    <input type="text" class="form-control" name="parts[${partRowIndex}][productDescription]" placeholder="Description">
-                </td>
-                <td>
-                    <input type="number" class="form-control" name="parts[${partRowIndex}][quantity]" value="1" min="1">
-                </td>
-                <td>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" name="parts[${partRowIndex}][replacementRequired]">
-                    </div>
-                </td>
-                <td>
-                    <button type="button" class="btn btn-danger btn-sm remove-part-edit-row">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            `;
+            newRow.innerHTML = 
+                '<td>' +
+                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][partName]" placeholder="Part Name">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][partNumber]" placeholder="Part Number">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][productDescription]" placeholder="Description">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="number" class="form-control" name="parts[' + partRowIndex + '][quantity]" value="1" min="1">' +
+                '</td>' +
+                '<td>' +
+                    '<div class="form-check form-switch">' +
+                        '<input class="form-check-input" type="checkbox" name="parts[' + partRowIndex + '][replacementRequired]">' +
+                    '</div>' +
+                '</td>' +
+                '<td>' +
+                    '<button type="button" class="btn btn-danger btn-sm remove-part-edit-row">' +
+                        '<i class="bi bi-trash"></i>' +
+                    '</button>' +
+                '</td>';
             
             tbody.appendChild(newRow);
             partRowIndex++;
@@ -2647,30 +2709,29 @@
             const newRow = document.createElement('tr');
             newRow.className = 'part-edit-row';
             
-            newRow.innerHTML = `
-                <td>
-                    <input type="text" class="form-control" name="parts[${partRowIndex}][partName]" value="${partName}" placeholder="Part Name">
-                </td>
-                <td>
-                    <input type="text" class="form-control" name="parts[${partRowIndex}][partNumber]" value="${partNumber}" placeholder="Part Number">
-                </td>
-                <td>
-                    <input type="text" class="form-control" name="parts[${partRowIndex}][productDescription]" value="${description}" placeholder="Description">
-                </td>
-                <td>
-                    <input type="number" class="form-control" name="parts[${partRowIndex}][quantity]" value="${quantity}" min="1">
-                </td>
-                <td>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" name="parts[${partRowIndex}][replacementRequired]" ${replacement ? 'checked' : ''}>
-                    </div>
-                </td>
-                <td>
-                    <button type="button" class="btn btn-danger btn-sm remove-part-edit-row">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            `;
+            newRow.innerHTML = 
+                '<td>' +
+                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][partName]" value="' + partName + '" placeholder="Part Name">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][partNumber]" value="' + partNumber + '" placeholder="Part Number">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][productDescription]" value="' + description + '" placeholder="Description">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="number" class="form-control" name="parts[' + partRowIndex + '][quantity]" value="' + quantity + '" min="1">' +
+                '</td>' +
+                '<td>' +
+                    '<div class="form-check form-switch">' +
+                        '<input class="form-check-input" type="checkbox" name="parts[' + partRowIndex + '][replacementRequired]"' + (replacement ? ' checked' : '') + '>' +
+                    '</div>' +
+                '</td>' +
+                '<td>' +
+                    '<button type="button" class="btn btn-danger btn-sm remove-part-edit-row">' +
+                        '<i class="bi bi-trash"></i>' +
+                    '</button>' +
+                '</td>';
             
             tbody.appendChild(newRow);
             partRowIndex++;
@@ -2707,7 +2768,7 @@
                 const inputs = row.querySelectorAll('input[name*="parts"]');
                 inputs.forEach(input => {
                     const name = input.getAttribute('name');
-                    const newName = name.replace(/parts\[\d+\]/, `parts[${index}]`);
+                    const newName = name.replace(/parts\[\d+\]/, 'parts[' + index + ']');
                     input.setAttribute('name', newName);
                 });
             });
@@ -2718,7 +2779,7 @@
             const form = document.getElementById('dates-form');
             const formData = new FormData(form);
             
-            fetch(`/rma/${rmaPageId}/update-dates`, {
+            fetch('/rma/' + rmaPageId + '/update-dates', {
                 method: 'POST',
                 body: formData
             })
@@ -2769,18 +2830,23 @@
 
         // Generic section editing functionality
         function enableInlineEdit(sectionId) {
+            console.log('enableInlineEdit called with sectionId:', sectionId);
             const viewMode = document.getElementById(sectionId + '-view-mode');
             const editMode = document.getElementById(sectionId + '-edit-mode');
+            console.log('viewMode element:', viewMode);
+            console.log('editMode element:', editMode);
             
             if (viewMode && editMode) {
                 // Handle special case for parts-info to initialize the parts editor
                 if (sectionId === 'parts-info') {
+                    console.log('Initializing parts edit for parts-info section');
                     initializePartsEdit();
                 }
                 
                 // Show edit mode, hide view mode
                 viewMode.classList.add('d-none');
                 editMode.classList.remove('d-none');
+                console.log('Switched to edit mode for section:', sectionId);
                 
                 // Update buttons if they exist (some sections might not have them)
                 const editBtn = document.querySelector('.edit-section-btn[data-section="' + sectionId + '"]');
@@ -3116,39 +3182,45 @@
 
             noResultsMsg.classList.add('d-none');
 
-            container.innerHTML = filteredToolsData.map(tool => `
-                <div class="list-group-item list-group-item-action tool-item py-2" data-tool-id="${tool.id}" onclick="selectTool(${tool.id})">
-                    <div class="d-flex align-items-center">
-                        <div class="tool-name-col" style="flex: 2; min-width: 200px;">
-                            <div class="fw-bold">${tool.name}</div>
-                            ${tool.secondaryName ? `<div class="text-muted small">${tool.secondaryName}</div>` : ''}
-                        </div>
-                        <div class="tool-type-col" style="flex: 1; min-width: 120px; text-align: center;">
-                            <span class="badge bg-light text-dark">${tool.toolType || '-'}</span>
-                        </div>
-                        <div class="tool-model-col" style="flex: 1; min-width: 120px; text-align: center;">
-                            <span>${tool.model1 || '-'}</span>
-                        </div>
-                        <div class="tool-serial-col" style="flex: 1; min-width: 120px; text-align: center;">
-                            <code class="small bg-light px-1">${tool.serialNumber1 || '-'}</code>
-                        </div>
-                        <div class="tool-location-col" style="flex: 1; min-width: 100px; text-align: center;">
-                            <span class="badge bg-secondary small">${tool.locationName || 'Unknown'}</span>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+            container.innerHTML = filteredToolsData.map(function(tool) {
+                return '<div class="list-group-item list-group-item-action tool-item py-2" data-tool-id="' + tool.id + '" onclick="selectTool(' + tool.id + ')">' +
+                    '<div class="d-flex align-items-center">' +
+                        '<div class="tool-name-col" style="flex: 2; min-width: 200px;">' +
+                            '<div class="fw-bold">' + tool.name + '</div>' +
+                            (tool.secondaryName ? '<div class="text-muted small">' + tool.secondaryName + '</div>' : '') +
+                        '</div>' +
+                        '<div class="tool-type-col" style="flex: 1; min-width: 120px; text-align: center;">' +
+                            '<span class="badge bg-light text-dark">' + (tool.toolType || '-') + '</span>' +
+                        '</div>' +
+                        '<div class="tool-model-col" style="flex: 1; min-width: 120px; text-align: center;">' +
+                            '<span>' + (tool.model1 || '-') + '</span>' +
+                        '</div>' +
+                        '<div class="tool-serial-col" style="flex: 1; min-width: 120px; text-align: center;">' +
+                            '<code class="small bg-light px-1">' + (tool.serialNumber1 || '-') + '</code>' +
+                        '</div>' +
+                        '<div class="tool-location-col" style="flex: 1; min-width: 100px; text-align: center;">' +
+                            '<span class="badge bg-secondary small">' + (tool.locationName || 'Unknown') + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
         }
 
         function selectTool(toolId) {
             selectedToolId = toolId;
-            const tool = allToolsData.find(t => t.id === toolId);
+            var tool = null;
+            for (var i = 0; i < allToolsData.length; i++) {
+                if (allToolsData[i].id === toolId) {
+                    tool = allToolsData[i];
+                    break;
+                }
+            }
 
             // Update UI selection
             document.querySelectorAll('.tool-item').forEach(item => {
                 item.classList.remove('active');
             });
-            document.querySelector(`[data-tool-id="${toolId}"]`).classList.add('active');
+            document.querySelector('[data-tool-id="' + toolId + '"]').classList.add('active');
 
             // Update preview
             if (tool) {
@@ -3224,31 +3296,30 @@
             const tbody = document.getElementById('laborModalTableBody');
             const newRow = document.createElement('tr');
             newRow.className = 'labor-modal-row';
-            newRow.innerHTML = `
-                <td>
-                    <input type="text" class="form-control" name="laborEntries[${laborModalRowCount}].description" placeholder="Labor description">
-                </td>
-                <td>
-                    <input type="text" class="form-control" name="laborEntries[${laborModalRowCount}].technician" placeholder="Technician name">
-                </td>
-                <td>
-                    <input type="number" class="form-control hours-modal-input" name="laborEntries[${laborModalRowCount}].hours" step="0.01" min="0" placeholder="0.00">
-                </td>
-                <td>
-                    <input type="date" class="form-control" name="laborEntries[${laborModalRowCount}].laborDate">
-                </td>
-                <td>
-                    <input type="number" class="form-control price-modal-input" name="laborEntries[${laborModalRowCount}].pricePerHour" step="0.01" min="0" placeholder="0.00">
-                </td>
-                <td>
-                    <input type="text" class="form-control ext-cost-modal" readonly placeholder="$0.00">
-                </td>
-                <td>
-                    <button type="button" class="btn btn-danger btn-sm remove-labor-modal-row">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            `;
+            newRow.innerHTML = 
+                '<td>' +
+                    '<input type="text" class="form-control" name="laborEntries[' + laborModalRowCount + '].description" placeholder="Labor description">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="text" class="form-control" name="laborEntries[' + laborModalRowCount + '].technician" placeholder="Technician name">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="number" class="form-control hours-modal-input" name="laborEntries[' + laborModalRowCount + '].hours" step="0.01" min="0" placeholder="0.00">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="date" class="form-control" name="laborEntries[' + laborModalRowCount + '].laborDate">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="number" class="form-control price-modal-input" name="laborEntries[' + laborModalRowCount + '].pricePerHour" step="0.01" min="0" placeholder="0.00">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="text" class="form-control ext-cost-modal" readonly placeholder="$0.00">' +
+                '</td>' +
+                '<td>' +
+                    '<button type="button" class="btn btn-danger btn-sm remove-labor-modal-row">' +
+                        '<i class="bi bi-trash"></i>' +
+                    '</button>' +
+                '</td>';
             tbody.appendChild(newRow);
             laborModalRowCount++;
             
@@ -3285,7 +3356,7 @@
                 const inputs = row.querySelectorAll('input[name*="laborEntries"]');
                 inputs.forEach(input => {
                     const name = input.getAttribute('name');
-                    const newName = name.replace(/laborEntries\[\d+\]/, `laborEntries[${index}]`);
+                    const newName = name.replace(/laborEntries\[\d+\]/, 'laborEntries[' + index + ']');
                     input.setAttribute('name', newName);
                 });
             });
@@ -3317,8 +3388,10 @@
         function calculateTotalLaborModalCost() {
             let total = 0;
             document.querySelectorAll('.labor-modal-row').forEach(row => {
-                const hours = parseFloat(row.querySelector('.hours-modal-input')?.value) || 0;
-                const price = parseFloat(row.querySelector('.price-modal-input')?.value) || 0;
+                            const hoursInput = row.querySelector('.hours-modal-input');
+            const priceInput = row.querySelector('.price-modal-input');
+            const hours = parseFloat(hoursInput && hoursInput.value) || 0;
+            const price = parseFloat(priceInput && priceInput.value) || 0;
                 total += hours * price;
             });
             const totalElement = document.getElementById('totalLaborModalCost');
@@ -3327,37 +3400,30 @@
             }
         }
         
-        // Delete RMA functionality
-        function confirmDeleteRma() {
-            if (confirm('Are you sure you want to delete this RMA? This action cannot be undone.')) {
-                const rmaId = document.getElementById('rmaPageEntityIdForJs').value;
+        // Moving Parts Modal - Default "To" field to connected tool
+        document.addEventListener('DOMContentLoaded', function() {
+            const addMovingPartModal = document.getElementById('addMovingPartModal');
+            if (addMovingPartModal && rmaConnectedToolId) {
+                addMovingPartModal.addEventListener('shown.bs.modal', function () {
+                    // Find the first "To" dropdown in the modal
+                    const firstToDropdown = addMovingPartModal.querySelector('#destinationContainerRma .destination-select');
+                    if (firstToDropdown) {
+                        // Set the value to the RMA's connected tool
+                        firstToDropdown.value = rmaConnectedToolId;
+                        console.log('Set moving part "To" field to connected tool:', rmaConnectedToolId);
+                    }
+                });
                 
-                if (!rmaId || rmaId === 'null') {
-                    alert('Error: RMA ID not found');
-                    return;
-                }
-                
-                // Create a form and submit it
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/rma/' + rmaId + '/delete';
-                
-                // Add CSRF token if needed
-                const csrfToken = document.querySelector('meta[name="_csrf"]');
-                const csrfHeader = document.querySelector('meta[name="_csrf_header"]');
-                
-                if (csrfToken && csrfHeader) {
-                    const csrfInput = document.createElement('input');
-                    csrfInput.type = 'hidden';
-                    csrfInput.name = csrfToken.getAttribute('content');
-                    csrfInput.value = csrfHeader.getAttribute('content');
-                    form.appendChild(csrfInput);
-                }
-                
-                document.body.appendChild(form);
-                form.submit();
+                // Reset form when modal is hidden to ensure clean state for next open
+                addMovingPartModal.addEventListener('hidden.bs.modal', function () {
+                    const form = addMovingPartModal.querySelector('form');
+                    if (form) {
+                        form.reset();
+                    }
+                });
             }
-        }
+        });
+
     </script>
     
     <!-- Moving Part Modal JavaScript Fragment -->

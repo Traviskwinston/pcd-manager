@@ -831,14 +831,6 @@
                         </div>
                     </div>
 
-                    <!-- Notes -->
-                    <div class="mb-3">
-                        <label for="comments" class="form-label">Notes</label>
-                        <textarea id="comments" class="form-control" rows="3"></textarea>
-                        <!-- Don't bind the text area to the RMA comments field since it's a List<RmaComment> -->
-                        <input type="hidden" name="comments" value="">
-                    </div>
-
                     <!-- Submit buttons -->
                     <div class="text-end mt-3">
                         <a th:href="@{/rma}" class="btn btn-secondary me-2">Cancel</a>

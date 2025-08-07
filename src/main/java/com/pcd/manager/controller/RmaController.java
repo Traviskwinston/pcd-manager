@@ -777,6 +777,27 @@ public class RmaController {
             // Log the total combined file count
             logger.info("Combined total of {} files for upload", allFiles.size());
             
+            // Filter out empty parts before saving
+            if (rma.getPartLineItems() != null) {
+                List<PartLineItem> originalParts = new ArrayList<>(rma.getPartLineItems());
+                List<PartLineItem> filteredParts = new ArrayList<>();
+                for (PartLineItem part : originalParts) {
+                    // Only keep parts that have at least one meaningful field filled out
+                    if ((part.getPartName() != null && !part.getPartName().trim().isEmpty()) ||
+                        (part.getPartNumber() != null && !part.getPartNumber().trim().isEmpty()) ||
+                        (part.getProductDescription() != null && !part.getProductDescription().trim().isEmpty())) {
+                        filteredParts.add(part);
+                        logger.info("Keeping part: name='{}', number='{}', desc='{}', qty={}", 
+                            part.getPartName(), part.getPartNumber(), part.getProductDescription(), part.getQuantity());
+                    } else {
+                        logger.info("Filtering out empty part: name='{}', number='{}', desc='{}', qty={}", 
+                            part.getPartName(), part.getPartNumber(), part.getProductDescription(), part.getQuantity());
+                    }
+                }
+                rma.setPartLineItems(filteredParts);
+                logger.info("Filtered parts: kept {} out of {} total parts", filteredParts.size(), originalParts.size());
+            }
+            
             // Convert back to array for the service method
             MultipartFile[] combinedUploads = allFiles.isEmpty() ? null : allFiles.toArray(new MultipartFile[0]);
             
@@ -809,13 +830,17 @@ public class RmaController {
 
     @PostMapping("/{id}/delete")
     public String deleteRma(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        logger.info("DELETE REQUEST RECEIVED for RMA ID: {}", id);
         try {
+            logger.info("Calling rmaService.deleteRma for ID: {}", id);
             rmaService.deleteRma(id);
-             redirectAttributes.addFlashAttribute("message", "RMA deleted successfully.");
+            logger.info("RMA {} deleted successfully, redirecting to /rma", id);
+            redirectAttributes.addFlashAttribute("message", "RMA deleted successfully.");
         } catch (Exception e) {
-             logger.error("Error deleting RMA ID {}: {}", id, e.getMessage(), e);
-             redirectAttributes.addFlashAttribute("error", "Error deleting RMA: " + e.getMessage());
+            logger.error("Error deleting RMA ID {}: {}", id, e.getMessage(), e);
+            redirectAttributes.addFlashAttribute("error", "Error deleting RMA: " + e.getMessage());
         }
+        logger.info("Returning redirect:/rma");
         return "redirect:/rma";
     }
 
