@@ -27,12 +27,25 @@
         
         // Create the theme toggle button and add it to the navigation
         createToggleButton: function() {
-            const navbar = document.querySelector('.navbar .container');
+            // Avoid duplicates if already created
+            const existing = document.querySelector('.navbar .container .theme-toggle');
+            if (existing) {
+                this.toggleButton = existing;
+                this.sunIcon = existing.querySelector('.bi-sun-fill');
+                this.moonIcon = existing.querySelector('.bi-moon-fill');
+                return;
+            }
+
+            // Find navbar container robustly
+            let navbar = document.querySelector('.navbar .container');
+            if (!navbar) {
+                const nav = document.querySelector('nav.navbar');
+                navbar = nav || document.body;
+            }
             if (!navbar) return;
             
-            // Find the profile dropdown to insert before it
+            // Prefer inserting before profile dropdown; otherwise append to end
             const profileDropdown = navbar.querySelector('.dropdown');
-            if (!profileDropdown) return;
             
             // Create the toggle button
             this.toggleButton = document.createElement('button');
@@ -53,8 +66,12 @@
             this.toggleButton.appendChild(this.sunIcon);
             this.toggleButton.appendChild(this.moonIcon);
             
-            // Insert button before profile dropdown
-            profileDropdown.parentNode.insertBefore(this.toggleButton, profileDropdown);
+            // Insert button before profile dropdown if available; else append
+            if (profileDropdown && profileDropdown.parentNode) {
+                profileDropdown.parentNode.insertBefore(this.toggleButton, profileDropdown);
+            } else {
+                navbar.appendChild(this.toggleButton);
+            }
         },
         
         // Load the saved theme from localStorage

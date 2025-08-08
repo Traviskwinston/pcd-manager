@@ -213,26 +213,10 @@ public class RmaService {
                 rmaToSave.getId(), 
                 fileUploads != null ? fileUploads.length : 0);
             
-            // If this is an update, load the existing RMA data
-            Rma rmaData = null;
-            if (rmaToSave.getId() != null) {
-                rmaData = rmaRepository.findById(rmaToSave.getId()).orElse(null);
-                logger.info("Found existing RMA: {}", rmaData != null);
-            }
-
-            // Initialize collections if needed
-            if (rmaData == null) {
-                logger.info("Creating new RMA with empty collections");
-                if (rmaToSave.getPartLineItems() == null) rmaToSave.setPartLineItems(new ArrayList<>());
-                if (rmaToSave.getDocuments() == null) rmaToSave.setDocuments(new ArrayList<>());
-                if (rmaToSave.getPictures() == null) rmaToSave.setPictures(new ArrayList<>());
-            } else {
-                logger.info("Updating existing RMA and ensuring collections exist");
-                rmaToSave = rmaData;
-                if (rmaToSave.getPartLineItems() == null) rmaToSave.setPartLineItems(new ArrayList<>());
-                if (rmaToSave.getDocuments() == null) rmaToSave.setDocuments(new ArrayList<>());
-                if (rmaToSave.getPictures() == null) rmaToSave.setPictures(new ArrayList<>());
-            }
+            // Ensure collections are initialized on the provided entity
+            if (rmaToSave.getPartLineItems() == null) rmaToSave.setPartLineItems(new ArrayList<>());
+            if (rmaToSave.getDocuments() == null) rmaToSave.setDocuments(new ArrayList<>());
+            if (rmaToSave.getPictures() == null) rmaToSave.setPictures(new ArrayList<>());
 
             // Save the RMA first to get an ID
             logger.info("Saving RMA to get ID");
@@ -345,6 +329,226 @@ public class RmaService {
             logger.error("Error saving RMA: {}", e.getMessage(), e);
             throw e;
         }
+    }
+
+    /**
+     * Generate a Returned Goods Decontamination Certificate PDF for the given RMA.
+     * The PDF is landscape, includes customer, chemical/gas service, and a table of parts.
+     */
+    public byte[] generateDeconCertificate(Rma rma) {
+        try {
+            // Build PDF using OpenPDF (iText 2.1.7 compatible)
+            com.lowagie.text.Document doc = new com.lowagie.text.Document(com.lowagie.text.PageSize.LETTER.rotate(), 36, 36, 36, 36);
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            com.lowagie.text.pdf.PdfWriter.getInstance(doc, baos);
+            doc.open();
+
+            // Title
+            com.lowagie.text.Font titleFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 18, com.lowagie.text.Font.BOLD);
+            com.lowagie.text.Paragraph title = new com.lowagie.text.Paragraph("Returned Goods Decontamination Certification", titleFont);
+            title.setAlignment(com.lowagie.text.Element.ALIGN_CENTER);
+            title.setSpacingAfter(20f);
+            doc.add(title);
+
+            // Info table (2 columns)
+            com.lowagie.text.Font labelFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 10, com.lowagie.text.Font.BOLD);
+            com.lowagie.text.Font valueFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 10, com.lowagie.text.Font.NORMAL);
+
+            com.lowagie.text.pdf.PdfPTable info = new com.lowagie.text.pdf.PdfPTable(new float[]{1.2f, 3.0f, 1.2f, 3.0f});
+            info.setWidthPercentage(100);
+
+            java.util.function.BiConsumer<String, String> addCell = (label, value) -> {
+                com.lowagie.text.pdf.PdfPCell l = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(label, labelFont));
+                l.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
+                l.setPadding(4);
+                info.addCell(l);
+                com.lowagie.text.pdf.PdfPCell v = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(value != null ? value : "", valueFont));
+                v.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
+                v.setPadding(4);
+                info.addCell(v);
+            };
+
+            String customer = rma.getCustomerName();
+            String chemical = rma.getTool() != null ? rma.getTool().getChemicalGasService() : null;
+            String location = rma.getLocation() != null ? rma.getLocation().getDisplayName() : null;
+            String technician = rma.getTechnician();
+
+            addCell.accept("Customer:", customer != null ? customer : "");
+            addCell.accept("Location:", location != null ? location : "");
+            addCell.accept("Technician:", technician != null ? technician : "");
+            addCell.accept("Chemical/Gas Serviced:", chemical != null ? chemical : "");
+
+            doc.add(info);
+
+            doc.add(new com.lowagie.text.Paragraph(" "));
+
+            // Parts table
+            com.lowagie.text.pdf.PdfPTable parts = new com.lowagie.text.pdf.PdfPTable(new float[]{2.2f, 3.0f, 5.5f, 1.0f});
+            parts.setWidthPercentage(100);
+
+            String[] headers = {"Part Name", "Part Number", "Description", "Qty"};
+            for (String h : headers) {
+                com.lowagie.text.pdf.PdfPCell c = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(h, labelFont));
+                c.setBackgroundColor(new java.awt.Color(240, 240, 240));
+                c.setPadding(6);
+                parts.addCell(c);
+            }
+
+            java.util.List<com.pcd.manager.model.PartLineItem> items = rma.getPartLineItems() != null ? rma.getPartLineItems() : java.util.Collections.emptyList();
+            if (items.isEmpty()) {
+                com.lowagie.text.pdf.PdfPCell empty = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase("No parts recorded", valueFont));
+                empty.setColspan(4);
+                empty.setPadding(8);
+                parts.addCell(empty);
+            } else {
+                for (com.pcd.manager.model.PartLineItem item : items) {
+                    parts.addCell(new com.lowagie.text.Phrase(item.getPartName() != null ? item.getPartName() : "", valueFont));
+                    parts.addCell(new com.lowagie.text.Phrase(item.getPartNumber() != null ? item.getPartNumber() : "", valueFont));
+                    parts.addCell(new com.lowagie.text.Phrase(item.getProductDescription() != null ? item.getProductDescription() : "", valueFont));
+                    parts.addCell(new com.lowagie.text.Phrase(String.valueOf(item.getQuantity() != null ? item.getQuantity() : 0), valueFont));
+                }
+            }
+
+            doc.add(parts);
+
+            doc.add(new com.lowagie.text.Paragraph(" "));
+
+            // Compliance checklist
+            com.lowagie.text.pdf.PdfPTable checklist = new com.lowagie.text.pdf.PdfPTable(new float[]{9.0f, 1.5f});
+            checklist.setWidthPercentage(100);
+
+            String[] lines = new String[]{
+                    "Verified component has been purged/decontaminated using N2 or Argon gas",
+                    "Verified component has been capped/plugged",
+                    "Verified component has been externally decontaminated",
+                    "Verified component has been double-bagged and sealed"
+            };
+            for (String line : lines) {
+                com.lowagie.text.pdf.PdfPCell desc = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(line, valueFont));
+                desc.setPadding(6);
+                checklist.addCell(desc);
+                com.lowagie.text.pdf.PdfPCell initials = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase("Initials: ______", valueFont));
+                initials.setHorizontalAlignment(com.lowagie.text.Element.ALIGN_CENTER);
+                initials.setPadding(6);
+                checklist.addCell(initials);
+            }
+            doc.add(checklist);
+
+            doc.add(new com.lowagie.text.Paragraph(" "));
+
+            // Signature
+            com.lowagie.text.Paragraph sig = new com.lowagie.text.Paragraph("Package Preparer Signature: ____________________________    Date: ____________", valueFont);
+            sig.setSpacingBefore(10f);
+            doc.add(sig);
+
+            com.lowagie.text.Paragraph note = new com.lowagie.text.Paragraph("Signature certifies that the listed component has been purged, capped and packaged per current procedure.", new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 9));
+            note.setSpacingBefore(8f);
+            doc.add(note);
+
+            doc.close();
+            return baos.toByteArray();
+        } catch (Exception e) {
+            logger.error("Failed generating decon certificate: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to generate decon certificate", e);
+        }
+    }
+
+    /**
+     * Generate a professional Return Goods Label PDF (portrait) with From/Ship to and Notif# (RMA#).
+     */
+    public byte[] generateReturnLabel(Rma rma) {
+        try {
+            com.lowagie.text.Document doc = new com.lowagie.text.Document(com.lowagie.text.PageSize.LETTER, 36, 36, 36, 36);
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            com.lowagie.text.pdf.PdfWriter.getInstance(doc, baos);
+            doc.open();
+
+            com.lowagie.text.Font titleFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 16, com.lowagie.text.Font.BOLD);
+            com.lowagie.text.Font labelFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 10, com.lowagie.text.Font.BOLD);
+            com.lowagie.text.Font valueFont = new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 10, com.lowagie.text.Font.NORMAL);
+
+            com.lowagie.text.Paragraph title = new com.lowagie.text.Paragraph("Return Goods Label", titleFont);
+            title.setAlignment(com.lowagie.text.Element.ALIGN_CENTER);
+            title.setSpacingAfter(15f);
+            doc.add(title);
+
+            // From block (company ship-to as the origin sender on label)
+            com.lowagie.text.pdf.PdfPTable from = new com.lowagie.text.pdf.PdfPTable(new float[]{1.2f, 3.8f});
+            from.setWidthPercentage(100);
+            com.lowagie.text.pdf.PdfPCell fl = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase("From:", labelFont));
+            fl.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
+            from.addCell(fl);
+            StringBuilder fromAddr = new StringBuilder();
+            if (rma.getCompanyShipToName() != null) fromAddr.append(rma.getCompanyShipToName()).append('\n');
+            if (rma.getCompanyShipToAddress() != null) fromAddr.append(rma.getCompanyShipToAddress()).append('\n');
+            String cityStateZip = "";
+            if (rma.getCity() != null) cityStateZip += rma.getCity();
+            if (rma.getState() != null) cityStateZip += (cityStateZip.isEmpty()?"":" ") + rma.getState();
+            if (rma.getZipCode() != null) cityStateZip += (cityStateZip.isEmpty()?"":" ") + rma.getZipCode();
+            if (!cityStateZip.isEmpty()) fromAddr.append(cityStateZip);
+            com.lowagie.text.pdf.PdfPCell fv = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(fromAddr.toString(), valueFont));
+            fv.setBorder(com.lowagie.text.Rectangle.BOX);
+            fv.setPadding(8);
+            from.addCell(fv);
+            doc.add(from);
+
+            doc.add(new com.lowagie.text.Paragraph(" "));
+
+            // Ship To block (blank lines, but include Attention)
+            com.lowagie.text.pdf.PdfPTable ship = new com.lowagie.text.pdf.PdfPTable(new float[]{1.2f, 3.8f});
+            ship.setWidthPercentage(100);
+            com.lowagie.text.pdf.PdfPCell sl = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase("Ship to:", labelFont));
+            sl.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
+            ship.addCell(sl);
+            String attn = rma.getAttn() != null ? ("Attn: " + rma.getAttn() + "\n") : "";
+            String shipLines = attn + "____________________________\n____________________________\n____________________________";
+            com.lowagie.text.pdf.PdfPCell sv = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(shipLines, valueFont));
+            sv.setBorder(com.lowagie.text.Rectangle.BOX);
+            sv.setFixedHeight(90f);
+            sv.setPadding(8);
+            ship.addCell(sv);
+            doc.add(ship);
+
+            doc.add(new com.lowagie.text.Paragraph(" "));
+
+            // Notif# (RMA Reference Number)
+            com.lowagie.text.pdf.PdfPTable notif = new com.lowagie.text.pdf.PdfPTable(new float[]{1.2f, 3.8f});
+            notif.setWidthPercentage(100);
+            com.lowagie.text.pdf.PdfPCell nl = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase("Notif #:", labelFont));
+            nl.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
+            notif.addCell(nl);
+            String ref = rma.getReferenceNumber() != null ? rma.getReferenceNumber() : String.valueOf(rma.getId());
+            com.lowagie.text.pdf.PdfPCell nv = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(ref, valueFont));
+            nv.setBorder(com.lowagie.text.Rectangle.BOX);
+            nv.setPadding(8);
+            notif.addCell(nv);
+            doc.add(notif);
+
+            doc.add(new com.lowagie.text.Paragraph(" "));
+
+            // Purged/Double-bagged yes/no checkboxes
+            com.lowagie.text.pdf.PdfPTable checks = new com.lowagie.text.pdf.PdfPTable(new float[]{3.5f, 1.2f, 0.6f, 1.2f, 0.6f});
+            checks.setWidthPercentage(100);
+            checks.addCell(noborderCell("Purged and Double Bagged Goods Enclosed:", labelFont));
+            checks.addCell(noborderCell("YES", valueFont));
+            checks.addCell(noborderCell("☐", valueFont));
+            checks.addCell(noborderCell("NO", valueFont));
+            checks.addCell(noborderCell("☐", valueFont));
+            doc.add(checks);
+
+            doc.close();
+            return baos.toByteArray();
+        } catch (Exception e) {
+            logger.error("Failed generating return label: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to generate return label", e);
+        }
+    }
+
+    private com.lowagie.text.pdf.PdfPCell noborderCell(String text, com.lowagie.text.Font font) {
+        com.lowagie.text.pdf.PdfPCell c = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(text, font));
+        c.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
+        c.setPadding(4);
+        return c;
     }
 
     @Transactional

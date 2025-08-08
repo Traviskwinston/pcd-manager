@@ -120,6 +120,56 @@ public class RmaController {
     }
 
     /**
+     * Generate Returned Goods Decontamination Certificate PDF for an RMA
+     */
+    @GetMapping("/{id}/decon-cert.pdf")
+    public ResponseEntity<byte[]> downloadDeconCertificate(@PathVariable Long id) {
+        try {
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (rmaOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            }
+            Rma rma = rmaOpt.get();
+
+            byte[] pdf = rmaService.generateDeconCertificate(rma);
+
+            String filename = "RMA_" + (rma.getReferenceNumber() != null ? rma.getReferenceNumber() : id) + "_Decon_Cert.pdf";
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(pdf);
+        } catch (Exception e) {
+            logger.error("Error generating decon certificate for RMA {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
+        }
+    }
+
+    /**
+     * Generate Returned Goods Label PDF for an RMA
+     */
+    @GetMapping("/{id}/return-label.pdf")
+    public ResponseEntity<byte[]> downloadReturnLabel(@PathVariable Long id) {
+        try {
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (rmaOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            }
+            Rma rma = rmaOpt.get();
+            byte[] pdf = rmaService.generateReturnLabel(rma);
+            String filename = "RMA_" + (rma.getReferenceNumber() != null ? rma.getReferenceNumber() : id) + "_Return_Label.pdf";
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(pdf);
+        } catch (Exception e) {
+            logger.error("Error generating return label for RMA {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    /**
      * Async endpoint for loading RMA data - OPTIMIZED VERSION
      */
     @GetMapping("/api/data")
@@ -504,6 +554,14 @@ public class RmaController {
             movingPartDestinationChains.put(part.getId(), chain);
         }
         model.addAttribute("movingPartDestinationChains", movingPartDestinationChains);
+
+        // Track/Trend associations (by connected tool)
+        List<TrackTrend> relatedTrackTrends = new ArrayList<>();
+        if (rma.getTool() != null) {
+            relatedTrackTrends = trackTrendService.getTrackTrendsByToolId(rma.getTool().getId());
+        }
+        model.addAttribute("trackTrends", relatedTrackTrends);
+        model.addAttribute("allTrackTrends", trackTrendService.getAllTrackTrends());
         
         return "rma/view";
     }
@@ -2242,6 +2300,14 @@ public class RmaController {
     @PostMapping("/{id}/update-dates")
     @ResponseBody
     public Map<String, Object> updateDates(@PathVariable Long id, HttpServletRequest request) {
+        logger.info("=== UPDATE DATES REQUEST ===");
+        logger.info("RMA ID: {}", id);
+        
+        // Log all parameters
+        request.getParameterNames().asIterator().forEachRemaining(name -> {
+            logger.info("Parameter: {} = {}", name, request.getParameter(name));
+        });
+        
         Map<String, Object> response = new HashMap<>();
         
         try {
@@ -2262,9 +2328,11 @@ public class RmaController {
             
             for (String fieldName : dateFields) {
                 String dateValue = request.getParameter(fieldName);
+                logger.info("Processing field: {} with value: '{}'", fieldName, dateValue);
                 if (dateValue != null && !dateValue.trim().isEmpty()) {
                     try {
                         LocalDate date = LocalDate.parse(dateValue);
+                        logger.info("Parsed date for {}: {}", fieldName, date);
                         switch (fieldName) {
                             case "writtenDate":
                                 rma.setWrittenDate(date);
@@ -2320,7 +2388,16 @@ public class RmaController {
             }
             
             // Save the updated RMA
-            rmaService.saveRma(rma, null);
+            logger.info("Saving updated RMA with ID: {}", id);
+            Rma savedRma = rmaService.saveRma(rma, null);
+            logger.info("RMA saved successfully. Current dates:");
+            logger.info("  - writtenDate: {}", savedRma.getWrittenDate());
+            logger.info("  - rmaNumberProvidedDate: {}", savedRma.getRmaNumberProvidedDate());
+            logger.info("  - shippingMemoEmailedDate: {}", savedRma.getShippingMemoEmailedDate());
+            logger.info("  - partsReceivedDate: {}", savedRma.getPartsReceivedDate());
+            logger.info("  - installedPartsDate: {}", savedRma.getInstalledPartsDate());
+            logger.info("  - failedPartsPackedDate: {}", savedRma.getFailedPartsPackedDate());
+            logger.info("  - failedPartsShippedDate: {}", savedRma.getFailedPartsShippedDate());
             
             response.put("success", true);
             response.put("message", "Dates updated successfully");

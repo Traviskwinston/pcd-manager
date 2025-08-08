@@ -181,14 +181,19 @@
 
     <div class="container-fluid px-4 py-3">
         <!-- Modern Header Section -->
-        <div class="detail-header detail-fade-in">
+                <div class="detail-header detail-fade-in">
             <div class="d-flex justify-content-between align-items-start">
                                         <div>
-                    <h1 class="mb-2">
-                        <i class="bi bi-clipboard-data me-3"></i>
-                        <span th:text="${rma.referenceNumber ?: 'New RMA'}">RMA Number</span>
+                    <h1 class="mb-1 d-flex align-items-center gap-2">
+                        <i class="bi bi-clipboard-data"></i>
+                        <span class="text-uppercase small text-muted">RMA</span>
+                        <span class="fw-semibold" th:text="${rma.referenceNumber ?: 'New RMA'}">RMA Number</span>
                     </h1>
-                    
+                    <div class="title-meta small text-muted mb-2">
+                        <span th:if="${rma.location != null}" th:text="${rma.location.displayName}">Location</span>
+                        <span th:if="${rma.location != null && rma.tool != null}" class="mx-2">•</span>
+                        <span th:if="${rma.tool != null}" th:text="${rma.tool.name}">Tool</span>
+                    </div>
                     <div class="detail-meta">
                         <!-- Status Badge -->
                         <span id="status-view-mode" th:if="${rma.status != null}" 
@@ -314,12 +319,20 @@
                 
                 <!-- Action Buttons -->
                 <div class="d-flex gap-2">
-                    <a th:href="@{/rma}" class="btn btn-secondary detail-action-btn">
-                        <i class="bi bi-arrow-left"></i> Back to RMAs
-                    </a>
+                    <button type="button" class="btn btn-secondary detail-action-btn" onclick="(history.length>1)?history.back():window.location.assign('/rma')">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
 
                     <a th:href="@{/rma/{id}/excel(id=${rma.id})}" class="btn btn-success detail-action-btn">
                         <i class="bi bi-file-excel"></i> Export
+                    </a>
+                    
+                    <a th:href="@{/rma/{id}/decon-cert.pdf(id=${rma.id})}" class="btn btn-outline-secondary detail-action-btn" title="Decon Certification PDF" aria-label="Download Decon Certification">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                    </a>
+
+                    <a th:href="@{/rma/{id}/return-label.pdf(id=${rma.id})}" class="btn btn-outline-secondary detail-action-btn" title="Return Goods Label PDF" aria-label="Download Return Label">
+                        <i class="bi bi-printer"></i>
                     </a>
                     
                     <button type="button" class="btn btn-danger detail-action-btn" data-bs-toggle="modal" data-bs-target="#deleteModal">
@@ -456,35 +469,104 @@
             </div>
             </div>
 
-            <!-- Upload Files Panel -->
+            <!-- Problem Details Panel moved up to replace Upload Files -->
             <div class="card h-100 detail-section-card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h6 class="mb-0">
-                        <i class="bi bi-cloud-arrow-up me-2"></i>Upload New Files
+                        <i class="bi bi-question-circle me-2"></i>Problem Details
                     </h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" onclick="enableInlineEdit('problem-details')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
                 </div>
-            <div class="card-body">
-                    <form th:action="@{/rma/{id}/upload-files(id=${rma.id})}" method="post" enctype="multipart/form-data" id="rmaFileUploadForm">
-                        <div class="detail-upload-area" onclick="document.getElementById('rmaFileInput').click()">
-                            <i class="bi bi-cloud-arrow-up"></i>
-                            <h6>Drag files here or click to browse</h6>
-                            <p>Supports images and documents</p>
+                <div class="card-body">
+                    <div id="problem-details-view-mode">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="d-flex flex-column">
+                                    <small class="detail-text-muted">Who Discovered</small>
+                                    <strong th:if="${rma.problemDiscoverer != null}" th:text="${rma.problemDiscoverer}">Who discovered</strong>
+                                    <span class="detail-text-muted" th:if="${rma.problemDiscoverer == null}">Not specified</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex flex-column">
+                                    <small class="detail-text-muted">When Discovered</small>
+                                    <strong th:if="${rma.problemDiscoveryDate != null}" th:text="${#temporals.format(rma.problemDiscoveryDate, 'MM/dd/yyyy')}">When discovered</strong>
+                                    <span class="detail-text-muted" th:if="${rma.problemDiscoveryDate == null}">Not specified</span>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="d-flex flex-column">
+                                    <small class="detail-text-muted">What Happened</small>
+                                    <p class="mb-0" th:if="${rma.whatHappened != null}" th:text="${rma.whatHappened}">What happened</p>
+                                    <span class="detail-text-muted" th:if="${rma.whatHappened == null}">Not specified</span>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="d-flex flex-column">
+                                    <small class="detail-text-muted">Why & How It Happened</small>
+                                    <p class="mb-0" th:if="${rma.whyAndHowItHappened != null}" th:text="${rma.whyAndHowItHappened}">Why and how</p>
+                                    <span class="detail-text-muted" th:if="${rma.whyAndHowItHappened == null}">Not specified</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex flex-column">
+                                    <small class="detail-text-muted">How Contained</small>
+                                    <p class="mb-0" th:if="${rma.howContained != null}" th:text="${rma.howContained}">How contained</p>
+                                    <span class="detail-text-muted" th:if="${rma.howContained == null}">Not specified</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex flex-column">
+                                    <small class="detail-text-muted">Who Contained</small>
+                                    <strong th:if="${rma.whoContained != null}" th:text="${rma.whoContained}">Who contained</strong>
+                                    <span class="detail-text-muted" th:if="${rma.whoContained == null}">Not specified</span>
+                                </div>
+                            </div>
                         </div>
-                        <input type="file" id="rmaFileInput" name="files" accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" style="display: none;" multiple>
-                        
-                        <div id="rma-files-preview" class="mt-3" style="display: none;">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h6 class="mb-0">Selected Files</h6>
-                                <button type="submit" class="btn btn-success detail-action-btn">
-                                    <i class="bi bi-upload"></i> Upload
+                    </div>
+
+                    <div id="problem-details-edit-mode" class="d-none rma-edit-mode">
+                        <form id="problem-details-form">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Who Discovered</label>
+                                    <input type="text" class="form-control" name="problemDiscoverer" th:value="${rma.problemDiscoverer}" placeholder="Who discovered the problem">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">When Discovered</label>
+                                    <input type="date" class="form-control" name="problemDiscoveryDate" th:value="${rma.problemDiscoveryDate}">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-bold">What Happened</label>
+                                    <textarea class="form-control" name="whatHappened" rows="3" th:text="${rma.whatHappened}" placeholder="Describe what happened"></textarea>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-bold">Why & How It Happened</label>
+                                    <textarea class="form-control" name="whyAndHowItHappened" rows="3" th:text="${rma.whyAndHowItHappened}" placeholder="Explain why and how it happened"></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">How Contained</label>
+                                    <textarea class="form-control" name="howContained" rows="2" th:text="${rma.howContained}" placeholder="How was it contained"></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Who Contained</label>
+                                    <input type="text" class="form-control" name="whoContained" th:value="${rma.whoContained}" placeholder="Who contained it">
+                                </div>
+                            </div>
+                            <div class="mt-3 d-flex gap-2">
+                                <button type="button" class="btn btn-success detail-action-btn" onclick="saveProblemDetails()">
+                                    <i class="bi bi-check-lg"></i> Save
+                                </button>
+                                <button type="button" class="btn btn-secondary detail-action-btn" onclick="cancelInlineEdit('problem-details')">
+                                    <i class="bi bi-x-lg"></i> Cancel
                                 </button>
                             </div>
-                            <div id="rma-file-list" class="small detail-text-muted"></div>
-                        </div>
-                    </form>
-                                </div>
-                                </div>
-                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
 
         <!-- Content Sections Grid (3x3) -->
         <div class="detail-sections-grid">
@@ -1080,43 +1162,126 @@
                         </button>
                     </div>
                     <div class="card-body">
-                        <table class="table table-sm rma-date-table">
-                                <thead>
-                                    <tr>
-                                        <th>Written</th>
-                                    <th>Number Provided</th>
-                                    <th>Memo Emailed</th>
-                                <th>Parts Received</th>
-                            </tr>
-                                </thead>
-                                <tbody>
-                            <tr>
-                                    <td th:text="${rma.writtenDate != null ? #temporals.format(rma.writtenDate, 'MM/dd/yy') : '-'}">-</td>
-                                    <td th:text="${rma.rmaNumberProvidedDate != null ? #temporals.format(rma.rmaNumberProvidedDate, 'MM/dd/yy') : '-'}">-</td>
-                                    <td th:text="${rma.shippingMemoEmailedDate != null ? #temporals.format(rma.shippingMemoEmailedDate, 'MM/dd/yy') : '-'}">-</td>
-                                    <td th:text="${rma.partsReceivedDate != null ? #temporals.format(rma.partsReceivedDate, 'MM/dd/yy') : '-'}">-</td>
-                            </tr>
-                                </tbody>
-                        </table>
-                        
-                        <table class="table table-sm rma-date-table mt-3">
+                        <!-- View Mode -->
+                        <div id="important-dates-view-mode">
+                            <table class="table table-sm rma-date-table">
                                     <thead>
-                            <tr>
-                                            <th>Parts Installed</th>
-                                    <th>Parts Ready</th>
-                                    <th>Parts Shipped</th>
-                                    <th></th>
-                            </tr>
+                                        <tr>
+                                            <th>Written</th>
+                                        <th>Number Provided</th>
+                                        <th>Memo Emailed</th>
+                                    <th>Parts Received</th>
+                                </tr>
                                     </thead>
                                     <tbody>
-                            <tr>
-                                    <td th:text="${rma.installedPartsDate != null ? #temporals.format(rma.installedPartsDate, 'MM/dd/yy') : '-'}">-</td>
-                                    <td th:text="${rma.failedPartsPackedDate != null ? #temporals.format(rma.failedPartsPackedDate, 'MM/dd/yy') : '-'}">-</td>
-                                    <td th:text="${rma.failedPartsShippedDate != null ? #temporals.format(rma.failedPartsShippedDate, 'MM/dd/yy') : '-'}">-</td>
-                                    <td></td>
-                            </tr>
+                                <tr>
+                                        <td th:text="${rma.writtenDate != null ? #temporals.format(rma.writtenDate, 'MM/dd/yy') : '-'}"
+                                            th:attr="data-date-ymd=${rma.writtenDate}">-</td>
+                                        <td th:text="${rma.rmaNumberProvidedDate != null ? #temporals.format(rma.rmaNumberProvidedDate, 'MM/dd/yy') : '-'}"
+                                            th:attr="data-date-ymd=${rma.rmaNumberProvidedDate}">-</td>
+                                        <td th:text="${rma.shippingMemoEmailedDate != null ? #temporals.format(rma.shippingMemoEmailedDate, 'MM/dd/yy') : '-'}"
+                                            th:attr="data-date-ymd=${rma.shippingMemoEmailedDate}">-</td>
+                                        <td th:text="${rma.partsReceivedDate != null ? #temporals.format(rma.partsReceivedDate, 'MM/dd/yy') : '-'}"
+                                            th:attr="data-date-ymd=${rma.partsReceivedDate}">-</td>
+                                </tr>
                                     </tbody>
-                        </table>
+                            </table>
+                            
+                            <table class="table table-sm rma-date-table mt-3">
+                                        <thead>
+                                <tr>
+                                                <th>Parts Installed</th>
+                                        <th>Parts Ready</th>
+                                        <th>Parts Shipped</th>
+                                        <th></th>
+                                </tr>
+                                        </thead>
+                                    <tbody>
+                                <tr>
+                                        <td th:text="${rma.installedPartsDate != null ? #temporals.format(rma.installedPartsDate, 'MM/dd/yy') : '-'}"
+                                            th:attr="data-date-ymd=${rma.installedPartsDate}">-</td>
+                                        <td th:text="${rma.failedPartsPackedDate != null ? #temporals.format(rma.failedPartsPackedDate, 'MM/dd/yy') : '-'}"
+                                            th:attr="data-date-ymd=${rma.failedPartsPackedDate}">-</td>
+                                        <td th:text="${rma.failedPartsShippedDate != null ? #temporals.format(rma.failedPartsShippedDate, 'MM/dd/yy') : '-'}"
+                                            th:attr="data-date-ymd=${rma.failedPartsShippedDate}">-</td>
+                                        <td></td>
+                                </tr>
+                                        </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Edit Mode -->
+                        <div id="important-dates-edit-mode" class="d-none">
+                            <form id="dates-form">
+                                <table class="table table-sm rma-date-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Written</th>
+                                            <th>Number Provided</th>
+                                            <th>Memo Emailed</th>
+                                            <th>Parts Received</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>
+                                                <input type="date" class="form-control form-control-sm" name="writtenDate" 
+                                                       th:value="${rma.writtenDate}">
+                                            </td>
+                                            <td>
+                                                <input type="date" class="form-control form-control-sm" name="rmaNumberProvidedDate" 
+                                                       th:value="${rma.rmaNumberProvidedDate}">
+                                            </td>
+                                            <td>
+                                                <input type="date" class="form-control form-control-sm" name="shippingMemoEmailedDate" 
+                                                       th:value="${rma.shippingMemoEmailedDate}">
+                                            </td>
+                                            <td>
+                                                <input type="date" class="form-control form-control-sm" name="partsReceivedDate" 
+                                                       th:value="${rma.partsReceivedDate}">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                
+                                <table class="table table-sm rma-date-table mt-3">
+                                    <thead>
+                                        <tr>
+                                            <th>Parts Installed</th>
+                                            <th>Parts Ready</th>
+                                            <th>Parts Shipped</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>
+                                                <input type="date" class="form-control form-control-sm" name="installedPartsDate" 
+                                                       th:value="${rma.installedPartsDate}">
+                                            </td>
+                                            <td>
+                                                <input type="date" class="form-control form-control-sm" name="failedPartsPackedDate" 
+                                                       th:value="${rma.failedPartsPackedDate}">
+                                            </td>
+                                            <td>
+                                                <input type="date" class="form-control form-control-sm" name="failedPartsShippedDate" 
+                                                       th:value="${rma.failedPartsShippedDate}">
+                                            </td>
+                                            <td></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </form>
+                            
+                            <div class="d-flex gap-2 mt-3">
+                                <button type="button" class="btn btn-success detail-action-btn" onclick="saveDates()">
+                                    <i class="bi bi-check"></i> Save
+                                </button>
+                                <button type="button" class="btn btn-secondary detail-action-btn" onclick="cancelInlineEdit('important-dates')">
+                                    <i class="bi bi-x"></i> Cancel
+                                </button>
+                            </div>
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -1211,7 +1376,7 @@
                             <div class="border rounded p-3 detail-interactive" th:each="comment : ${rmaComments}">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <strong class="detail-text-primary" th:text="${comment.user != null ? comment.user.name : 'Unknown'}">User</strong>
-                                    <small class="detail-text-muted" th:text="${#temporals.format(comment.createdDate, 'MM/dd HH:mm')}">Date</small>
+                                    <small class="detail-text-muted comment-date" th:attr="data-dt=${#temporals.format(comment.createdDate, 'yyyy-MM-dd''T''HH:mm:ss')}">Date</small>
                                         </div>
                                 <p class="mb-0" th:text="${comment.content}">Comment content</p>
                                     </div>
@@ -1861,7 +2026,9 @@
         }
 
         // Handle document upload form submission
-        document.getElementById('uploadDocumentForm').addEventListener('submit', function(e) {
+        const uploadDocumentForm = document.getElementById('uploadDocumentForm');
+        if (uploadDocumentForm) {
+            uploadDocumentForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
             const formData = new FormData(this);
@@ -1893,10 +2060,13 @@
                 uploadButton.innerHTML = originalButtonHtml;
                 uploadButton.disabled = false;
             });
-        });
+            });
+        }
 
         // Handle picture upload form submission
-        document.getElementById('uploadPictureForm').addEventListener('submit', function(e) {
+        const uploadPictureForm = document.getElementById('uploadPictureForm');
+        if (uploadPictureForm) {
+            uploadPictureForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
             const formData = new FormData(this);
@@ -1928,20 +2098,33 @@
                 uploadButton.innerHTML = originalButtonHtml;
                 uploadButton.disabled = false;
             });
-        });
+            });
+        }
 
         // Handle file input change - submit the forms directly 
-        document.getElementById('pictureFile').addEventListener('change', function() {
-            if (this.files.length > 0) {
-                document.getElementById('uploadPictureForm').submit();
-            }
-        });
+        const pictureFile = document.getElementById('pictureFile');
+        if (pictureFile) {
+            pictureFile.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    const uploadPictureForm = document.getElementById('uploadPictureForm');
+                    if (uploadPictureForm) {
+                        uploadPictureForm.submit();
+                    }
+                }
+            });
+        }
 
-        document.getElementById('documentFile').addEventListener('change', function() {
-            if (this.files.length > 0) {
-                document.getElementById('uploadDocumentForm').submit();
-            }
-        });
+        const documentFile = document.getElementById('documentFile');
+        if (documentFile) {
+            documentFile.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    const uploadDocumentForm = document.getElementById('uploadDocumentForm');
+                    if (uploadDocumentForm) {
+                        uploadDocumentForm.submit();
+                    }
+                }
+            });
+        }
 
         // START: Moving Part Modal JavaScript (Add Destination functionality)
         document.addEventListener('DOMContentLoaded', function() {
@@ -1951,6 +2134,8 @@
                 addBtn.addEventListener('click', function() {
                     addDestinationRow('destinationContainerRma');
                 });
+            } else {
+                console.log('addDestinationBtnRma element not found - this is normal if moving parts modal is not on this page');
             }
             
             // Remove destination functionality
@@ -2281,9 +2466,12 @@
             
             // Format date if present
             const discoveryDate = formData.get('problemDiscoveryDate');
-            if (discoveryDate) {
-                const formatted = new Date(discoveryDate).toLocaleDateString('en-US');
-                updateElement('#problem-details-view-mode .col-md-6:nth-child(2) strong', formatted);
+            if (discoveryDate && discoveryDate.trim()) {
+                const el = document.querySelector('#problem-details-view-mode .col-md-6:nth-child(2) strong');
+                if (el) {
+                    el.setAttribute('data-date-ymd', discoveryDate);
+                    el.textContent = discoveryDate;
+                }
             } else {
                 updateElement('#problem-details-view-mode .col-md-6:nth-child(2) span', '', 'Not specified');
             }
@@ -2672,68 +2860,95 @@
         
         function addPartRow() {
             const tbody = document.getElementById('partsEditTableBody');
-            const newRow = document.createElement('tr');
-            newRow.className = 'part-edit-row';
-            
-            newRow.innerHTML = 
-                '<td>' +
-                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][partName]" placeholder="Part Name">' +
-                '</td>' +
-                '<td>' +
-                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][partNumber]" placeholder="Part Number">' +
-                '</td>' +
-                '<td>' +
-                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][productDescription]" placeholder="Description">' +
-                '</td>' +
-                '<td>' +
-                    '<input type="number" class="form-control" name="parts[' + partRowIndex + '][quantity]" value="1" min="1">' +
-                '</td>' +
-                '<td>' +
-                    '<div class="form-check form-switch">' +
-                        '<input class="form-check-input" type="checkbox" name="parts[' + partRowIndex + '][replacementRequired]">' +
-                    '</div>' +
-                '</td>' +
-                '<td>' +
-                    '<button type="button" class="btn btn-danger btn-sm remove-part-edit-row">' +
-                        '<i class="bi bi-trash"></i>' +
-                    '</button>' +
-                '</td>';
-            
-            tbody.appendChild(newRow);
+            const tr = document.createElement('tr');
+            tr.className = 'part-edit-row';
+
+            const makeInputCell = (type, name, placeholder, value) => {
+                const td = document.createElement('td');
+                const input = document.createElement('input');
+                input.type = type;
+                input.className = 'form-control';
+                input.name = name;
+                if (placeholder) input.placeholder = placeholder;
+                if (value !== undefined) input.value = value;
+                if (type === 'number') input.min = '1';
+                td.appendChild(input);
+                return td;
+            };
+
+            tr.appendChild(makeInputCell('text', `parts[${partRowIndex}][partName]`, 'Part Name', ''));
+            tr.appendChild(makeInputCell('text', `parts[${partRowIndex}][partNumber]`, 'Part Number', ''));
+            tr.appendChild(makeInputCell('text', `parts[${partRowIndex}][productDescription]`, 'Description', ''));
+            tr.appendChild(makeInputCell('number', `parts[${partRowIndex}][quantity]`, '', '1'));
+
+            const tdSwitch = document.createElement('td');
+            const divSwitch = document.createElement('div');
+            divSwitch.className = 'form-check form-switch';
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.className = 'form-check-input';
+            chk.name = `parts[${partRowIndex}][replacementRequired]`;
+            divSwitch.appendChild(chk);
+            tdSwitch.appendChild(divSwitch);
+            tr.appendChild(tdSwitch);
+
+            const tdActions = document.createElement('td');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-danger btn-sm remove-part-edit-row';
+            btn.innerHTML = '<i class="bi bi-trash"></i>';
+            tdActions.appendChild(btn);
+            tr.appendChild(tdActions);
+
+            tbody.appendChild(tr);
             partRowIndex++;
             updateRemovePartEditButtonStates();
         }
         
         function addPartRowWithData(partName, partNumber, description, quantity, replacement) {
             const tbody = document.getElementById('partsEditTableBody');
-            const newRow = document.createElement('tr');
-            newRow.className = 'part-edit-row';
-            
-            newRow.innerHTML = 
-                '<td>' +
-                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][partName]" value="' + partName + '" placeholder="Part Name">' +
-                '</td>' +
-                '<td>' +
-                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][partNumber]" value="' + partNumber + '" placeholder="Part Number">' +
-                '</td>' +
-                '<td>' +
-                    '<input type="text" class="form-control" name="parts[' + partRowIndex + '][productDescription]" value="' + description + '" placeholder="Description">' +
-                '</td>' +
-                '<td>' +
-                    '<input type="number" class="form-control" name="parts[' + partRowIndex + '][quantity]" value="' + quantity + '" min="1">' +
-                '</td>' +
-                '<td>' +
-                    '<div class="form-check form-switch">' +
-                        '<input class="form-check-input" type="checkbox" name="parts[' + partRowIndex + '][replacementRequired]"' + (replacement ? ' checked' : '') + '>' +
-                    '</div>' +
-                '</td>' +
-                '<td>' +
-                    '<button type="button" class="btn btn-danger btn-sm remove-part-edit-row">' +
-                        '<i class="bi bi-trash"></i>' +
-                    '</button>' +
-                '</td>';
-            
-            tbody.appendChild(newRow);
+            const tr = document.createElement('tr');
+            tr.className = 'part-edit-row';
+
+            const makeInputCell = (type, name, placeholder, value) => {
+                const td = document.createElement('td');
+                const input = document.createElement('input');
+                input.type = type;
+                input.className = 'form-control';
+                input.name = name;
+                if (placeholder) input.placeholder = placeholder;
+                if (value !== undefined && value !== null) input.value = value;
+                if (type === 'number') input.min = '1';
+                td.appendChild(input);
+                return td;
+            };
+
+            tr.appendChild(makeInputCell('text', `parts[${partRowIndex}][partName]`, 'Part Name', partName || ''));
+            tr.appendChild(makeInputCell('text', `parts[${partRowIndex}][partNumber]`, 'Part Number', partNumber || ''));
+            tr.appendChild(makeInputCell('text', `parts[${partRowIndex}][productDescription]`, 'Description', description || ''));
+            tr.appendChild(makeInputCell('number', `parts[${partRowIndex}][quantity]`, '', (quantity || '1')));
+
+            const tdSwitch = document.createElement('td');
+            const divSwitch = document.createElement('div');
+            divSwitch.className = 'form-check form-switch';
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.className = 'form-check-input';
+            chk.name = `parts[${partRowIndex}][replacementRequired]`;
+            if (replacement) chk.checked = true;
+            divSwitch.appendChild(chk);
+            tdSwitch.appendChild(divSwitch);
+            tr.appendChild(tdSwitch);
+
+            const tdActions = document.createElement('td');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-danger btn-sm remove-part-edit-row';
+            btn.innerHTML = '<i class="bi bi-trash"></i>';
+            tdActions.appendChild(btn);
+            tr.appendChild(tdActions);
+
+            tbody.appendChild(tr);
             partRowIndex++;
             updateRemovePartEditButtonStates();
         }
@@ -2776,8 +2991,20 @@
         }
 
         function saveDates() {
+            console.log('saveDates called');
             const form = document.getElementById('dates-form');
             const formData = new FormData(form);
+            
+            // Debug: Log all form data
+            console.log('Form data for dates:');
+            var entries = [];
+            var iterator = formData.entries();
+            var entry = iterator.next();
+            while (!entry.done) {
+                entries.push(entry.value);
+                console.log(entry.value[0] + ': "' + entry.value[1] + '"');
+                entry = iterator.next();
+            }
             
             fetch('/rma/' + rmaPageId + '/update-dates', {
                 method: 'POST',
@@ -2792,7 +3019,7 @@
             .then(data => {
                 if (data.success) {
                     updateDatesView(formData);
-                    cancelInlineEdit('dates');
+                    cancelInlineEdit('important-dates');
                 } else {
                     alert('Error updating dates: ' + (data.message || 'Unknown error'));
                 }
@@ -2804,28 +3031,59 @@
         }
 
         function updateDatesView(formData) {
-            const updateDate = (selector, value) => {
-                const element = document.querySelector(selector);
-                if (element) {
-                    if (value && value.trim()) {
-                        const formatted = new Date(value).toLocaleDateString('en-US');
-                        element.textContent = formatted;
-                        element.className = element.classList.contains('mb-0') ? 'mb-0' : '';
-                    } else {
-                        element.textContent = 'Not set';
-                        element.className = 'detail-text-muted';
-                    }
+            const formatDate = (dateString) => {
+                if (!dateString || !dateString.trim()) {
+                    return '-';
                 }
+                const parts = dateString.split('-');
+                if (parts.length !== 3) {
+                    return '-';
+                }
+                const [yyyy, mm, dd] = parts;
+                if (!yyyy || !mm || !dd) {
+                    return '-';
+                }
+                // Produce an ISO-like local date/time string at noon local to avoid UTC shifts
+                // Consumers can use toLocaleDateString to render in local timezone consistently
+                return `${yyyy}-${mm}-${dd}T12:00:00`;
             };
 
-            // Update date fields - these selectors will need to match the actual HTML structure
-            updateDate('#dates-view-mode .col-md-4:nth-child(1) strong', formData.get('writtenDate'));
-            updateDate('#dates-view-mode .col-md-4:nth-child(2) strong', formData.get('rmaNumberProvidedDate'));
-            updateDate('#dates-view-mode .col-md-4:nth-child(3) strong', formData.get('shippingMemoEmailedDate'));
-            updateDate('#dates-view-mode .col-md-4:nth-child(4) strong', formData.get('partsReceivedDate'));
-            updateDate('#dates-view-mode .col-md-4:nth-child(5) strong', formData.get('installedPartsDate'));
-            updateDate('#dates-view-mode .col-md-4:nth-child(6) strong', formData.get('failedPartsPackedDate'));
-            updateDate('#dates-view-mode .col-md-4:nth-child(7) strong', formData.get('failedPartsShippedDate'));
+            // Update first table (Written, Number Provided, Memo Emailed, Parts Received)
+            const firstTable = document.querySelector('#important-dates-view-mode table:first-of-type tbody tr');
+            if (firstTable) {
+                const cells = firstTable.querySelectorAll('td');
+                if (cells.length >= 4) {
+                    const v0 = formData.get('writtenDate') || '';
+                    const v1 = formData.get('rmaNumberProvidedDate') || '';
+                    const v2 = formData.get('shippingMemoEmailedDate') || '';
+                    const v3 = formData.get('partsReceivedDate') || '';
+                    cells[0].setAttribute('data-date-ymd', v0);
+                    cells[1].setAttribute('data-date-ymd', v1);
+                    cells[2].setAttribute('data-date-ymd', v2);
+                    cells[3].setAttribute('data-date-ymd', v3);
+                    cells[0].textContent = v0 ? v0 : '-';
+                    cells[1].textContent = v1 ? v1 : '-';
+                    cells[2].textContent = v2 ? v2 : '-';
+                    cells[3].textContent = v3 ? v3 : '-';
+                }
+            }
+
+            // Update second table (Parts Installed, Parts Ready, Parts Shipped)
+            const secondTable = document.querySelector('#important-dates-view-mode table:last-of-type tbody tr');
+            if (secondTable) {
+                const cells = secondTable.querySelectorAll('td');
+                if (cells.length >= 3) {
+                    const v0 = formData.get('installedPartsDate') || '';
+                    const v1 = formData.get('failedPartsPackedDate') || '';
+                    const v2 = formData.get('failedPartsShippedDate') || '';
+                    cells[0].setAttribute('data-date-ymd', v0);
+                    cells[1].setAttribute('data-date-ymd', v1);
+                    cells[2].setAttribute('data-date-ymd', v2);
+                    cells[0].textContent = v0 ? v0 : '-';
+                    cells[1].textContent = v1 ? v1 : '-';
+                    cells[2].textContent = v2 ? v2 : '-';
+                }
+            }
         }
 
         // Generic section editing functionality
@@ -3058,6 +3316,34 @@
 
     <!-- Tool Selection Modal JavaScript -->
     <script>
+        // Localize server-rendered dates on load
+        (function() {
+            function renderLocalYmd(ymd) {
+                if (!ymd) return '-';
+                const parts = ymd.split('-');
+                if (parts.length !== 3) return '-';
+                const [yyyy, mm, dd] = parts;
+                return `${mm.padStart(2,'0')}/${dd.padStart(2,'0')}/${yyyy.slice(-2)}`;
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('[data-date-ymd]').forEach(function(el){
+                    const ymd = el.getAttribute('data-date-ymd');
+                    if (ymd && ymd.trim()) {
+                        el.textContent = renderLocalYmd(ymd.trim());
+                    }
+                });
+                document.querySelectorAll('.comment-date[data-dt]').forEach(function(el){
+                    const iso = el.getAttribute('data-dt');
+                    if (iso) {
+                        const d = new Date(iso);
+                        const dateStr = d.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' });
+                        const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                        el.textContent = dateStr + ' ' + timeStr;
+                    }
+                });
+            });
+        })();
+
         let selectedToolId = null;
         let allToolsData = [];
         let filteredToolsData = [];
@@ -3292,7 +3578,9 @@
         });
 
         // Add labor modal row
-        document.getElementById('addLaborModalRowBtn').addEventListener('click', function() {
+        const addLaborBtn = document.getElementById('addLaborModalRowBtn');
+        if (addLaborBtn) {
+            addLaborBtn.addEventListener('click', function() {
             const tbody = document.getElementById('laborModalTableBody');
             const newRow = document.createElement('tr');
             newRow.className = 'labor-modal-row';
@@ -3326,7 +3614,8 @@
             // Add event listeners for the new row
             addLaborModalRowEventListeners(newRow);
             updateRemoveLaborModalButtonStates();
-        });
+            });
+        }
 
         // Remove labor modal row
         document.addEventListener('click', function(e) {
