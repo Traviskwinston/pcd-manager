@@ -24,6 +24,7 @@ import com.pcd.manager.service.UserService;
 import com.pcd.manager.service.TrackTrendService;
 import com.pcd.manager.service.AsyncDataService;
 import com.pcd.manager.service.MovingPartService;
+import com.pcd.manager.service.ChecklistTemplateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -58,6 +59,7 @@ import java.security.Principal;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -85,12 +87,13 @@ public class ToolController {
     private final TrackTrendRepository trackTrendRepository;
     private final AsyncDataService asyncDataService;
     private final MovingPartService movingPartService;
+    private final ChecklistTemplateService checklistTemplateService;
     
     @Value("${app.upload.dir:${user.home}/uploads}")
     private String uploadDir;
 
     @Autowired
-    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService, RmaRepository rmaRepository, PassdownRepository passdownRepository, ToolCommentRepository toolCommentRepository, TrackTrendRepository trackTrendRepository, AsyncDataService asyncDataService, MovingPartService movingPartService) {
+    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService, RmaRepository rmaRepository, PassdownRepository passdownRepository, ToolCommentRepository toolCommentRepository, TrackTrendRepository trackTrendRepository, AsyncDataService asyncDataService, MovingPartService movingPartService, ChecklistTemplateService checklistTemplateService) {
         this.toolService = toolService;
         this.toolRepository = toolRepository;
         this.locationService = locationService;
@@ -104,6 +107,7 @@ public class ToolController {
         this.trackTrendRepository = trackTrendRepository;
         this.asyncDataService = asyncDataService;
         this.movingPartService = movingPartService;
+        this.checklistTemplateService = checklistTemplateService;
     }
     
     @PostConstruct
@@ -129,7 +133,7 @@ public class ToolController {
     }
 
     @GetMapping
-    public String listTools(Model model) {
+    public String listTools(@RequestParam(value = "typeView", required = false) String typeView, Model model) {
         logger.info("=== LOADING TOOLS LIST PAGE (ULTRA-OPTIMIZED) ===");
         long startTime = System.currentTimeMillis();
         
@@ -149,6 +153,7 @@ public class ToolController {
         // Build lightweight Tool objects from the raw data
         List<Tool> allTools = new ArrayList<>();
         List<Long> toolIds = new ArrayList<>();
+        java.util.Set<Long> gasguardRawIds = new java.util.HashSet<>();
         
         for (Object[] row : toolData) {
             Tool tool = new Tool();
@@ -159,10 +164,27 @@ public class ToolController {
             String toolTypeStr = (String) row[3];
             if (toolTypeStr != null) {
                 try {
-                    tool.setToolType(Tool.ToolType.valueOf(toolTypeStr));
+                    // Map legacy GASGUARD to AMATGASGUARD for list purposes
+                    if ("GASGUARD".equalsIgnoreCase(toolTypeStr)) {
+                        tool.setToolType(Tool.ToolType.AMATGASGUARD);
+                    } else {
+                        tool.setToolType(Tool.ToolType.valueOf(toolTypeStr));
+                    }
                 } catch (IllegalArgumentException e) {
                     logger.warn("Unknown tool type '{}' for tool {}, setting to null", toolTypeStr, tool.getName());
                     tool.setToolType(null);
+                }
+                // Track gasguard ids based on raw DB string too
+                if ("GASGUARD".equalsIgnoreCase(toolTypeStr) || "AMATGASGUARD".equalsIgnoreCase(toolTypeStr)) {
+                    gasguardRawIds.add((Long) row[0]);
+                }
+            }
+            // Filter by typeView if provided, but NEVER exclude GasGuard from the page
+            if (typeView != null && !typeView.isBlank() && !"ALL".equalsIgnoreCase(typeView)) {
+                if (tool.getToolType() != Tool.ToolType.AMATGASGUARD) {
+                    if (tool.getToolType() == null || !tool.getToolType().name().equalsIgnoreCase(typeView)) {
+                        continue;
+                    }
                 }
             }
             tool.setSerialNumber1((String) row[4]);
@@ -195,6 +217,12 @@ public class ToolController {
             tool.setCertificateOfApprovalDate(convertSqlDateToLocalDate((java.sql.Date) row[21]));
             tool.setTurnedOverToCustomerDate(convertSqlDateToLocalDate((java.sql.Date) row[22]));
             tool.setStartUpSl03Date(convertSqlDateToLocalDate((java.sql.Date) row[23]));
+            
+            // Set checklist labels JSON for locked checklist behavior
+            tool.setChecklistLabelsJson((String) row[24]);
+            
+            // Set upload date (index 25)
+            tool.setUploadDate(convertSqlTimestampToLocalDateTime((java.sql.Timestamp) row[25]));
             
             // Set the calculated status based on checklist completion
             tool.setStatus(tool.getCalculatedStatus());
@@ -305,8 +333,37 @@ public class ToolController {
             toolTrackTrendsMap.computeIfAbsent(toolId, k -> new ArrayList<>());
         }
         
+        // Split into Standard vs GasGuard lists for separate rendering tables
+        List<Tool> standardTools = new ArrayList<>();
+        List<Long> gasguardIds = new ArrayList<>();
+        for (Tool t : allTools) {
+            if (t.getToolType() == Tool.ToolType.AMATGASGUARD || gasguardRawIds.contains(t.getId())) {
+                gasguardIds.add(t.getId());
+            } else {
+                standardTools.add(t);
+            }
+        }
+
+        // Load full entities for GasGuard tools so specific fields are present
+        List<Tool> gasguardTools = new ArrayList<>();
+        if (!gasguardIds.isEmpty()) {
+            gasguardTools = toolRepository.findAllById(gasguardIds);
+            // Attach technicians and counts like we did for the lightweight list
+            for (Tool g : gasguardTools) {
+                List<User> technicians = toolTechniciansMap.getOrDefault(g.getId(), new ArrayList<>());
+                g.setCurrentTechnicians(new HashSet<>(technicians));
+                // Create dummy collections with the right size for Thymeleaf counting
+                int docCount = documentCountsMap.getOrDefault(g.getId(), 0);
+                int picCount = pictureCountsMap.getOrDefault(g.getId(), 0);
+                g.setDocumentPaths(new HashSet<>(Collections.nCopies(docCount, "dummy")));
+                g.setPicturePaths(new HashSet<>(Collections.nCopies(picCount, "dummy")));
+                // Calculate status from checklist dates
+                g.setStatus(g.getCalculatedStatus());
+            }
+        }
+
         // Sort: tools with technicians first, then alphabetically by name and secondary name
-        allTools.sort((a, b) -> {
+        standardTools.sort((a, b) -> {
             boolean aHasTech = a.getCurrentTechnicians() != null && !a.getCurrentTechnicians().isEmpty();
             boolean bHasTech = b.getCurrentTechnicians() != null && !b.getCurrentTechnicians().isEmpty();
             if (aHasTech && !bHasTech) return -1;
@@ -317,12 +374,67 @@ public class ToolController {
             String bSec = b.getSecondaryName() == null ? "" : b.getSecondaryName();
             return aSec.compareToIgnoreCase(bSec);
         });
+
+        // GasGuard sort default: uploadDate ASC (oldest first); fallback to updatedAt, then createdAt, then system/location
+        gasguardTools.sort((a, b) -> {
+            LocalDateTime aUpload = a.getUploadDate();
+            LocalDateTime bUpload = b.getUploadDate();
+            if (aUpload != null || bUpload != null) {
+                if (aUpload == null) return -1; // nulls first
+                if (bUpload == null) return 1;
+                int cmpUpload = aUpload.compareTo(bUpload);
+                if (cmpUpload != 0) return cmpUpload;
+            }
+            LocalDateTime aUpd = a.getUpdatedAt();
+            LocalDateTime bUpd = b.getUpdatedAt();
+            if (aUpd != null || bUpd != null) {
+                if (aUpd == null) return 1; // put with null updatedAt later
+                if (bUpd == null) return -1;
+                int cmpUpd = bUpd.compareTo(aUpd); // DESC
+                if (cmpUpd != 0) return cmpUpd;
+            }
+            LocalDateTime aCre = a.getCreatedAt();
+            LocalDateTime bCre = b.getCreatedAt();
+            if (aCre != null || bCre != null) {
+                if (aCre == null) return 1;
+                if (bCre == null) return -1;
+                int cmpCre = bCre.compareTo(aCre); // DESC
+                if (cmpCre != 0) return cmpCre;
+            }
+            String aSys = a.getSystemName() == null ? "" : a.getSystemName();
+            String bSys = b.getSystemName() == null ? "" : b.getSystemName();
+            int cmp = aSys.compareToIgnoreCase(bSys);
+            if (cmp != 0) return cmp;
+            String aLoc = a.getEquipmentLocation() == null ? "" : a.getEquipmentLocation();
+            String bLoc = b.getEquipmentLocation() == null ? "" : b.getEquipmentLocation();
+            return aLoc.compareToIgnoreCase(bLoc);
+        });
+
+        // Create checklist data for status popovers - need full tool entities for this
+        Map<Long, List<Map<String, Object>>> toolChecklistMap = new HashMap<>();
         
-        model.addAttribute("tools", allTools);
+        // Get checklist data for all tools (both standard and gasguard)
+        List<Tool> allFullTools = new ArrayList<>();
+        allFullTools.addAll(standardTools);
+        allFullTools.addAll(gasguardTools);
+        
+        for (Tool tool : allFullTools) {
+            List<ChecklistTemplateService.ChecklistItem> checklistItems = checklistTemplateService.getChecklistForTool(tool);
+            List<Map<String, Object>> itemMaps = convertChecklistItemsToMaps(checklistItems);
+            toolChecklistMap.put(tool.getId(), itemMaps);
+        }
+        
+        // Provide both lists to the template
+        model.addAttribute("tools", standardTools); // keep legacy name to avoid breaking other bindings
+        model.addAttribute("standardTools", standardTools);
+        model.addAttribute("gasguardTools", gasguardTools);
+        model.addAttribute("toolChecklistMap", toolChecklistMap);
+        model.addAttribute("typeView", typeView == null ? "ALL" : typeView);
         model.addAttribute("toolRmasMap", toolRmasMap);
         model.addAttribute("toolPassdownsMap", toolPassdownsMap);
         model.addAttribute("toolCommentsMap", toolCommentsMap);
         model.addAttribute("toolTrackTrendsMap", toolTrackTrendsMap);
+        // toolChecklistMap removed since Status columns are gone
         
         // Add all locations for the location filter
         model.addAttribute("locations", locationService.getAllLocations());
@@ -346,9 +458,31 @@ public class ToolController {
         return "tools/list";
     }
 
+    /**
+     * Convert ChecklistTemplateService.ChecklistItem objects to Maps for Thymeleaf template processing
+     */
+    private List<Map<String, Object>> convertChecklistItemsToMaps(List<ChecklistTemplateService.ChecklistItem> checklistItems) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (ChecklistTemplateService.ChecklistItem item : checklistItems) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("label", item.label);
+            map.put("date", item.date);
+            map.put("completed", item.completed);
+            result.add(map);
+        }
+        return result;
+    }
+
     @GetMapping("/new")
-    public String showCreateForm(Model model, Authentication authentication) {
+    public String showCreateForm(@RequestParam(value = "type", required = false) String type,
+                                 Model model, Authentication authentication) {
         Tool tool = new Tool();
+        // Preselect tool type if provided
+        if (type != null && !type.isBlank()) {
+            try {
+                tool.setToolType(Tool.ToolType.valueOf(type));
+            } catch (IllegalArgumentException ignore) {}
+        }
         
         // Set location to user's active site if available, otherwise fall back to system default
         if (authentication != null && authentication.isAuthenticated() && !authentication.getName().equals("anonymousUser")) {
@@ -380,6 +514,11 @@ public class ToolController {
         
         model.addAttribute("tool", tool);
         model.addAttribute("locations", locationService.getAllLocations());
+        if (tool.getToolType() == Tool.ToolType.AMATGASGUARD) {
+            // Provide dynamic checklist labels based on GasGuard template
+            model.addAttribute("checklistItems", checklistTemplateService.getChecklistForTool(tool));
+            return "tools/form-gasguard";
+        }
         return "tools/form";
     }
 
@@ -396,6 +535,8 @@ public class ToolController {
             Tool tool = toolOpt.get();
             logger.info("Found tool: {}", tool.getName());
             model.addAttribute("tool", tool);
+            // Add checklist items resolved from template (labels) mapped to this tool's date fields
+            model.addAttribute("checklistItems", checklistTemplateService.getChecklistForTool(tool));
             
             // Fetch RMAs associated with this tool
             List<Rma> associatedRmas = rmaService.findRmasByToolId(id);
@@ -536,6 +677,28 @@ public class ToolController {
                 }
             }
             
+            // Auto-generate a primary name for AMAT GasGuard if not provided
+            if ((tool.getName() == null || tool.getName().trim().isEmpty()) && tool.getToolType() == Tool.ToolType.AMATGASGUARD) {
+                String sys = tool.getSystemName();
+                String eqLoc = tool.getEquipmentLocation();
+                StringBuilder gen = new StringBuilder();
+                if (sys != null && !sys.trim().isEmpty()) gen.append(sys.trim());
+                if (eqLoc != null && !eqLoc.trim().isEmpty()) {
+                    if (gen.length() > 0) gen.append(" - ");
+                    gen.append(eqLoc.trim());
+                }
+                String generatedName = gen.length() > 0 ? gen.toString() : "GasGuard";
+                tool.setName(generatedName);
+                // Use Config# or Model# as secondary name if available
+                if (tool.getSecondaryName() == null || tool.getSecondaryName().trim().isEmpty()) {
+                    if (tool.getConfigNumber() != null && !tool.getConfigNumber().trim().isEmpty()) {
+                        tool.setSecondaryName(tool.getConfigNumber().trim());
+                    } else if (tool.getModel1() != null && !tool.getModel1().trim().isEmpty()) {
+                        tool.setSecondaryName(tool.getModel1().trim());
+                    }
+                }
+            }
+
             // Set default location if none selected
             if (tool.getLocationName() == null || tool.getLocationName().trim().isEmpty()) {
                 logger.info("No location selected, attempting to set default location");
@@ -1376,6 +1539,9 @@ public class ToolController {
             tool.setTurnedOverToCustomerDate(turnedOverToCustomerDate);
             tool.setStartUpSl03Date(startUpSl03Date);
             
+            // If this is the first time any item gets checked for this tool, snapshot labels
+            checklistTemplateService.snapshotLabelsIfFirstCheck(tool);
+            
             // Save the updated tool
             toolService.saveTool(tool);
             
@@ -1641,5 +1807,12 @@ public class ToolController {
      */
     private static java.time.LocalDate convertSqlDateToLocalDate(java.sql.Date sqlDate) {
         return sqlDate != null ? sqlDate.toLocalDate() : null;
+    }
+    
+    /**
+     * Helper method to safely convert java.sql.Timestamp to LocalDateTime
+     */
+    private static java.time.LocalDateTime convertSqlTimestampToLocalDateTime(java.sql.Timestamp sqlTimestamp) {
+        return sqlTimestamp != null ? sqlTimestamp.toLocalDateTime() : null;
     }
 } 

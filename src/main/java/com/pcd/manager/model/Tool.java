@@ -66,6 +66,24 @@ public class Tool {
 
     @Column
     private String chemicalGasService;
+
+    // GasGuard-specific metadata (optional for other types)
+    @Column(name = "system_name")
+    private String systemName;
+
+    @Column(name = "equipment_location")
+    private String equipmentLocation;
+
+    @Column(name = "config_number")
+    private String configNumber;
+
+    // Stored as an integer percentage (e.g., 100)
+    @Column(name = "equipment_set")
+    private Integer equipmentSet;
+
+    // Snapshot of checklist labels when tool becomes active (at least one item checked)
+    @Column(name = "checklist_labels_json")
+    private String checklistLabelsJson;
     
     // Location as simple string field (converted from foreign key for performance)
     @Column(name = "location_name", nullable = false)
@@ -89,6 +107,9 @@ public class Tool {
     
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    
+    @Column(name = "upload_date")
+    private LocalDateTime uploadDate;
     
     @Column(length = 1000)
     private String notes;
@@ -229,7 +250,8 @@ public class Tool {
 
     public enum ToolType {
         CHEMBLEND("ChemBlend"),
-        SLURRY("Slurry");
+        SLURRY("Slurry"),
+        AMATGASGUARD("GasGuard");
         
         private final String displayName;
         

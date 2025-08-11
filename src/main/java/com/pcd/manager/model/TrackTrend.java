@@ -14,14 +14,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
+import com.pcd.manager.model.Rma;
 
 @Entity
 @Table(name = "track_trends")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"affectedTools", "relatedTrackTrends", "comments", "documentPaths", "picturePaths", "documentNames", "pictureNames"})
-@EqualsAndHashCode(exclude = {"affectedTools", "relatedTrackTrends", "comments", "documentPaths", "picturePaths", "documentNames", "pictureNames"})
+@ToString(exclude = {"affectedTools", "relatedTrackTrends", "relatedRmas", "comments", "documentPaths", "picturePaths", "documentNames", "pictureNames"})
+@EqualsAndHashCode(exclude = {"affectedTools", "relatedTrackTrends", "relatedRmas", "comments", "documentPaths", "picturePaths", "documentNames", "pictureNames"})
 public class TrackTrend {
 
     @Id
@@ -51,6 +52,15 @@ public class TrackTrend {
     )
     @JsonIgnoreProperties({"affectedTools", "relatedTrackTrends"})
     private Set<TrackTrend> relatedTrackTrends = new HashSet<>();
+    
+    @ManyToMany
+    @JoinTable(
+        name = "tracktrend_rmas",
+        joinColumns = @JoinColumn(name = "tracktrend_id"),
+        inverseJoinColumns = @JoinColumn(name = "rma_id")
+    )
+    @JsonIgnoreProperties({"documents", "pictures", "comments"})
+    private Set<Rma> relatedRmas = new HashSet<>();
     
     @OneToMany(mappedBy = "trackTrend", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JsonIgnoreProperties("trackTrend")

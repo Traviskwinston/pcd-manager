@@ -449,8 +449,8 @@
                         <div class="col-md-6">
                             <div class="d-flex flex-column">
                                 <small class="text-muted">Chemical/Gas Serviced</small>
-                                <strong th:text="${tool.chemicalGasService ?: 'N/A'}">N/A</strong>
-                    </div>
+                                <strong th:text="${tool.toolType != null && tool.toolType.name() == 'AMATGASGUARD' ? (tool.systemName ?: 'N/A') : (tool.chemicalGasService ?: 'N/A')}">N/A</strong>
+                            </div>
                     </div>
                         <div class="col-md-6">
                             <div class="d-flex flex-column">
@@ -539,80 +539,13 @@
             </div>
             <div class="collapse show" id="toolChecklistCollapse">
                 <div class="card-body">
-                <div class="checklist-grid">
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.commissionCompleted ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">Commission</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.commissionDate != null}" 
-                             th:text="${#temporals.format(tool.commissionDate, 'MMM dd, yyyy')}">Date</span>
+                    <div class="checklist-grid">
+                        <div class="checklist-item" th:each="item : ${checklistItems}">
+                            <i class="bi" th:classappend="${item.completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'"></i>
+                            <span class="flex-grow-1" th:text="${item.label}">Label</span>
+                            <span class="badge bg-light text-dark" th:if="${item.date != null}" th:text="${#temporals.format(item.date, 'MMM dd, yyyy')}">Date</span>
                         </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.preSl1Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">PreSL1</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.preSl1Date != null}" 
-                             th:text="${#temporals.format(tool.preSl1Date, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.sl1Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">SL1</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.sl1Date != null}" 
-                             th:text="${#temporals.format(tool.sl1Date, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.mechanicalPreSl1Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">Mechanical: Pre SL1</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.mechanicalPreSl1Date != null}" 
-                             th:text="${#temporals.format(tool.mechanicalPreSl1Date, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.mechanicalPostSl1Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">Mechanical: Post SL1</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.mechanicalPostSl1Date != null}" 
-                             th:text="${#temporals.format(tool.mechanicalPostSl1Date, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.specificInputFunctionalityTested ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">Input Functionality Tested</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.specificInputFunctionalityDate != null}" 
-                             th:text="${#temporals.format(tool.specificInputFunctionalityDate, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.modesOfOperationTested ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">Operation Modes Tested</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.modesOfOperationDate != null}" 
-                             th:text="${#temporals.format(tool.modesOfOperationDate, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.specificSoosTestsed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">SOO's Tested</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.specificSoosDate != null}" 
-                             th:text="${#temporals.format(tool.specificSoosDate, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.fieldServiceReportUploaded ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">Field Service Report</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.fieldServiceReportDate != null}" 
-                             th:text="${#temporals.format(tool.fieldServiceReportDate, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.certificateOfApprovalUploaded ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">Certificate of Approval</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.certificateOfApprovalDate != null}" 
-                             th:text="${#temporals.format(tool.certificateOfApprovalDate, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.turnedOverToCustomer ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">Turned Over to Customer</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.turnedOverToCustomerDate != null}" 
-                             th:text="${#temporals.format(tool.turnedOverToCustomerDate, 'MMM dd, yyyy')}">Date</span>
-                        </div>
-                        <div class="checklist-item">
-                            <i class="bi" th:classappend="${tool.startUpSl03Completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'}"></i>
-                        <span class="flex-grow-1">Start-Up/SL03</span>
-                        <span class="badge bg-light text-dark" th:if="${tool.startUpSl03Date != null}" 
-                             th:text="${#temporals.format(tool.startUpSl03Date, 'MMM dd, yyyy')}">Date</span>
-                </div>
-                </div>
+                    </div>
             </div>
             </div>
         </div>
@@ -1977,7 +1910,7 @@
                             <label class="form-label">Tool Details</label>
                             <div class="p-3 tool-details-preview">
                                 <div><strong>Tool Name:</strong> <span th:text="${tool.name}">Tool Name</span></div>
-                                <div><strong>Type:</strong> <span th:text="${tool.toolType}">Tool Type</span></div>
+                                <div><strong>Type:</strong> <span th:text="${tool.toolType != null ? tool.toolType.displayName : 'N/A'}">Tool Type</span></div>
                                 <div><strong>Serial:</strong> <span th:text="${tool.serialNumber1}">Serial Number</span></div>
                             </div>
                         </div>

@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -285,6 +286,8 @@ public class DataInitializer implements CommandLineRunner {
             toolRepository.save(tool);
             toolsCreatedCount++;
         }
+
+        // Removed GasGuard seed data per requirements
 
         if (toolsCreatedCount > 0) {
             logger.info("Successfully created {} hardcoded tools and assigned to Location: {}", toolsCreatedCount, (f52Location != null ? f52Location.getDisplayName() : "N/A"));

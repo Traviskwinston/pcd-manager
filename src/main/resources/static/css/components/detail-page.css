@@ -47,17 +47,19 @@
 /* Grid Layout System */
 .detail-main-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 1.5rem;
     margin-bottom: 2rem;
+    align-items: start;
 }
 
-.detail-sections-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    gap: 1.5rem;
+/* Grid span utilities for top row cards */
+.grid-col-span-2 {
+    grid-column: span 2;
 }
+
+/* Remove nested grid structure. Children will flow directly into main grid via display: contents */
+.detail-sections-grid { display: contents; }
 
 /* Header Section */
 .detail-header {
@@ -145,9 +147,10 @@
 }
 
 /* Responsive Design */
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
+    /* Keep 3 columns at all widths per RMA layout spec */
     .detail-main-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, 1fr);
     }
     
     .detail-sections-grid {
@@ -161,9 +164,14 @@
 }
 
 @media (max-width: 768px) {
+    /* Maintain 3 columns even on small screens; allow content to shrink */
+    .detail-main-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    /* The sections container remains display: contents, explicit columns are not needed */
     .detail-sections-grid {
-        grid-template-columns: 1fr;
-        grid-template-rows: repeat(9, 1fr);
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: auto;
     }
     
     .detail-section-fixed-height {

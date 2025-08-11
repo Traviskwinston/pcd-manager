@@ -925,6 +925,12 @@ public class RmaController {
             result.put("chemicalGasService", tool.getChemicalGasService());
             result.put("startUpSl03Date", tool.getStartUpSl03Date());
             
+            // Add GasGuard specific fields
+            result.put("systemName", tool.getSystemName());
+            result.put("equipmentLocation", tool.getEquipmentLocation());
+            result.put("configNumber", tool.getConfigNumber());
+            result.put("equipmentSet", tool.getEquipmentSet());
+            
             if (tool.getLocationName() != null) {
                 Map<String, Object> location = new HashMap<>();
                 location.put("displayName", tool.getLocationName());

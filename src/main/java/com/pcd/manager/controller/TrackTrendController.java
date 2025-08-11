@@ -6,6 +6,7 @@ import com.pcd.manager.model.Tool;
 import com.pcd.manager.service.TrackTrendService;
 import com.pcd.manager.service.ToolService;
 import com.pcd.manager.repository.RmaRepository;
+import com.pcd.manager.model.Rma;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -185,7 +186,8 @@ public class TrackTrendController {
     public String showCreateForm(Model model) {
         model.addAttribute("trackTrend", new TrackTrend());
         model.addAttribute("allTools", trackTrendService.getAllTools());
-        model.addAttribute("allTrackTrends", trackTrendService.getAllTrackTrends());
+        // Provide RMAs for association selection
+        model.addAttribute("allRmas", rmaRepository.findAllOrderedByWrittenDateDesc());
         return "tracktrend/form";
     }
 
@@ -195,7 +197,8 @@ public class TrackTrendController {
                 .orElseThrow(() -> new IllegalArgumentException("TrackTrend not found: " + id));
         model.addAttribute("trackTrend", trackTrend);
         model.addAttribute("allTools", trackTrendService.getAllTools());
-        model.addAttribute("allTrackTrends", trackTrendService.getAvailableRelatedTrackTrends(id));
+        // Provide RMAs for association selection
+        model.addAttribute("allRmas", rmaRepository.findAllOrderedByWrittenDateDesc());
         return "tracktrend/form";
     }
 
@@ -212,26 +215,18 @@ public class TrackTrendController {
         
         model.addAttribute("trackTrend", trackTrend);
         model.addAttribute("allTools", trackTrendService.getAllTools());
-        model.addAttribute("allTrackTrends", trackTrendService.getAllTrackTrends());
+        model.addAttribute("allRmas", rmaRepository.findAllOrderedByWrittenDateDesc());
         model.addAttribute("preSelectedTool", tool);
         return "tracktrend/form";
     }
 
     @GetMapping("/related/{relatedId}/new")
     public String showCreateFormForRelatedTrackTrend(@PathVariable Long relatedId, Model model) {
+        // Repurpose to pre-select a related RMA if desired in future; for now load normal create with RMAs
         TrackTrend trackTrend = new TrackTrend();
-        TrackTrend relatedTrackTrend = trackTrendService.getTrackTrendById(relatedId)
-                .orElseThrow(() -> new IllegalArgumentException("TrackTrend not found: " + relatedId));
-        
-        // Pre-select the related track trend
-        Set<TrackTrend> relatedTrackTrends = new HashSet<>();
-        relatedTrackTrends.add(relatedTrackTrend);
-        trackTrend.setRelatedTrackTrends(relatedTrackTrends);
-        
         model.addAttribute("trackTrend", trackTrend);
         model.addAttribute("allTools", trackTrendService.getAllTools());
-        model.addAttribute("allTrackTrends", trackTrendService.getAvailableRelatedTrackTrends(null));
-        model.addAttribute("preSelectedTrackTrend", relatedTrackTrend);
+        model.addAttribute("allRmas", rmaRepository.findAllOrderedByWrittenDateDesc());
         return "tracktrend/form";
     }
 
@@ -239,7 +234,7 @@ public class TrackTrendController {
     public String saveTrackTrend(
             @ModelAttribute TrackTrend trackTrend,
             @RequestParam(name = "toolIds", required = false) List<Long> toolIds,
-            @RequestParam(name = "relatedTrackTrendIds", required = false) List<Long> relatedTrackTrendIds) {
+            @RequestParam(name = "relatedRmaIds", required = false) List<Long> relatedRmaIds) {
         
         // Handle tool relationships
         Set<Tool> tools = new HashSet<>();
@@ -250,14 +245,14 @@ public class TrackTrendController {
         }
         trackTrend.setAffectedTools(tools);
         
-        // Handle related track trend relationships
-        Set<TrackTrend> relatedTrackTrends = new HashSet<>();
-        if (relatedTrackTrendIds != null) {
-            for (Long relatedId : relatedTrackTrendIds) {
-                trackTrendService.getTrackTrendById(relatedId).ifPresent(relatedTrackTrends::add);
+        // Handle related RMA relationships
+        Set<Rma> relatedRmas = new HashSet<>();
+        if (relatedRmaIds != null) {
+            for (Long rmaId : relatedRmaIds) {
+                rmaRepository.findById(rmaId).ifPresent(relatedRmas::add);
             }
         }
-        trackTrend.setRelatedTrackTrends(relatedTrackTrends);
+        trackTrend.setRelatedRmas(relatedRmas);
         
         trackTrendService.saveTrackTrend(trackTrend);
         return "redirect:/tracktrend";

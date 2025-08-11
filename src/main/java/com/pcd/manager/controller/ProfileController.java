@@ -1,3 +1,5 @@
+package com.pcd.manager.controller;
+
 
 import com.pcd.manager.model.Location;
 import com.pcd.manager.model.User;

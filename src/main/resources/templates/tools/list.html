@@ -24,6 +24,42 @@
             color: #0a58ca !important; /* Darker blue on hover */
         }
         
+        /* Status badge interactive styles */
+        .status-badge-interactive {
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+            font-size: 0.875rem !important;
+            padding: 0.5rem 1rem !important;
+            border-radius: 2rem !important;
+            font-weight: 500 !important;
+        }
+        
+        .status-badge-interactive:hover {
+            opacity: 0.8;
+        }
+        
+        /* Checklist popover styles */
+        .checklist-popover {
+            max-width: 350px;
+            padding: 0;
+        }
+        
+        .checklist-item-popover {
+            padding: 0.25rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .checklist-item-popover i {
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+        
+        .checklist-item-popover span {
+            flex-grow: 1;
+        }
+        
         /* Table compact styling handled by data-table.css */
         
         /* Tools specific table container */
@@ -76,6 +112,12 @@
             min-width: 140px !important;
             width: 14% !important;
         }
+
+        /* GasGuard-specific column sizing */
+        .gasguard-table .tools-name-column { min-width: 180px; }
+        .gasguard-equipment-location { min-width: 200px; }
+        .gasguard-config { min-width: 110px; padding-right: 24px; }
+        .gasguard-equipment-set { min-width: 120px; padding-left: 12px; }
         
         .tools-date-column {
             min-width: 160px !important;
@@ -339,11 +381,31 @@
                     Tools Management
                 </h2>
             </div>
-            <div>
-                <a th:href="@{/tools/new}" class="btn btn-primary me-2">
+            <div class="d-flex align-items-center gap-2">
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="typeViewDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-funnel"></i>
+                        <span th:text="${typeView == 'AMATGASGUARD' ? 'GasGuard (AMAT)' : (typeView == 'CHEMBLEND' ? 'ChemBlend' : (typeView == 'SLURRY' ? 'Slurry' : 'All Types'))}">All Types</span>
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="typeViewDropdown">
+                        <li><a class="dropdown-item" href="/tools">All Types</a></li>
+                        <li><a class="dropdown-item" href="/tools?typeView=CHEMBLEND">ChemBlend</a></li>
+                        <li><a class="dropdown-item" href="/tools?typeView=SLURRY">Slurry</a></li>
+                        <li><a class="dropdown-item" href="/tools?typeView=AMATGASGUARD">GasGuard (AMAT)</a></li>
+                    </ul>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="fas fa-plus me-1"></i>
                     New Tool
-                </a>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li th:each="type : ${T(com.pcd.manager.model.Tool.ToolType).values()}">
+                            <a class="dropdown-item" th:href="@{/tools/new(type=${type.name()})}"
+                               th:text="${type.name() == 'AMATGASGUARD' ? type.displayName + ' (AMAT)' : type.displayName}">Type</a>
+                        </li>
+                    </ul>
+                </div>
                 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#uploadToolsModal">
                     <i class="fas fa-upload me-1"></i>
                     Upload Tools
@@ -375,63 +437,54 @@
                 </div>
                 <div class="col-md-4 text-end">
                     <small class="text-muted" id="resultsSummary">
-                        Showing <span id="visibleCount" th:text="${#lists.size(tools)}">0</span> of <span id="totalCount" th:text="${#lists.size(tools)}">0</span> tools
+                        Showing <span id="visibleCount">0</span> of <span id="totalCountLocation">0</span> tools for this location
                     </small>
                 </div>
             </div>
 
-            <!-- Empty State -->
-            <div th:if="${tools.empty}" class="data-table-empty-state text-center py-5">
+            <!-- Empty State: show only if BOTH tables are empty -->
+            <div th:if="${(standardTools == null or #lists.isEmpty(standardTools)) and (gasguardTools == null or #lists.isEmpty(gasguardTools))}" class="data-table-empty-state text-center py-5">
                 <i class="fas fa-tools fa-3x text-muted mb-3"></i>
                 <h4 class="text-muted">No Tools Found</h4>
                 <p class="text-muted">Get started by creating your first tool.</p>
-                <a th:href="@{/tools/new}" class="btn btn-primary">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="fas fa-plus me-1"></i>
                     Create Tool
-                </a>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li th:each="type : ${T(com.pcd.manager.model.Tool.ToolType).values()}">
+                            <a class="dropdown-item" th:href="@{/tools/new(type=${type.name()})}"
+                               th:text="${type.name() == 'AMATGASGUARD' ? type.displayName + ' (AMAT)' : type.displayName}">Type</a>
+                        </li>
+                    </ul>
+                </div>
             </div>
 
-            <!-- Responsive Table Container -->
-            <div th:if="${!tools.empty}" class="data-table-responsive table-responsive tools-table-container" id="tools-table-container">
+            <!-- Title for Standard Tools -->
+            <div th:if="${!standardTools.empty}" class="mt-3 mb-2" id="standard-title">
+                <h5 class="text-muted">Slurry/Chemblend</h5>
+            </div>
+
+            <!-- Responsive Table Container - Standard Tools (non-GasGuard) -->
+            <div th:if="${!standardTools.empty}" class="data-table-responsive table-responsive tools-table-container" id="tools-table-container" th:attr="data-type-view=${typeView}">
                 <table class="table data-table-compact">
                     <thead>
                         <tr>
                             <th class="sortable-header tools-name-column" data-sort="name" style="text-align: left;">
                                 <div class="header-content">
-                                    <span class="header-text">Tool Name</span>
+                                    <span class="header-text" th:text="${typeView == 'AMATGASGUARD' ? 'System' : 'Tool Name'}">Tool Name</span>
                                     <span class="sort-arrows">
                                         <i class="bi bi-caret-up sort-up"></i>
                                         <i class="bi bi-caret-down sort-down"></i>
                                     </span>
                                 </div>
                             </th>
-                            <th class="type-filter-header filter-header tools-type-column">
-                                Type
-                                <div class="dropdown d-inline-block ms-1">
-                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="typeFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="bi bi-funnel"></i>
-                                    </button>
-                                    <ul class="dropdown-menu p-2" aria-labelledby="typeFilterDropdown" style="min-width: 250px;">
-                                        <li class="dropdown-item-text">
-                                            <small class="text-muted">Filter by Type:</small>
-                                            <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="showAllTypes">Show All</button>
-                                        </li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li class="dropdown-item-text" th:each="type : ${T(com.pcd.manager.model.Tool.ToolType).values()}">
-                                            <div class="type-filter-item">
-                                                <div class="type-filter-left">
-                                                    <span class="badge bg-primary type-count-square type-count" th:data-type="${type.name()}">0</span>
-                                                    <span th:text="${type.displayName}">Type Name</span>
-                                                </div>
-                                                <input class="form-check-input type-filter" type="checkbox" th:value="${type.name()}" th:id="'type-' + ${type.name()}" checked>
-                                            </div>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </th>
+                            <th class="type-filter-header tools-type-column">Type</th>
+                            <th th:if="${typeView == 'AMATGASGUARD'}">Equipment Location</th>
                             <th class="sortable-header tools-serial-column" data-sort="serialNumber" style="text-align: left;">
                                 <div class="header-content">
-                                    <span class="header-text">Serial Number</span>
+                                    <span class="header-text" th:text="${typeView == 'AMATGASGUARD' ? 'Serial#1/Serial#2' : 'Serial Number'}">Serial Number</span>
                                     <span class="sort-arrows">
                                         <i class="bi bi-caret-up sort-up"></i>
                                         <i class="bi bi-caret-down sort-down"></i>
@@ -440,14 +493,14 @@
                             </th>
                             <th class="sortable-header tools-model-column" data-sort="model" style="text-align: left;">
                                 <div class="header-content">
-                                    <span class="header-text">Model</span>
+                                    <span class="header-text" th:text="${typeView == 'AMATGASGUARD' ? 'Model#' : 'Model'}">Model</span>
                                     <span class="sort-arrows">
                                         <i class="bi bi-caret-up sort-up"></i>
                                         <i class="bi bi-caret-down sort-down"></i>
                                     </span>
                                 </div>
                             </th>
-                            <th class="location-filter-header filter-header tools-location-column">
+                            <th class="location-filter-header filter-header tools-location-column" th:if="${typeView != 'AMATGASGUARD'}" style="text-align: center;">
                                 Location
                                 <div class="dropdown d-inline-block ms-1">
                                     <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="locationFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -472,49 +525,11 @@
                                     </ul>
                                 </div>
                             </th>
-                            <th class="status-filter-header filter-header tools-status-column">
-                                Status
-                                <div class="dropdown d-inline-block ms-1">
-                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="bi bi-funnel"></i>
-                                    </button>
-                                    <ul class="dropdown-menu p-2" aria-labelledby="statusFilterDropdown" style="min-width: 250px;">
-                                        <li class="dropdown-item-text">
-                                            <small class="text-muted">Filter by Status:</small>
-                                            <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="showAllStatuses">Show All</button>
-                                        </li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li class="dropdown-item-text">
-                                            <div class="status-filter-item">
-                                                <div class="status-filter-left">
-                                                    <span class="badge bg-secondary status-count-square status-count" data-status="NOT_STARTED">0</span>
-                                                    <span>Not Started</span>
-                                                </div>
-                                                <input class="form-check-input status-filter" type="checkbox" value="NOT_STARTED" id="status-NOT_STARTED" checked>
-                                            </div>
-                                        </li>
-                                        <li class="dropdown-item-text">
-                                            <div class="status-filter-item">
-                                                <div class="status-filter-left">
-                                                    <span class="badge bg-primary status-count-square status-count" data-status="IN_PROGRESS">0</span>
-                                                    <span>In Progress</span>
-                                                </div>
-                                                <input class="form-check-input status-filter" type="checkbox" value="IN_PROGRESS" id="status-IN_PROGRESS" checked>
-                                            </div>
-                                        </li>
-                                        <li class="dropdown-item-text">
-                                            <div class="status-filter-item">
-                                                <div class="status-filter-left">
-                                                    <span class="badge bg-success status-count-square status-count" data-status="COMPLETED">0</span>
-                                                    <span>Completed</span>
-                                                </div>
-                                                <input class="form-check-input status-filter" type="checkbox" value="COMPLETED" id="status-COMPLETED" checked>
-                                            </div>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </th>
+                            <th th:if="${typeView == 'AMATGASGUARD'}">Config#</th>
+                            <th th:if="${typeView == 'AMATGASGUARD'}">Equipment Set</th>
+
                                                             <th class="tools-count-column" style="display: none;">Moving Parts</th>
+                                <th class="tools-status-column">Status</th>
                                 <th class="tools-count-column">RMAs</th>
                                 <th class="tools-count-column">Track/Trends</th>
                                 <th class="tools-count-column">Passdown</th>
@@ -531,7 +546,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="tool : ${tools}" class="data-table-row tool-row clickable-row"
+                        <tr th:each="tool : ${standardTools}" class="data-table-row tool-row clickable-row"
                             th:attr="data-tool-id=${tool.id},
                                      data-name=${tool.name + (tool.secondaryName != null ? ' (' + tool.secondaryName + ')' : '')},
                                      data-serial-number=${(tool.serialNumber1 != null ? tool.serialNumber1 : '') + (tool.serialNumber2 != null ? (tool.serialNumber1 != null ? '/' : '') + tool.serialNumber2 : '')},
@@ -556,89 +571,33 @@
                                 <span th:if="${tool.toolType != null}" th:text="${tool.toolType}">Tool Type</span>
                                 <span th:if="${tool.toolType == null}" class="text-muted">-</span>
                             </td>
+                            <!-- Equipment Location column for GasGuard view -->
+                            <td style="text-align: left;" th:if="${typeView == 'AMATGASGUARD'}">
+                                <span th:text="${tool.equipmentLocation != null ? tool.equipmentLocation : '-'}">Equipment Location</span>
+                            </td>
                             <td style="text-align: left;">
-                                <span th:if="${tool.serialNumber1 != null}" th:text="${tool.serialNumber1}">Serial Number 1</span><span th:if="${tool.serialNumber1 != null and tool.serialNumber2 != null}">/</span><span th:if="${tool.serialNumber2 != null}" th:text="${tool.serialNumber2}">Serial Number 2</span>
+                                <!-- For GasGuard, show Serial#1/Serial#2 in this column -->
+                                <span th:if="${typeView == 'AMATGASGUARD'}">
+                                    <span th:if="${tool.serialNumber1 != null}" th:text="${tool.serialNumber1}">Serial Number 1</span>
+                                    <span th:if="${tool.serialNumber1 != null and tool.serialNumber2 != null}">/</span>
+                                    <span th:if="${tool.serialNumber2 != null}" th:text="${tool.serialNumber2}">Serial Number 2</span>
                                 <span th:if="${tool.serialNumber1 == null and tool.serialNumber2 == null}" class="text-muted">-</span>
+                                </span>
+                                <span th:unless="${typeView == 'AMATGASGUARD'}">
+                                    <span th:if="${tool.serialNumber1 != null}" th:text="${tool.serialNumber1}">Serial Number 1</span>
+                                    <span th:if="${tool.serialNumber1 != null and tool.serialNumber2 != null}">/</span>
+                                    <span th:if="${tool.serialNumber2 != null}" th:text="${tool.serialNumber2}">Serial Number 2</span>
+                                    <span th:if="${tool.serialNumber1 == null and tool.serialNumber2 == null}" class="text-muted">-</span>
+                                </span>
                             </td>
                             <td style="text-align: left;">
                                 <span th:if="${tool.model1 != null}" th:text="${tool.model1}">Model 1</span><span th:if="${tool.model1 != null and tool.model2 != null}">/</span><span th:if="${tool.model2 != null}" th:text="${tool.model2}">Model 2</span>
                                 <span th:if="${tool.model1 == null and tool.model2 == null}" class="text-muted">-</span>
                             </td>
-                            <td style="text-align: left;">
+                            <td style="text-align: center;">
                                                             <span th:text="${tool.locationName ?: 'Unknown Location'}">Location</span>
                             </td>
-                            <td class="text-center">
-                                <span th:if="${tool.status != null}" th:switch="${tool.status.name()}">
-                                    <span th:case="'NOT_STARTED'" class="badge rounded-pill bg-secondary status-badge info-icon-interactive" 
-                                          data-bs-toggle="popover"
-                                          data-bs-placement="left"
-                                          data-bs-trigger="hover focus click"
-                                          data-bs-html="true"
-                                          data-bs-title="Tool Checklist"
-                                          th:data-bs-content="'<div class=&quot;checklist-popover&quot;>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.commissionCompleted} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Commission</span>' + (${tool.commissionDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.commissionDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.preSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> PreSL1</span>' + (${tool.preSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.preSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.sl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SL1</span>' + (${tool.sl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.sl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPreSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Pre SL1</span>' + (${tool.mechanicalPreSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPreSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPostSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Post SL1</span>' + (${tool.mechanicalPostSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPostSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificInputFunctionalityTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Input Functionality</span>' + (${tool.specificInputFunctionalityDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificInputFunctionalityDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.modesOfOperationTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Operation Modes</span>' + (${tool.modesOfOperationDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.modesOfOperationDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificSoosTestsed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SOOs Tested</span>' + (${tool.specificSoosDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificSoosDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.fieldServiceReportUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Field Service Report</span>' + (${tool.fieldServiceReportDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.fieldServiceReportDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.certificateOfApprovalUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Certificate of Approval</span>' + (${tool.certificateOfApprovalDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.certificateOfApprovalDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.turnedOverToCustomer} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Turned Over to Customer</span>' + (${tool.turnedOverToCustomerDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.turnedOverToCustomerDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.startUpSl03Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Start-Up/SL03</span>' + (${tool.startUpSl03Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.startUpSl03Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '</div>'"
-                                          onclick="event.stopPropagation();"
-                                          th:text="'Not Started'"></span>
-                                    <span th:case="'IN_PROGRESS'" class="badge rounded-pill bg-primary status-badge info-icon-interactive"
-                                          data-bs-toggle="popover"
-                                          data-bs-placement="left"
-                                          data-bs-trigger="hover focus click"
-                                          data-bs-html="true"
-                                          data-bs-title="Tool Checklist"
-                                          th:data-bs-content="'<div class=&quot;checklist-popover&quot;>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.commissionCompleted} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Commission</span>' + (${tool.commissionDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.commissionDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.preSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> PreSL1</span>' + (${tool.preSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.preSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.sl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SL1</span>' + (${tool.sl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.sl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPreSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Pre SL1</span>' + (${tool.mechanicalPreSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPreSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPostSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Post SL1</span>' + (${tool.mechanicalPostSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPostSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificInputFunctionalityTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Input Functionality</span>' + (${tool.specificInputFunctionalityDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificInputFunctionalityDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.modesOfOperationTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Operation Modes</span>' + (${tool.modesOfOperationDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.modesOfOperationDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificSoosTestsed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SOOs Tested</span>' + (${tool.specificSoosDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificSoosDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.fieldServiceReportUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Field Service Report</span>' + (${tool.fieldServiceReportDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.fieldServiceReportDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.certificateOfApprovalUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Certificate of Approval</span>' + (${tool.certificateOfApprovalDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.certificateOfApprovalDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.turnedOverToCustomer} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Turned Over to Customer</span>' + (${tool.turnedOverToCustomerDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.turnedOverToCustomerDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.startUpSl03Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Start-Up/SL03</span>' + (${tool.startUpSl03Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.startUpSl03Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '</div>'"
-                                          onclick="event.stopPropagation();"
-                                          th:text="'In Progress'"></span>
-                                    <span th:case="'COMPLETED'" class="badge rounded-pill bg-success status-badge info-icon-interactive"
-                                          data-bs-toggle="popover"
-                                          data-bs-placement="left"
-                                          data-bs-trigger="hover focus click"
-                                          data-bs-html="true"
-                                          data-bs-title="Tool Checklist"
-                                          th:data-bs-content="'<div class=&quot;checklist-popover&quot;>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.commissionCompleted} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Commission</span>' + (${tool.commissionDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.commissionDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.preSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> PreSL1</span>' + (${tool.preSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.preSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.sl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SL1</span>' + (${tool.sl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.sl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPreSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Pre SL1</span>' + (${tool.mechanicalPreSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPreSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.mechanicalPostSl1Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Mechanical: Post SL1</span>' + (${tool.mechanicalPostSl1Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.mechanicalPostSl1Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificInputFunctionalityTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Input Functionality</span>' + (${tool.specificInputFunctionalityDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificInputFunctionalityDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.modesOfOperationTested} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Operation Modes</span>' + (${tool.modesOfOperationDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.modesOfOperationDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.specificSoosTestsed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> SOOs Tested</span>' + (${tool.specificSoosDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.specificSoosDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.fieldServiceReportUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Field Service Report</span>' + (${tool.fieldServiceReportDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.fieldServiceReportDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.certificateOfApprovalUploaded} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Certificate of Approval</span>' + (${tool.certificateOfApprovalDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.certificateOfApprovalDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.turnedOverToCustomer} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Turned Over to Customer</span>' + (${tool.turnedOverToCustomerDate != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.turnedOverToCustomerDate, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '<div class=&quot;checklist-item-popup&quot;><span class=&quot;checklist-item-name&quot;><i class=&quot;bi ' + (${tool.startUpSl03Completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> Start-Up/SL03</span>' + (${tool.startUpSl03Date != null} ? '<span class=&quot;checklist-item-date&quot;>' + ${#temporals.format(tool.startUpSl03Date, 'MMM dd, yyyy')} + '</span>' : '') + '</div>' +
-                                            '</div>'"
-                                          onclick="event.stopPropagation();"
-                                          th:text="'Completed'"></span>
-                                    <span th:case="*" class="badge rounded-pill bg-light text-dark status-badge" th:text="${tool.status.name().replace('_',' ')}"></span>
-                                </span>
-                                <span th:if="${tool.status == null}" class="badge rounded-pill bg-light text-dark status-badge">N/A</span>
-                            </td>
+
                                         <td class="text-center" style="display: none;">
                 <!-- Interactive Moving Parts icon when moving parts exist -->
                 <i th:class="${'bi bi-arrows-move ' + (toolMovingPartsMap != null and toolMovingPartsMap[tool.id] != null and not #lists.isEmpty(toolMovingPartsMap[tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
@@ -669,6 +628,32 @@
                 
                 <!-- Moving Parts count -->
                 <span th:text="${toolMovingPartsMap != null and toolMovingPartsMap[tool.id] != null ? #lists.size(toolMovingPartsMap[tool.id]) : 0}" class="ms-1 small"></span>
+            </td>
+                            <td class="text-center">
+                                <span th:if="${tool.status != null}" th:switch="${tool.status.name()}"
+                                      class="status-badge-interactive"
+                                      data-bs-toggle="popover" 
+                                      data-bs-placement="left" 
+                                      data-bs-trigger="hover focus click" 
+                                      data-bs-html="true"
+                                      th:attr="data-bs-title='Tool Checklist Progress',
+                                               data-bs-content=${#strings.isEmpty(toolChecklistMap[tool.id]) ? 'No checklist items available' : 
+                                                   '<div class=&quot;checklist-popover&quot;>' +
+                                                   #strings.listJoin(
+                                                       #lists.toList(toolChecklistMap[tool.id].![
+                                                           '<div class=&quot;checklist-item-popover&quot;>' +
+                                                           '<i class=&quot;bi ' + (completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> ' +
+                                                           '<span class=&quot;' + (completed ? 'text-success fw-medium' : 'text-muted') + '&quot;>' + label + '</span>' +
+                                                           (date != null ? ' <small class=&quot;badge bg-light text-dark ms-2&quot;>' + #temporals.format(date, 'MMM dd, yyyy') + '</small>' : '') +
+                                                           '</div>'
+                                                       ]), '') +
+                                                   '</div>'}">
+                                    <span th:case="'NOT_STARTED'" class="badge rounded-pill bg-secondary">Not Started</span>
+                                    <span th:case="'IN_PROGRESS'" class="badge rounded-pill bg-primary">In Progress</span>
+                                    <span th:case="'COMPLETED'" class="badge rounded-pill bg-success">Completed</span>
+                                    <span th:case="*" class="badge rounded-pill bg-light text-dark" th:text="${tool.status.name().replace('_',' ')}"></span>
+                                </span>
+                                <span th:if="${tool.status == null}" class="badge rounded-pill bg-light text-dark">N/A</span>
             </td>
                             <td class="text-center">
                                 <!-- Interactive RMA icon when RMAs exist -->
@@ -831,6 +816,250 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Title for GasGuard Tools -->
+            <div th:if="${gasguardTools != null and !gasguardTools.empty}" class="mt-4 mb-2" id="gasguard-title">
+                <h5 class="text-muted">GasGuards</h5>
+        </div>
+
+            <!-- GasGuard Table (separate, below) -->
+            <div th:if="${gasguardTools != null and !gasguardTools.empty}" class="data-table-responsive table-responsive tools-table-container mt-1" id="gasguard-table-container" data-type-view="AMATGASGUARD">
+                <table class="table data-table-compact gasguard-table">
+                    <thead>
+                        <tr>
+                            <th class="sortable-header tools-name-column" data-sort="name" style="text-align: left;">
+                                <div class="header-content">
+                                    <span class="header-text">System</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
+                            <th class="sortable-header gasguard-equipment-location" data-sort="equipmentLocation" style="text-align: left;">
+                                <div class="header-content">
+                                    <span class="header-text">Equipment Location</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
+                            <th class="tools-type-column">Type</th>
+                            <th class="sortable-header tools-serial-column" data-sort="serialNumber" style="text-align: left;">
+                                <div class="header-content">
+                                    <span class="header-text">Serial#1/Serial#2</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
+                            <th class="sortable-header tools-model-column" data-sort="model" style="text-align: left;">
+                                <div class="header-content">
+                                    <span class="header-text">Model#</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
+                            <th class="sortable-header gasguard-config text-start" data-sort="configNumber">
+                                <div class="header-content">
+                                    <span class="header-text">Config#</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
+                            <th class="sortable-header gasguard-equipment-set" data-sort="equipmentSet">
+                                <div class="header-content">
+                                    <span class="header-text">Equipment Set</span>
+                                    <span class="sort-arrows">
+                                        <i class="bi bi-caret-up sort-up"></i>
+                                        <i class="bi bi-caret-down sort-down"></i>
+                                    </span>
+                                </div>
+                            </th>
+                            <th class="location-filter-header filter-header tools-location-column" style="text-align: center;">
+                                Location
+                                <div class="dropdown d-inline-block ms-1">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="locationFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-funnel"></i>
+                                    </button>
+                                    <ul class="dropdown-menu p-2" aria-labelledby="locationFilterDropdown" style="min-width: 250px;">
+                                        <li class="dropdown-item-text">
+                                            <small class="text-muted">Filter by Location:</small>
+                                            <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="showAllLocations">Show All</button>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li class="dropdown-item-text" th:each="location : ${locations}">
+                                            <div class="location-filter-item">
+                                                <div class="location-filter-left">
+                                                    <span class="badge bg-info location-count-square location-count" th:data-location="${location.displayName ?: location.name}">0</span>
+                                                    <span th:text="${location.displayName}">Location Name</span>
+                                                </div>
+                                                <input class="form-check-input location-filter" type="checkbox" th:value="${location.displayName ?: location.name}" th:id="'location-' + ${location.id}"
+                                                       th:checked="${currentUser != null && currentUser.activeSite != null && (currentUser.activeSite.displayName ?: currentUser.activeSite.name) == (location.displayName ?: location.name)}">
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </th>
+                            <th class="tools-status-column">Status</th>
+                            <th class="tools-count-column">RMAs</th>
+                            <th class="tools-count-column">Track/Trends</th>
+                            <th class="tools-count-column">Passdown</th>
+                            <th class="tools-count-column">Comments</th>
+                            <th class="tools-count-column">Docs/Pics</th>
+                            <th class="tools-technicians-column">Technicians</th>
+                            <th class="tools-date-column">Last Modified</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="tool : ${gasguardTools}" class="data-table-row tool-row clickable-row"
+                            th:attr="data-tool-id=${tool.id},
+                                     data-name=${tool.systemName != null ? tool.systemName : (tool.name != null ? tool.name : '')},
+                                     data-serial-number=${(tool.serialNumber1 != null ? tool.serialNumber1 : '') + (tool.serialNumber2 != null ? (tool.serialNumber1 != null ? '/' : '') + tool.serialNumber2 : '')},
+                                     data-model=${(tool.model1 != null ? tool.model1 : '') + (tool.model2 != null ? (tool.model1 != null ? '/' : '') + tool.model2 : '')},
+                                     data-equipment-location=${tool.equipmentLocation != null ? tool.equipmentLocation : ''},
+                                     data-config-number=${tool.configNumber != null ? tool.configNumber : ''},
+                                     data-equipment-set=${tool.equipmentSet != null ? tool.equipmentSet : ''},
+                                     data-location=${tool.locationName != null ? tool.locationName : ''},
+                                     data-tool-type=${tool.toolType != null ? tool.toolType : 'AMATGASGUARD'},
+                                     data-status=${tool.status != null ? tool.status.name() : 'NOT_STARTED'},
+                                     data-location-name=${tool.locationName != null ? tool.locationName : 'Unknown Location'},
+                                     data-technicians=${#strings.listJoin(tool.currentTechnicians.![name], ' ')},
+                                     data-notes=${tool.notes != null ? tool.notes : ''},
+                                     data-docs-count=${tool.documentPaths != null ? #lists.size(tool.documentPaths) : 0},
+                                     data-pics-count=${(tool.picturePaths != null ? #lists.size(tool.picturePaths) : 0) + (tool.pictures != null ? #lists.size(tool.pictures) : 0)}">
+                            <td style="text-align: left;">
+                                <strong th:text="${tool.systemName != null ? tool.systemName : '-'}">System</strong>
+                            </td>
+                            <td style="text-align: left;">
+                                <span th:text="${tool.equipmentLocation != null ? tool.equipmentLocation : '-'}">Equipment Location</span>
+                            </td>
+                            <td style="text-align: left;">
+                                <span th:text="${tool.toolType != null ? (tool.toolType.name() == 'AMATGASGUARD' ? tool.toolType.displayName + ' (AMAT)' : tool.toolType.displayName) : 'GasGuard (AMAT)'}">Type</span>
+                            </td>
+                            <td style="text-align: left;">
+                                <span th:if="${tool.serialNumber1 != null}" th:text="${tool.serialNumber1}">Serial Number 1</span>
+                                <span th:if="${tool.serialNumber1 != null and tool.serialNumber2 != null}">/</span>
+                                <span th:if="${tool.serialNumber2 != null}" th:text="${tool.serialNumber2}">Serial Number 2</span>
+                                <span th:if="${tool.serialNumber1 == null and tool.serialNumber2 == null}" class="text-muted">-</span>
+                            </td>
+                            <td style="text-align: left;">
+                                <span th:text="${tool.model1 != null ? tool.model1 : '-'}">Model</span>
+                            </td>
+                            <td style="text-align: left;">
+                                <span th:text="${tool.configNumber != null ? tool.configNumber : '-'}">Config</span>
+                            </td>
+                            <td style="text-align: center;">
+                                <span th:text="${tool.equipmentSet != null ? tool.equipmentSet + '%': '-'}">Equipment Set</span>
+                            </td>
+                            <td style="text-align: center;">
+                                <span th:text="${tool.locationName ?: 'Unknown Location'}">Location</span>
+                            </td>
+                            <td class="text-center">
+                                <span th:if="${tool.status != null}" th:switch="${tool.status.name()}"
+                                      class="status-badge-interactive"
+                                      data-bs-toggle="popover" 
+                                      data-bs-placement="left" 
+                                      data-bs-trigger="hover focus click" 
+                                      data-bs-html="true"
+                                      th:attr="data-bs-title='Tool Checklist Progress',
+                                               data-bs-content=${#strings.isEmpty(toolChecklistMap[tool.id]) ? 'No checklist items available' : 
+                                                   '<div class=&quot;checklist-popover&quot;>' +
+                                                   #strings.listJoin(
+                                                       #lists.toList(toolChecklistMap[tool.id].![
+                                                           '<div class=&quot;checklist-item-popover&quot;>' +
+                                                           '<i class=&quot;bi ' + (completed ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted') + '&quot;></i> ' +
+                                                           '<span class=&quot;' + (completed ? 'text-success fw-medium' : 'text-muted') + '&quot;>' + label + '</span>' +
+                                                           (date != null ? ' <small class=&quot;badge bg-light text-dark ms-2&quot;>' + #temporals.format(date, 'MMM dd, yyyy') + '</small>' : '') +
+                                                           '</div>'
+                                                       ]), '') +
+                                                   '</div>'}">
+                                    <span th:case="'NOT_STARTED'" class="badge rounded-pill bg-secondary">Not Started</span>
+                                    <span th:case="'IN_PROGRESS'" class="badge rounded-pill bg-primary">In Progress</span>
+                                    <span th:case="'COMPLETED'" class="badge rounded-pill bg-success">Completed</span>
+                                    <span th:case="*" class="badge rounded-pill bg-light text-dark" th:text="${tool.status.name().replace('_',' ')}"></span>
+                                </span>
+                                <span th:if="${tool.status == null}" class="badge rounded-pill bg-light text-dark">N/A</span>
+                            </td>
+
+                            <!-- RMA icon and count -->
+                            <td class="text-center">
+                                <i th:class="${'bi bi-clipboard-data ' + (toolRmasMap[tool.id] != null and not #lists.isEmpty(toolRmasMap[tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${toolRmasMap[tool.id] != null and not #lists.isEmpty(toolRmasMap[tool.id])}"
+                                   data-bs-toggle="popover" data-bs-placement="left" data-bs-trigger="hover focus click" data-bs-html="true"
+                                   th:attr="data-bs-title='RMAs (' + ${#lists.size(toolRmasMap[tool.id])} + ')'"
+                                   th:data-bs-content="${#strings.listJoin(toolRmasMap[tool.id].![\n                                           '<div class=&quot;mb-2&quot;>' + \n                                           '<a href=&quot;/rma/' + get('id') + '&quot; class=&quot;text-decoration-none&quot; onclick=&quot;event.stopPropagation();&quot;>' +\n                                           (get('rmaNumber') != null ? get('rmaNumber') : get('id')) + '</a>' +\n                                           (get('status') != null ? ' - <span class=&quot;badge bg-' + (get('status').name() == 'OPEN' ? 'warning' : get('status').name() == 'IN_PROGRESS' ? 'primary' : get('status').name() == 'SHIPPED' ? 'info' : 'secondary') + '&quot;>' + get('status').name().replace('_', ' ') + '</span>' : '') +\n                                           '</div>'\n                                       ], '<hr class=&quot;my-1&quot;/>') }"
+                                   onclick="event.stopPropagation();"></i>
+                                <i th:if="${toolRmasMap[tool.id] == null or #lists.isEmpty(toolRmasMap[tool.id])}" class="bi bi-clipboard-data text-muted"></i>
+                                <span th:text="${toolRmasMap[tool.id] != null ? #lists.size(toolRmasMap[tool.id]) : 0}" class="ms-1 small"></span>
+                            </td>
+                            <!-- Track/Trends icon and count -->
+                            <td class="text-center">
+                                <th:block th:if="${toolTrackTrendsMap != null and toolTrackTrendsMap[tool.id] != null and not #lists.isEmpty(toolTrackTrendsMap[tool.id])}">
+                                    <i class="bi bi-graph-up-arrow info-icon-interactive" data-bs-toggle="popover" data-bs-placement="left" data-bs-trigger="hover focus click" data-bs-html="true"
+                                       th:attr="data-bs-title='Track/Trends (' + ${#lists.size(toolTrackTrendsMap[tool.id])} + ')'"
+                                       th:data-bs-content="${#strings.listJoin(toolTrackTrendsMap[tool.id].![ '<a href=&quot;/tracktrend/' + get('id') + '&quot; class=&quot;text-decoration-none d-block mb-1&quot; onclick=&quot;event.stopPropagation();&quot;>' + get('name') + '</a>' ], '') }"
+                                       onclick="event.stopPropagation();"></i>
+                                    <span th:text="${#lists.size(toolTrackTrendsMap[tool.id])}" class="ms-1 small"></span>
+                                </th:block>
+                                <th:block th:unless="${toolTrackTrendsMap != null and toolTrackTrendsMap[tool.id] != null and not #lists.isEmpty(toolTrackTrendsMap[tool.id])}">
+                                    <i class="bi bi-graph-up text-muted"></i>
+                                    <span class="ms-1 small">0</span>
+                                </th:block>
+                            </td>
+                            <!-- Passdown icon and count -->
+                            <td class="text-center">
+                                <i th:class="${'bi bi-journal-text ' + (toolPassdownsMap[tool.id] != null and not #lists.isEmpty(toolPassdownsMap[tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${toolPassdownsMap[tool.id] != null and not #lists.isEmpty(toolPassdownsMap[tool.id])}"
+                                   data-bs-toggle="popover" data-bs-placement="left" data-bs-trigger="hover focus click" data-bs-html="true"
+                                   th:attr="data-bs-title='Passdowns (' + ${#lists.size(toolPassdownsMap[tool.id])} + ')'"
+                                   th:data-bs-content="${#strings.listJoin(toolPassdownsMap[tool.id].![ '<div class=&quot;mb-2&quot;>' + (get('comment') != null ? '<div class=&quot;mb-1&quot;>' + get('comment') + '</div>' : '') + '<small class=&quot;text-muted&quot;>' + '<a href=&quot;/passdowns/' + get('id') + '&quot; class=&quot;text-decoration-none&quot; onclick=&quot;event.stopPropagation();&quot;>' + (get('date') != null ? #temporals.format(get('date'), 'MM/dd/yy') : get('id')) + '</a>' + (get('userName') != null ? ' by ' + get('userName') : '') + '</small></div>' ], '<hr class=&quot;my-1&quot;/>') }"
+                                   onclick="event.stopPropagation();"></i>
+                                <i th:if="${toolPassdownsMap[tool.id] == null or #lists.isEmpty(toolPassdownsMap[tool.id])}" class="bi bi-journal-text text-muted"></i>
+                                <span th:text="${toolPassdownsMap[tool.id] != null ? #lists.size(toolPassdownsMap[tool.id]) : 0}" class="ms-1 small"></span>
+                            </td>
+                            <!-- Comments icon and count -->
+                            <td class="text-center">
+                                <i th:class="${'bi bi-chat-dots-fill ' + (toolCommentsMap[tool.id] != null and not #lists.isEmpty(toolCommentsMap[tool.id]) ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${toolCommentsMap[tool.id] != null and not #lists.isEmpty(toolCommentsMap[tool.id])}"
+                                   data-bs-toggle="popover" data-bs-placement="left" data-bs-trigger="hover focus click" data-bs-html="true"
+                                   th:attr="data-bs-title='Comments (' + ${#lists.size(toolCommentsMap[tool.id])} + ')'"
+                                   th:data-bs-content="${#strings.listJoin(toolCommentsMap[tool.id].![ '<div class=&quot;mb-2&quot;><small class=&quot;text-muted&quot;>' + #temporals.format(get('createdDate'), 'MM/dd/yy HH:mm') + (get('userName') != null ? ' by ' + get('userName') : '') + '</small><br/>' + (get('content') != null ? get('content') : 'No content') + '</div>' ], '<hr class=&quot;my-1&quot;/>') }"
+                                   onclick="event.stopPropagation();"></i>
+                                <i th:if="${toolCommentsMap[tool.id] == null or #lists.isEmpty(toolCommentsMap[tool.id])}" class="bi bi-chat-dots text-muted"></i>
+                                <span class="ms-1 small" th:text="${toolCommentsMap[tool.id] != null ? #lists.size(toolCommentsMap[tool.id]) : 0}">0</span>
+                            </td>
+                            <!-- Docs/Pics icon and count -->
+                            <td class="text-center">
+                                <i th:class="${'bi bi-file-earmark-text ' + ((tool.documentPaths != null and not #lists.isEmpty(tool.documentPaths)) or (tool.picturePaths != null and not #lists.isEmpty(tool.picturePaths)) or (tool.pictures != null and not #lists.isEmpty(tool.pictures)) ? 'info-icon-interactive' : 'text-muted')}"
+                                   th:if="${(tool.documentPaths != null and not #lists.isEmpty(tool.documentPaths)) or (tool.picturePaths != null and not #lists.isEmpty(tool.picturePaths)) or (tool.pictures != null and not #lists.isEmpty(tool.pictures))}"
+                                   data-bs-toggle="popover" data-bs-placement="left" data-bs-trigger="hover focus click" data-bs-html="true"
+                                   th:attr="data-bs-title='Documents & Pictures (' + ${(tool.documentPaths != null ? #lists.size(tool.documentPaths) : 0) + (tool.picturePaths != null ? #lists.size(tool.picturePaths) : 0) + (tool.pictures != null ? #lists.size(tool.pictures) : 0)} + ')'"
+                                   data-tool-docs-pics="true" onclick="event.stopPropagation();"></i>
+                                <i th:if="${(tool.documentPaths == null or #lists.isEmpty(tool.documentPaths)) and (tool.picturePaths == null or #lists.isEmpty(tool.picturePaths)) and (tool.pictures == null or #lists.isEmpty(tool.pictures))}" class="bi bi-file-earmark-text text-muted"></i>
+                                <span class="ms-1 small" th:text="${(tool.documentPaths != null ? #lists.size(tool.documentPaths) : 0) + (tool.picturePaths != null ? #lists.size(tool.picturePaths) : 0)}">0</span>
+                            </td>
+                            <td style="text-align: left;">
+                                <span th:if="${!tool.currentTechnicians.empty}" th:text="${#strings.listJoin(tool.currentTechnicians.![name], ', ')}">Technicians</span>
+                                <span th:if="${tool.currentTechnicians.empty}" class="text-muted">-</span>
+                            </td>
+                            <td class="text-center">
+                                <span th:if="${tool.updatedAt != null}" class="small">
+                                    <span th:text="${#temporals.format(tool.updatedAt, 'MMM dd, yyyy')}">Date</span>
+                                    <span th:text="${#temporals.format(tool.updatedAt, 'h:mm a')}" class="text-muted ms-1">Time</span>
+                                </span>
+                                <span th:if="${tool.updatedAt == null}" class="text-muted small">-</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -844,20 +1073,27 @@
                 this.currentSort = null;
                 this.sortDirection = 'asc';
                 this.currentSearch = '';
-                this.visibleStatuses = new Set(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED']);
+                // Status filtering removed
                 this.visibleLocations = new Set(); // Will be populated from checkboxes
-                this.visibleTypes = new Set(['CHEMBLEND', 'SLURRY']); // Track visible tool types
+                // Initialize visible types. If server-side filter applied, restrict to that
+                const table = document.getElementById('tools-table-container');
+                const initialTypeView = table ? (table.getAttribute('data-type-view') || 'ALL') : 'ALL';
+                if (initialTypeView === 'ALL') {
+                    this.visibleTypes = new Set(['CHEMBLEND', 'SLURRY', 'AMATGASGUARD']);
+                } else {
+                    this.visibleTypes = new Set([initialTypeView]);
+                }
                 this.totalStatusCounts = {}; // Track total counts across all tools
                 this.totalLocationCounts = {}; // Track total counts by location
                 this.totalTypeCounts = {}; // Track total counts by type
                 
                 this.init();
                 this.initSorting();
-                this.calculateTotalStatusCounts();
+                // Status counts removed
                 this.calculateTotalLocationCounts();
                 this.calculateTotalTypeCounts();
                 this.initializeLocationFilter();
-                this.updateStatusCounts();
+                // Status counts removed
                 this.updateLocationCounts();
                 this.updateTypeCounts();
                 this.updateToolsCount();
@@ -885,41 +1121,7 @@
                     this.filterTable();
                 });
 
-                // Status filtering
-                document.querySelectorAll('.status-filter').forEach(checkbox => {
-                    console.log('🔧 Found status filter checkbox:', checkbox.value);
-                    checkbox.addEventListener('change', (e) => {
-                        const status = e.target.value;
-                        console.log(`🔧 Checkbox ${status} changed to:`, e.target.checked);
-                        if (e.target.checked) {
-                            this.visibleStatuses.add(status);
-                        } else {
-                            // Prevent unchecking all statuses (keep at least one visible)
-                            if (this.visibleStatuses.size === 1) {
-                                console.log('🚫 Cannot uncheck all statuses');
-                                e.preventDefault();
-                                e.target.checked = true;
-                                return;
-                            }
-                            this.visibleStatuses.delete(status);
-                        }
-                        console.log('🔧 Visible statuses now:', Array.from(this.visibleStatuses));
-                        this.filterTable();
-                    });
-                });
-
-                // Show All button
-                const showAllButton = document.getElementById('showAllStatuses');
-                if (showAllButton) {
-                    showAllButton.addEventListener('click', () => {
-                        // Check all checkboxes
-                        document.querySelectorAll('.status-filter').forEach(checkbox => {
-                            checkbox.checked = true;
-                            this.visibleStatuses.add(checkbox.value);
-                        });
-                        this.filterTable();
-                    });
-                }
+                // Status filtering removed
 
                 // Location filtering
                 document.querySelectorAll('.location-filter').forEach(checkbox => {
@@ -1008,8 +1210,8 @@
                         technicians.includes(this.currentSearch) ||
                         notes.includes(this.currentSearch);
 
-                    // Check status filter
-                    const matchesStatus = this.visibleStatuses.has(status);
+                    // Status filtering removed - always match
+                    const matchesStatus = true;
                     
                     // Check location filter
                     const locationName = row.getAttribute('data-location-name') || '';
@@ -1028,7 +1230,7 @@
                 });
 
 
-                this.updateStatusCounts();
+                // Status counts removed
                 this.updateLocationCounts();
                 this.updateTypeCounts();
                 this.updateToolsCount();
@@ -1041,39 +1243,39 @@
                 const visibleRows = document.querySelectorAll('.tool-row:not([style*="display: none"])');
                 const count = visibleRows.length;
                 const visibleCountSpan = document.getElementById('visibleCount');
-                const totalCountSpan = document.getElementById('totalCount');
+                const totalCountLocationSpan = document.getElementById('totalCountLocation');
                 const noToolsFound = document.getElementById('noToolsFound');
-                const toolsTable = document.querySelector('.tools-table-container table');
+                // Section titles and containers
+                const standardTitle = document.getElementById('standard-title');
+                const standardTable = document.querySelector('#tools-table-container');
+                const gasguardTitle = document.getElementById('gasguard-title');
+                const gasguardTable = document.getElementById('gasguard-table-container');
                 
                 if (visibleCountSpan) visibleCountSpan.textContent = count;
-                if (totalCountSpan) totalCountSpan.textContent = document.querySelectorAll('.tool-row').length;
-                
-                // Show/hide no tools found message - but keep table visible
-                if (count === 0) {
-                    if (noToolsFound) noToolsFound.style.display = 'block';
-                } else {
-                    if (noToolsFound) noToolsFound.style.display = 'none';
-                }
-            }
-
-            calculateTotalStatusCounts() {
-                // Count all tools by status (regardless of filters)
+                // total for currently selected/visible locations
+                let totalForLocation = 0;
                 document.querySelectorAll('.tool-row').forEach(row => {
-                    const status = row.getAttribute('data-status') || 'NOT_STARTED';
-                    if (status) {
-                        this.totalStatusCounts[status] = (this.totalStatusCounts[status] || 0) + 1;
-                    }
+                    const locationName = row.getAttribute('data-location-name') || '';
+                    const matchesLocation = this.visibleLocations.size === 0 || this.visibleLocations.has(locationName);
+                    if (matchesLocation) totalForLocation++;
                 });
+                if (totalCountLocationSpan) totalCountLocationSpan.textContent = totalForLocation;
+                
+                // Show/hide entire sections based on filtered visibility
+                const standardVisible = document.querySelectorAll('#tools-table-container .tool-row:not([style*="display: none"])').length > 0;
+                if (standardTitle) standardTitle.style.display = standardVisible ? '' : 'none';
+                if (standardTable) standardTable.style.display = standardVisible ? '' : 'none';
+
+                const gasguardVisible = document.querySelectorAll('#gasguard-table-container .tool-row:not([style*="display: none"])').length > 0;
+                if (gasguardTitle) gasguardTitle.style.display = gasguardVisible ? '' : 'none';
+                if (gasguardTable) gasguardTable.style.display = gasguardVisible ? '' : 'none';
+
+                // Show/hide global empty-state if both sections are empty after filtering
+                const showEmpty = !standardVisible && !gasguardVisible;
+                if (noToolsFound) noToolsFound.style.display = showEmpty ? 'block' : 'none';
             }
 
-            updateStatusCounts() {
-                // Always show total counts, not filtered counts
-                // This ensures counts don't disappear when everything is unchecked
-                document.querySelectorAll('.status-count').forEach(badge => {
-                    const status = badge.getAttribute('data-status');
-                    badge.textContent = this.totalStatusCounts[status] || 0;
-                });
-            }
+            // Status count functions removed
 
             initializeLocationFilter() {
                 // Initialize visible locations with checked checkboxes (current user's location by default)
@@ -1150,27 +1352,32 @@
             }
 
             handleSort(sortType, header) {
-                // Remove sort classes from all headers
-                document.querySelectorAll('.sortable-header').forEach(h => {
+                // Determine which table this header belongs to
+                const isGasGuardTable = header.closest('#gasguard-table-container') !== null;
+                const tableContainer = isGasGuardTable ? '#gasguard-table-container' : '#tools-table-container';
+                
+                // Remove sort classes from headers in the same table only
+                document.querySelectorAll(`${tableContainer} .sortable-header`).forEach(h => {
                     h.classList.remove('sort-asc', 'sort-desc');
                 });
 
-                // Determine sort direction
-                if (this.currentSort === sortType) {
+                // Determine sort direction (separate tracking for each table)
+                const sortKey = `${tableContainer}-${sortType}`;
+                if (this.currentSort === sortKey) {
                     this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
                 } else {
                     this.sortDirection = 'asc';
                 }
 
-                this.currentSort = sortType;
+                this.currentSort = sortKey;
                 header.classList.add(this.sortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
 
-                this.sortTable(sortType, this.sortDirection);
+                this.sortTable(sortType, this.sortDirection, tableContainer);
             }
 
-            sortTable(sortType, direction) {
-                const tbody = document.querySelector('.tools-table-container tbody');
-                const rows = Array.from(document.querySelectorAll('.tool-row'));
+            sortTable(sortType, direction, tableContainer) {
+                const tbody = document.querySelector(`${tableContainer} tbody`);
+                const rows = Array.from(document.querySelectorAll(`${tableContainer} .tool-row`));
 
                 rows.sort((a, b) => {
                     let aVal = '';
@@ -1189,6 +1396,22 @@
                         case 'model':
                             aVal = a.getAttribute('data-model') || '';
                             bVal = b.getAttribute('data-model') || '';
+                            break;
+                        case 'equipmentLocation':
+                            aVal = a.getAttribute('data-equipment-location') || '';
+                            bVal = b.getAttribute('data-equipment-location') || '';
+                            break;
+                        case 'configNumber':
+                            aVal = a.getAttribute('data-config-number') || '';
+                            bVal = b.getAttribute('data-config-number') || '';
+                            break;
+                        case 'equipmentSet':
+                            aVal = a.getAttribute('data-equipment-set') || '';
+                            bVal = b.getAttribute('data-equipment-set') || '';
+                            break;
+                        case 'location':
+                            aVal = a.getAttribute('data-location') || '';
+                            bVal = b.getAttribute('data-location') || '';
                             break;
                         default:
                             aVal = a.getAttribute(`data-${sortType}`) || '';
@@ -1411,69 +1634,58 @@
                 }
             }, true); // Use capture phase to catch events in nested popovers
 
-            // Handle clickable rows with improved drag detection
-            // Simple drag to scroll functionality
-            const table = document.querySelector('.tools-table-container');
+            // Handle clickable rows with improved drag detection per table container
+            // Simple drag-to-scroll functionality for each table separately
+            window.toolsTableDragging = false; // global flag for click suppression
+
+            function initDragScroll(container) {
+                if (!container) return;
             let isDragging = false;
             let startX = 0;
             let scrollStart = 0;
             let hasMoved = false;
             
-            // Make drag state accessible globally
-            window.toolsTableDragging = false;
-            
-            // Add drag functionality to all table rows
-            document.querySelectorAll('.clickable-row').forEach(row => {
+                // Only rows inside this container
+                container.querySelectorAll('.clickable-row').forEach(row => {
                 row.addEventListener('mousedown', function(e) {
-                    // Skip if clicking on links, buttons, etc.
                     if (e.target.closest('a, button, input, [data-bs-toggle]')) {
                         return;
                     }
-                    
                     isDragging = true;
                     hasMoved = false;
                     startX = e.clientX;
-                    scrollStart = table.scrollLeft;
-                    
-                    // Add dragging visual feedback
-                    document.body.classList.add('tools-dragging');
-                    
+                        scrollStart = container.scrollLeft;
+                        // Add dragging visual feedback on this container only
+                        container.classList.add('tools-dragging');
                     e.preventDefault();
                 });
             });
             
-            // Handle mouse move for dragging
+                // Mouse move: scroll this container while dragging
             document.addEventListener('mousemove', function(e) {
                 if (!isDragging) return;
-                
                 const deltaX = e.clientX - startX;
-                
-                // Mark as moved if dragged more than 5 pixels
                 if (Math.abs(deltaX) > 5) {
                     hasMoved = true;
                     window.toolsTableDragging = true;
                 }
-                
-                // Scroll the table
-                table.scrollLeft = scrollStart - deltaX;
-                
+                    container.scrollLeft = scrollStart - deltaX;
                 e.preventDefault();
             });
             
-            // Handle mouse up to end dragging
+                // Mouse up: end drag for this container
             document.addEventListener('mouseup', function() {
                 if (isDragging) {
                     isDragging = false;
-                    
-                    // Remove dragging visual feedback
-                    document.body.classList.remove('tools-dragging');
-                    
-                    // Reset drag flag after delay to prevent immediate clicks
-                    setTimeout(() => {
-                        window.toolsTableDragging = false;
-                    }, 100);
-                }
-            });
+                        container.classList.remove('tools-dragging');
+                        setTimeout(() => { window.toolsTableDragging = false; }, 100);
+                    }
+                });
+            }
+
+            // Initialize drag scrolling separately for standard and GasGuard tables
+            initDragScroll(document.getElementById('tools-table-container'));
+            initDragScroll(document.getElementById('gasguard-table-container'));
 
             // Initialize clickable table rows
             initializeClickableRows();
@@ -1851,9 +2063,10 @@
     </div>
 
     <!-- Tool Upload JavaScript -->
-    <script>
+    <script th:inline="javascript">
         // Global variables for the upload process
         let currentAnalysisData = null;
+        const DEFAULT_USER_LOCATION = /*[[${currentUser != null and currentUser.activeSite != null ? (currentUser.activeSite.displayName != null ? currentUser.activeSite.displayName : currentUser.activeSite.name) : ''}]]*/ '';
 
         document.getElementById('toolsExcelFile').addEventListener('change', function(event) {
             const file = event.target.files[0];
@@ -2068,6 +2281,34 @@
                 if (normalizedExisting.toLowerCase() === normalizedNew.toLowerCase()) {
                     return 'none'; // No highlighting for case-insensitive matches
                 }
+            } else if (fieldKey === 'equipmentSet') {
+                // Treat numeric values and percentages equivalently (e.g., 100 == 100%)
+                const toNumber = (val) => {
+                    if (val === null || val === undefined || String(val).trim() === '') return null;
+                    const cleaned = String(val).trim().replace(/[^0-9.]/g, '');
+                    if (cleaned === '') return null;
+                    return Math.round(parseFloat(cleaned));
+                };
+                const existingNum = toNumber(existingValue);
+                const newNum = toNumber(newValue);
+                if (existingNum !== null && newNum !== null) {
+                    if (existingNum === newNum) return 'none';
+                    return 'changed';
+                }
+                if (existingNum !== null && newNum === null) return 'missing';
+                if (existingNum === null && newNum !== null) return 'added';
+                return 'none';
+            } else if (fieldKey === 'location') {
+                // If Excel location is empty, we may either add current location or no-op if it's the same as existing
+                if (normalizedNew === '(empty)' && DEFAULT_USER_LOCATION && DEFAULT_USER_LOCATION.length > 0) {
+                    const eq = (a, b) => (String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase());
+                    if (eq(existingValue, DEFAULT_USER_LOCATION)) {
+                        // Same as existing, treat as no migration (red)
+                        return 'missing';
+                    }
+                    // Different from existing, will set to current site (green)
+                    return 'added';
+                }
             } else {
                 if (normalizedExisting === normalizedNew) {
                     return 'none'; // No highlighting for exact matches
@@ -2093,28 +2334,49 @@
         }
 
         function createToolComparisonHtml(data, differences, side, existingData = null) {
-            const fields = [
+            const typeVal = (data.type || '').toString().toUpperCase();
+            const isGasGuard = typeVal === 'AMATGASGUARD' || !!data.equipmentLocation || !!data.isGasGuard;
+
+            // For standard tools, include Tool Name fields. For GasGuard, exclude them.
+            const commonStandardFields = [
                 { key: 'toolName', label: 'Tool Name' },
                 { key: 'toolName2', label: 'Tool Name 2' },
                 { key: 'type', label: 'Type' },
+            ];
+            const standardFields = [
                 { key: 'modelNumber1', label: 'Model 1' },
                 { key: 'modelNumber2', label: 'Model 2' },
                 { key: 'serialNumber1', label: 'Serial 1' },
                 { key: 'serialNumber2', label: 'Serial 2' },
-                { key: 'location', label: 'Location' }
+                { key: 'location', label: 'Location' },
             ];
-            
+
+            // GasGuard order mirrors the table: System, Equipment Location, Type, Serials, Model#, Config#, Equipment Set, Location
+            const gasguardFields = [
+                { key: 'systemName', label: 'System' },
+                { key: 'equipmentLocation', label: 'Equipment Location' },
+                { key: 'type', label: 'Type' },
+                { key: 'serialNumber1', label: 'Serial 1' },
+                { key: 'serialNumber2', label: 'Serial 2' },
+                { key: 'modelNumber1', label: 'Model#' },
+                { key: 'configNumber', label: 'Config#' },
+                { key: 'equipmentSet', label: 'Equipment Set' },
+                { key: 'location', label: 'Location' },
+            ];
+
+            const fields = isGasGuard ? [...gasguardFields] : [...commonStandardFields, ...standardFields];
+
             let html = '<div class="tool-comparison">';
-            
+
             fields.forEach(field => {
-                const value = normalizeFieldValue(data[field.key]);
+                let value = normalizeFieldValue(data[field.key]);
                 let cssClass = '';
-                
+
                 if (side === 'new' && existingData) {
                     // For new side, show what's being added, changed, or missing
                     const existingValue = existingData[field.key];
                     const highlightType = getFieldHighlightType(existingValue, data[field.key], field.key);
-                    
+
                     switch (highlightType) {
                         case 'added':
                             cssClass = 'text-added fw-bold';
@@ -2126,8 +2388,28 @@
                             cssClass = 'text-missing fw-bold';
                             break;
                     }
+
+                    // For Location, if incoming is empty but default user location is set,
+                    // show hint that it will change to the current site
+                    if (field.key === 'location' && value === '(empty)' && DEFAULT_USER_LOCATION && DEFAULT_USER_LOCATION.length > 0) {
+                        const existingVal = normalizeFieldValue(existingData[field.key]);
+                        const sameAsExisting = existingVal.toLowerCase() === DEFAULT_USER_LOCATION.trim().toLowerCase();
+                        const arrowSpan = sameAsExisting
+                            ? `<span class="text-missing fw-bold">→ ${DEFAULT_USER_LOCATION}</span>`
+                            : `<span class="text-added fw-bold">→ ${DEFAULT_USER_LOCATION}</span>`;
+                        value = `${value} ${arrowSpan}`;
+                    }
+
+                    // For Type: if empty in Excel but existing/new context indicates GasGuard, show arrow to AMATGASGUARD
+                    if (field.key === 'type' && (value === '(empty)' || value === '') ) {
+                        const isGas = (existingData && existingData.toolType === 'AMATGASGUARD') || (data.isGasGuard || data.equipmentLocation);
+                        if (isGas) {
+                            // No change to type for GasGuard; display informational arrow
+                            value = `${value} <span class="text-missing fw-bold">→ AMATGASGUARD</span>`;
+                        }
+                    }
                 }
-                
+
                 html += `
                     <div class="mb-1">
                         <small class="text-muted">${field.label}:</small>
@@ -2135,7 +2417,7 @@
                     </div>
                 `;
             });
-            
+
             // Add additional existing tool info
             if (side === 'existing') {
                 if (data.status) {
@@ -2155,7 +2437,7 @@
                     `;
                 }
             }
-            
+
             html += '</div>';
             return html;
         }

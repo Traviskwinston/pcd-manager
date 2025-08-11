@@ -97,18 +97,9 @@
                         </thead>
                         <tbody>
                             <tr th:each="location : ${locations}" th:id="'row-' + ${location.id}" class="location-row">
-                                <td class="state-cell">
-                                    <span class="view-mode" th:text="${location.state}">Arizona</span>
-                                    <input type="text" class="edit-mode edit-input d-none" th:value="${location.state}" name="state">
-                                </td>
-                                <td class="fab-cell">
-                                    <span class="view-mode" th:text="${location.fab}">52</span>
-                                    <input type="text" class="edit-mode edit-input d-none" th:value="${location.fab}" name="fab">
-                                </td>
-                                <td class="display-name-cell">
-                                    <span class="view-mode" th:text="${location.displayName}">AZ F52</span>
-                                    <input type="text" class="edit-mode edit-input d-none" th:value="${location.displayName}" name="displayName">
-                                </td>
+                                <td><span th:text="${location.state}">Arizona</span></td>
+                                <td><span th:text="${location.fab}">52</span></td>
+                                <td><span th:text="${location.displayName}">AZ F52</span></td>
                                 <td>
                                     <!-- Show if this is the current location -->
                                     <span th:if="${currentLocation != null && currentLocation.id == location.id}" class="badge bg-primary">Current</span>
@@ -130,25 +121,14 @@
                                     </form>
                                 </td>
                                 <td class="action-buttons">
-                                    <div class="btn-group btn-group-sm view-mode" role="group">
-                                        <button type="button" class="btn btn-outline-secondary btn-icon edit-btn" 
-                                                th:data-location-id="${location.id}" title="Edit">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a th:href="@{/locations/edit/{id}(id=${location.id})}"
+                                           class="btn btn-outline-secondary btn-icon" title="Edit">
                                             <i class="bi bi-pencil"></i>
-                                        </button>
+                                        </a>
                                         <button type="button" class="btn btn-outline-danger btn-icon" title="Delete"
                                                 data-bs-toggle="modal" th:data-bs-target="${'#deleteModal-' + location.id}">
                                             <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                    
-                                    <div class="btn-group btn-group-sm edit-mode d-none" role="group">
-                                        <button type="button" class="btn btn-outline-success btn-icon save-btn" 
-                                                th:data-location-id="${location.id}" title="Save">
-                                            <i class="bi bi-check"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-outline-secondary btn-icon cancel-btn" 
-                                                th:data-location-id="${location.id}" title="Cancel">
-                                            <i class="bi bi-x"></i>
                                         </button>
                                     </div>
                                     
@@ -195,178 +175,7 @@
             }, 5000);
         });
 
-        // Inline editing functionality
-        class LocationEditor {
-            constructor() {
-                this.init();
-            }
-
-            init() {
-                // Add event listeners for edit buttons
-                document.querySelectorAll('.edit-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const locationId = e.currentTarget.getAttribute('data-location-id');
-                        this.enterEditMode(locationId);
-                    });
-                });
-
-                // Add event listeners for save buttons
-                document.querySelectorAll('.save-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const locationId = e.currentTarget.getAttribute('data-location-id');
-                        this.saveLocation(locationId);
-                    });
-                });
-
-                // Add event listeners for cancel buttons
-                document.querySelectorAll('.cancel-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const locationId = e.currentTarget.getAttribute('data-location-id');
-                        this.cancelEdit(locationId);
-                    });
-                });
-
-                // Add Enter key support for inputs
-                document.querySelectorAll('.edit-input').forEach(input => {
-                    input.addEventListener('keypress', (e) => {
-                        if (e.key === 'Enter') {
-                            const row = e.target.closest('.location-row');
-                            const locationId = row.id.replace('row-', '');
-                            this.saveLocation(locationId);
-                        }
-                        if (e.key === 'Escape') {
-                            const row = e.target.closest('.location-row');
-                            const locationId = row.id.replace('row-', '');
-                            this.cancelEdit(locationId);
-                        }
-                    });
-                });
-            }
-
-            enterEditMode(locationId) {
-                const row = document.getElementById(`row-${locationId}`);
-                if (!row) return;
-
-                // Store original values
-                const stateInput = row.querySelector('.state-cell .edit-input');
-                const fabInput = row.querySelector('.fab-cell .edit-input');
-                const displayNameInput = row.querySelector('.display-name-cell .edit-input');
-                
-                stateInput.setAttribute('data-original', stateInput.value);
-                fabInput.setAttribute('data-original', fabInput.value);
-                displayNameInput.setAttribute('data-original', displayNameInput.value);
-
-                // Toggle visibility
-                row.querySelectorAll('.view-mode').forEach(el => el.classList.add('d-none'));
-                row.querySelectorAll('.edit-mode').forEach(el => el.classList.remove('d-none'));
-                
-                // Add editing class for styling
-                row.classList.add('editing-row');
-
-                // Focus first input
-                stateInput.focus();
-            }
-
-            cancelEdit(locationId) {
-                const row = document.getElementById(`row-${locationId}`);
-                if (!row) return;
-
-                // Restore original values
-                const stateInput = row.querySelector('.state-cell .edit-input');
-                const fabInput = row.querySelector('.fab-cell .edit-input');
-                const displayNameInput = row.querySelector('.display-name-cell .edit-input');
-                
-                stateInput.value = stateInput.getAttribute('data-original');
-                fabInput.value = fabInput.getAttribute('data-original');
-                displayNameInput.value = displayNameInput.getAttribute('data-original');
-
-                // Toggle visibility back
-                row.querySelectorAll('.edit-mode').forEach(el => el.classList.add('d-none'));
-                row.querySelectorAll('.view-mode').forEach(el => el.classList.remove('d-none'));
-                
-                // Remove editing class
-                row.classList.remove('editing-row');
-            }
-
-            async saveLocation(locationId) {
-                const row = document.getElementById(`row-${locationId}`);
-                if (!row) return;
-
-                const stateInput = row.querySelector('.state-cell .edit-input');
-                const fabInput = row.querySelector('.fab-cell .edit-input');
-                const displayNameInput = row.querySelector('.display-name-cell .edit-input');
-                
-                const data = {
-                    state: stateInput.value.trim(),
-                    fab: fabInput.value.trim(),
-                    displayName: displayNameInput.value.trim()
-                };
-
-                // Basic validation
-                if (!data.state || !data.fab || !data.displayName) {
-                    alert('State, Fab, and Display Name are required fields.');
-                    return;
-                }
-
-                try {
-                    const response = await fetch(`/locations/${locationId}/update`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(data)
-                    });
-
-                    if (response.ok) {
-                        const result = await response.json();
-                        
-                        // Update the display values
-                        row.querySelector('.state-cell .view-mode').textContent = data.state;
-                        row.querySelector('.fab-cell .view-mode').textContent = data.fab;
-                        row.querySelector('.display-name-cell .view-mode').textContent = data.displayName;
-
-                        // Exit edit mode
-                        row.querySelectorAll('.edit-mode').forEach(el => el.classList.add('d-none'));
-                        row.querySelectorAll('.view-mode').forEach(el => el.classList.remove('d-none'));
-                        row.classList.remove('editing-row');
-
-                        // Show success message
-                        this.showAlert('Location updated successfully!', 'success');
-                    } else {
-                        const error = await response.text();
-                        this.showAlert(`Error updating location: ${error}`, 'danger');
-                    }
-                } catch (error) {
-                    console.error('Error saving location:', error);
-                    this.showAlert('Error updating location. Please try again.', 'danger');
-                }
-            }
-
-            showAlert(message, type) {
-                const alertContainer = document.querySelector('.alert-container');
-                const alertDiv = document.createElement('div');
-                alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-                alertDiv.innerHTML = `
-                    <span>${message}</span>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                `;
-                
-                alertContainer.appendChild(alertDiv);
-                
-                // Auto-dismiss after 5 seconds
-                setTimeout(() => {
-                    if (alertDiv.parentNode) {
-                        const bsAlert = new bootstrap.Alert(alertDiv);
-                        bsAlert.close();
-                    }
-                }, 5000);
-            }
-        }
-
-        // Initialize the location editor when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            new LocationEditor();
-        });
+        // Inline editing removed: edit now navigates to a dedicated page
     </script>
 </body>
 </html> 

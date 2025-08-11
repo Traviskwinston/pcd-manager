@@ -43,6 +43,28 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
            "WHERE uta.user_id = :userId", 
            nativeQuery = true)
     List<Tool> findToolsAssignedToUser(@Param("userId") Long userId);
+
+    /**
+     * Find tools by tool type
+     */
+    List<Tool> findByToolType(Tool.ToolType toolType);
+
+    /**
+     * Find a GasGuard tool by exact System and Equipment Location (case-insensitive)
+     */
+    Optional<Tool> findFirstByToolTypeAndSystemNameIgnoreCaseAndEquipmentLocationIgnoreCase(
+            Tool.ToolType toolType,
+            String systemName,
+            String equipmentLocation
+    );
+
+    /**
+     * Find GasGuard tools by Equipment Location (case-insensitive)
+     */
+    List<Tool> findByToolTypeAndEquipmentLocationIgnoreCase(
+            Tool.ToolType toolType,
+            String equipmentLocation
+    );
     
     /**
      * Find all tools with their technicians eagerly loaded
@@ -79,15 +101,17 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
      *          model1, model2, status, locationName, createdAt, updatedAt,
      *          commissionDate, preSl1Date, sl1Date, mechanicalPreSl1Date, mechanicalPostSl1Date,
      *          specificInputFunctionalityDate, modesOfOperationDate, specificSoosDate,
-     *          fieldServiceReportDate, certificateOfApprovalDate, turnedOverToCustomerDate, startUpSl03Date
+     *          fieldServiceReportDate, certificateOfApprovalDate, turnedOverToCustomerDate, startUpSl03Date,
+     *          checklistLabelsJson, uploadDate
      */
     @Query(value = "SELECT t.id, t.name, t.secondary_name, t.tool_type, t.serial_number1, t.serial_number2, " +
            "t.model1, t.model2, t.status, t.location_name, t.created_at, t.updated_at, " +
            "t.commission_date, t.pre_sl1date, t.sl1date, t.mechanical_pre_sl1date, t.mechanical_post_sl1date, " +
            "t.specific_input_functionality_date, t.modes_of_operation_date, t.specific_soos_date, " +
-           "t.field_service_report_date, t.certificate_of_approval_date, t.turned_over_to_customer_date, t.start_up_sl03date " +
+           "t.field_service_report_date, t.certificate_of_approval_date, t.turned_over_to_customer_date, t.start_up_sl03date, " +
+           "t.checklist_labels_json, t.upload_date " +
            "FROM tools t " +
-           "ORDER BY t.updated_at DESC, t.created_at DESC", nativeQuery = true)
+           "ORDER BY t.upload_date ASC NULLS FIRST, t.updated_at DESC, t.created_at DESC", nativeQuery = true)
     List<Object[]> findAllForAsyncListView();
     
     /**

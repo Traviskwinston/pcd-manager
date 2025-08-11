@@ -42,6 +42,22 @@ public class Location {
     @Column(name = "default_location", nullable = true)
     private boolean defaultLocation = false;
 
+    // Default Customer Info (used to auto-fill RMAs when this is the active site)
+    @Column(name = "ship_to_name")
+    private String shipToName;
+
+    @Column(name = "ship_to_address")
+    private String shipToAddress;
+
+    @Column(name = "ship_to_city")
+    private String shipToCity;
+
+    @Column(name = "ship_to_state")
+    private String shipToState;
+
+    @Column(name = "ship_to_zip")
+    private String shipToZip;
+
     // Mapping of state names to their abbreviations
     private static final Map<String, String> STATE_ABBREVIATIONS = new HashMap<>();
     

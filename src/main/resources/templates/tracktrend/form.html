@@ -70,21 +70,23 @@
                 
                 <div class="col-md-6">
                     <div class="mb-3">
-                        <label class="form-label">Related Track/Trends</label>
+                        <label class="form-label">Related RMAs</label>
                         <div class="checkbox-container">
-                            <div class="checkbox-item" th:each="related : ${allTrackTrends}">
-                                <div class="form-check" th:if="${trackTrend.id == null || trackTrend.id != related.id}">
-                                    <input class="form-check-input" type="checkbox" name="relatedTrackTrendIds" 
-                                          th:value="${related.id}" 
-                                          th:id="${'related-' + related.id}"
-                                          th:checked="${trackTrend.relatedTrackTrends.contains(related)}">
-                                    <label class="form-check-label" th:for="${'related-' + related.id}" th:text="${related.name}">
-                                        Related name
+                            <div class="checkbox-item" th:each="rma : ${allRmas}">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="relatedRmaIds"
+                                           th:value="${rma.id}"
+                                           th:id="${'rma-' + rma.id}"
+                                           th:checked="${trackTrend.relatedRmas.contains(rma)}">
+                                    <label class="form-check-label" th:for="${'rma-' + rma.id}">
+                                        <span th:text="${rma.referenceNumber}">RMA-REF</span>
+                                        <span class="text-muted" th:if="${rma.tool != null}"> - </span>
+                                        <span class="text-muted" th:text="${rma.tool != null ? rma.tool.name : ''}"></span>
                                     </label>
                                 </div>
                             </div>
                         </div>
-                        <div class="form-text">Select related track/trends</div>
+                        <div class="form-text">Select RMAs to associate with this Track/Trend</div>
                     </div>
                 </div>
             </div>

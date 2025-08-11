@@ -35,6 +35,8 @@ import java.util.UUID;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.Objects;
 import java.io.InputStream;
 import java.io.IOException;
@@ -45,6 +47,8 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Service
 public class ToolService {
@@ -119,6 +123,26 @@ public class ToolService {
     public Tool saveTool(Tool tool) {
         logger.info("Saving tool and evicting caches");
         return toolRepository.save(tool);
+    }
+
+    /**
+     * Clear a checklist date on a collection of tools by mapping function name
+     */
+    @Transactional
+    public void clearChecklistDateForTools(List<Tool> tools, String getterName) {
+        if (tools == null || tools.isEmpty() || getterName == null) return;
+        String setterName = getterName.replaceFirst("get", "set");
+        try {
+            for (Tool t : tools) {
+                try {
+                    java.lang.reflect.Method setter = Tool.class.getMethod(setterName, java.time.LocalDate.class);
+                    setter.invoke(t, new Object[]{null});
+                    toolRepository.save(t);
+                } catch (Exception ignore) {}
+            }
+        } catch (Exception e) {
+            logger.warn("Error clearing checklist date using {}: {}", getterName, e.getMessage());
+        }
     }
 
     @CacheEvict(value = {"tools-list", "dropdown-data", "tool-details"}, allEntries = true)
@@ -426,6 +450,7 @@ public class ToolService {
      * Assign a user to a tool with proper session management
      */
     @Transactional
+    @CacheEvict(value = {"tools-list", "dropdown-data", "tool-details"}, allEntries = true)
     public boolean assignUserToTool(Long toolId, String userEmail) {
         try {
             // Load tool with technicians eagerly loaded to avoid lazy loading issues
@@ -469,6 +494,7 @@ public class ToolService {
      * Unassign a user from a tool with proper session management
      */
     @Transactional
+    @CacheEvict(value = {"tools-list", "dropdown-data", "tool-details"}, allEntries = true)
     public boolean unassignUserFromTool(Long toolId, String userEmail) {
         try {
             // Load tool with technicians eagerly loaded to avoid lazy loading issues
@@ -598,35 +624,67 @@ public class ToolService {
                 throw new IllegalArgumentException("Excel file is empty or corrupted");
             }
             
-            // Validate headers (same as before)
+            // Create flexible header mapping (same as createToolsFromExcel)
             Row headerRow = sheet.getRow(0);
             if (headerRow == null) {
                 throw new IllegalArgumentException("Excel file must have a header row");
             }
             
-            String[] expectedHeaders = {
-                "Tool Name", "Tool Name 2", "Type", "Model Number 1", 
-                "Model Number 2", "Serial Number 1", "Serial Number 2", "Location"
-            };
+            Map<String, Integer> headerMap = new HashMap<>();
+            int lastColumnNum = headerRow.getLastCellNum();
             
-            // Validate header format
-            for (int i = 0; i < expectedHeaders.length; i++) {
+            // Track serial number columns for proper mapping
+            List<Integer> serialColumns = new ArrayList<>();
+            
+            for (int i = 0; i < lastColumnNum; i++) {
                 Cell cell = headerRow.getCell(i);
-                String cellValue = cell != null ? cell.getStringCellValue().trim() : "";
+                if (cell == null) continue;
                 
-                if (!expectedHeaders[i].equals(cellValue)) {
-                    throw new IllegalArgumentException(
-                        String.format("Invalid header at column %c. Expected '%s' but found '%s'. " +
-                                    "Please ensure headers match exactly: %s", 
-                                    (char)('A' + i), expectedHeaders[i], cellValue, 
-                                    String.join(", ", expectedHeaders))
-                    );
+                String headerValue = cell.getStringCellValue().trim().toLowerCase();
+                if (headerValue.isEmpty()) continue;
+                
+                logger.debug("Processing header at column {}: '{}'", i, headerValue);
+                
+                // Flexible header matching
+                if (matchesPattern(headerValue, "system")) {
+                    headerMap.put("system", i);
+                } else if (matchesPattern(headerValue, "equipment location", "equipmentlocation", "tool location", "toollocation", "equipment/location", "equipment / location", "equipment/ location", "equipment /location")) {
+                    headerMap.put("equipmentLocation", i);
+                } else if (matchesPattern(headerValue, "config", "config#", "config number")) {
+                    headerMap.put("config", i);
+                } else if (matchesPattern(headerValue, "equipment set", "equipmentset", "set")) {
+                    headerMap.put("equipmentSet", i);
+                } else if (matchesPattern(headerValue, "tool name", "toolname", "name") && !headerMap.containsKey("toolName")) {
+                    headerMap.put("toolName", i);
+                } else if (matchesPattern(headerValue, "tool name 2", "toolname2", "name 2", "secondary name") && !headerMap.containsKey("toolName2")) {
+                    headerMap.put("toolName2", i);
+                } else if (matchesPattern(headerValue, "type", "tool type", "tooltype")) {
+                    headerMap.put("type", i);
+                } else if (matchesPattern(headerValue, "model", "model number", "model#")) {
+                    if (!headerMap.containsKey("model1")) {
+                        headerMap.put("model1", i);
+                    } else if (!headerMap.containsKey("model2")) {
+                        headerMap.put("model2", i);
+                    }
+                } else if (matchesPattern(headerValue, "serial", "serial number", "serial#")) {
+                    serialColumns.add(i);
+                } else if (matchesPattern(headerValue, "location")) {
+                    headerMap.put("location", i);
                 }
             }
             
-            logger.info("Excel headers validated successfully");
+            // Map serial columns (first = serial1, second = serial2)
+            if (serialColumns.size() >= 1) {
+                headerMap.put("serial1", serialColumns.get(0));
+            }
+            if (serialColumns.size() >= 2) {
+                headerMap.put("serial2", serialColumns.get(1));
+            }
+            
+            logger.info("Flexible header mapping completed for analysis. Found headers: {}", headerMap.keySet());
             
             int rowNum = 1; // Start after header row
+            String lastSystemName = null; // Track system name for inheritance
             
             while (rowNum <= sheet.getLastRowNum()) {
                 Row row = sheet.getRow(rowNum);
@@ -637,19 +695,45 @@ public class ToolService {
                 }
                 
                 try {
-                    // Extract data from row
-                    String toolName = getCellValueAsString(row.getCell(0));
-                    String toolName2 = getCellValueAsString(row.getCell(1));
-                    String type = getCellValueAsString(row.getCell(2));
-                    String modelNumber1 = getCellValueAsString(row.getCell(3));
-                    String modelNumber2 = getCellValueAsString(row.getCell(4));
-                    String serialNumber1 = getCellValueAsString(row.getCell(5));
-                    String serialNumber2 = getCellValueAsString(row.getCell(6));
-                    String locationName = getCellValueAsString(row.getCell(7));
+                    // Extract data from row using flexible header mapping
+                    String toolName = getCellValueFromMapping(row, headerMap, "toolName");
+                    String toolName2 = getCellValueFromMapping(row, headerMap, "toolName2");
+                    String type = getCellValueFromMapping(row, headerMap, "type");
+                    String modelNumber1 = getCellValueFromMapping(row, headerMap, "model1");
+                    String modelNumber2 = getCellValueFromMapping(row, headerMap, "model2");
+                    String serialNumber1 = getCellValueFromMapping(row, headerMap, "serial1");
+                    String serialNumber2 = getCellValueFromMapping(row, headerMap, "serial2");
+                    String locationName = getCellValueFromMapping(row, headerMap, "location");
                     
-                    // Skip rows where tool name is empty
-                    if (toolName == null || toolName.trim().isEmpty()) {
-                        logger.debug("Skipping row {} - no tool name", rowNum + 1);
+                    // GasGuard-specific fields
+                    String systemName = getCellValueFromMapping(row, headerMap, "system");
+                    String equipmentLocation = getCellValueFromMapping(row, headerMap, "equipmentLocation");
+                    String configNumber = getCellValueFromMapping(row, headerMap, "config");
+                    String equipmentSetStr = getCellValueFromMapping(row, headerMap, "equipmentSet");
+                    
+                    // System name inheritance: if current system is empty but previous row had a system, inherit it
+                    if ((systemName == null || systemName.trim().isEmpty()) && lastSystemName != null) {
+                        systemName = lastSystemName;
+                        logger.debug("Row {}: Inherited system name '{}' from previous row", rowNum + 1, systemName);
+                    } else if (systemName != null && !systemName.trim().isEmpty()) {
+                        lastSystemName = systemName.trim(); // Update last system name for future inheritance
+                    }
+                    
+                    // Auto-detect GasGuard tools (have Equipment Location, System is optional)
+                    boolean isGasGuard = (equipmentLocation != null && !equipmentLocation.trim().isEmpty());
+                    
+                    // Skip rows where primary identifier is empty
+                    String primaryName;
+                    if (isGasGuard) {
+                        // For GasGuard, use systemName if available, otherwise equipmentLocation
+                        primaryName = (systemName != null && !systemName.trim().isEmpty()) ? 
+                                     systemName : equipmentLocation;
+                    } else {
+                        primaryName = toolName;
+                    }
+                    
+                    if (primaryName == null || primaryName.trim().isEmpty()) {
+                        logger.debug("Skipping row {} - no primary identifier", rowNum + 1);
                         rowNum++;
                         continue;
                     }
@@ -657,6 +741,10 @@ public class ToolService {
                     // Create row data map
                     Map<String, Object> rowData = new HashMap<>();
                     rowData.put("rowNumber", rowNum + 1);
+                    rowData.put("isGasGuard", isGasGuard);
+                    rowData.put("primaryName", primaryName.trim());
+                    
+                    // Standard tool fields
                     rowData.put("toolName", toolName != null ? toolName.trim() : "");
                     rowData.put("toolName2", toolName2 != null ? toolName2.trim() : "");
                     rowData.put("type", type != null ? type.trim() : "");
@@ -665,6 +753,12 @@ public class ToolService {
                     rowData.put("serialNumber1", serialNumber1 != null ? serialNumber1.trim() : "");
                     rowData.put("serialNumber2", serialNumber2 != null ? serialNumber2.trim() : "");
                     rowData.put("locationName", locationName != null ? locationName.trim() : "");
+                    
+                    // GasGuard-specific fields
+                    rowData.put("systemName", systemName != null ? systemName.trim() : "");
+                    rowData.put("equipmentLocation", equipmentLocation != null ? equipmentLocation.trim() : "");
+                    rowData.put("configNumber", configNumber != null ? configNumber.trim() : "");
+                    rowData.put("equipmentSet", equipmentSetStr != null ? equipmentSetStr.trim() : "");
                     
                     // Check for duplicates using enhanced logic
                     Tool existingTool = findPotentialDuplicate(rowData);
@@ -706,7 +800,7 @@ public class ToolService {
     @Transactional
     @CacheEvict(value = {"tools-list", "dashboard-data"}, allEntries = true)  
     public int createToolsFromExcel(MultipartFile file) throws Exception {
-        logger.info("Starting Excel tool creation process");
+                    logger.info("Starting Excel tool creation process");
         
         try (InputStream inputStream = file.getInputStream();
              Workbook workbook = WorkbookFactory.create(inputStream)) {
@@ -722,37 +816,89 @@ public class ToolService {
                 throw new IllegalArgumentException("Excel file must have a header row");
             }
             
-            // Expected headers in order
-            String[] expectedHeaders = {
-                "Tool Name", "Tool Name 2", "Type", "Model Number 1", 
-                "Model Number 2", "Serial Number 1", "Serial Number 2", "Location"
-            };
+            // Create flexible header mapping
+            Map<String, Integer> headerMap = new HashMap<>();
+            int lastColumnNum = headerRow.getLastCellNum();
             
-            // Validate header format
-            for (int i = 0; i < expectedHeaders.length; i++) {
+            // Track serial number columns for proper mapping
+            List<Integer> serialColumns = new ArrayList<>();
+            
+            for (int i = 0; i < lastColumnNum; i++) {
                 Cell cell = headerRow.getCell(i);
-                String cellValue = cell != null ? cell.getStringCellValue().trim() : "";
+                if (cell == null) continue;
                 
-                if (!expectedHeaders[i].equals(cellValue)) {
-                    throw new IllegalArgumentException(
-                        String.format("Invalid header at column %c. Expected '%s' but found '%s'. " +
-                                    "Please ensure headers match exactly: %s", 
-                                    (char)('A' + i), expectedHeaders[i], cellValue, 
-                                    String.join(", ", expectedHeaders))
-                    );
+                String headerValue = cell.getStringCellValue().trim().toLowerCase();
+                if (headerValue.isEmpty()) continue;
+                
+                logger.debug("Processing header at column {}: '{}'", i, headerValue);
+                
+                // Flexible header matching
+                if (matchesPattern(headerValue, "system")) {
+                    headerMap.put("system", i);
+                } else if (matchesPattern(headerValue, "equipment location", "equipmentlocation", "tool location", "toollocation", "equipment/location", "equipment / location", "equipment/ location", "equipment /location")) {
+                    headerMap.put("equipmentLocation", i);
+                } else if (matchesPattern(headerValue, "config", "config#", "config number")) {
+                    headerMap.put("config", i);
+                } else if (matchesPattern(headerValue, "equipment set", "equipmentset", "set")) {
+                    headerMap.put("equipmentSet", i);
+                } else if (matchesPattern(headerValue, "tool name", "toolname", "name") && !headerMap.containsKey("toolName")) {
+                    headerMap.put("toolName", i);
+                } else if (matchesPattern(headerValue, "tool name 2", "toolname2", "name 2", "secondary name") && !headerMap.containsKey("toolName2")) {
+                    headerMap.put("toolName2", i);
+                } else if (matchesPattern(headerValue, "type", "tool type", "tooltype")) {
+                    headerMap.put("type", i);
+                } else if (matchesPattern(headerValue, "model", "model number", "model#")) {
+                    if (!headerMap.containsKey("model1")) {
+                        headerMap.put("model1", i);
+                    } else if (!headerMap.containsKey("model2")) {
+                        headerMap.put("model2", i);
+                    }
+                } else if (matchesPattern(headerValue, "serial", "serial number", "serial#")) {
+                    serialColumns.add(i);
+                } else if (matchesPattern(headerValue, "location")) {
+                    headerMap.put("location", i);
                 }
             }
             
-            logger.info("Excel headers validated successfully");
+            // Map serial columns (first = serial1, second = serial2)
+            if (serialColumns.size() >= 1) {
+                headerMap.put("serial1", serialColumns.get(0));
+            }
+            if (serialColumns.size() >= 2) {
+                headerMap.put("serial2", serialColumns.get(1));
+            }
             
-            // Find default location for new tools
-            Optional<Location> defaultLocationOpt = locationRepository.findByDefaultLocationIsTrue();
+            logger.info("Flexible header mapping completed. Found headers: {}", headerMap.keySet());
+            
+            // Resolve current user's active location (fallbacks: user's default, then system default)
+            Optional<Location> defaultLocationOpt = Optional.empty();
+            try {
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                if (auth != null && auth.getName() != null) {
+                    Optional<User> userOpt = userRepository.findByEmailIgnoreCase(auth.getName());
+                    if (userOpt.isPresent()) {
+                        User current = userOpt.get();
+                        if (current.getActiveSite() != null) {
+                            defaultLocationOpt = Optional.of(current.getActiveSite());
+                        } else if (current.getDefaultLocation() != null) {
+                            defaultLocationOpt = Optional.of(current.getDefaultLocation());
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("Could not resolve current user for active location: {}", e.getMessage());
+            }
             if (!defaultLocationOpt.isPresent()) {
-                logger.warn("No default location found. Tools will be created without location assignment.");
+                defaultLocationOpt = locationRepository.findByDefaultLocationIsTrue();
+                if (!defaultLocationOpt.isPresent()) {
+                    logger.warn("No default location found. Tools will be created without location assignment.");
+                }
             }
             
             int toolsCreated = 0;
             int rowNum = 1; // Start after header row
+            String lastSystemName = null; // Track system name for inheritance
+            LocalDateTime baseUploadTime = LocalDateTime.now(); // Base time for upload dates
             
             while (rowNum <= sheet.getLastRowNum()) {
                 Row row = sheet.getRow(rowNum);
@@ -763,33 +909,104 @@ public class ToolService {
                 }
                 
                 try {
-                    // Extract data from row
-                    String toolName = getCellValueAsString(row.getCell(0));
-                    String toolName2 = getCellValueAsString(row.getCell(1));
-                    String type = getCellValueAsString(row.getCell(2));
-                    String modelNumber1 = getCellValueAsString(row.getCell(3));
-                    String modelNumber2 = getCellValueAsString(row.getCell(4));
-                    String serialNumber1 = getCellValueAsString(row.getCell(5));
-                    String serialNumber2 = getCellValueAsString(row.getCell(6));
-                    String locationName = getCellValueAsString(row.getCell(7));
+                    // Extract data from row using flexible header mapping
+                    String toolName = getCellValueFromMapping(row, headerMap, "toolName");
+                    String toolName2 = getCellValueFromMapping(row, headerMap, "toolName2");
+                    String type = getCellValueFromMapping(row, headerMap, "type");
+                    String modelNumber1 = getCellValueFromMapping(row, headerMap, "model1");
+                    String modelNumber2 = getCellValueFromMapping(row, headerMap, "model2");
+                    String serialNumber1 = getCellValueFromMapping(row, headerMap, "serial1");
+                    String serialNumber2 = getCellValueFromMapping(row, headerMap, "serial2");
+                    String locationName = getCellValueFromMapping(row, headerMap, "location");
                     
-                    // Skip rows where tool name is empty
-                    if (toolName == null || toolName.trim().isEmpty()) {
-                        logger.debug("Skipping row {} - no tool name", rowNum + 1);
+                    // GasGuard-specific fields
+                    String systemName = getCellValueFromMapping(row, headerMap, "system");
+                    String equipmentLocation = getCellValueFromMapping(row, headerMap, "equipmentLocation");
+                    String configNumber = getCellValueFromMapping(row, headerMap, "config");
+                    String equipmentSetStr = getCellValueFromMapping(row, headerMap, "equipmentSet");
+                    
+                    // System name inheritance: if current system is empty but previous row had a system, inherit it
+                    if ((systemName == null || systemName.trim().isEmpty()) && lastSystemName != null) {
+                        systemName = lastSystemName;
+                        logger.debug("Row {}: Inherited system name '{}' from previous row", rowNum + 1, systemName);
+                    } else if (systemName != null && !systemName.trim().isEmpty()) {
+                        lastSystemName = systemName.trim(); // Update last system name for future inheritance
+                    }
+                    
+                    // Auto-detect GasGuard tools (have Equipment Location, System is optional)
+                    boolean isGasGuard = (equipmentLocation != null && !equipmentLocation.trim().isEmpty());
+                    
+                    // Skip rows where primary identifier is empty
+                    String primaryName;
+                    if (isGasGuard) {
+                        // For GasGuard, use systemName if available, otherwise equipmentLocation
+                        primaryName = (systemName != null && !systemName.trim().isEmpty()) ? 
+                                     systemName : equipmentLocation;
+                    } else {
+                        primaryName = toolName;
+                    }
+                    
+                    if (primaryName == null || primaryName.trim().isEmpty()) {
+                        logger.debug("Skipping row {} - no primary identifier", rowNum + 1);
                         rowNum++;
                         continue;
                     }
                     
                     // Check if tool with this name already exists
-                    if (toolRepository.findByName(toolName.trim()).isPresent()) {
-                        logger.warn("Tool '{}' already exists, skipping row {}", toolName, rowNum + 1);
+                    if (toolRepository.findByName(primaryName.trim()).isPresent()) {
+                        logger.warn("Tool '{}' already exists, skipping row {}", primaryName, rowNum + 1);
                         rowNum++;
                         continue;
                     }
                     
                     // Create new tool
                     Tool tool = new Tool();
-                    tool.setName(toolName.trim());
+                    
+                    if (isGasGuard) {
+                        // For GasGuard tools, handle cases where systemName might be empty
+                        String gasGuardName;
+                        if (systemName != null && !systemName.trim().isEmpty()) {
+                            gasGuardName = systemName.trim();
+                            tool.setSystemName(systemName.trim());
+                        } else {
+                            // Use equipment location as fallback name if system is empty
+                            gasGuardName = equipmentLocation.trim();
+                            tool.setSystemName(null); // Allow null system name
+                        }
+                        
+                        tool.setName(gasGuardName);
+                        tool.setToolType(Tool.ToolType.AMATGASGUARD);
+                        tool.setEquipmentLocation(equipmentLocation.trim());
+                        
+                        // Set GasGuard-specific fields
+                        if (configNumber != null && !configNumber.trim().isEmpty()) {
+                            tool.setConfigNumber(configNumber.trim());
+                        }
+                        
+                        if (equipmentSetStr != null && !equipmentSetStr.trim().isEmpty()) {
+                            try {
+                                // Parse equipment set as integer percentage - handle % symbol
+                                String cleanStr = equipmentSetStr.trim().replaceAll("[^\\d.]", "");
+                                if (!cleanStr.isEmpty()) {
+                                    // Handle decimal percentages (e.g., "100.0" -> 100)
+                                    double percentage = Double.parseDouble(cleanStr);
+                                    tool.setEquipmentSet((int) Math.round(percentage));
+                                }
+                            } catch (NumberFormatException e) {
+                                logger.warn("Invalid equipment set value '{}' for tool '{}' at row {}, defaulting to 100%", 
+                                          equipmentSetStr, gasGuardName, rowNum + 1);
+                                tool.setEquipmentSet(100); // Default to 100%
+                            }
+                        } else {
+                            tool.setEquipmentSet(100); // Default to 100% if not specified
+                        }
+                        
+                        logger.debug("Detected GasGuard tool '{}' with equipment location '{}' at row {}", 
+                                   gasGuardName, equipmentLocation, rowNum + 1);
+                    } else {
+                        // For standard tools, use toolName as primary name
+                        tool.setName(toolName.trim());
+                    }
                     
                     if (toolName2 != null && !toolName2.trim().isEmpty()) {
                         tool.setSecondaryName(toolName2.trim());
@@ -825,32 +1042,45 @@ public class ToolService {
                         tool.setSerialNumber2(serialNumber2.trim());
                     }
                     
-                    // Set location name directly from Excel data
-                    String finalLocationName = "AZ F52"; // Default location
+                    // Resolve location: Excel value if maps → user's active/default site → empty
+                    String resolvedLocationName = null;
                     if (locationName != null && !locationName.trim().isEmpty()) {
-                        // Use location matching logic to normalize the name
                         Location matchedLocation = findLocationByName(locationName.trim());
                         if (matchedLocation != null) {
-                            finalLocationName = matchedLocation.getDisplayName() != null ? 
-                                              matchedLocation.getDisplayName() : matchedLocation.getName();
-                            logger.debug("Matched location '{}' to '{}' for tool '{}' at row {}", 
-                                       locationName, finalLocationName, toolName, rowNum + 1);
+                            resolvedLocationName = matchedLocation.getDisplayName() != null ? matchedLocation.getDisplayName() : matchedLocation.getName();
+                            logger.debug("Matched location '{}' to '{}' for tool '{}' at row {}", locationName, resolvedLocationName, toolName, rowNum + 1);
                         } else {
-                            logger.warn("Could not match location '{}' for tool '{}' at row {}. Using default '{}'.", 
-                                      locationName, toolName, rowNum + 1, finalLocationName);
+                            logger.warn("Could not match location '{}' for tool '{}' at row {}. Will try user active/default site.", locationName, toolName, rowNum + 1);
                         }
                     }
-                    tool.setLocationName(finalLocationName);
+                    if (resolvedLocationName == null && defaultLocationOpt.isPresent()) {
+                        Location userLoc = defaultLocationOpt.get();
+                        resolvedLocationName = userLoc.getDisplayName() != null ? userLoc.getDisplayName() : userLoc.getName();
+                        logger.debug("Using user's active/default location '{}' for tool '{}' at row {}", resolvedLocationName, toolName, rowNum + 1);
+                    }
+                    if (resolvedLocationName == null) {
+                        resolvedLocationName = ""; // leave blank instead of hardcoding
+                    }
+                    tool.setLocationName(resolvedLocationName);
                     
                     // Set default status and dates
                     tool.setStatus(Tool.ToolStatus.NOT_STARTED);
                     tool.setSetDate(LocalDate.now());
                     
+                    // Set upload date for GasGuard tools with incremental milliseconds
+                    if (isGasGuard) {
+                        // Calculate upload date: base time + (toolsCreated * 1 millisecond)
+                        LocalDateTime uploadDateTime = baseUploadTime.plusNanos(toolsCreated * 1_000_000L); // 1 millisecond = 1,000,000 nanoseconds
+                        tool.setUploadDate(uploadDateTime);
+                        logger.debug("Set upload date for GasGuard tool '{}' to {} (offset: {} ms)", 
+                                   primaryName, uploadDateTime, toolsCreated);
+                    }
+                    
                     // Save the tool
                     toolRepository.save(tool);
                     toolsCreated++;
                     
-                    logger.debug("Created tool '{}' from row {}", toolName, rowNum + 1);
+                    logger.debug("Created tool '{}' from row {}", primaryName, rowNum + 1);
                     
                 } catch (Exception e) {
                     logger.error("Error processing row {}: {}", rowNum + 1, e.getMessage());
@@ -933,6 +1163,13 @@ public class ToolService {
             case "feed":
             case "f":
                 return Tool.ToolType.SLURRY;
+
+            // AMAT GasGuard aliases
+            case "gasguard":
+            case "amatgasguard":
+            case "gasgd":
+            case "gg":
+                return Tool.ToolType.AMATGASGUARD;
                 
             default:
                 // Try exact enum match as fallback (for backward compatibility)
@@ -956,9 +1193,31 @@ public class ToolService {
         String serialNumber1 = (String) rowData.get("serialNumber1");
         String serialNumber2 = (String) rowData.get("serialNumber2");
         String modelNumber1 = (String) rowData.get("modelNumber1");
+        String systemName = (String) rowData.get("systemName");
+        String equipmentLocation = (String) rowData.get("equipmentLocation");
+        Boolean isGasGuard = (Boolean) rowData.getOrDefault("isGasGuard", false);
         
-        // Check 1: Exact tool name match (case insensitive)
-        if (toolName != null && !toolName.isEmpty()) {
+        // For GasGuards, Equipment Location is the PRIMARY identifier - check this FIRST
+        if (isGasGuard && equipmentLocation != null && !equipmentLocation.trim().isEmpty()) {
+            // Normalize incoming location for robust comparison
+            String incomingLocKey = normalizeLocationKey(equipmentLocation);
+
+            // Ultra-robust first-pass: scan existing GasGuards and compare normalized keys
+            // Catches formatting/spacing variants not handled by DB equality
+            List<Tool> allGasGuards = toolRepository.findByToolType(Tool.ToolType.AMATGASGUARD);
+            if (allGasGuards != null && !allGasGuards.isEmpty()) {
+                for (Tool t : allGasGuards) {
+                    String existingLocKey = normalizeLocationKey(t.getEquipmentLocation());
+                    if (incomingLocKey.equals(existingLocKey)) {
+                        logger.debug("Found GasGuard duplicate by Equipment Location: '{}' matches existing '{}'", equipmentLocation, t.getEquipmentLocation());
+                        return t;
+                    }
+                }
+            }
+        }
+        
+        // Check 1: Exact tool name match (case insensitive) - only for non-GasGuards
+        if (!isGasGuard && toolName != null && !toolName.isEmpty()) {
             Optional<Tool> byName = toolRepository.findByNameIgnoreCase(toolName);
             if (byName.isPresent()) {
                 logger.debug("Found duplicate by name: {}", toolName);
@@ -966,37 +1225,39 @@ public class ToolService {
             }
         }
         
-        // Check 2: Serial number matches
-        if (serialNumber1 != null && !serialNumber1.isEmpty()) {
-            Optional<Tool> bySerial1 = toolRepository.findBySerialNumber1(serialNumber1);
-            if (bySerial1.isPresent()) {
-                logger.debug("Found duplicate by serial number 1: {}", serialNumber1);
-                return bySerial1.get();
+        // Check 2: Serial number matches - only for non-GasGuards (GasGuards can share serials)
+        if (!isGasGuard) {
+            if (serialNumber1 != null && !serialNumber1.isEmpty()) {
+                Optional<Tool> bySerial1 = toolRepository.findBySerialNumber1(serialNumber1);
+                if (bySerial1.isPresent()) {
+                    logger.debug("Found duplicate by serial number 1: {}", serialNumber1);
+                    return bySerial1.get();
+                }
+                
+                // Also check if the new serial1 matches any existing serial2
+                Optional<Tool> bySerial2AsSerial1 = toolRepository.findBySerialNumber2(serialNumber1);
+                if (bySerial2AsSerial1.isPresent()) {
+                    logger.debug("Found duplicate by serial number 1 matching existing serial 2: {}", serialNumber1);
+                    return bySerial2AsSerial1.get();
+                }
             }
             
-            // Also check if the new serial1 matches any existing serial2
-            Optional<Tool> bySerial2AsSerial1 = toolRepository.findBySerialNumber2(serialNumber1);
-            if (bySerial2AsSerial1.isPresent()) {
-                logger.debug("Found duplicate by serial number 1 matching existing serial 2: {}", serialNumber1);
-                return bySerial2AsSerial1.get();
+            if (serialNumber2 != null && !serialNumber2.isEmpty()) {
+                Optional<Tool> bySerial2 = toolRepository.findBySerialNumber2(serialNumber2);
+                if (bySerial2.isPresent()) {
+                    logger.debug("Found duplicate by serial number 2: {}", serialNumber2);
+                    return bySerial2.get();
+                }
+                
+                // Also check if the new serial2 matches any existing serial1
+                Optional<Tool> bySerial1AsSerial2 = toolRepository.findBySerialNumber1(serialNumber2);
+                if (bySerial1AsSerial2.isPresent()) {
+                    logger.debug("Found duplicate by serial number 2 matching existing serial 1: {}", serialNumber2);
+                    return bySerial1AsSerial2.get();
+                }
             }
         }
-        
-        if (serialNumber2 != null && !serialNumber2.isEmpty()) {
-            Optional<Tool> bySerial2 = toolRepository.findBySerialNumber2(serialNumber2);
-            if (bySerial2.isPresent()) {
-                logger.debug("Found duplicate by serial number 2: {}", serialNumber2);
-                return bySerial2.get();
-            }
-            
-            // Also check if the new serial2 matches any existing serial1
-            Optional<Tool> bySerial1AsSerial2 = toolRepository.findBySerialNumber1(serialNumber2);
-            if (bySerial1AsSerial2.isPresent()) {
-                logger.debug("Found duplicate by serial number 2 matching existing serial 1: {}", serialNumber2);
-                return bySerial1AsSerial2.get();
-            }
-        }
-        
+
         // Check 3: Model number + partial name similarity (fuzzy matching)
         if (modelNumber1 != null && !modelNumber1.isEmpty() && toolName != null && toolName.length() > 3) {
             List<Tool> potentialMatches = toolRepository.findByModelAndNameSimilarity(modelNumber1, toolName);
@@ -1007,6 +1268,46 @@ public class ToolService {
         }
         
         return null;
+    }
+
+    /**
+     * Tokenize serial numbers into a normalized set for comparison.
+     * Splits on common delimiters (comma, ampersand, slash) and trims/uppercases.
+     */
+    private Set<String> tokenizeSerials(String... serials) {
+        Set<String> tokens = new HashSet<>();
+        if (serials == null) return tokens;
+        for (String s : serials) {
+            if (s == null) continue;
+            String raw = s.trim();
+            if (raw.isEmpty()) continue;
+            String[] parts = raw.split("[,&/]");
+            for (String p : parts) {
+                String norm = p.trim();
+                if (!norm.isEmpty()) {
+                    tokens.add(norm.toUpperCase());
+                }
+            }
+        }
+        return tokens;
+    }
+
+    private String normalizeLocationKey(String location) {
+        if (location == null) return "";
+        return location
+                .trim()
+                .toLowerCase()
+                .replaceAll("\\s+", "")
+                .replaceAll("[\\-_/]", "")
+                .replaceAll("[^a-z0-9]", "");
+    }
+
+    private boolean disjoint(Set<String> a, Set<String> b) {
+        if (a == null || b == null) return true;
+        for (String x : a) {
+            if (b.contains(x)) return false;
+        }
+        return true;
     }
     
     /**
@@ -1019,7 +1320,7 @@ public class ToolService {
         comparison.put("existingToolId", existingTool.getId());
         comparison.put("rowNumber", newData.get("rowNumber"));
         
-        // Existing tool data
+        // Existing tool data (include GasGuard-specific fields when present)
         Map<String, Object> existing = new HashMap<>();
         existing.put("toolName", existingTool.getName());
         existing.put("toolName2", existingTool.getSecondaryName());
@@ -1029,6 +1330,12 @@ public class ToolService {
         existing.put("serialNumber1", existingTool.getSerialNumber1());
         existing.put("serialNumber2", existingTool.getSerialNumber2());
         existing.put("location", existingTool.getLocationName() != null ? existingTool.getLocationName() : "");
+        // GasGuard-specific
+        existing.put("systemName", existingTool.getSystemName());
+        existing.put("equipmentLocation", existingTool.getEquipmentLocation());
+        existing.put("configNumber", existingTool.getConfigNumber());
+        existing.put("equipmentSet", existingTool.getEquipmentSet());
+        // Meta
         existing.put("status", existingTool.getStatus() != null ? existingTool.getStatus().toString() : "");
         existing.put("setDate", existingTool.getSetDate() != null ? existingTool.getSetDate().toString() : "");
         
@@ -1202,12 +1509,19 @@ public class ToolService {
         
         // Find default location for new tools
         Optional<Location> defaultLocationOpt = locationRepository.findByDefaultLocationIsTrue();
+        // Base time for deterministic millisecond offsets on created tools
+        LocalDateTime baseUploadTime = LocalDateTime.now();
         
         try {
             // Process valid new tools first
             for (Map<String, Object> rowData : validRows) {
                 try {
                     Tool newTool = createToolFromRowData(rowData, defaultLocationOpt);
+                    // If we are creating a GasGuard tool, set uploadDate with millisecond offsets
+                    if (newTool.getToolType() == Tool.ToolType.AMATGASGUARD && newTool.getUploadDate() == null) {
+                        LocalDateTime uploadDateTime = baseUploadTime.plusNanos((long) toolsCreated * 1_000_000L);
+                        newTool.setUploadDate(uploadDateTime);
+                    }
                     toolRepository.save(newTool);
                     toolsCreated++;
                     logger.debug("Created new tool: {}", newTool.getName());
@@ -1266,21 +1580,68 @@ public class ToolService {
     private Tool createToolFromRowData(Map<String, Object> rowData, Optional<Location> defaultLocationOpt) {
         Tool tool = new Tool();
         
-        // Basic tool properties
-        String toolName = (String) rowData.get("toolName");
-        tool.setName(toolName != null ? toolName.trim() : "");
+        // Check if this is a GasGuard tool
+        boolean isGasGuard = (Boolean) rowData.getOrDefault("isGasGuard", false);
+        String primaryName = (String) rowData.get("primaryName");
         
+        if (isGasGuard) {
+            // Handle GasGuard tools
+            String systemName = (String) rowData.get("systemName");
+            String equipmentLocation = (String) rowData.get("equipmentLocation");
+            
+            // Use primaryName which was calculated during analysis
+            tool.setName(primaryName != null ? primaryName.trim() : "");
+            tool.setToolType(Tool.ToolType.AMATGASGUARD);
+            
+            // Set GasGuard-specific fields
+            if (systemName != null && !systemName.trim().isEmpty()) {
+                tool.setSystemName(systemName.trim());
+            }
+            if (equipmentLocation != null && !equipmentLocation.trim().isEmpty()) {
+                tool.setEquipmentLocation(equipmentLocation.trim());
+            }
+            
+            String configNumber = (String) rowData.get("configNumber");
+            if (configNumber != null && !configNumber.trim().isEmpty()) {
+                tool.setConfigNumber(configNumber.trim());
+            }
+            
+            String equipmentSetStr = (String) rowData.get("equipmentSet");
+            if (equipmentSetStr != null && !equipmentSetStr.trim().isEmpty()) {
+                try {
+                    // Parse equipment set as integer percentage - handle % symbol
+                    String cleanStr = equipmentSetStr.trim().replaceAll("[^\\d.]", "");
+                    if (!cleanStr.isEmpty()) {
+                        // Handle decimal percentages (e.g., "100.0" -> 100)
+                        double percentage = Double.parseDouble(cleanStr);
+                        tool.setEquipmentSet((int) Math.round(percentage));
+                    }
+                } catch (NumberFormatException e) {
+                    logger.warn("Invalid equipment set value '{}' for tool '{}', defaulting to 100%", 
+                              equipmentSetStr, primaryName);
+                    tool.setEquipmentSet(100); // Default to 100%
+                }
+            } else {
+                tool.setEquipmentSet(100); // Default to 100% if not specified
+            }
+        } else {
+            // Handle standard tools
+            String toolName = (String) rowData.get("toolName");
+            tool.setName(toolName != null ? toolName.trim() : "");
+            
+            String type = (String) rowData.get("type");
+            if (type != null && !type.trim().isEmpty()) {
+                Tool.ToolType normalizedType = normalizeToolType(type.trim());
+                if (normalizedType != null) {
+                    tool.setToolType(normalizedType);
+                }
+            }
+        }
+        
+        // Common properties for both tool types
         String toolName2 = (String) rowData.get("toolName2");
         if (toolName2 != null && !toolName2.trim().isEmpty()) {
             tool.setSecondaryName(toolName2.trim());
-        }
-        
-        String type = (String) rowData.get("type");
-        if (type != null && !type.trim().isEmpty()) {
-            Tool.ToolType normalizedType = normalizeToolType(type.trim());
-            if (normalizedType != null) {
-                tool.setToolType(normalizedType);
-            }
         }
         
         String modelNumber1 = (String) rowData.get("modelNumber1");
@@ -1303,18 +1664,31 @@ public class ToolService {
             tool.setSerialNumber2(serialNumber2.trim());
         }
         
-        // Handle location - set as simple string
+        // Handle location - prefer Excel value mapped; else current user's active/default site; else blank
         String locationName = (String) rowData.get("locationName");
-        String finalLocationName = "AZ F52"; // Default location
+        String resolvedLocationName = null;
         if (locationName != null && !locationName.trim().isEmpty()) {
-            // Use location matching logic to normalize the name
             Location matchedLocation = findLocationByName(locationName.trim());
             if (matchedLocation != null) {
-                finalLocationName = matchedLocation.getDisplayName() != null ? 
-                                  matchedLocation.getDisplayName() : matchedLocation.getName();
+                resolvedLocationName = matchedLocation.getDisplayName() != null ? matchedLocation.getDisplayName() : matchedLocation.getName();
             }
         }
-        tool.setLocationName(finalLocationName);
+        if (resolvedLocationName == null) {
+            try {
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                if (auth != null && auth.getName() != null) {
+                    Optional<User> userOpt = userRepository.findByEmailIgnoreCase(auth.getName());
+                    if (userOpt.isPresent()) {
+                        User current = userOpt.get();
+                        Location userLoc = current.getActiveSite() != null ? current.getActiveSite() : current.getDefaultLocation();
+                        if (userLoc != null) {
+                            resolvedLocationName = userLoc.getDisplayName() != null ? userLoc.getDisplayName() : userLoc.getName();
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        tool.setLocationName(resolvedLocationName != null ? resolvedLocationName : "");
         
         // Set default status and dates
         tool.setStatus(Tool.ToolStatus.NOT_STARTED);
@@ -1337,27 +1711,39 @@ public class ToolService {
         
         // Track and update each field
         String newToolName = (String) newData.get("toolName");
-        if (newToolName != null && !newToolName.trim().isEmpty() && 
-            !Objects.equals(tool.getName(), newToolName.trim())) {
-            changes.add(String.format("Name: '%s' → '%s'", tool.getName(), newToolName.trim()));
-            tool.setName(newToolName.trim());
+        // Do not update name for GasGuard tools via Excel duplicate overwrite
+        if (tool.getToolType() != Tool.ToolType.AMATGASGUARD) {
+            if (newToolName != null && !newToolName.trim().isEmpty() &&
+                !Objects.equals(tool.getName(), newToolName.trim())) {
+                changes.add(String.format("Name: '%s' → '%s'", tool.getName(), newToolName.trim()));
+                tool.setName(newToolName.trim());
+            }
         }
         
         String newToolName2 = (String) newData.get("toolName2");
-        if (!Objects.equals(tool.getSecondaryName(), newToolName2)) {
-            String oldValue = tool.getSecondaryName() != null ? tool.getSecondaryName() : "(empty)";
-            String newValue = newToolName2 != null && !newToolName2.trim().isEmpty() ? newToolName2.trim() : "(empty)";
-            changes.add(String.format("Secondary Name: '%s' → '%s'", oldValue, newValue));
-            tool.setSecondaryName(newToolName2 != null && !newToolName2.trim().isEmpty() ? newToolName2.trim() : null);
+        // Do not update secondary name for GasGuard tools via Excel duplicate overwrite
+        if (tool.getToolType() != Tool.ToolType.AMATGASGUARD) {
+            if (!Objects.equals(tool.getSecondaryName(), newToolName2)) {
+                String oldValue = tool.getSecondaryName() != null ? tool.getSecondaryName() : "(empty)";
+                String newValue = newToolName2 != null && !newToolName2.trim().isEmpty() ? newToolName2.trim() : "(empty)";
+                changes.add(String.format("Secondary Name: '%s' → '%s'", oldValue, newValue));
+                tool.setSecondaryName(newToolName2 != null && !newToolName2.trim().isEmpty() ? newToolName2.trim() : null);
+            }
         }
         
         String newType = (String) newData.get("type");
+        Tool.ToolType currentType = tool.getToolType();
         Tool.ToolType newToolType = newType != null && !newType.trim().isEmpty() ? normalizeToolType(newType.trim()) : null;
-        if (!Objects.equals(tool.getToolType(), newToolType)) {
-            String oldValue = tool.getToolType() != null ? tool.getToolType().toString() : "(empty)";
-            String newValue = newToolType != null ? newToolType.toString() : "(empty)";
-            changes.add(String.format("Type: '%s' → '%s'", oldValue, newValue));
-            tool.setToolType(newToolType);
+        // Preserve GasGuard type on overwrite; never downgrade or null it out
+        if (currentType == Tool.ToolType.AMATGASGUARD) {
+            // No change to type
+        } else {
+            if (newToolType != null && !Objects.equals(currentType, newToolType)) {
+                String oldValue = currentType != null ? currentType.toString() : "(empty)";
+                String newValue = newToolType.toString();
+                changes.add(String.format("Type: '%s' → '%s'", oldValue, newValue));
+                tool.setToolType(newToolType);
+            }
         }
         
         String newModel1 = (String) newData.get("modelNumber1");
@@ -1394,14 +1780,26 @@ public class ToolService {
         
         // Handle location update
         String newLocationName = (String) newData.get("locationName");
-        String finalLocationName = "AZ F52"; // Default location
+        String finalLocationName = tool.getLocationName();
         if (newLocationName != null && !newLocationName.trim().isEmpty()) {
-            // Use location matching logic to normalize the name
             Location matchedLocation = findLocationByName(newLocationName.trim());
             if (matchedLocation != null) {
-                finalLocationName = matchedLocation.getDisplayName() != null ? 
-                                  matchedLocation.getDisplayName() : matchedLocation.getName();
+                finalLocationName = matchedLocation.getDisplayName() != null ? matchedLocation.getDisplayName() : matchedLocation.getName();
             }
+        } else {
+            try {
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                if (auth != null && auth.getName() != null) {
+                    Optional<User> userOpt = userRepository.findByEmailIgnoreCase(auth.getName());
+                    if (userOpt.isPresent()) {
+                        User current = userOpt.get();
+                        Location userLoc = current.getActiveSite() != null ? current.getActiveSite() : current.getDefaultLocation();
+                        if (userLoc != null) {
+                            finalLocationName = userLoc.getDisplayName() != null ? userLoc.getDisplayName() : userLoc.getName();
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
         }
         
         if (!Objects.equals(tool.getLocationName(), finalLocationName)) {
@@ -1440,4 +1838,30 @@ public class ToolService {
         
         return String.format("No changes needed for tool '%s' (ID: %d)", tool.getName(), tool.getId());
     }
-} 
+    
+    /**
+     * Flexible pattern matching for header names
+     */
+    private boolean matchesPattern(String headerValue, String... patterns) {
+        String normalized = headerValue.toLowerCase().replaceAll("[\\s#_-]", "");
+        
+        for (String pattern : patterns) {
+            String normalizedPattern = pattern.toLowerCase().replaceAll("[\\s#_-]", "");
+            if (normalized.contains(normalizedPattern) || normalizedPattern.contains(normalized)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * Get cell value from flexible header mapping
+     */
+    private String getCellValueFromMapping(Row row, Map<String, Integer> headerMap, String fieldName) {
+        Integer columnIndex = headerMap.get(fieldName);
+        if (columnIndex == null) {
+            return null;
+        }
+        return getCellValueAsString(row.getCell(columnIndex));
+    }
+}

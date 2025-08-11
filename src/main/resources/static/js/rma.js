@@ -273,6 +273,7 @@ const RMA = {
          * @param {Object} data - Tool data
          */
         updateToolDetails(data) {
+            
             const elements = {
                 type: document.getElementById('tool-type'),
                 location: document.getElementById('tool-location'),
@@ -289,11 +290,43 @@ const RMA = {
             // Update each element if it exists
             if (elements.type) elements.type.textContent = data.toolType || 'N/A';
             if (elements.location) elements.location.textContent = data.location?.displayName || 'N/A';
-            if (elements.serial1) elements.serial1.textContent = data.serialNumber1 || 'N/A';
-            if (elements.serial2) elements.serial2.textContent = data.serialNumber2 || 'N/A';
-            if (elements.model1) elements.model1.textContent = data.model1 || 'N/A';
-            if (elements.model2) elements.model2.textContent = data.model2 || 'N/A';
-            if (elements.chemicalGasService) elements.chemicalGasService.textContent = data.chemicalGasService || 'N/A';
+            
+            // Handle serial number display with proper formatting
+            if (elements.serial1) {
+                if (data.serialNumber1) {
+                    elements.serial1.textContent = data.serialNumber1;
+                    if (elements.serial2) {
+                        elements.serial2.textContent = data.serialNumber2 ? '/' + data.serialNumber2 : '';
+                    }
+                } else {
+                    elements.serial1.textContent = 'N/A';
+                    if (elements.serial2) elements.serial2.textContent = '';
+                }
+            }
+            // Handle model display with proper formatting
+            if (elements.model1) {
+                if (data.model1) {
+                    elements.model1.textContent = data.model1;
+                    if (elements.model2) {
+                        elements.model2.textContent = data.model2 ? '/' + data.model2 : '';
+                    }
+                } else {
+                    elements.model1.textContent = 'N/A';
+                    if (elements.model2) elements.model2.textContent = '';
+                }
+            }
+            
+            // Handle Chemical/Gas Service display - show systemName for GasGuard tools
+            if (elements.chemicalGasService) {
+                if (data.toolType === 'AMATGASGUARD') {
+                    // For GasGuard tools, show System value but keep Chemical/Gas Service label
+                    elements.chemicalGasService.textContent = data.systemName || 'N/A';
+                } else {
+                    // For other tools, show Chemical/Gas Service field
+                    elements.chemicalGasService.textContent = data.chemicalGasService || 'N/A';
+                }
+            }
+            
             if (elements.commissionDate) elements.commissionDate.textContent = data.commissionDate || 'N/A';
             if (elements.startupSl03Date) elements.startupSl03Date.textContent = data.startUpSl03Date || 'N/A';
             

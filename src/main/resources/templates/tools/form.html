@@ -50,7 +50,7 @@
                                 <option value="">-- Select Tool Type --</option>
                                 <option th:each="type : ${T(com.pcd.manager.model.Tool.ToolType).values()}" 
                                         th:value="${type}" 
-                                        th:text="${type.name() == 'CHEMBLEND' ? 'Chemblend' : (type.name() == 'SLURRY' ? 'Slurry' : type.name())}">
+                                        th:text="${type.displayName}">
                                 </option>
                             </select>
                             <div class="invalid-feedback" th:if="${#fields.hasErrors('toolType')}" th:errors="*{toolType}">

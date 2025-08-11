@@ -486,6 +486,12 @@ public class RmaService {
             if (rma.getState() != null) cityStateZip += (cityStateZip.isEmpty()?"":" ") + rma.getState();
             if (rma.getZipCode() != null) cityStateZip += (cityStateZip.isEmpty()?"":" ") + rma.getZipCode();
             if (!cityStateZip.isEmpty()) fromAddr.append(cityStateZip);
+
+            // Move Attn: here (bottom of From block)
+            if (rma.getAttn() != null && !rma.getAttn().isBlank()) {
+                if (fromAddr.length() > 0) fromAddr.append('\n');
+                fromAddr.append("Attn: ").append(rma.getAttn());
+            }
             com.lowagie.text.pdf.PdfPCell fv = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(fromAddr.toString(), valueFont));
             fv.setBorder(com.lowagie.text.Rectangle.BOX);
             fv.setPadding(8);
@@ -494,14 +500,13 @@ public class RmaService {
 
             doc.add(new com.lowagie.text.Paragraph(" "));
 
-            // Ship To block (blank lines, but include Attention)
+            // Ship To block (blank lines only)
             com.lowagie.text.pdf.PdfPTable ship = new com.lowagie.text.pdf.PdfPTable(new float[]{1.2f, 3.8f});
             ship.setWidthPercentage(100);
             com.lowagie.text.pdf.PdfPCell sl = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase("Ship to:", labelFont));
             sl.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
             ship.addCell(sl);
-            String attn = rma.getAttn() != null ? ("Attn: " + rma.getAttn() + "\n") : "";
-            String shipLines = attn + "____________________________\n____________________________\n____________________________";
+            String shipLines = "____________________________\n____________________________\n____________________________";
             com.lowagie.text.pdf.PdfPCell sv = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(shipLines, valueFont));
             sv.setBorder(com.lowagie.text.Rectangle.BOX);
             sv.setFixedHeight(90f);

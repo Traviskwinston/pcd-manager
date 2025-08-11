@@ -181,7 +181,7 @@
 
     <div class="container-fluid px-4 py-3">
         <!-- Modern Header Section -->
-                <div class="detail-header detail-fade-in">
+        <div class="detail-header detail-fade-in">
             <div class="d-flex justify-content-between align-items-start">
                                         <div>
                     <h1 class="mb-1 d-flex align-items-center gap-2">
@@ -286,36 +286,7 @@
                                             </div>
                                         </div>
 
-                <!-- Tool Information -->
-                <div class="rma-tool-info">
-                    <div th:if="${rma.tool != null}">
-                        <!-- Icon and Tool Names - horizontal layout -->
-                        <div class="d-flex align-items-center mb-2">
-                            <i class="bi bi-tools fs-4 me-2"></i>
-                            <a th:href="@{/tools/{id}(id=${rma.tool?.id})}" class="text-decoration-none me-2">
-                                <span th:text="${rma.tool?.name}">Tool Name</span>
-                            </a>
-                            <span th:if="${rma.tool?.secondaryName}" class="text-muted me-2" th:text="${rma.tool.secondaryName}">Secondary Name</span>
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openToolSelectionModal()">
-                                <i class="bi bi-pencil"></i> Change Tool
-                            </button>
-                        </div>
-                        
-                        <!-- Type, Model, Serial below -->
-                        <div class="small">
-                            <span class="badge bg-light text-dark" th:text="${rma.tool?.toolType?.displayName ?: rma.tool?.toolType}">Type</span>
-                            <span th:if="${rma.tool?.model1}" class="ms-2" th:text="'Model: ' + ${rma.tool.model1}">Model</span>
-                            <span th:if="${rma.tool?.serialNumber1}" class="ms-2" th:text="'S/N: ' + ${rma.tool.serialNumber1}">Serial</span>
-                        </div>
-                    </div>
-                    <div th:if="${rma.tool == null}" class="d-flex align-items-center">
-                        <i class="bi bi-tools fs-4 me-2 text-muted"></i>
-                        <span class="text-muted me-2">No tool assigned</span>
-                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="openToolSelectionModal()">
-                            <i class="bi bi-plus"></i> Assign Tool
-                        </button>
-                    </div>
-                </div>
+                
                 
                 <!-- Action Buttons -->
                 <div class="d-flex gap-2">
@@ -344,232 +315,269 @@
                                     
         <!-- Main Content Grid -->
         <div class="detail-main-grid">
-            <!-- Basic Information Panel -->
-            <div class="card h-100 detail-section-card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">
-                        <i class="bi bi-info-circle me-2"></i>Basic Information
-                    </h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" onclick="enterHeaderEditMode()">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                </div>
-                <div class="card-body">
-                    <!-- View Mode -->
-                    <div id="header-view-mode">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">RMA/SAP Number</small>
-                                    <strong>
-                                        <span id="viewReferenceNumber" th:text="${rma.referenceNumber ?: 'N/A'}">Reference Number</span>
-                                    </strong>
+            <!-- Basic Information Panel (top-left square) -->
+            <div class="detail-section-fixed-height">
+                <div class="card detail-section-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-info-circle me-2"></i>Basic Information
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" onclick="enterHeaderEditMode()">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <!-- View Mode -->
+                        <div id="header-view-mode">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">RMA/SAP Number</small>
+                                        <strong>
+                                            <span id="viewReferenceNumber" th:text="${rma.referenceNumber ?: 'N/A'}">Reference Number</span>
+                                        </strong>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Service Order</small>
-                                    <strong id="viewServiceOrder" th:text="${rma.serviceOrder ?: 'N/A'}">Service Order</strong>
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">Service Order</small>
+                                        <strong id="viewServiceOrder" th:text="${rma.serviceOrder ?: 'N/A'}">Service Order</strong>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Reason for Request</small>
-                                    <strong id="viewReasonForRequest" th:text="${rma.reasonForRequest?.displayName ?: 'N/A'}">Reason</strong>
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">Reason for Request</small>
+                                        <strong id="viewReasonForRequest" th:text="${rma.reasonForRequest?.displayName ?: 'N/A'}">Reason</strong>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">DSS Product Line</small>
-                                    <strong id="viewDssProductLine" th:text="${rma.dssProductLine?.displayName ?: 'N/A'}">DSS Product Line</strong>
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">DSS Product Line</small>
+                                        <strong id="viewDssProductLine" th:text="${rma.dssProductLine?.displayName ?: 'N/A'}">DSS Product Line</strong>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">System Description</small>
-                                    <strong id="viewSystemDescription" th:text="${rma.systemDescription?.displayName ?: 'N/A'}">System Description</strong>
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">System Description</small>
+                                        <strong id="viewSystemDescription" th:text="${rma.systemDescription?.displayName ?: 'N/A'}">System Description</strong>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Technician</small>
-                                    <strong id="viewTechnicianName" th:text="${rma.technician ?: 'Not assigned'}">Technician</strong>
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">Technician</small>
+                                        <strong id="viewTechnicianName" th:text="${rma.technician ?: 'Not assigned'}">Technician</strong>
+                                    </div>
+                                </div>
+                                <!-- Tool Information moved into Basic Information full-width bottom row -->
+                                <div class="col-12">
+                                    <div class="rma-tool-info">
+                                        <div th:if="${rma.tool != null}" class="d-flex flex-column gap-2">
+                                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                                <div class="d-flex align-items-center flex-wrap gap-2">
+                                                    <i class="bi bi-tools fs-4"></i>
+                                                    <a th:href="@{/tools/{id}(id=${rma.tool?.id})}" class="text-decoration-none">
+                                                        <span th:text="${rma.tool?.name}">Tool Name</span>
+                                                    </a>
+                                                    <span th:if="${rma.tool?.secondaryName}" class="text-muted" th:text="${rma.tool.secondaryName}">Secondary Name</span>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openToolSelectionModal()">
+                                                    <i class="bi bi-pencil"></i> Change Tool
+                                                </button>
+                                            </div>
+                                            <div class="small">
+                                                <span class="badge bg-light text-dark" th:text="${rma.tool?.toolType?.displayName ?: rma.tool?.toolType}">Type</span>
+                                                <span th:if="${rma.tool?.model1}" class="ms-2" th:text="'Model: ' + ${rma.tool.model1} + (${rma.tool?.model2} != null ? '/' + ${rma.tool.model2} : '')">Model</span>
+                                                <span th:if="${rma.tool?.serialNumber1}" class="ms-2" th:text="'S/N: ' + ${rma.tool.serialNumber1}">Serial</span>
+                                            </div>
+                                        </div>
+                                        <div th:if="${rma.tool == null}" class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <i class="bi bi-tools fs-4 text-muted"></i>
+                                                <span class="text-muted">No tool assigned</span>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openToolSelectionModal()">
+                                                <i class="bi bi-plus"></i> Assign Tool
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Edit Mode -->
+                        <div id="header-edit-mode" class="d-none rma-edit-mode">
+                            <form id="header-edit-form">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">RMA/SAP Number</label>
+                                        <input type="text" class="form-control" name="referenceNumber" th:value="${rma.referenceNumber}" placeholder="Enter RMA or SAP number">
+                                        <small class="form-text text-muted">Enter either RMA number or SAP notification number</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Service Order</label>
+                                        <input type="text" class="form-control" name="serviceOrder" th:value="${rma.serviceOrder}" placeholder="Enter service order">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Reason for Request</label>
+                                        <select class="form-select" name="reasonForRequest">
+                                            <option value="">-- Select Reason --</option>
+                                            <option th:each="reason : ${T(com.pcd.manager.model.RmaReasonForRequest).values()}" 
+                                                    th:value="${reason.name()}" 
+                                                    th:text="${reason.displayName}"
+                                                    th:selected="${rma.reasonForRequest != null && rma.reasonForRequest.name() == reason.name()}">
+                                                Reason
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">DSS Product Line</label>
+                                        <select class="form-select" name="dssProductLine">
+                                            <option value="">-- Select Product Line --</option>
+                                            <option th:each="productLine : ${T(com.pcd.manager.model.DssProductLine).values()}" 
+                                                    th:value="${productLine.name()}" 
+                                                    th:text="${productLine.displayName}"
+                                                    th:selected="${rma.dssProductLine != null && rma.dssProductLine.name() == productLine.name()}">
+                                                Product Line
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">System Description</label>
+                                        <select class="form-select" name="systemDescription">
+                                            <option value="">-- Select System --</option>
+                                            <option th:each="system : ${T(com.pcd.manager.model.SystemDescription).values()}" 
+                                                    th:value="${system.name()}" 
+                                                    th:text="${system.displayName}"
+                                                    th:selected="${rma.systemDescription != null && rma.systemDescription.name() == system.name()}">
+                                                System
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Technician</label>
+                                        <select class="form-select" name="technician">
+                                            <option value="">-- Unassigned --</option>
+                                            <option th:each="tech : ${technicians}" th:value="${tech.name}" th:text="${tech.name}" th:selected="${rma.technician != null && tech.name == rma.technician}"></option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mt-3 d-flex gap-2">
+                                    <button type="button" class="btn btn-success detail-action-btn" onclick="saveHeaderChanges()">
+                                        <i class="bi bi-check-lg"></i> Save
+                                    </button>
+                                    <button type="button" class="btn btn-secondary detail-action-btn" onclick="cancelHeaderEditMode()">
+                                        <i class="bi bi-x-lg"></i> Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                    
-                    <!-- Edit Mode -->
-                    <div id="header-edit-mode" class="d-none rma-edit-mode">
-                                    <form id="header-edit-form">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">RMA/SAP Number</label>
-                                    <input type="text" class="form-control" name="referenceNumber" th:value="${rma.referenceNumber}" placeholder="Enter RMA or SAP number">
-                                    <small class="form-text text-muted">Enter either RMA number or SAP notification number</small>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Service Order</label>
-                                    <input type="text" class="form-control" name="serviceOrder" th:value="${rma.serviceOrder}" placeholder="Enter service order">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Reason for Request</label>
-                                    <select class="form-select" name="reasonForRequest">
-                                        <option value="">-- Select Reason --</option>
-                                        <option th:each="reason : ${T(com.pcd.manager.model.RmaReasonForRequest).values()}" 
-                                                th:value="${reason.name()}" 
-                                                th:text="${reason.displayName}"
-                                                th:selected="${rma.reasonForRequest != null && rma.reasonForRequest.name() == reason.name()}">
-                                            Reason
-                                        </option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">DSS Product Line</label>
-                                    <select class="form-select" name="dssProductLine">
-                                        <option value="">-- Select Product Line --</option>
-                                        <option th:each="productLine : ${T(com.pcd.manager.model.DssProductLine).values()}" 
-                                                th:value="${productLine.name()}" 
-                                                th:text="${productLine.displayName}"
-                                                th:selected="${rma.dssProductLine != null && rma.dssProductLine.name() == productLine.name()}">
-                                            Product Line
-                                        </option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">System Description</label>
-                                    <select class="form-select" name="systemDescription">
-                                        <option value="">-- Select System --</option>
-                                        <option th:each="system : ${T(com.pcd.manager.model.SystemDescription).values()}" 
-                                                th:value="${system.name()}" 
-                                                th:text="${system.displayName}"
-                                                th:selected="${rma.systemDescription != null && rma.systemDescription.name() == system.name()}">
-                                            System
-                                        </option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Technician</label>
-                                    <select class="form-select" name="technician">
-                                        <option value="">-- Unassigned --</option>
-                                        <option th:each="tech : ${technicians}" th:value="${tech.name}" th:text="${tech.name}" th:selected="${rma.technician != null && tech.name == rma.technician}"></option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="mt-3 d-flex gap-2">
-                                <button type="button" class="btn btn-success detail-action-btn" onclick="saveHeaderChanges()">
-                                    <i class="bi bi-check-lg"></i> Save
-                                </button>
-                                <button type="button" class="btn btn-secondary detail-action-btn" onclick="cancelHeaderEditMode()">
-                                    <i class="bi bi-x-lg"></i> Cancel
-                                </button>
-                    </div>
-                        </form>
                 </div>
-            </div>
             </div>
 
-            <!-- Problem Details Panel moved up to replace Upload Files -->
-            <div class="card h-100 detail-section-card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">
-                        <i class="bi bi-question-circle me-2"></i>Problem Details
-                    </h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" onclick="enableInlineEdit('problem-details')">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                </div>
-                <div class="card-body">
-                    <div id="problem-details-view-mode">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Who Discovered</small>
-                                    <strong th:if="${rma.problemDiscoverer != null}" th:text="${rma.problemDiscoverer}">Who discovered</strong>
-                                    <span class="detail-text-muted" th:if="${rma.problemDiscoverer == null}">Not specified</span>
+            <!-- Problem Details Panel spanning two columns -->
+            <div class="detail-section-fixed-height grid-col-span-2">
+                <div class="card detail-section-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-question-circle me-2"></i>Problem Details
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" onclick="enableInlineEdit('problem-details')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="problem-details-view-mode">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">Who Discovered</small>
+                                        <strong th:if="${rma.problemDiscoverer != null}" th:text="${rma.problemDiscoverer}">Who discovered</strong>
+                                        <span class="detail-text-muted" th:if="${rma.problemDiscoverer == null}">Not specified</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">When Discovered</small>
-                                    <strong th:if="${rma.problemDiscoveryDate != null}" th:text="${#temporals.format(rma.problemDiscoveryDate, 'MM/dd/yyyy')}">When discovered</strong>
-                                    <span class="detail-text-muted" th:if="${rma.problemDiscoveryDate == null}">Not specified</span>
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">When Discovered</small>
+                                        <strong th:if="${rma.problemDiscoveryDate != null}" th:text="${#temporals.format(rma.problemDiscoveryDate, 'MM/dd/yyyy')}">When discovered</strong>
+                                        <span class="detail-text-muted" th:if="${rma.problemDiscoveryDate == null}">Not specified</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-12">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">What Happened</small>
-                                    <p class="mb-0" th:if="${rma.whatHappened != null}" th:text="${rma.whatHappened}">What happened</p>
-                                    <span class="detail-text-muted" th:if="${rma.whatHappened == null}">Not specified</span>
+                                <div class="col-12">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">What Happened</small>
+                                        <p class="mb-0" th:if="${rma.whatHappened != null}" th:text="${rma.whatHappened}">What happened</p>
+                                        <span class="detail-text-muted" th:if="${rma.whatHappened == null}">Not specified</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-12">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Why & How It Happened</small>
-                                    <p class="mb-0" th:if="${rma.whyAndHowItHappened != null}" th:text="${rma.whyAndHowItHappened}">Why and how</p>
-                                    <span class="detail-text-muted" th:if="${rma.whyAndHowItHappened == null}">Not specified</span>
+                                <div class="col-12">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">Why & How It Happened</small>
+                                        <p class="mb-0" th:if="${rma.whyAndHowItHappened != null}" th:text="${rma.whyAndHowItHappened}">Why and how</p>
+                                        <span class="detail-text-muted" th:if="${rma.whyAndHowItHappened == null}">Not specified</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">How Contained</small>
-                                    <p class="mb-0" th:if="${rma.howContained != null}" th:text="${rma.howContained}">How contained</p>
-                                    <span class="detail-text-muted" th:if="${rma.howContained == null}">Not specified</span>
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">How Contained</small>
+                                        <p class="mb-0" th:if="${rma.howContained != null}" th:text="${rma.howContained}">How contained</p>
+                                        <span class="detail-text-muted" th:if="${rma.howContained == null}">Not specified</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex flex-column">
-                                    <small class="detail-text-muted">Who Contained</small>
-                                    <strong th:if="${rma.whoContained != null}" th:text="${rma.whoContained}">Who contained</strong>
-                                    <span class="detail-text-muted" th:if="${rma.whoContained == null}">Not specified</span>
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">Who Contained</small>
+                                        <strong th:if="${rma.whoContained != null}" th:text="${rma.whoContained}">Who contained</strong>
+                                        <span class="detail-text-muted" th:if="${rma.whoContained == null}">Not specified</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div id="problem-details-edit-mode" class="d-none rma-edit-mode">
-                        <form id="problem-details-form">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Who Discovered</label>
-                                    <input type="text" class="form-control" name="problemDiscoverer" th:value="${rma.problemDiscoverer}" placeholder="Who discovered the problem">
+                        <div id="problem-details-edit-mode" class="d-none rma-edit-mode">
+                            <form id="problem-details-form">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Who Discovered</label>
+                                        <input type="text" class="form-control" name="problemDiscoverer" th:value="${rma.problemDiscoverer}" placeholder="Who discovered the problem">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">When Discovered</label>
+                                        <input type="date" class="form-control" name="problemDiscoveryDate" th:value="${rma.problemDiscoveryDate}">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label fw-bold">What Happened</label>
+                                        <textarea class="form-control" name="whatHappened" rows="3" th:text="${rma.whatHappened}" placeholder="Describe what happened"></textarea>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label fw-bold">Why & How It Happened</label>
+                                        <textarea class="form-control" name="whyAndHowItHappened" rows="3" th:text="${rma.whyAndHowItHappened}" placeholder="Explain why and how it happened"></textarea>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">How Contained</label>
+                                        <textarea class="form-control" name="howContained" rows="2" th:text="${rma.howContained}" placeholder="How was it contained"></textarea>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Who Contained</label>
+                                        <input type="text" class="form-control" name="whoContained" th:value="${rma.whoContained}" placeholder="Who contained it">
+                                    </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">When Discovered</label>
-                                    <input type="date" class="form-control" name="problemDiscoveryDate" th:value="${rma.problemDiscoveryDate}">
+                                <div class="mt-3 d-flex gap-2">
+                                    <button type="button" class="btn btn-success detail-action-btn" onclick="saveProblemDetails()">
+                                        <i class="bi bi-check-lg"></i> Save
+                                    </button>
+                                    <button type="button" class="btn btn-secondary detail-action-btn" onclick="cancelInlineEdit('problem-details')">
+                                        <i class="bi bi-x-lg"></i> Cancel
+                                    </button>
                                 </div>
-                                <div class="col-12">
-                                    <label class="form-label fw-bold">What Happened</label>
-                                    <textarea class="form-control" name="whatHappened" rows="3" th:text="${rma.whatHappened}" placeholder="Describe what happened"></textarea>
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label fw-bold">Why & How It Happened</label>
-                                    <textarea class="form-control" name="whyAndHowItHappened" rows="3" th:text="${rma.whyAndHowItHappened}" placeholder="Explain why and how it happened"></textarea>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">How Contained</label>
-                                    <textarea class="form-control" name="howContained" rows="2" th:text="${rma.howContained}" placeholder="How was it contained"></textarea>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Who Contained</label>
-                                    <input type="text" class="form-control" name="whoContained" th:value="${rma.whoContained}" placeholder="Who contained it">
-                                </div>
-                            </div>
-                            <div class="mt-3 d-flex gap-2">
-                                <button type="button" class="btn btn-success detail-action-btn" onclick="saveProblemDetails()">
-                                    <i class="bi bi-check-lg"></i> Save
-                                </button>
-                                <button type="button" class="btn btn-secondary detail-action-btn" onclick="cancelInlineEdit('problem-details')">
-                                    <i class="bi bi-x-lg"></i> Cancel
-                                </button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
 
-        <!-- Content Sections Grid (3x3) -->
-        <div class="detail-sections-grid">
+        <!-- Content Sections – flattened into the main grid (no nested grid wrapper) -->
+        <div class="detail-sections-grid" style="display: contents;">
             <!-- Parts Information Section -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
@@ -658,108 +666,46 @@
                 </div>
             </div>
 
-            <!-- Problem Details Section -->
+            <!-- Track/Trends Section (replaces duplicate Problem Details) -->
             <div class="detail-section-fixed-height">
                 <div class="card detail-section-card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
-                            <i class="bi bi-question-circle me-2"></i>Problem Details
+                            <i class="bi bi-activity me-2"></i>Track/Trends
                         </h6>
-                        <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" onclick="enableInlineEdit('problem-details')">
-                            <i class="bi bi-pencil"></i>
-                        </button>
+                        <div class="d-flex align-items-center gap-2">
+                            <a th:href="@{/tracktrend}" class="btn btn-sm btn-outline-secondary detail-action-btn" title="Open Track/Trend List">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        </div>
                             </div>
                     <div class="card-body">
-                        <!-- View Mode -->
-                        <div id="problem-details-view-mode">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <div class="d-flex flex-column">
-                                        <small class="detail-text-muted">Who Discovered</small>
-                                        <strong th:if="${rma.problemDiscoverer != null}" th:text="${rma.problemDiscoverer}">Who discovered</strong>
-                                        <span class="detail-text-muted" th:if="${rma.problemDiscoverer == null}">Not specified</span>
+                        <div th:if="${trackTrends == null || trackTrends.isEmpty()}" class="detail-empty-state">
+                            <i class="bi bi-activity"></i>
+                            <p>No related Track/Trends</p>
                                     </div>
+                        <div th:if="${trackTrends != null && !trackTrends.isEmpty()}" class="table-responsive">
+                            <table class="table table-striped detail-section-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="tt : ${trackTrends}">
+                                        <td>
+                                            <a th:href="@{/tracktrend/{id}(id=${tt.id})}" th:text="${tt.name}" class="text-decoration-none detail-text-primary">TT</a>
+                                        </td>
+                                        <td>
+                                            <a th:href="@{/tracktrend/{id}(id=${tt.id})}" class="btn btn-sm btn-outline-primary" title="Open">
+                                                <i class="bi bi-box-arrow-up-right"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="d-flex flex-column">
-                                        <small class="detail-text-muted">When Discovered</small>
-                                        <strong th:if="${rma.problemDiscoveryDate != null}" th:text="${#temporals.format(rma.problemDiscoveryDate, 'MM/dd/yyyy')}">When discovered</strong>
-                                        <span class="detail-text-muted" th:if="${rma.problemDiscoveryDate == null}">Not specified</span>
-                                    </div>
-                                </div>
-                                <div class="col-12">
-                                    <div class="d-flex flex-column">
-                                        <small class="detail-text-muted">What Happened</small>
-                                        <p class="mb-0" th:if="${rma.whatHappened != null}" th:text="${rma.whatHappened}">What happened</p>
-                                        <span class="detail-text-muted" th:if="${rma.whatHappened == null}">Not specified</span>
-                                    </div>
-                                </div>
-                                <div class="col-12">
-                                    <div class="d-flex flex-column">
-                                        <small class="detail-text-muted">Why & How It Happened</small>
-                                        <p class="mb-0" th:if="${rma.whyAndHowItHappened != null}" th:text="${rma.whyAndHowItHappened}">Why and how</p>
-                                        <span class="detail-text-muted" th:if="${rma.whyAndHowItHappened == null}">Not specified</span>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="d-flex flex-column">
-                                        <small class="detail-text-muted">How Contained</small>
-                                        <p class="mb-0" th:if="${rma.howContained != null}" th:text="${rma.howContained}">How contained</p>
-                                        <span class="detail-text-muted" th:if="${rma.howContained == null}">Not specified</span>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="d-flex flex-column">
-                                        <small class="detail-text-muted">Who Contained</small>
-                                        <strong th:if="${rma.whoContained != null}" th:text="${rma.whoContained}">Who contained</strong>
-                                        <span class="detail-text-muted" th:if="${rma.whoContained == null}">Not specified</span>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                        
-                        <!-- Edit Mode -->  
-                        <div id="problem-details-edit-mode" class="d-none rma-edit-mode">
-                            <form id="problem-details-form">
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">Who Discovered</label>
-                                        <input type="text" class="form-control" name="problemDiscoverer" th:value="${rma.problemDiscoverer}" placeholder="Who discovered the problem">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">When Discovered</label>
-                                        <input type="date" class="form-control" name="problemDiscoveryDate" th:value="${rma.problemDiscoveryDate}">
-                                    </div>
-                                    <div class="col-12">
-                                        <label class="form-label fw-bold">What Happened</label>
-                                        <textarea class="form-control" name="whatHappened" rows="3" th:text="${rma.whatHappened}" placeholder="Describe what happened"></textarea>
-                                    </div>
-                                    <div class="col-12">
-                                        <label class="form-label fw-bold">Why & How It Happened</label>
-                                        <textarea class="form-control" name="whyAndHowItHappened" rows="3" th:text="${rma.whyAndHowItHappened}" placeholder="Explain why and how it happened"></textarea>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">How Contained</label>
-                                        <textarea class="form-control" name="howContained" rows="2" th:text="${rma.howContained}" placeholder="How was it contained"></textarea>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">Who Contained</label>
-                                        <input type="text" class="form-control" name="whoContained" th:value="${rma.whoContained}" placeholder="Who contained it">
-                                    </div>
-
-                                </div>
-                                <div class="mt-3 d-flex gap-2">
-                                    <button type="button" class="btn btn-success detail-action-btn" onclick="saveProblemDetails()">
-                                        <i class="bi bi-check-lg"></i> Save
-                                    </button>
-                                    <button type="button" class="btn btn-secondary detail-action-btn" onclick="cancelInlineEdit('problem-details')">
-                                        <i class="bi bi-x-lg"></i> Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-
                     </div>
                     </div>
                 </div>
@@ -1196,7 +1142,7 @@
                                         <th></th>
                                 </tr>
                                         </thead>
-                                    <tbody>
+                                        <tbody>
                                 <tr>
                                         <td th:text="${rma.installedPartsDate != null ? #temporals.format(rma.installedPartsDate, 'MM/dd/yy') : '-'}"
                                             th:attr="data-date-ymd=${rma.installedPartsDate}">-</td>
@@ -1293,7 +1239,12 @@
                         <h6 class="mb-0">
                             <i class="bi bi-files me-2"></i>Documents & Pictures
                         </h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" title="Upload Files" data-bs-toggle="modal" data-bs-target="#uploadFilesModal">
+                                <i class="bi bi-plus"></i>
+                            </button>
                         <span class="badge bg-secondary" th:text="${(rma.documents != null ? rma.documents.size() : 0) + (rma.pictures != null ? rma.pictures.size() : 0)}">0</span>
+                        </div>
                     </div>
                     <div class="card-body">
                         <!-- Documents Section -->
@@ -1432,6 +1383,41 @@
                                     <span th:text="${rma.totalLaborCost != null ? '$' + #numbers.formatDecimal(rma.totalLaborCost, 1, 2) : '$0.00'}">$0.00</span>
                                 </strong>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+    <!-- Upload Files Modal -->
+    <div class="modal fade" id="uploadFilesModal" tabindex="-1" aria-labelledby="uploadFilesModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadFilesModalLabel">Upload Documents / Pictures</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="uploadDocumentForm" th:action="@{/rma/{id}/documents/upload(id=${rma.id})}" method="post" enctype="multipart/form-data" class="mb-3">
+                        <label class="form-label fw-bold">Add Document(s)</label>
+                        <input type="file" id="documentFile" name="files" class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" multiple>
+                        <div class="text-end mt-2">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-upload me-1"></i> Upload Docs
+                            </button>
+                        </div>
+                    </form>
+                    <form id="uploadPictureForm" th:action="@{/rma/{id}/upload(id=${rma.id})}" method="post" enctype="multipart/form-data">
+                        <label class="form-label fw-bold">Add Picture(s)</label>
+                        <input type="file" id="pictureFile" name="files" class="form-control" accept=".jpg,.jpeg,.png,.gif,.webp" multiple>
+                        <div class="text-end mt-2">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-upload me-1"></i> Upload Pics
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                         </div>
                     </div>
                 </div>
@@ -2025,81 +2011,7 @@
             }
         }
 
-        // Handle document upload form submission
-        const uploadDocumentForm = document.getElementById('uploadDocumentForm');
-        if (uploadDocumentForm) {
-            uploadDocumentForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            const uploadButton = this.querySelector('button');
-            const originalButtonHtml = uploadButton.innerHTML;
-                
-                // Show loading state
-            uploadButton.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Uploading...';
-            uploadButton.disabled = true;
-            
-            fetch(this.action, {
-                    method: 'POST',
-                    body: formData
-                })
-            .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                    window.location.reload(); // Reload the page to show the new document
-                    } else {
-                    alert('Failed to upload document: ' + (data.message || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to upload document: ' + error.message);
-            })
-            .finally(() => {
-                    // Restore button state
-                uploadButton.innerHTML = originalButtonHtml;
-                uploadButton.disabled = false;
-            });
-            });
-        }
-
-        // Handle picture upload form submission
-        const uploadPictureForm = document.getElementById('uploadPictureForm');
-        if (uploadPictureForm) {
-            uploadPictureForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            const uploadButton = this.querySelector('button');
-            const originalButtonHtml = uploadButton.innerHTML;
-            
-            // Show loading state
-            uploadButton.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Uploading...';
-            uploadButton.disabled = true;
-            
-            fetch(this.action, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.reload(); // Reload the page to show the new pictures
-                } else {
-                    alert('Failed to upload pictures: ' + (data.message || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to upload pictures');
-            })
-            .finally(() => {
-                // Reset button state
-                uploadButton.innerHTML = originalButtonHtml;
-                uploadButton.disabled = false;
-            });
-            });
-        }
+        // Upload forms submit via normal HTTP redirect handled by controller
 
         // Handle file input change - submit the forms directly 
         const pictureFile = document.getElementById('pictureFile');
@@ -3479,7 +3391,7 @@
                             '<span class="badge bg-light text-dark">' + (tool.toolType || '-') + '</span>' +
                         '</div>' +
                         '<div class="tool-model-col" style="flex: 1; min-width: 120px; text-align: center;">' +
-                            '<span>' + (tool.model1 || '-') + '</span>' +
+                            '<span>' + ((tool.model1 ? tool.model1 : '') + (tool.model2 ? '/' + tool.model2 : '') || '-') + '</span>' +
                         '</div>' +
                         '<div class="tool-serial-col" style="flex: 1; min-width: 120px; text-align: center;">' +
                             '<code class="small bg-light px-1">' + (tool.serialNumber1 || '-') + '</code>' +
@@ -3513,7 +3425,7 @@
                 document.getElementById('previewToolName').textContent = tool.name;
                 document.getElementById('previewToolSecondary').textContent = tool.secondaryName || '';
                 document.getElementById('previewToolType').textContent = tool.toolType || '-';
-                document.getElementById('previewToolModel').textContent = tool.model1 || '-';
+                document.getElementById('previewToolModel').textContent = (tool.model1 ? tool.model1 : '') + (tool.model2 ? '/' + tool.model2 : '') || '-';
                 document.getElementById('previewToolSerial').textContent = tool.serialNumber1 || '-';
                 document.getElementById('previewToolLocation').textContent = tool.locationName || 'Unknown';
                 

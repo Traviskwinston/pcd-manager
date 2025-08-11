@@ -2062,6 +2062,13 @@ function getThemeAwareColors(toolType) {
                     textFill: '#4fd1c7',    // Light teal text
                     shadowColor: 'rgba(0,0,0,0.5)'
                 };
+            case 'AMATGASGUARD':
+                return {
+                    fill: '#4a5c1a',        // Dark olive background
+                    stroke: '#5e6e22',      // Dark olive outline
+                    textFill: '#c3d19a',    // Light olive text
+                    shadowColor: 'rgba(0,0,0,0.5)'
+                };
             default:
                 return {
                     fill: '#1a3a5c',        // Dark blue background
@@ -2083,6 +2090,13 @@ function getThemeAwareColors(toolType) {
             case 'SLURRY':
                 return {
                     fill: '#16a085',        // Teal
+                    stroke: '#333',
+                    textFill: 'black',
+                    shadowColor: 'black'
+                };
+            case 'AMATGASGUARD':
+                return {
+                    fill: '#9acd32',        // YellowGreen
                     stroke: '#333',
                     textFill: 'black',
                     shadowColor: 'black'

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Settings</title>
+    <script th:src="@{/js/theme-instant.js}"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" th:href="@{/dark-mode.css}">
+</head>
+<body>
+<div th:replace="~{fragments/navigation :: navbar('settings')}"></div>
+
+<div class="container mt-4">
+    <h2 class="mb-3">Settings</h2>
+    <div class="card">
+        <div class="card-header">Tool Default Checklist</div>
+        <div class="card-body">
+            <div class="list-group">
+                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                        th:each="t : ${toolTypes}"
+                        th:data-tool-type="${t.name()}"
+                        th:data-display-name="${t.displayName}"
+                        th:text="${t.name() == 'AMATGASGUARD' ? t.displayName + ' (AMAT)' : t.displayName}"
+                        data-bs-toggle="modal" data-bs-target="#checklistModal">
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Checklist Modal -->
+<div class="modal fade" id="checklistModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Default Checklist</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info d-flex align-items-start" role="alert">
+          <i class="bi bi-info-circle me-2 mt-1"></i>
+          <div>
+            Tools that already have at least one checklist item checked will not be affected when you update this default checklist.
+          </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Tool Type</label>
+            <input type="hidden" id="modalToolType">
+            <input type="text" id="modalToolTypeLabel" class="form-control" readonly>
+        </div>
+        <div class="mb-2 d-flex justify-content-between align-items-center">
+            <label class="form-label mb-0">Checklist Items</label>
+            <button class="btn btn-sm btn-outline-primary" id="addItemBtn"><i class="bi bi-plus"></i> Add Item</button>
+        </div>
+        <ul class="list-group" id="checklistItems"></ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="saveChecklistBtn">Save</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/theme-toggle.js}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const checklistModal = document.getElementById('checklistModal');
+  const modalToolType = document.getElementById('modalToolType');
+  const checklistItems = document.getElementById('checklistItems');
+  const addItemBtn = document.getElementById('addItemBtn');
+  const saveBtn = document.getElementById('saveChecklistBtn');
+
+  // Open modal with selected tool type
+  document.querySelectorAll('[data-bs-target="#checklistModal"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.getAttribute('data-tool-type');
+      const display = btn.getAttribute('data-display-name');
+      modalToolType.value = type;
+      const label = (type === 'AMATGASGUARD') ? `${display} (AMAT)` : display;
+      document.getElementById('modalToolTypeLabel').value = label;
+      loadItems(type);
+    });
+  });
+
+  async function loadItems(toolType) {
+    checklistItems.innerHTML = '';
+    // Try to get existing template
+    try {
+      const res = await fetch(`/settings/checklist/${toolType}`);
+      if (res.ok) {
+        const items = await res.json();
+        (items || []).forEach(it => addItem(it));
+        if (!items || items.length === 0) seedDefaults(toolType);
+      } else {
+        seedDefaults(toolType);
+      }
+    } catch {
+      seedDefaults(toolType);
+    }
+  }
+
+  function seedDefaults(toolType) {
+    const defaults = [
+      'Commission',
+      'PreSL1',
+      'SL1',
+      'Mechanical: Pre SL1',
+      'Mechanical: Post SL1',
+      'Input Functionality Tested',
+      'Operation Modes Tested',
+      "SOO's Tested",
+      'Field Service Report',
+      'Certificate of Approval',
+      'Turned Over to Customer',
+      'Start-Up/SL03'
+    ];
+    defaults.forEach(addItem);
+  }
+
+  function addItem(text = '') {
+    const li = document.createElement('li');
+    li.className = 'list-group-item d-flex align-items-center gap-2';
+    li.innerHTML = `
+      <input type="text" class="form-control" value="${text.replaceAll('"','&quot;')}">
+      <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+    `;
+    li.querySelector('button').addEventListener('click', () => li.remove());
+    checklistItems.appendChild(li);
+  }
+
+  addItemBtn.addEventListener('click', () => addItem(''));
+
+  saveBtn.addEventListener('click', async () => {
+    const toolType = modalToolType.value;
+    const items = Array.from(checklistItems.querySelectorAll('input')).map(i => i.value.trim()).filter(Boolean);
+    try {
+      const res = await fetch(`/settings/checklist/${toolType}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(items)
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      const toast = document.createElement('div');
+      toast.className = 'alert alert-success position-fixed top-0 end-0 m-3';
+      toast.textContent = 'Checklist saved';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+    } catch (e) {
+      const toast = document.createElement('div');
+      toast.className = 'alert alert-danger position-fixed top-0 end-0 m-3';
+      toast.textContent = 'Error saving checklist';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2500);
+    }
+  });
+});
+</script>
+</body>
+</html>
+
