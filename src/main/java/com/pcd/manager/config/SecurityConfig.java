@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.userdetails.UserDetailsPasswordService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
@@ -34,6 +35,8 @@ public class SecurityConfig {
     
     @Autowired
     private CustomUserDetailsService userDetailsService;
+    @Autowired(required = false)
+    private UserDetailsPasswordService passwordUpgradeService;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -45,6 +48,9 @@ public class SecurityConfig {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
+        if (passwordUpgradeService != null) {
+            authProvider.setUserDetailsPasswordService(passwordUpgradeService);
+        }
         
         // Add additional logging
         authProvider.setHideUserNotFoundExceptions(false); // Show user not found exceptions

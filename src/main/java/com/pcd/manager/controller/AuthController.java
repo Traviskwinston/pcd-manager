@@ -155,9 +155,8 @@ public class AuthController {
                 logger.info("Password match result: {}", passwordMatches);
                 
                 if (passwordMatches) {
-                    // For debugging only - don't perform actual login here
-                    logger.info("Password matches! User would be logged in now.");
-                    model.addAttribute("message", "Debug: Credentials are correct. Please use the normal login form.");
+                    logger.info("Manual login password verified for {}", email);
+                    model.addAttribute("message", "Credentials verified. If normal login fails, click 'Clear Session' on the login page to reset your server session.");
                 } else {
                     logger.warn("Password does not match stored hash");
                     model.addAttribute("error", "Invalid email or password!");
