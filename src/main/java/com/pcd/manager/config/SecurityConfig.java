@@ -13,11 +13,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.rememberme.JdbcTokenRepositoryImpl;
-import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
-import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
-import org.springframework.security.web.authentication.session.RegisterSessionAuthenticationStrategy;
-import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.session.ConcurrentSessionFilter;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
@@ -61,6 +58,11 @@ public class SecurityConfig {
     }
 
     @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authenticationProvider(authenticationProvider())   // Ensure our DAO provider is registered
@@ -71,6 +73,7 @@ public class SecurityConfig {
                 .requestMatchers("/h2-console/**").permitAll() // Allow access to H2 console
                 .requestMatchers("/api/public/**").permitAll() // Public endpoints
                 .requestMatchers("/api/auth/**").permitAll() // Authentication endpoints
+                .requestMatchers("/api/auth/clear-my-session", "/api/auth/clear-session").permitAll()
                 .requestMatchers("/admin/emergency-reset").permitAll() // Emergency reset endpoint
                 .requestMatchers("/create-simple-admin").permitAll() // Simple admin creation endpoint
                 .requestMatchers("/direct-login").permitAll() // Direct login endpoint
@@ -97,8 +100,9 @@ public class SecurityConfig {
                 .invalidSessionUrl("/login?timeout=true")
                 .sessionFixation().migrateSession()
                 .maximumSessions(1)
-                .maxSessionsPreventsLogin(false)
-                .expiredUrl("/login?expired=true")
+                    .maxSessionsPreventsLogin(false)
+                    .expiredUrl("/login?expired=true")
+                    .sessionRegistry(sessionRegistry())
             );
             
         // Allow frames for H2 console

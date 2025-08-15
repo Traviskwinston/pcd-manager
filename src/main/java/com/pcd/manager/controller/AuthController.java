@@ -25,6 +25,11 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionInformation;
 
 import com.pcd.manager.model.User;
 import com.pcd.manager.service.UserService;
@@ -61,6 +66,9 @@ public class AuthController {
         this.locationService = locationService;
         this.userRepository = userRepository;
     }
+
+    @Autowired(required = false)
+    private SessionRegistry sessionRegistry;
     
     @GetMapping("/login")
     public String login(@RequestParam(value = "error", required = false) String error,
@@ -82,6 +90,47 @@ public class AuthController {
         return "login";
     }
     
+    // Clear only the current HTTP session (client-initiated), keeping other auth state untouched
+    @PostMapping("/api/auth/clear-my-session")
+    @ResponseBody
+    public String clearMySession(HttpServletRequest request) {
+        try {
+            HttpSession session = request.getSession(false);
+            if (session != null) {
+                session.invalidate();
+            }
+            SecurityContextHolder.clearContext();
+            return "OK";
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    // Admin/diagnostic: clear all server-side sessions for a specific email when stuck
+    @PostMapping("/api/auth/clear-session")
+    @ResponseBody
+    public String clearServerSessionsByEmail(@RequestParam("email") String email,
+                                             @RequestParam(value = "code", required = false) String code) {
+        // Optional lightweight guard; reuse emergency code if provided
+        if (code != null && !"pcd-emergency-override-2025".equals(code)) {
+            return "Access denied";
+        }
+        if (sessionRegistry == null) {
+            return "SessionRegistry unavailable";
+        }
+        int cleared = 0;
+        for (Object principal : sessionRegistry.getAllPrincipals()) {
+            String principalName = principal.toString();
+            if (principalName.equalsIgnoreCase(email)) {
+                List<SessionInformation> infos = sessionRegistry.getAllSessions(principal, false);
+                for (SessionInformation info : infos) {
+                    info.expireNow();
+                    cleared++;
+                }
+            }
+        }
+        return "Cleared sessions: " + cleared;
+    }
     @PostMapping("/manual-login") 
     public String manualLoginAttempt(@RequestParam("username") String email,
                                     @RequestParam("password") String password,
