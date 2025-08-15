@@ -499,40 +499,20 @@ public class RmaController {
         
         Rma rma = rmaOpt.get();
         
-        // Log document and picture information
-        if (rma.getDocuments() != null) {
-            logger.info("RMA {} has {} documents:", id, rma.getDocuments().size());
-            rma.getDocuments().forEach(doc -> {
-                logger.info("  Document: id={}, name='{}', path='{}', exists={}",
-                    doc.getId(), doc.getFileName(), doc.getFilePath(),
-                    uploadUtils.fileExists(doc.getFilePath()));
-            });
-        } else {
-            logger.info("RMA {} has no documents collection", id);
-        }
-        
-        if (rma.getPictures() != null) {
-            logger.info("RMA {} has {} pictures:", id, rma.getPictures().size());
-            rma.getPictures().forEach(pic -> {
-                logger.info("  Picture: id={}, name='{}', path='{}', exists={}",
-                    pic.getId(), pic.getFileName(), pic.getFilePath(),
-                    uploadUtils.fileExists(pic.getFilePath()));
-            });
-        } else {
-            logger.info("RMA {} has no pictures collection", id);
-        }
-        
-        // Add all necessary model attributes
+        // Add all necessary model attributes (lean data only; heavy sections are lazy-loaded)
         model.addAttribute("rma", rma);
+        // Provide initial lightweight counts so badges can render quickly
+        try {
+            Map<String, Integer> counts = rmaService.getRmaCounts(id);
+            model.addAttribute("rmaCounts", counts);
+        } catch (Exception ignore) {}
         model.addAttribute("allRmas", rmaService.getAllRmas());
-        List<Tool> allTools = toolService.getAllTools();
-        model.addAttribute("allTools", allTools);
         model.addAttribute("locations", locationService.getAllLocations());
         model.addAttribute("technicians", userService.getAllUsers());
-        model.addAttribute("rmaComments", rma.getComments());
         
         // Generate HTML options for tools for JavaScript use
         StringBuilder toolOptionsHtml = new StringBuilder();
+        List<Tool> allTools = toolService.getAllTools();
         for (Tool tool : allTools) {
             String displayName = tool.getName();
             if (tool.getSecondaryName() != null && !tool.getSecondaryName().isEmpty()) {
@@ -564,6 +544,73 @@ public class RmaController {
         model.addAttribute("allTrackTrends", trackTrendService.getAllTrackTrends());
         
         return "rma/view";
+    }
+
+    /**
+     * Lazy JSON endpoints for heavy sections
+     */
+    @GetMapping("/{id}/api/counts")
+    @ResponseBody
+    public Map<String, Integer> getCounts(@PathVariable Long id) {
+        return rmaService.getRmaCounts(id);
+    }
+
+    @GetMapping("/{id}/api/documents")
+    @ResponseBody
+    public List<?> getDocuments(@PathVariable Long id) {
+        return rmaService.getRmaByIdInitialized(id)
+                .map(r -> r.getDocuments() == null ? List.of() : r.getDocuments().stream().map(d -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", d.getId());
+                    m.put("fileName", d.getFileName());
+                    m.put("filePath", d.getFilePath());
+                    return m;
+                }).toList())
+                .orElse(List.of());
+    }
+
+    @GetMapping("/{id}/api/pictures")
+    @ResponseBody
+    public List<?> getPictures(@PathVariable Long id) {
+        return rmaService.getRmaByIdInitialized(id)
+                .map(r -> r.getPictures() == null ? List.of() : r.getPictures().stream().map(p -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", p.getId());
+                    m.put("fileName", p.getFileName());
+                    m.put("filePath", p.getFilePath());
+                    return m;
+                }).toList())
+                .orElse(List.of());
+    }
+
+    @GetMapping("/{id}/api/comments")
+    @ResponseBody
+    public List<?> getComments(@PathVariable Long id) {
+        return rmaService.getRmaByIdInitialized(id)
+                .map(r -> r.getComments() == null ? List.of() : r.getComments().stream().map(c -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", c.getId());
+                    m.put("content", c.getContent());
+                    m.put("createdDate", c.getCreatedDate());
+                    m.put("author", c.getUser() != null ? c.getUser().getName() : null);
+                    return m;
+                }).toList())
+                .orElse(List.of());
+    }
+
+    @GetMapping("/{id}/api/parts")
+    @ResponseBody
+    public List<?> getParts(@PathVariable Long id) {
+        return rmaService.getRmaByIdInitialized(id)
+                .map(r -> r.getPartLineItems() == null ? List.of() : r.getPartLineItems().stream().map(p -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("partName", p.getPartName());
+                    m.put("partNumber", p.getPartNumber());
+                    m.put("productDescription", p.getProductDescription());
+                    m.put("quantity", p.getQuantity());
+                    return m;
+                }).toList())
+                .orElse(List.of());
     }
 
     @GetMapping("/edit/{id}")

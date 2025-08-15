@@ -866,7 +866,7 @@
                             <option th:each="otherRma : ${allRmas}" 
                                     th:if="${otherRma.id != rma.id}" 
                                     th:value="${otherRma.id}" 
-                                    th:text="${(otherRma.rmaNumber != null ? otherRma.rmaNumber : 'RMA-' + otherRma.id) + 
+                                    th:text="${(otherRma.rmaNumber != null ? otherRma.rmaNumber : 'RMA NOT PROVIDED') + 
                                               ' - ' + (otherRma.tool != null ? otherRma.tool.name : 'No Tool') + 
                                               ' - ' + (otherRma.customerName != null ? otherRma.customerName : 'No Customer')}">
                                 RMA Number - Tool - Customer

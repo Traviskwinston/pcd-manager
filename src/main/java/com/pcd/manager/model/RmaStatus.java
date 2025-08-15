@@ -6,6 +6,7 @@ public enum RmaStatus {
     MEMO_EMAILED("Shipping Memo Emailed"),
     RECEIVED_PARTS("Received Parts"),
     WAITING_CUSTOMER("Waiting on Customer"),
+    WAITING_ENGINEERING("Waiting on Engineering"),
     WAITING_FSE("Waiting on FSE"),
     COMPLETED("Completed");
     

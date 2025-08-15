@@ -156,52 +156,37 @@ public class RmaService {
     @Transactional(readOnly = true)
     @Cacheable(value = "rma-details", key = "#id")
     public Optional<Rma> getRmaById(Long id) {
-        logger.info("Getting RMA by ID: {} (cacheable)", id);
+        logger.info("Getting RMA by ID (lean): {}", id);
+        return rmaRepository.findById(id);
+    }
+
+    /**
+     * Heavy variant used only when full initialization is explicitly required (diagnostics)
+     */
+    @Transactional(readOnly = true)
+    public Optional<Rma> getRmaByIdInitialized(Long id) {
         Optional<Rma> rmaOpt = rmaRepository.findById(id);
-        
         rmaOpt.ifPresent(rma -> {
-            // Force initialization of collections
-            if (rma.getDocuments() != null) {
-                Hibernate.initialize(rma.getDocuments());
-                logger.info("Initialized {} documents for RMA {}", rma.getDocuments().size(), id);
-                // Initialize each document's data
-                rma.getDocuments().forEach(doc -> {
-                    Hibernate.initialize(doc);
-                    logger.debug("Document: id={}, name='{}', path='{}'", 
-                        doc.getId(), doc.getFileName(), doc.getFilePath());
-                });
-            }
-            
-            if (rma.getPictures() != null) {
-                Hibernate.initialize(rma.getPictures());
-                logger.info("Initialized {} pictures for RMA {}", rma.getPictures().size(), id);
-                // Initialize each picture's data
-                rma.getPictures().forEach(pic -> {
-                    Hibernate.initialize(pic);
-                    logger.debug("Picture: id={}, name='{}', path='{}'", 
-                        pic.getId(), pic.getFileName(), pic.getFilePath());
-                });
-            }
-            
-            if (rma.getComments() != null) {
-                Hibernate.initialize(rma.getComments());
-                logger.debug("Initialized {} comments for RMA {}", rma.getComments().size(), id);
-            }
-            
-            // Initialize part line items collection to avoid LazyInitializationException
-            if (rma.getPartLineItems() != null) {
-                Hibernate.initialize(rma.getPartLineItems());
-                logger.debug("Initialized {} part line items for RMA {}", rma.getPartLineItems().size(), id);
-            }
-            
-            // Initialize movement entries collection to avoid LazyInitializationException
-            if (rma.getMovementEntries() != null) {
-                Hibernate.initialize(rma.getMovementEntries());
-                logger.debug("Initialized {} movement entries for RMA {}", rma.getMovementEntries().size(), id);
-            }
+            if (rma.getDocuments() != null) Hibernate.initialize(rma.getDocuments());
+            if (rma.getPictures() != null) Hibernate.initialize(rma.getPictures());
+            if (rma.getComments() != null) Hibernate.initialize(rma.getComments());
+            if (rma.getPartLineItems() != null) Hibernate.initialize(rma.getPartLineItems());
+            if (rma.getMovementEntries() != null) Hibernate.initialize(rma.getMovementEntries());
         });
-        
         return rmaOpt;
+    }
+
+    @Cacheable(value = "rma-details", key = "'counts-' + #id")
+    @Transactional(readOnly = true)
+    public Map<String, Integer> getRmaCounts(Long id) {
+        Map<String, Integer> counts = new HashMap<>();
+        counts.put("documents", (int) rmaDocumentRepository.countByRmaId(id));
+        counts.put("pictures", (int) rmaPictureRepository.countByRmaId(id));
+        rmaRepository.findById(id).ifPresent(r -> {
+            counts.put("comments", r.getComments() != null ? r.getComments().size() : 0);
+            counts.put("parts", r.getPartLineItems() != null ? r.getPartLineItems().size() : 0);
+        });
+        return counts;
     }
 
     @Transactional
@@ -217,6 +202,14 @@ public class RmaService {
             if (rmaToSave.getPartLineItems() == null) rmaToSave.setPartLineItems(new ArrayList<>());
             if (rmaToSave.getDocuments() == null) rmaToSave.setDocuments(new ArrayList<>());
             if (rmaToSave.getPictures() == null) rmaToSave.setPictures(new ArrayList<>());
+
+            // Set default status when creating a new RMA without a provided number
+            if (rmaToSave.getId() == null) {
+                String ref = rmaToSave.getReferenceNumber();
+                if (ref == null || ref.trim().isEmpty()) {
+                    rmaToSave.setStatus(RmaStatus.WAITING_ENGINEERING);
+                }
+            }
 
             // Save the RMA first to get an ID
             logger.info("Saving RMA to get ID");

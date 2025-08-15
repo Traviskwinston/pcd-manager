@@ -203,8 +203,9 @@
                                                     (rma.status.name() == 'MEMO_EMAILED' ? 'bg-secondary' :
                                                     (rma.status.name() == 'RECEIVED_PARTS' ? 'bg-warning' : 
                                                     (rma.status.name() == 'WAITING_CUSTOMER' ? 'bg-danger' : 
+                                                    (rma.status.name() == 'WAITING_ENGINEERING' ? 'bg-danger' : 
                                                     (rma.status.name() == 'WAITING_FSE' ? 'bg-danger' : 
-                                  (rma.status.name() == 'COMPLETED' ? 'bg-success' : 'bg-light text-dark')))))))}"
+                                  (rma.status.name() == 'COMPLETED' ? 'bg-success' : 'bg-light text-dark'))))))))}"
                               th:text="${rma.status?.displayName}"
                                                     onclick="enterStatusEditMode()"
                               title="Click to change status">Status</span>
@@ -1486,7 +1487,7 @@
                                 <option th:each="otherRma : ${allRmas}" 
                                         th:if="${otherRma.id != rma.id}" 
                                         th:value="${otherRma.id}" 
-                                        th:text="${(otherRma.rmaNumber != null ? otherRma.rmaNumber : 'RMA-' + otherRma.id) + 
+                                        th:text="${(otherRma.rmaNumber != null ? otherRma.rmaNumber : 'RMA NOT PROVIDED') + 
                                                 (otherRma.customerName != null ? ' - ' + otherRma.customerName : '')}">
                                 </option>
                             </select>
@@ -1538,7 +1539,7 @@
                                     <option th:each="rmaOption : ${allRmas}"
                                             th:if="${rmaOption.id != rma.id}" 
                                             th:value="${rmaOption.id}" 
-                                            th:text="${(rmaOption.rmaNumber ?: ('RMA-' + rmaOption.id)) + (rmaOption.customerName != null ? ' - ' + rmaOption.customerName : '')}">
+                                            th:text="${(rmaOption.rmaNumber ?: 'RMA NOT PROVIDED') + (rmaOption.customerName != null ? ' - ' + rmaOption.customerName : '')}">
                                     </option>
                                 </th:block>
                             </select>
@@ -2251,6 +2252,7 @@
                     else if (data.newStatus === 'MEMO_EMAILED') badgeClass += 'bg-secondary';
                     else if (data.newStatus === 'RECEIVED_PARTS') badgeClass += 'bg-warning';
                     else if (data.newStatus === 'WAITING_CUSTOMER') badgeClass += 'bg-danger';
+                    else if (data.newStatus === 'WAITING_ENGINEERING') badgeClass += 'bg-danger';
                     else if (data.newStatus === 'WAITING_FSE') badgeClass += 'bg-danger';
                     else if (data.newStatus === 'COMPLETED') badgeClass += 'bg-success';
                     else badgeClass += 'bg-light text-dark';

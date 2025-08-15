@@ -462,6 +462,15 @@
                                             <li class="dropdown-item-text">
                                                 <div class="status-filter-item">
                                                     <div class="status-filter-left">
+                                                        <span class="badge bg-danger status-count-square status-count" data-status="WAITING_ENGINEERING">0</span>
+                                                        <span>Waiting on Engineering</span>
+                                                    </div>
+                                                    <input class="form-check-input status-filter" type="checkbox" value="WAITING_ENGINEERING" id="status-WAITING_ENGINEERING" checked>
+                                                </div>
+                                            </li>
+                                            <li class="dropdown-item-text">
+                                                <div class="status-filter-item">
+                                                    <div class="status-filter-left">
                                                         <span class="badge bg-danger status-count-square status-count" data-status="WAITING_FSE">0</span>
                                                         <span>Waiting on FSE</span>
                                                     </div>
@@ -613,7 +622,7 @@
                                 th:attr="data-tool=*{tool != null ? tool.name : ''},
                                          data-parts=${#strings.listJoin(rma.partLineItems.![partName ?: partNumber ?: productDescription], ' ')},
                                          data-part-numbers=${#strings.listJoin(rma.partLineItems.![partNumber], ' ')},
-                                         data-rma-number=*{referenceNumber ?: ''},
+                                         data-rma-number=*{referenceNumber ?: 'RMA NOT PROVIDED'},
                                          data-status=*{status != null ? status.name() : ''},
                                          data-priority=*{priority != null ? priority.name() : 'MEDIUM'},
                                          data-written-date=*{writtenDate != null ? #temporals.format(writtenDate, 'yyyy-MM-dd') : ''},
@@ -627,16 +636,18 @@
                                          data-created-at=*{createdDate != null ? #temporals.format(createdDate, 'yyyy-MM-dd HH:mm') : ''}">
                                 <!-- RMA Number & Problem Description Popover -->
                                 <td>
-                                    <span class="rma-number" th:text="*{referenceNumber ?: 'N/A'}">RMA/SAP Number</span>
-                                    <!-- Problem details icon with lazy loading -->
+                                    <span class="rma-number">
+                                        ${rma.rmaNumber && rma.rmaNumber.trim().length > 0 ? rma.rmaNumber : 'RMA# Not Provided'}
+                                    </span>
+
                                     <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
-                                       th:attr="data-rma-id=*{id},
-                                                data-rma-number=*{referenceNumber ?: ('RMA-' + id)}"
+                                       data-rma-id="${rma.id}"
+                                       data-rma-number="${(rma.rmaNumber && rma.rmaNumber.trim().length > 0) ? rma.rmaNumber : 'RMA NOT PROVIDED'}"
                                        data-bs-toggle="popover"
                                        data-bs-placement="right"
                                        data-bs-trigger="hover focus click"
                                        data-bs-html="true"
-                                       th:data-bs-title="'Problem Details for ' + (*{referenceNumber} ?: ('RMA-' + *{id}))"
+                                       data-bs-title="Problem Details for ${(rma.rmaNumber && rma.rmaNumber.trim().length > 0) ? rma.rmaNumber : 'RMA NOT PROVIDED'}"
                                        data-bs-content="Loading problem details..."
                                        title="Hover to load problem details"></i>
                                 </td>
@@ -673,6 +684,7 @@
                                         <span th:case="'MEMO_EMAILED'" class="badge rounded-pill bg-secondary status-badge" th:text="*{status.displayName}"></span>
                                         <span th:case="'RECEIVED_PARTS'" class="badge rounded-pill bg-warning text-dark status-badge" th:text="*{status.displayName}"></span>
                                         <span th:case="'WAITING_CUSTOMER'" class="badge rounded-pill bg-danger status-badge" th:text="*{status.displayName}"></span>
+                                        <span th:case="'WAITING_ENGINEERING'" class="badge rounded-pill bg-danger status-badge" th:text="*{status.displayName}"></span>
                                         <span th:case="'WAITING_FSE'" class="badge rounded-pill bg-danger status-badge" th:text="*{status.displayName}"></span>
                                         <span th:case="'COMPLETED'" class="badge rounded-pill bg-success status-badge" th:text="*{status.displayName}"></span>
                                         <span th:case="*" class="badge rounded-pill bg-light text-dark status-badge" th:text="*{status.displayName}"></span>
@@ -1953,6 +1965,7 @@
                         'MEMO_EMAILED': 'bg-secondary',
                         'RECEIVED_PARTS': 'bg-warning text-dark',
                         'WAITING_CUSTOMER': 'bg-danger',
+                        'WAITING_ENGINEERING': 'bg-danger',
                         'WAITING_FSE': 'bg-danger',
                         'COMPLETED': 'bg-success'
                     };
@@ -1994,17 +2007,17 @@
                 row.innerHTML = `
                     <td>
                         <span class="rma-number">
-                            ${rma.rmaNumber || `RMA-${rma.id}`}
+                            ${rma.rmaNumber && rma.rmaNumber.trim().length > 0 ? rma.rmaNumber : 'RMA# Not Provided'}
                         </span>
 
                         <i class="bi bi-info-circle-fill problem-popover-icon ms-1"
                            data-rma-id="${rma.id}"
-                           data-rma-number="${rma.rmaNumber || 'RMA NOT PROVIDED'}"
+                           data-rma-number="${(rma.rmaNumber && rma.rmaNumber.trim().length > 0) ? rma.rmaNumber : 'RMA NOT PROVIDED'}"
                            data-bs-toggle="popover"
                            data-bs-placement="right"
                            data-bs-trigger="hover focus click"
                            data-bs-html="true"
-                           data-bs-title="Problem Details for ${rma.rmaNumber || 'RMA NOT PROVIDED'}"
+                           data-bs-title="Problem Details for ${(rma.rmaNumber && rma.rmaNumber.trim().length > 0) ? rma.rmaNumber : 'RMA NOT PROVIDED'}"
                            data-bs-content="Loading problem details..."
                            title="Hover to load problem details"></i>
                     </td>
