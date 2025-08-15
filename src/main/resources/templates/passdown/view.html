@@ -183,7 +183,7 @@
                                 <option value="">-- Select an RMA --</option>
                                 <option th:each="rma : ${allRmas}" 
                                         th:value="${rma.id}" 
-                                        th:text="${(rma.rmaNumber != null ? rma.rmaNumber : 'RMA-' + rma.id) + 
+                                        th:text="${(rma.rmaNumber != null ? rma.rmaNumber : 'RMA NOT PROVIDED') +
                                                  (rma.customerName != null ? ' - ' + rma.customerName : '')}">
                                     RMA Number - Customer
                                 </option>
