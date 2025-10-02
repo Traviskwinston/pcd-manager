@@ -1176,6 +1176,39 @@ public class ToolController {
         
         return "redirect:/tools/" + id;
     }
+    
+    /**
+     * Admin endpoint to unassign a specific user from a tool
+     */
+    @PostMapping("/{id}/admin-unassign")
+    public String adminUnassignUserFromTool(@PathVariable Long id, @RequestParam String userEmail) {
+        logger.info("Admin unassigning user {} from tool ID: {}", userEmail, id);
+        
+        // Get current authenticated user to check admin privileges
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
+            String currentUserEmail = auth.getName();
+            Optional<User> currentUserOpt = userService.getUserByEmail(currentUserEmail);
+            
+            // Check if current user is admin
+            if (currentUserOpt.isPresent() && "ADMIN".equals(currentUserOpt.get().getRole())) {
+                User currentUser = currentUserOpt.get();
+                boolean success = toolService.unassignUserFromTool(id, userEmail);
+                
+                if (success) {
+                    logger.info("Admin {} successfully unassigned tool {} from user {}", currentUserEmail, id, userEmail);
+                } else {
+                    logger.warn("Admin {} failed to unassign tool {} from user {}", currentUserEmail, id, userEmail);
+                }
+            } else {
+                logger.warn("Non-admin user {} attempted to use admin unassign endpoint", currentUserEmail);
+            }
+        } else {
+            logger.warn("No authenticated user found when trying to admin unassign tool");
+        }
+
+        return "redirect:/tools/" + id;
+    }
 
     // TEMPORARILY DISABLED - Note methods require NoteService
     /*

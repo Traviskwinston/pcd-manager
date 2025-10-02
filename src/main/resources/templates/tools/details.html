@@ -374,13 +374,40 @@
                             </span>
             </div>
                         <div class="mt-1">
-                            <small class="text-muted">
-                                <i class="bi bi-clock me-1"></i>
-                                Last updated by: 
-                                <span class="fw-medium">Admin</span>
-                                <span class="mx-1">•</span>
-                                <span th:text="${#temporals.format(T(java.time.LocalDateTime).now(), 'MMM dd, yyyy HH:mm')}">Dec 15, 2024 14:30</span>
-                            </small>
+                            <div class="d-flex flex-wrap align-items-center gap-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-clock me-1"></i>
+                                    Last updated by: 
+                                    <span class="fw-medium">Admin</span>
+                                    <span class="mx-1">•</span>
+                                    <span th:text="${#temporals.format(T(java.time.LocalDateTime).now(), 'MMM dd, yyyy HH:mm')}">Dec 15, 2024 14:30</span>
+                                </small>
+                                
+                                <!-- Assigned Users -->
+                                <div th:if="${usersWithActiveTool != null && !usersWithActiveTool.isEmpty()}" class="d-flex align-items-center gap-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-people me-1"></i>
+                                        Assigned:
+                                    </small>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <span th:each="user : ${usersWithActiveTool}" class="badge bg-primary d-flex align-items-center gap-1">
+                                            <span th:text="${user.name != null && !#strings.isEmpty(user.name) ? user.name : (user.firstName != null ? user.firstName + ' ' + (user.lastName != null ? user.lastName : '') : user.email)}">User Name</span>
+                                            <!-- Admin Unassign X -->
+                                            <button th:if="${currentUser != null && 'ADMIN'.equals(currentUser.role)}" 
+                                                    type="button"
+                                                    class="btn btn-link text-white p-0 border-0 admin-unassign-btn" 
+                                                    style="font-size: 0.75rem; line-height: 1; min-width: auto; height: auto;"
+                                                    title="Unassign User"
+                                                    th:data-user-email="${user.email}"
+                                                    th:data-user-name="${user.name != null && !#strings.isEmpty(user.name) ? user.name : (user.firstName != null ? user.firstName + ' ' + (user.lastName != null ? user.lastName : '') : user.email)}"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#unassignUserModal">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
             </div>
                     </div>
                     <div class="d-flex gap-2">
@@ -682,7 +709,7 @@
                                                     <span th:if="${movingPart.rma.rmaNumber != null and !#strings.isEmpty(movingPart.rma.rmaNumber)}" 
                                                           th:text="${movingPart.rma.rmaNumber}">RMA Number</span>
                                                     <span th:if="${movingPart.rma.rmaNumber == null or #strings.isEmpty(movingPart.rma.rmaNumber)}" 
-                                                          th:text="'RMA-' + ${movingPart.rma.id}">RMA-ID</span>
+                                                          th:text="'RMA NOT PROVIDED'">RMA-ID</span>
                                                 </a>
                                             </div>
                                             <span th:if="${movingPart.rma == null}" class="text-muted">-</span>
@@ -1926,6 +1953,47 @@
         </div>
     </div>
     
+    <!-- Unassign User Modal -->
+    <div class="modal fade" id="unassignUserModal" tabindex="-1" aria-labelledby="unassignUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="unassignUserModalLabel">
+                        <i class="bi bi-person-dash me-2"></i>Unassign User
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to unassign <strong id="unassignUserName">User</strong> from this tool?</p>
+                    <p class="text-muted small">This action will remove the user's assignment to this tool.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form id="unassignUserForm" th:action="@{/tools/{id}/admin-unassign(id=${tool.id})}" method="post" style="display: inline;">
+                        <input type="hidden" id="unassignUserEmail" name="userEmail">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-person-dash me-2"></i>Unassign User
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Handle unassign user modal
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.admin-unassign-btn')) {
+                const btn = e.target.closest('.admin-unassign-btn');
+                const userEmail = btn.getAttribute('data-user-email');
+                const userName = btn.getAttribute('data-user-name');
+                
+                document.getElementById('unassignUserEmail').value = userEmail;
+                document.getElementById('unassignUserName').textContent = userName;
+            }
+        });
+    </script>
+
     <!-- Moving Part Modal JavaScript -->
     <div th:replace="~{fragments/moving-part-modal :: movingPartModalScript('toolDestinationContainer', 'toolAddAnotherDestination')}"></div>
 </body>

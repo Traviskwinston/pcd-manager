@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: pcd-postgres
+    environment:
+      POSTGRES_DB: pcdmanager
+      POSTGRES_USER: pcdmanagerdb_user
+      POSTGRES_PASSWORD: 3g6US1N85mHu4ZiPmVLVF0ES9CEIGkxM
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+

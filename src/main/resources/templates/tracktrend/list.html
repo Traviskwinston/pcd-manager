@@ -192,7 +192,7 @@
                                      data-name=${tt.name},
                                      data-description=${tt.description ?: ''},
                                      data-tools=${affectedToolsMap.get(tt.id) != null ? #strings.listJoin(affectedToolsMap.get(tt.id).![name], ' ') : ''},
-                                     data-rmas=${relatedRmasMap.get(tt.id) != null ? #strings.listJoin(relatedRmasMap.get(tt.id).![referenceNumber ?: ('RMA-' + id)], ' ') : ''}">
+                                     data-rmas=${relatedRmasMap.get(tt.id) != null ? #strings.listJoin(relatedRmasMap.get(tt.id).![referenceNumber ?: 'RMA NOT PROVIDED'], ' ') : ''}">
                             <td style="text-align: left;">
                                 <a th:href="@{/tracktrend/{id}(id=${tt.id})}" class="text-decoration-none text-reset">
                                     <strong th:text="${tt.name}">Track/Trend Name</strong>

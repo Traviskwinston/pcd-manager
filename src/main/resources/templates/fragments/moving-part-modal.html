@@ -17,6 +17,25 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
+                        <div class="mb-2">
+                            <label class="form-label">Filter by Location:</label>
+                            <select class="form-select form-select-sm" id="mp-location-filter">
+                                <option value="__ALL__">All Locations</option>
+                                <option th:each="loc : ${locations}" th:value="${loc.displayName}" th:text="${loc.displayName}"></option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Filter by Tool Type:</label>
+                            <select class="form-select form-select-sm" id="mp-type-filter">
+                                <option value="__ALL__">All Types</option>
+                            </select>
+                        </div>
+                        <!-- Hints for defaults -->
+                        <input type="hidden" id="mp-hint-rma-location" th:if="${rma != null and rma.location != null}" th:value="${rma.location.displayName}" />
+                        <input type="hidden" id="mp-hint-tool-location" th:if="${tool != null}" th:value="${tool.locationName}" />
+                        <input type="hidden" id="mp-hint-default-location" th:if="${defaultLocation != null}" th:value="${defaultLocation.displayName}" />
+                        <input type="hidden" id="mp-hint-rma-type" th:if="${rma != null and rma.tool != null}" th:value="${rma.tool.toolType}" />
+                        <input type="hidden" id="mp-hint-tool-type" th:if="${tool != null}" th:value="${tool.toolType}" />
                         <label for="movingPartName" class="form-label">Part Name:</label>
                         <input type="text" class="form-control" id="movingPartName" name="partName" required>
                     </div>
@@ -28,7 +47,8 @@
                                 <option value="">Select source tool...</option>
                                 <option th:each="t : ${tools}"
                                         th:value="${t.id}" 
-                                        th:text="${t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : '')}">
+                                        th:attr="data-location=${t.locationName},data-type=${t.toolType},data-type-display=${t.toolType != null ? t.toolType.getDisplayName() : ''}"
+                                        th:text="${t.toolType != null && t.toolType.name() == 'AMATGASGUARD' ? ((t.systemName != null ? t.systemName : 'GasGuard') + (t.equipmentLocation != null ? ' - ' + t.equipmentLocation : '')) : (t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : ''))}">
                                     Tool Name
                                 </option>
                             </select>
@@ -42,7 +62,8 @@
                                     <option value="">Select destination tool...</option>
                                     <option th:each="t : ${tools}"
                                             th:value="${t.id}" 
-                                            th:text="${t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : '')}">
+                                            th:attr="data-location=${t.locationName},data-type=${t.toolType},data-type-display=${t.toolType != null ? t.toolType.getDisplayName() : ''}"
+                                            th:text="${t.toolType != null && t.toolType.name() == 'AMATGASGUARD' ? ((t.systemName != null ? t.systemName : 'GasGuard') + (t.equipmentLocation != null ? ' - ' + t.equipmentLocation : '')) : (t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : ''))}">
                                         Tool Name
                                     </option>
                                 </select>
@@ -84,6 +105,19 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label">Filter by Location:</label>
+                        <select class="form-select form-select-sm" id="mp-edit-location-filter">
+                            <option value="__ALL__">All Locations</option>
+                            <option th:each="loc : ${locations}" th:value="${loc.displayName}" th:text="${loc.displayName}"></option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Filter by Tool Type:</label>
+                        <select class="form-select form-select-sm" id="mp-edit-type-filter">
+                            <option value="__ALL__">All Types</option>
+                        </select>
+                    </div>
                     <div class="mb-3">
                         <label for="editPartName" class="form-label">Part Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="editPartName" name="partName" required>
@@ -98,7 +132,8 @@
                                     <option value="">Select source tool</option>
                                     <option th:each="tool : ${tools}" 
                                             th:value="${tool.id}" 
-                                            th:text="${tool.name}">Tool Name</option>
+                                            th:attr="data-location=${tool.locationName},data-type=${tool.toolType},data-type-display=${tool.toolType != null ? tool.toolType.getDisplayName() : ''}"
+                                            th:text="${tool.toolType != null && tool.toolType.name() == 'AMATGASGUARD' ? ((tool.systemName != null ? tool.systemName : 'GasGuard') + (tool.equipmentLocation != null ? ' - ' + tool.equipmentLocation : '')) : tool.name}">Tool Name</option>
                                 </select>
                             </div>
                             <div class="col-md-8">
@@ -152,6 +187,91 @@
                 }
             }
         });
+
+        // Populate location filters from the current tool options
+        const collectLocations = () => {
+            const locs = new Set();
+            document.querySelectorAll('#fromToolId option[data-location], .destination-select option[data-location], #editFromToolId option[data-location]').forEach(opt => {
+                const loc = (opt.getAttribute('data-location') || '').trim();
+                if (loc) locs.add(loc);
+            });
+            return Array.from(locs).sort();
+        };
+
+        const applyFilter = (filterValue) => {
+            const showAll = !filterValue || filterValue === '__ALL__';
+            const selectors = ['#fromToolId', '.destination-select', '#editFromToolId'];
+            selectors.forEach(sel => {
+                document.querySelectorAll(sel).forEach(selectEl => {
+                    Array.from(selectEl.options).forEach(opt => {
+                        const loc = (opt.getAttribute('data-location') || '').trim();
+                        if (!opt.value) { opt.hidden = false; return; }
+                        opt.hidden = !showAll && loc !== filterValue;
+                    });
+                });
+            });
+        };
+
+        const initFilterDropdown = (dropdownId) => {
+            const dd = document.getElementById(dropdownId);
+            if (!dd) return;
+            // Fill options once
+            if (dd.options.length <= 1) {
+                collectLocations().forEach(loc => {
+                    const o = document.createElement('option');
+                    o.value = loc; o.textContent = loc;
+                    dd.appendChild(o);
+                });
+            }
+            // Default to current visible location if any option matches initially selected tool
+            dd.addEventListener('change', () => applyFilter(dd.value));
+        };
+
+        initFilterDropdown('mp-location-filter');
+        initFilterDropdown('mp-edit-location-filter');
+        // Apply default filter (current value or __ALL__)
+        const defaultAdd = document.getElementById('mp-location-filter');
+        applyFilter(defaultAdd ? defaultAdd.value : '__ALL__');
+
+        // Tool type filter population and logic
+        const collectTypes = () => {
+            const types = new Set();
+            document.querySelectorAll('#fromToolId option[data-type], .destination-select option[data-type], #editFromToolId option[data-type]').forEach(opt => {
+                const type = (opt.getAttribute('data-type-display') || opt.getAttribute('data-type') || '').trim();
+                if (type) types.add(type);
+            });
+            return Array.from(types).sort();
+        };
+
+        const applyTypeFilter = (typeValue) => {
+            const showAll = !typeValue || typeValue === '__ALL__';
+            const selectors = ['#fromToolId', '.destination-select', '#editFromToolId'];
+            selectors.forEach(sel => {
+                document.querySelectorAll(sel).forEach(selectEl => {
+                    Array.from(selectEl.options).forEach(opt => {
+                        if (!opt.value) { opt.hidden = false; return; }
+                        const type = (opt.getAttribute('data-type-display') || opt.getAttribute('data-type') || '').trim();
+                        opt.hidden = !showAll && type !== typeValue;
+                    });
+                });
+            });
+        };
+
+        const initTypeDropdown = (dropdownId) => {
+            const dd = document.getElementById(dropdownId);
+            if (!dd) return;
+            if (dd.options.length <= 1) {
+                collectTypes().forEach(t => {
+                    const o = document.createElement('option');
+                    o.value = t; o.textContent = t;
+                    dd.appendChild(o);
+                });
+            }
+            dd.addEventListener('change', () => applyTypeFilter(dd.value));
+        };
+
+        initTypeDropdown('mp-type-filter');
+        initTypeDropdown('mp-edit-type-filter');
     });
     
     function addDestinationRow(containerId) {
