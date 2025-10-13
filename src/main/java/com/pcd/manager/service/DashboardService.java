@@ -1,6 +1,7 @@
 package com.pcd.manager.service;
 
 import com.pcd.manager.model.Passdown;
+import com.pcd.manager.model.Tool;
 import com.pcd.manager.model.TrackTrend;
 import com.pcd.manager.repository.PassdownRepository;
 import com.pcd.manager.repository.ToolRepository;
@@ -19,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class DashboardService {
@@ -60,7 +62,7 @@ public class DashboardService {
                 .distinct()
                 .collect(Collectors.toList());
         List<String> passdownTools = recentPassdowns.stream()
-                .map(pd -> pd.getTool() != null ? pd.getTool().getName() : null)
+                .flatMap(pd -> pd.getTools() != null ? pd.getTools().stream().map(Tool::getName) : Stream.empty())
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());

@@ -70,6 +70,7 @@ public class RmaController {
     private final ExcelService excelService;
     private final MovingPartService movingPartService;
     private final TrackTrendService trackTrendService;
+    private final CustomLocationService customLocationService;
     
     // Repository dependencies for optimized queries
     private final com.pcd.manager.repository.RmaRepository rmaRepository;
@@ -87,6 +88,7 @@ public class RmaController {
                          ExcelService excelService,
                          MovingPartService movingPartService,
                          TrackTrendService trackTrendService,
+                         CustomLocationService customLocationService,
                          com.pcd.manager.repository.RmaRepository rmaRepository,
                          com.pcd.manager.repository.RmaCommentRepository rmaCommentRepository,
                          com.pcd.manager.repository.MovingPartRepository movingPartRepository) {
@@ -100,6 +102,7 @@ public class RmaController {
         this.excelService = excelService;
         this.movingPartService = movingPartService;
         this.trackTrendService = trackTrendService;
+        this.customLocationService = customLocationService;
         this.rmaRepository = rmaRepository;
         this.rmaCommentRepository = rmaCommentRepository;
         this.movingPartRepository = movingPartRepository;
@@ -416,32 +419,81 @@ public class RmaController {
                 
                 logger.info("Found currentUserName: {}", currentUserName);
                 
+                // Pre-fill technician info from current user
+                rma.setFieldTechName(currentUserName);
+                if (user.getPhoneNumber() != null) {
+                    rma.setFieldTechPhone(user.getPhoneNumber());
+                }
+                if (user.getEmail() != null) {
+                    rma.setFieldTechEmail(user.getEmail());
+                }
+                
                 // Set location with priority order:
                 // 1. User's active site (this is what we're adding/prioritizing)
                 // 2. User's default location 
                 // 3. User's active tool's location
+                Location selectedLocation = null;
                 if (user.getActiveSite() != null) {
-                    rma.setLocation(user.getActiveSite());
-                    logger.info("Set default location to user's active site: {}", user.getActiveSite().getDisplayName());
+                    selectedLocation = user.getActiveSite();
+                    rma.setLocation(selectedLocation);
+                    logger.info("Set default location to user's active site: {}", selectedLocation.getDisplayName());
                 } else if (user.getDefaultLocation() != null) {
-                    rma.setLocation(user.getDefaultLocation());
-                    logger.info("Set default location to user's default location: {}", user.getDefaultLocation().getDisplayName());
+                    selectedLocation = user.getDefaultLocation();
+                    rma.setLocation(selectedLocation);
+                    logger.info("Set default location to user's default location: {}", selectedLocation.getDisplayName());
                 } else if (user.getActiveTool() != null && user.getActiveTool().getLocationName() != null) {
                     // Find the Location object by name from the tool's location name
                     Optional<Location> toolLocation = locationService.getLocationByName(user.getActiveTool().getLocationName());
                     if (toolLocation.isPresent()) {
-                        rma.setLocation(toolLocation.get());
+                        selectedLocation = toolLocation.get();
+                        rma.setLocation(selectedLocation);
                         logger.info("Set default location to user's active tool location: {}", user.getActiveTool().getLocationName());
                     }
                 } else {
                     // If no user-specific location, try to get the system default location
                     Optional<Location> defaultLocation = locationService.getDefaultLocation();
                     if (defaultLocation.isPresent()) {
-                        rma.setLocation(defaultLocation.get());
-                        logger.info("Set default location to system default: {}", defaultLocation.get().getDisplayName());
+                        selectedLocation = defaultLocation.get();
+                        rma.setLocation(selectedLocation);
+                        logger.info("Set default location to system default: {}", selectedLocation.getDisplayName());
                     } else {
                         logger.warn("No default location found for RMA form");
                     }
+                }
+                
+                // Pre-fill customer info from location if available
+                if (selectedLocation != null) {
+                    if (selectedLocation.getCustomerName() != null) {
+                        rma.setCustomerName(selectedLocation.getCustomerName());
+                    }
+                    if (selectedLocation.getCustomerPhone() != null) {
+                        rma.setCustomerPhone(selectedLocation.getCustomerPhone());
+                    }
+                    if (selectedLocation.getCustomerEmail() != null) {
+                        rma.setCustomerEmail(selectedLocation.getCustomerEmail());
+                    }
+                    
+                    // Pre-fill shipping address
+                    if (selectedLocation.getShipToName() != null) {
+                        rma.setCompanyShipToName(selectedLocation.getShipToName());
+                    }
+                    if (selectedLocation.getShipToAddress() != null) {
+                        rma.setCompanyShipToAddress(selectedLocation.getShipToAddress());
+                    }
+                    if (selectedLocation.getShipToCity() != null) {
+                        rma.setCity(selectedLocation.getShipToCity());
+                    }
+                    if (selectedLocation.getShipToState() != null) {
+                        rma.setState(selectedLocation.getShipToState());
+                    }
+                    if (selectedLocation.getShipToZip() != null) {
+                        rma.setZipCode(selectedLocation.getShipToZip());
+                    }
+                    if (selectedLocation.getShipToAttn() != null) {
+                        rma.setAttn(selectedLocation.getShipToAttn());
+                    }
+                    
+                    logger.info("Pre-filled customer info and shipping address from location defaults");
                 }
             } else {
                 logger.warn("Could not find user with username: {}", username);
@@ -477,11 +529,31 @@ public class RmaController {
         
         model.addAttribute("rma", rma);
         model.addAttribute("locations", locationService.getAllLocations());
-        model.addAttribute("tools", toolService.getAllTools());
+        
+        // Get and sort tools alphabetically
+        List<Tool> tools = toolService.getAllTools();
+        tools.sort((t1, t2) -> {
+            String name1 = t1.getName() != null ? t1.getName().toLowerCase() : "";
+            String name2 = t2.getName() != null ? t2.getName().toLowerCase() : "";
+            return name1.compareTo(name2);
+        });
+        model.addAttribute("tools", tools);
+        
         model.addAttribute("technicians", userService.getAllUsers());
         
         // Add current user name to the model for use in the form
         model.addAttribute("currentUserName", currentUserName);
+        
+        // Add custom locations for the moving parts modal
+        if (authentication != null && authentication.getName() != null) {
+            userService.getUserByEmail(authentication.getName()).ifPresent(user -> {
+                if (user.getActiveSite() != null) {
+                    Map<CustomLocation, Integer> customLocationsWithCounts = 
+                        customLocationService.getCustomLocationsWithPartCounts(user.getActiveSite());
+                    model.addAttribute("customLocations", customLocationsWithCounts);
+                }
+            });
+        }
         
         return "rma/form";
     }
@@ -513,6 +585,12 @@ public class RmaController {
         // Generate HTML options for tools for JavaScript use
         StringBuilder toolOptionsHtml = new StringBuilder();
         List<Tool> allTools = toolService.getAllTools();
+        // Sort tools alphabetically by name
+        allTools.sort((t1, t2) -> {
+            String name1 = t1.getName() != null ? t1.getName().toLowerCase() : "";
+            String name2 = t2.getName() != null ? t2.getName().toLowerCase() : "";
+            return name1.compareTo(name2);
+        });
         for (Tool tool : allTools) {
             String displayName = tool.getName();
             if (tool.getSecondaryName() != null && !tool.getSecondaryName().isEmpty()) {
@@ -522,6 +600,19 @@ public class RmaController {
                            .append(displayName).append("</option>");
         }
         model.addAttribute("allToolsOptions", toolOptionsHtml.toString());
+        model.addAttribute("allTools", allTools);
+        
+        // Add custom locations for the moving parts modal
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            userService.getUserByEmail(auth.getName()).ifPresent(currentUser -> {
+                if (currentUser.getActiveSite() != null) {
+                    Map<CustomLocation, Integer> customLocationsWithCounts = 
+                        customLocationService.getCustomLocationsWithPartCounts(currentUser.getActiveSite());
+                    model.addAttribute("customLocations", customLocationsWithCounts);
+                }
+            });
+        }
         
         // Add moving parts and their destination chains
         List<MovingPart> movingParts = movingPartService.getMovingPartsByRmaId(id);
@@ -619,7 +710,16 @@ public class RmaController {
                                Model model) {
         rmaService.getRmaById(id).ifPresent(rma -> model.addAttribute("rma", rma));
         model.addAttribute("locations", locationService.getAllLocations());
-        model.addAttribute("tools", toolService.getAllTools());
+        
+        // Get and sort tools alphabetically
+        List<Tool> tools = toolService.getAllTools();
+        tools.sort((t1, t2) -> {
+            String name1 = t1.getName() != null ? t1.getName().toLowerCase() : "";
+            String name2 = t2.getName() != null ? t2.getName().toLowerCase() : "";
+            return name1.compareTo(name2);
+        });
+        model.addAttribute("tools", tools);
+        
         model.addAttribute("technicians", userService.getAllUsers());
         model.addAttribute("importExcel", importExcel);
         
@@ -629,6 +729,18 @@ public class RmaController {
         // Add moving parts associated with this RMA
         List<MovingPart> movingParts = movingPartService.getMovingPartsByRmaId(id);
         model.addAttribute("movingParts", movingParts);
+        
+        // Add custom locations for the moving parts modal
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            userService.getUserByEmail(auth.getName()).ifPresent(currentUser -> {
+                if (currentUser.getActiveSite() != null) {
+                    Map<CustomLocation, Integer> customLocationsWithCounts = 
+                        customLocationService.getCustomLocationsWithPartCounts(currentUser.getActiveSite());
+                    model.addAttribute("customLocations", customLocationsWithCounts);
+                }
+            });
+        }
         
         return "rma/form";
     }
@@ -1970,8 +2082,10 @@ public class RmaController {
     @PostMapping("/{id}/moving-parts/add")
     public String addMovingPartFromRma(@PathVariable("id") Long rmaId,
                                      @RequestParam("partName") String partName,
-                                     @RequestParam("fromToolId") Long fromToolId,
-                                     @RequestParam("destinationToolIds") List<Long> destinationToolIds,
+                                     @RequestParam(value = "fromToolId", required = false) Long fromToolId,
+                                     @RequestParam(value = "fromCustomLocation", required = false) String fromCustomLocation,
+                                     @RequestParam(value = "destinationToolIds", required = false) List<Long> destinationToolIds,
+                                     @RequestParam(value = "toCustomLocations", required = false) List<String> toCustomLocations,
                                      @RequestParam(value = "notes", required = false) String notes,
                                      RedirectAttributes redirectAttributes) {
         
@@ -1985,7 +2099,11 @@ public class RmaController {
             
             Rma rma = rmaOpt.get();
             
-            MovingPart movingPart = movingPartService.createMovingPart(partName, fromToolId, destinationToolIds, notes, null, rma);
+            // Note: Validation is handled by JavaScript on the frontend
+            
+            MovingPart movingPart = movingPartService.createMovingPart(partName, fromToolId, fromCustomLocation, 
+                                                                       destinationToolIds, toCustomLocations, 
+                                                                       notes, null, rma);
             
             redirectAttributes.addFlashAttribute("message", "Moving part recorded successfully");
         } catch (Exception e) {
@@ -3021,23 +3139,43 @@ public class RmaController {
             Map<String, String[]> parameterMap = request.getParameterMap();
             Map<Integer, Map<String, String>> tempMovingParts = new HashMap<>();
             
-            // Group parameters by index
-            for (String paramName : parameterMap.keySet()) {
-                if (paramName.startsWith("tempMovingParts[")) {
-                    // Extract index and field name
-                    int startIndex = paramName.indexOf('[') + 1;
-                    int endIndex = paramName.indexOf(']');
-                    int dotIndex = paramName.indexOf('.', endIndex);
-                    
-                    if (startIndex > 0 && endIndex > startIndex && dotIndex > endIndex) {
-                        try {
-                            int index = Integer.parseInt(paramName.substring(startIndex, endIndex));
-                            String fieldName = paramName.substring(dotIndex + 1);
-                            String value = request.getParameter(paramName);
-                            
-                            tempMovingParts.computeIfAbsent(index, k -> new HashMap<>()).put(fieldName, value);
-                        } catch (NumberFormatException e) {
-                            logger.warn("Invalid index in temp moving part parameter: {}", paramName);
+            // Check for new array-based format first (movingPartNames[], movingPartFroms[], etc.)
+            String[] partNames = request.getParameterValues("movingPartNames");
+            String[] partFroms = request.getParameterValues("movingPartFroms");
+            String[] partTos = request.getParameterValues("movingPartTos");
+            String[] partNotes = request.getParameterValues("movingPartNotes");
+            
+            if (partNames != null && partNames.length > 0) {
+                logger.info("Found {} moving parts in new array format", partNames.length);
+                // Use new array-based format
+                for (int i = 0; i < partNames.length; i++) {
+                    Map<String, String> partData = new HashMap<>();
+                    partData.put("partName", partNames[i]);
+                    partData.put("from", partFroms != null && i < partFroms.length ? partFroms[i] : "");
+                    partData.put("to", partTos != null && i < partTos.length ? partTos[i] : "");
+                    partData.put("notes", partNotes != null && i < partNotes.length ? partNotes[i] : "");
+                    tempMovingParts.put(i, partData);
+                }
+            } else {
+                // Fallback to old tempMovingParts[index].field format
+                // Group parameters by index
+                for (String paramName : parameterMap.keySet()) {
+                    if (paramName.startsWith("tempMovingParts[")) {
+                        // Extract index and field name
+                        int startIndex = paramName.indexOf('[') + 1;
+                        int endIndex = paramName.indexOf(']');
+                        int dotIndex = paramName.indexOf('.', endIndex);
+                        
+                        if (startIndex > 0 && endIndex > startIndex && dotIndex > endIndex) {
+                            try {
+                                int index = Integer.parseInt(paramName.substring(startIndex, endIndex));
+                                String fieldName = paramName.substring(dotIndex + 1);
+                                String value = request.getParameter(paramName);
+                                
+                                tempMovingParts.computeIfAbsent(index, k -> new HashMap<>()).put(fieldName, value);
+                            } catch (NumberFormatException e) {
+                                logger.warn("Invalid index in temp moving part parameter: {}", paramName);
+                            }
                         }
                     }
                 }
@@ -3046,35 +3184,59 @@ public class RmaController {
             // Create moving parts from the temporary data
             for (Map<String, String> partData : tempMovingParts.values()) {
                 String partName = partData.get("partName");
-                String fromToolIdStr = partData.get("fromToolId");
-                String destinationToolIdsStr = partData.get("destinationToolIds");
+                String from = partData.get("from"); // Can be: toolId, "CL_locationId", "SESSION_locationName", or "CUSTOM:locationName"
+                String to = partData.get("to");     // Same format
                 String notes = partData.get("notes");
                 
-                if (partName != null && !partName.trim().isEmpty() && 
-                    fromToolIdStr != null && !fromToolIdStr.trim().isEmpty()) {
-                    
+                // Fallback to old format
+                if (from == null) from = partData.get("fromToolId");
+                if (to == null) to = partData.get("destinationToolIds");
+                
+                // Validate we have part name and from/to
+                if (partName != null && !partName.trim().isEmpty() && from != null && to != null) {
                     try {
-                        Long fromToolId = Long.parseLong(fromToolIdStr);
+                        // Parse "from" location
+                        Long fromToolId = null;
+                        String fromCustomLocation = null;
+                        
+                        if (from.startsWith("CUSTOM:")) {
+                            fromCustomLocation = from.substring(7); // Remove "CUSTOM:" prefix
+                        } else if (from.startsWith("CL_")) {
+                            // Custom location entity ID - for now, treat as custom text
+                            // TODO: Link to CustomLocation entity
+                            fromCustomLocation = from.substring(3);
+                        } else if (from.startsWith("SESSION_")) {
+                            fromCustomLocation = from.substring(8); // Remove "SESSION_" prefix
+                        } else if (!from.equals("CUSTOM") && !from.trim().isEmpty()) {
+                            fromToolId = Long.parseLong(from);
+                        }
+                        
+                        // Parse "to" location
                         List<Long> destinationToolIds = new ArrayList<>();
+                        List<String> toCustomLocations = new ArrayList<>();
                         
-                        if (destinationToolIdsStr != null && !destinationToolIdsStr.trim().isEmpty()) {
-                            String[] destIds = destinationToolIdsStr.split(",");
-                            for (String destId : destIds) {
-                                destinationToolIds.add(Long.parseLong(destId.trim()));
-                            }
+                        if (to.startsWith("CUSTOM:")) {
+                            toCustomLocations.add(to.substring(7));
+                        } else if (to.startsWith("CL_")) {
+                            // Custom location entity ID - for now, treat as custom text
+                            // TODO: Link to CustomLocation entity
+                            toCustomLocations.add(to.substring(3));
+                        } else if (to.startsWith("SESSION_")) {
+                            toCustomLocations.add(to.substring(8));
+                        } else if (!to.equals("CUSTOM") && !to.trim().isEmpty()) {
+                            destinationToolIds.add(Long.parseLong(to));
                         }
                         
-                        // Create the moving part using the service
-                        if (!destinationToolIds.isEmpty()) {
-                            MovingPart movingPart = movingPartService.createMovingPart(
-                                partName.trim(), fromToolId, destinationToolIds, notes, null, savedRma);
-                            
-                            logger.info("Created moving part '{}' for RMA {}", partName, savedRma.getId());
-                        }
+                        // Create the moving part
+                        MovingPart movingPart = movingPartService.createMovingPart(
+                            partName.trim(), fromToolId, fromCustomLocation, 
+                            destinationToolIds, toCustomLocations, notes, null, savedRma);
+                        
+                        logger.info("Created moving part '{}' for RMA {} (from={}, to={})", 
+                                    partName, savedRma.getId(), from, to);
                         
                     } catch (NumberFormatException e) {
-                        logger.warn("Invalid tool ID in temp moving part data: fromToolId={}, destinationToolIds={}", 
-                                   fromToolIdStr, destinationToolIdsStr);
+                        logger.warn("Invalid tool ID in temp moving part data: from={}, to={}", from, to);
                     } catch (Exception e) {
                         logger.error("Error creating moving part '{}' for RMA {}: {}", 
                                     partName, savedRma.getId(), e.getMessage(), e);

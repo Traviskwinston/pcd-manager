@@ -159,6 +159,43 @@ public class Tool {
     
     @Column
     private LocalDate startUpSl03Date;
+    
+    // Boolean completion flags (independent of dates)
+    @Column(name = "commission_complete")
+    private Boolean commissionComplete;
+    
+    @Column(name = "pre_sl1_complete")
+    private Boolean preSl1Complete;
+    
+    @Column(name = "sl1_complete")
+    private Boolean sl1Complete;
+    
+    @Column(name = "mechanical_pre_sl1_complete")
+    private Boolean mechanicalPreSl1Complete;
+    
+    @Column(name = "mechanical_post_sl1_complete")
+    private Boolean mechanicalPostSl1Complete;
+    
+    @Column(name = "specific_input_functionality_complete")
+    private Boolean specificInputFunctionalityComplete;
+    
+    @Column(name = "modes_of_operation_complete")
+    private Boolean modesOfOperationComplete;
+    
+    @Column(name = "specific_soos_complete")
+    private Boolean specificSoosComplete;
+    
+    @Column(name = "field_service_report_complete")
+    private Boolean fieldServiceReportComplete;
+    
+    @Column(name = "certificate_of_approval_complete")
+    private Boolean certificateOfApprovalComplete;
+    
+    @Column(name = "turned_over_to_customer_complete")
+    private Boolean turnedOverToCustomerComplete;
+    
+    @Column(name = "start_up_sl03_complete")
+    private Boolean startUpSl03Complete;
 
     // Document and picture paths
     @ElementCollection(fetch = FetchType.EAGER)
@@ -251,7 +288,8 @@ public class Tool {
     public enum ToolType {
         CHEMBLEND("ChemBlend"),
         SLURRY("Slurry"),
-        AMATGASGUARD("GasGuard");
+        AMATGASGUARD("GasGuard"),
+        UNKNOWN("Unknown");
         
         private final String displayName;
         
@@ -269,16 +307,17 @@ public class Tool {
     }
     
     // Helper methods to check if a checklist item is completed
+    // Now checks the boolean flag OR the date (for backwards compatibility)
     public boolean isCommissionCompleted() {
-        return commissionDate != null;
+        return Boolean.TRUE.equals(commissionComplete) || commissionDate != null;
     }
     
     public boolean isPreSl1Completed() {
-        return preSl1Date != null;
+        return Boolean.TRUE.equals(preSl1Complete) || preSl1Date != null;
     }
     
     public boolean isSl1Completed() {
-        return sl1Date != null;
+        return Boolean.TRUE.equals(sl1Complete) || sl1Date != null;
     }
     
     public boolean isSl2Completed() {
@@ -294,39 +333,64 @@ public class Tool {
     }
     
     public boolean isMechanicalPreSl1Completed() {
-        return mechanicalPreSl1Date != null;
+        return Boolean.TRUE.equals(mechanicalPreSl1Complete) || mechanicalPreSl1Date != null;
     }
     
     public boolean isMechanicalPostSl1Completed() {
-        return mechanicalPostSl1Date != null;
+        return Boolean.TRUE.equals(mechanicalPostSl1Complete) || mechanicalPostSl1Date != null;
     }
     
-    public boolean isSpecificInputFunctionalityTested() {
-        return specificInputFunctionalityDate != null;
+    public boolean isSpecificInputFunctionalityCompleted() {
+        return Boolean.TRUE.equals(specificInputFunctionalityComplete) || specificInputFunctionalityDate != null;
     }
     
-    public boolean isModesOfOperationTested() {
-        return modesOfOperationDate != null;
+    public boolean isModesOfOperationCompleted() {
+        return Boolean.TRUE.equals(modesOfOperationComplete) || modesOfOperationDate != null;
     }
     
-    public boolean isSpecificSoosTestsed() {
-        return specificSoosDate != null;
+    public boolean isSpecificSoosCompleted() {
+        return Boolean.TRUE.equals(specificSoosComplete) || specificSoosDate != null;
     }
     
-    public boolean isFieldServiceReportUploaded() {
-        return fieldServiceReportDate != null;
+    public boolean isFieldServiceReportCompleted() {
+        return Boolean.TRUE.equals(fieldServiceReportComplete) || fieldServiceReportDate != null;
     }
     
-    public boolean isCertificateOfApprovalUploaded() {
-        return certificateOfApprovalDate != null;
+    public boolean isCertificateOfApprovalCompleted() {
+        return Boolean.TRUE.equals(certificateOfApprovalComplete) || certificateOfApprovalDate != null;
     }
     
-    public boolean isTurnedOverToCustomer() {
-        return turnedOverToCustomerDate != null;
+    public boolean isTurnedOverToCustomerCompleted() {
+        return Boolean.TRUE.equals(turnedOverToCustomerComplete) || turnedOverToCustomerDate != null;
     }
     
     public boolean isStartUpSl03Completed() {
-        return startUpSl03Date != null;
+        return Boolean.TRUE.equals(startUpSl03Complete) || startUpSl03Date != null;
+    }
+    
+    // Legacy method names for backwards compatibility
+    public boolean isSpecificInputFunctionalityTested() {
+        return isSpecificInputFunctionalityCompleted();
+    }
+    
+    public boolean isModesOfOperationTested() {
+        return isModesOfOperationCompleted();
+    }
+    
+    public boolean isSpecificSoosTestsed() {
+        return isSpecificSoosCompleted();
+    }
+    
+    public boolean isFieldServiceReportUploaded() {
+        return isFieldServiceReportCompleted();
+    }
+    
+    public boolean isCertificateOfApprovalUploaded() {
+        return isCertificateOfApprovalCompleted();
+    }
+    
+    public boolean isTurnedOverToCustomer() {
+        return isTurnedOverToCustomerCompleted();
     }
     
     /**

@@ -88,6 +88,17 @@ public class PassdownService {
                 logger.debug("Loaded {} picture names", passdown.getPictureNames().size());
             }
             
+            // Initialize tools and assignedTechs (ManyToMany)
+            if (passdown.getTools() != null) {
+                passdown.getTools().size();
+                logger.debug("Loaded {} tools", passdown.getTools().size());
+            }
+            
+            if (passdown.getAssignedTechs() != null) {
+                passdown.getAssignedTechs().size();
+                logger.debug("Loaded {} assigned techs", passdown.getAssignedTechs().size());
+            }
+            
             return Optional.of(passdown);
         }
         
@@ -118,16 +129,6 @@ public class PassdownService {
     @Transactional
     public Passdown savePassdown(Passdown passdownData, User currentUser, String newPicturePath, String originalFilename) {
         Passdown passdownToSave;
-        Tool selectedTool = null;
-
-        if (passdownData.getTool() != null && passdownData.getTool().getId() != null) {
-            Long toolId = passdownData.getTool().getId();
-            selectedTool = toolService.getToolById(toolId)
-                .orElseThrow(() -> new RuntimeException("Selected Tool not found: " + toolId));
-             logger.debug("Resolved selected tool: ID {}", toolId);
-        } else {
-             logger.debug("No tool selected or tool ID was null.");
-        }
 
         if (passdownData.getId() != null) {
             logger.info("Updating existing passdown ID: {}", passdownData.getId());
@@ -139,22 +140,14 @@ public class PassdownService {
             passdownToSave.setComment(passdownData.getComment());
             passdownToSave.setDate(passdownData.getDate());
             
-            // Only update the tool if a valid tool was actually selected in the submitted data
-            if (selectedTool != null) {
-                logger.debug("Updating tool association for passdown ID: {} to Tool ID: {}", passdownToSave.getId(), selectedTool.getId());
-                passdownToSave.setTool(selectedTool);
-            } else if (passdownData.getTool() == null || passdownData.getTool().getId() == null) {
-                // If no tool info was submitted (e.g., during picture delete), explicitly set tool to null ONLY IF it was intended
-                // Check if the intention was to clear the tool
-                boolean clearToolIntended = (passdownData.getTool() != null && passdownData.getTool().getId() == null); 
-                if (clearToolIntended) {
-                    logger.debug("Clearing tool association for passdown ID: {}", passdownToSave.getId());
-                    passdownToSave.setTool(null);
-                } else {
-                    logger.debug("No tool information submitted, preserving existing tool for passdown ID: {}", passdownToSave.getId());
-                }
-            } else {
-                 logger.debug("No valid tool selected in submitted data, preserving existing tool for passdown ID: {}", passdownToSave.getId());
+            // Update tools (ManyToMany)
+            if (passdownData.getTools() != null) {
+                passdownToSave.setTools(new HashSet<>(passdownData.getTools()));
+            }
+            
+            // Update assigned techs (ManyToMany)
+            if (passdownData.getAssignedTechs() != null) {
+                passdownToSave.setAssignedTechs(new HashSet<>(passdownData.getAssignedTechs()));
             }
             
             // Make sure the collections are initialized
@@ -167,8 +160,13 @@ public class PassdownService {
         } else {
              logger.info("Creating new passdown");
             passdownToSave = passdownData;
-            passdownToSave.setTool(selectedTool);
             // Initialize collections for new entities
+            if (passdownToSave.getTools() == null) {
+                passdownToSave.setTools(new HashSet<>());
+            }
+            if (passdownToSave.getAssignedTechs() == null) {
+                passdownToSave.setAssignedTechs(new HashSet<>());
+            }
             passdownToSave.setPicturePaths(new HashSet<>());
             passdownToSave.setPictureNames(new HashMap<>());
         }
@@ -181,31 +179,33 @@ public class PassdownService {
              passdownToSave.getPicturePaths().add(newPicturePath);
              passdownToSave.getPictureNames().put(newPicturePath, originalFilename);
              
-             // If a tool is selected, also add the picture to the tool
-             if (selectedTool != null) {
-                 logger.debug("Also adding picture to associated tool ID: {}", selectedTool.getId());
-                 // Initialize collections if needed
-                 if (selectedTool.getPicturePaths() == null) {
-                     selectedTool.setPicturePaths(new HashSet<>());
+             // If tools are selected, also add the picture to all tools
+             if (passdownToSave.getTools() != null && !passdownToSave.getTools().isEmpty()) {
+                 for (Tool tool : passdownToSave.getTools()) {
+                     logger.debug("Also adding picture to associated tool ID: {}", tool.getId());
+                     // Initialize collections if needed
+                     if (tool.getPicturePaths() == null) {
+                         tool.setPicturePaths(new HashSet<>());
+                     }
+                     if (tool.getPictureNames() == null) {
+                         tool.setPictureNames(new HashMap<>());
+                     }
+                     
+                     // Add the picture to the tool with a prefix to indicate it's from a passdown
+                     tool.getPicturePaths().add(newPicturePath);
+                     
+                     // Format the passdown info to include user and date
+                     String userInfo = currentUser != null ? (currentUser.getName() != null ? currentUser.getName() : currentUser.getEmail()) : "Unknown User";
+                     String dateInfo = passdownToSave.getDate() != null ? 
+                         passdownToSave.getDate().format(java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy")) : 
+                         java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy"));
+                     
+                     tool.getPictureNames().put(newPicturePath, "Passdown: " + userInfo + " " + dateInfo);
+                     
+                     // Save the tool
+                     toolService.saveTool(tool);
+                     logger.debug("Successfully added passdown picture to tool ID: {}", tool.getId());
                  }
-                 if (selectedTool.getPictureNames() == null) {
-                     selectedTool.setPictureNames(new HashMap<>());
-                 }
-                 
-                 // Add the picture to the tool with a prefix to indicate it's from a passdown
-                 selectedTool.getPicturePaths().add(newPicturePath);
-                 
-                 // Format the passdown info to include user and date
-                 String userInfo = currentUser != null ? (currentUser.getName() != null ? currentUser.getName() : currentUser.getEmail()) : "Unknown User";
-                 String dateInfo = passdownToSave.getDate() != null ? 
-                     passdownToSave.getDate().format(java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy")) : 
-                     java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy"));
-                 
-                 selectedTool.getPictureNames().put(newPicturePath, "Passdown: " + userInfo + " " + dateInfo);
-                 
-                 // Save the tool
-                 toolService.saveTool(selectedTool);
-                 logger.debug("Successfully added passdown picture to tool ID: {}", selectedTool.getId());
              }
         }
 
@@ -267,7 +267,6 @@ public class PassdownService {
         
         if (passdownOpt.isPresent()) {
             Passdown passdown = passdownOpt.get();
-            Tool associatedTool = passdown.getTool();
             
             // Delete associated pictures from the file system
             if (passdown.getPicturePaths() != null && !passdown.getPicturePaths().isEmpty()) {
@@ -277,16 +276,19 @@ public class PassdownService {
                     try {
                         boolean shouldDeletePhysicalFile = true;
                         
-                        // Check if picture is associated with a tool
-                        if (associatedTool != null) {
-                            // Get fresh tool data to ensure collections are loaded
-                            Optional<Tool> toolOpt = toolService.getToolById(associatedTool.getId());
-                            if (toolOpt.isPresent()) {
-                                Tool tool = toolOpt.get();
-                                if (tool.getPicturePaths() != null && tool.getPicturePaths().contains(picturePath)) {
-                                    logger.info("Picture {} is still in use by tool ID: {}, skipping physical deletion", 
-                                        picturePath, tool.getId());
-                                    shouldDeletePhysicalFile = false;
+                        // Check if picture is associated with any tools
+                        if (passdown.getTools() != null && !passdown.getTools().isEmpty()) {
+                            for (Tool associatedTool : passdown.getTools()) {
+                                // Get fresh tool data to ensure collections are loaded
+                                Optional<Tool> toolOpt = toolService.getToolById(associatedTool.getId());
+                                if (toolOpt.isPresent()) {
+                                    Tool tool = toolOpt.get();
+                                    if (tool.getPicturePaths() != null && tool.getPicturePaths().contains(picturePath)) {
+                                        logger.info("Picture {} is still in use by tool ID: {}, skipping physical deletion", 
+                                            picturePath, tool.getId());
+                                        shouldDeletePhysicalFile = false;
+                                        break;
+                                    }
                                 }
                             }
                         }

@@ -4,6 +4,7 @@ import com.pcd.manager.model.Passdown;
 import com.pcd.manager.model.Tool;
 import com.pcd.manager.model.User;
 import com.pcd.manager.model.Rma;
+import com.pcd.manager.service.PassdownExcelImportService;
 import com.pcd.manager.service.PassdownService;
 import com.pcd.manager.service.ToolService;
 import com.pcd.manager.service.UserService;
@@ -31,6 +32,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.Set;
@@ -48,17 +51,19 @@ public class PassdownController {
     private final ToolService toolService;
     private final RmaService rmaService;
     private final UploadUtils uploadUtils;
+    private final PassdownExcelImportService passdownExcelImportService;
 
     @Value("${app.upload.dir:${user.home}/uploads}")
     private String uploadDir;
 
     @Autowired
-    public PassdownController(PassdownService passdownService, UserService userService, ToolService toolService, RmaService rmaService, UploadUtils uploadUtils) {
+    public PassdownController(PassdownService passdownService, UserService userService, ToolService toolService, RmaService rmaService, UploadUtils uploadUtils, PassdownExcelImportService passdownExcelImportService) {
         this.passdownService = passdownService;
         this.userService = userService;
         this.toolService = toolService;
         this.rmaService = rmaService;
         this.uploadUtils = uploadUtils;
+        this.passdownExcelImportService = passdownExcelImportService;
     }
 
     @PostConstruct
@@ -110,14 +115,19 @@ public class PassdownController {
             }
             
             try {
-                if (p.getTool() != null && p.getTool().getName() != null) {
-                    String toolName = p.getTool().getName();
-                    if (!passdownTools.contains(toolName)) {
-                        passdownTools.add(toolName);
+                // ManyToMany: Iterate through all tools
+                if (p.getTools() != null && !p.getTools().isEmpty()) {
+                    for (Tool tool : p.getTools()) {
+                        if (tool != null && tool.getName() != null) {
+                            String toolName = tool.getName();
+                            if (!passdownTools.contains(toolName)) {
+                                passdownTools.add(toolName);
+                            }
+                        }
                     }
                 }
             } catch (Exception e) {
-                logger.debug("Could not load tool name for passdown {}: {}", p.getId(), e.getMessage());
+                logger.debug("Could not load tool names for passdown {}: {}", p.getId(), e.getMessage());
             }
         }
         
@@ -134,6 +144,8 @@ public class PassdownController {
     @GetMapping("/new")
     public String showCreateForm(Model model) {
         Passdown passdown = new Passdown();
+        passdown.setTools(new HashSet<>()); // Initialize empty tools set
+        passdown.setAssignedTechs(new HashSet<>()); // Initialize empty techs set
         
         // Get current user's active tool (if any)
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -141,16 +153,21 @@ public class PassdownController {
             String email = auth.getName();
             userService.getUserByEmail(email).ifPresent(currentUser -> {
                 if (currentUser.getActiveTool() != null) {
-                    // Set the activeTool as the default tool for the passdown
-                    passdown.setTool(currentUser.getActiveTool());
+                    // Add the activeTool as the default tool for the passdown
+                    passdown.getTools().add(currentUser.getActiveTool());
                     logger.info("Autofilled tool: {} for user: {}", 
                         currentUser.getActiveTool().getName(), currentUser.getName());
                 }
+                
+                // Add current user to assigned techs by default
+                passdown.getAssignedTechs().add(currentUser);
+                logger.info("Autofilled assigned tech: {}", currentUser.getName());
             });
         }
         
         model.addAttribute("passdown", passdown);
         model.addAttribute("tools", toolService.getAllTools());
+        model.addAttribute("users", userService.getAllUsers()); // Add all users for tech selection
         model.addAttribute("today", LocalDate.now());
         return "passdown/form";
     }
@@ -183,15 +200,18 @@ public class PassdownController {
         Passdown passdown = passdownService.getPassdownByIdWithDetails(id)
             .orElseThrow(() -> new RuntimeException("Passdown not found with id: " + id));
         
-        // If the passdown doesn't have a tool set, get the current user's active tool (if any)
-        if (passdown.getTool() == null) {
+        // If the passdown doesn't have any tools set, get the current user's active tool (if any)
+        if (passdown.getTools() == null || passdown.getTools().isEmpty()) {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
                 String email = auth.getName();
                 userService.getUserByEmail(email).ifPresent(currentUser -> {
                     if (currentUser.getActiveTool() != null) {
-                        // Set the activeTool as the default tool for the passdown
-                        passdown.setTool(currentUser.getActiveTool());
+                        // Add the activeTool as a default tool for the passdown
+                        if (passdown.getTools() == null) {
+                            passdown.setTools(new HashSet<>());
+                        }
+                        passdown.getTools().add(currentUser.getActiveTool());
                         logger.info("Autofilled tool: {} for existing passdown ID: {}", 
                             currentUser.getActiveTool().getName(), passdown.getId());
                     }
@@ -199,8 +219,17 @@ public class PassdownController {
             }
         }
         
+        // Ensure collections are initialized
+        if (passdown.getTools() == null) {
+            passdown.setTools(new HashSet<>());
+        }
+        if (passdown.getAssignedTechs() == null) {
+            passdown.setAssignedTechs(new HashSet<>());
+        }
+        
         model.addAttribute("passdown", passdown);
         model.addAttribute("tools", toolService.getAllTools());
+        model.addAttribute("users", userService.getAllUsers()); // Add all users for tech selection
         model.addAttribute("today", LocalDate.now());
         return "passdown/form";
     }
@@ -209,11 +238,15 @@ public class PassdownController {
     @Transactional
     public String savePassdown(
             @ModelAttribute("passdown") Passdown passdownFormData,
+            @RequestParam(value = "toolIds", required = false) List<Long> toolIds,
+            @RequestParam(value = "techIds", required = false) List<Long> techIds,
             @RequestParam(value = "pictureFile", required = false) MultipartFile pictureFile,
             RedirectAttributes redirectAttributes) {
 
-        logger.info("Starting passdown save process. ID: {}, Has picture: {}", 
+        logger.info("Starting passdown save process. ID: {}, Tools: {}, Techs: {}, Has picture: {}", 
                 passdownFormData.getId(), 
+                toolIds != null ? toolIds.size() : 0,
+                techIds != null ? techIds.size() : 0,
                 (pictureFile != null && !pictureFile.isEmpty()));
 
         // Save file first before database transaction
@@ -226,6 +259,28 @@ public class PassdownController {
             String email = auth.getName();
             User currentUser = userService.getUserByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            // Process tool IDs
+            Set<Tool> selectedTools = new HashSet<>();
+            if (toolIds != null && !toolIds.isEmpty()) {
+                for (Long toolId : toolIds) {
+                    if (toolId != null && toolId > 0) {
+                        toolService.getToolById(toolId).ifPresent(selectedTools::add);
+                    }
+                }
+            }
+            passdownFormData.setTools(selectedTools);
+            
+            // Process tech IDs
+            Set<User> selectedTechs = new HashSet<>();
+            if (techIds != null && !techIds.isEmpty()) {
+                for (Long techId : techIds) {
+                    if (techId != null && techId > 0) {
+                        userService.getUserById(techId).ifPresent(selectedTechs::add);
+                    }
+                }
+            }
+            passdownFormData.setAssignedTechs(selectedTechs);
                     
             // Process picture upload if present
             if (pictureFile != null && !pictureFile.isEmpty()) {
@@ -290,11 +345,11 @@ public class PassdownController {
             Passdown passdown = passdownOpt.get();
             
             // Log current state of the passdown
-            logger.info("Current passdown state - ID: {}, Comment: {}, Date: {}, Tool: {}", 
+            logger.info("Current passdown state - ID: {}, Comment: {}, Date: {}, Tools: {}", 
                 passdown.getId(), 
                 passdown.getComment() != null ? passdown.getComment().substring(0, Math.min(20, passdown.getComment().length())) + "..." : "null",
                 passdown.getDate(),
-                passdown.getTool() != null ? "Tool ID: " + passdown.getTool().getId() + ", Name: " + passdown.getTool().getName() : "null");
+                passdown.getTools() != null && !passdown.getTools().isEmpty() ? passdown.getTools().stream().map(Tool::getName).collect(java.util.stream.Collectors.joining(", ")) : "null");
             
             logger.info("Picture collections - Paths: {}, Names: {}", 
                 passdown.getPicturePaths() != null ? passdown.getPicturePaths().size() : "null", 
@@ -318,12 +373,12 @@ public class PassdownController {
                 logger.info("Removed from pictureNames: {}, original name: {}", pictureNameRemoved, originalName);
             }
             
-            // 3. Preserve the tool association and other important fields
-            Tool tool = passdown.getTool();
-            if (tool != null) {
-                logger.info("Preserving tool - ID: {}, Name: {}", tool.getId(), tool.getName());
+            // 3. Preserve the tools and techs associations
+            if (passdown.getTools() != null && !passdown.getTools().isEmpty()) {
+                logger.info("Preserving {} tool(s): {}", passdown.getTools().size(), 
+                    passdown.getTools().stream().map(Tool::getName).collect(java.util.stream.Collectors.joining(", ")));
             } else {
-                logger.warn("No tool associated with this passdown BEFORE service call");
+                logger.warn("No tools associated with this passdown BEFORE service call");
             }
             
             User user = passdown.getUser();
@@ -334,32 +389,35 @@ public class PassdownController {
             }
             
             // Log the state *immediately* before calling savePassdown
-            logger.info("Passdown state BEFORE calling savePassdown - ID: {}, Tool: {}, Comment: {}, Pictures: {}", 
+            logger.info("Passdown state BEFORE calling savePassdown - ID: {}, Tools: {}, Comment: {}, Pictures: {}", 
                 passdown.getId(), 
-                (passdown.getTool() != null ? "ID:" + passdown.getTool().getId() : "null"), 
+                (passdown.getTools() != null && !passdown.getTools().isEmpty() ? passdown.getTools().stream().map(t -> "ID:" + t.getId()).collect(java.util.stream.Collectors.joining(", ")) : "null"), 
                 passdown.getComment() != null ? passdown.getComment().substring(0, Math.min(20, passdown.getComment().length())) + "..." : "null",
                 passdown.getPicturePaths() != null ? passdown.getPicturePaths().size() : "null");
             
             // 4. Save entity first to update database (using the full savePassdown method to preserve all associations)
             Passdown savedPassdown = passdownService.savePassdown(passdown, user, null, null);
-            logger.info("Passdown saved after picture removal. Updated state - Tool: {}", 
-                savedPassdown.getTool() != null ? "Tool ID: " + savedPassdown.getTool().getId() + ", Name: " + savedPassdown.getTool().getName() : "null");
+            logger.info("Passdown saved after picture removal. Updated state - Tools: {}", 
+                savedPassdown.getTools() != null && !savedPassdown.getTools().isEmpty() ? savedPassdown.getTools().stream().map(t -> t.getName()).collect(java.util.stream.Collectors.joining(", ")) : "null");
             
             // 5. Now delete the file
             if (picPathToDelete != null && !picPathToDelete.isEmpty()) {
                 try {
-                    logger.info("Checking if picture is associated with a tool before deletion");
-                    // Don't delete the physical file if it's still being used in a tool
+                    logger.info("Checking if picture is associated with any tools before deletion");
+                    // Don't delete the physical file if it's still being used in any tool
                     boolean shouldDeletePhysicalFile = true;
                     
-                    // Check if any tool is using this picture
-                    if (tool != null) {
-                        Tool fullTool = toolService.getToolById(tool.getId()).orElse(null);
-                        if (fullTool != null && fullTool.getPicturePaths() != null && 
-                            fullTool.getPicturePaths().contains(picPathToDelete)) {
-                            logger.info("Picture is still in use by the associated tool (ID: {}), not deleting physical file", 
-                                fullTool.getId());
-                            shouldDeletePhysicalFile = false;
+                    // Check if any of the associated tools are using this picture
+                    if (savedPassdown.getTools() != null && !savedPassdown.getTools().isEmpty()) {
+                        for (Tool associatedTool : savedPassdown.getTools()) {
+                            Tool fullTool = toolService.getToolById(associatedTool.getId()).orElse(null);
+                            if (fullTool != null && fullTool.getPicturePaths() != null && 
+                                fullTool.getPicturePaths().contains(picPathToDelete)) {
+                                logger.info("Picture is still in use by the associated tool (ID: {}), not deleting physical file", 
+                                    fullTool.getId());
+                                shouldDeletePhysicalFile = false;
+                                break;
+                            }
                         }
                     }
                     
@@ -424,7 +482,8 @@ public class PassdownController {
             } catch (Exception e) {
                 logger.error("Error parsing date: {}", e.getMessage());
                 redirectAttributes.addFlashAttribute("error", "Invalid date format");
-                return "redirect:/tools/" + (passdown.getTool() != null ? passdown.getTool().getId() : "");
+                Long toolId = (passdown.getTools() != null && !passdown.getTools().isEmpty()) ? passdown.getTools().iterator().next().getId() : null;
+                return "redirect:/tools/" + (toolId != null ? toolId : "");
             }
             
             // Get current user
@@ -445,8 +504,8 @@ public class PassdownController {
         
         // Redirect back to the tool details page (assuming passdown is from a tool)
         Optional<Passdown> passdownOpt = passdownService.getPassdownByIdWithDetails(id);
-        if (passdownOpt.isPresent() && passdownOpt.get().getTool() != null) {
-            return "redirect:/tools/" + passdownOpt.get().getTool().getId();
+        if (passdownOpt.isPresent() && passdownOpt.get().getTools() != null && !passdownOpt.get().getTools().isEmpty()) {
+            return "redirect:/tools/" + passdownOpt.get().getTools().iterator().next().getId();
         }
         return "redirect:/passdown";
     }
@@ -463,7 +522,7 @@ public class PassdownController {
             if (passdownOpt.isPresent()) {
                 Passdown passdown = passdownOpt.get();
                 Set<String> picturesToDelete = new HashSet<>(passdown.getPicturePaths());
-                Tool associatedTool = passdown.getTool();
+                Set<Tool> associatedTools = passdown.getTools() != null ? new HashSet<>(passdown.getTools()) : new HashSet<>();
                 
                 // Delete from database first
                 passdownService.deletePassdown(id);
@@ -477,14 +536,17 @@ public class PassdownController {
                         try {
                             boolean shouldDeletePhysicalFile = true;
                             
-                            // Check if the picture is being used by the associated tool
-                            if (associatedTool != null) {
-                                Tool fullTool = toolService.getToolById(associatedTool.getId()).orElse(null);
-                                if (fullTool != null && fullTool.getPicturePaths() != null && 
-                                    fullTool.getPicturePaths().contains(picturePath)) {
-                                    logger.info("Picture {} is still in use by the associated tool (ID: {}), not deleting physical file", 
-                                        picturePath, fullTool.getId());
-                                    shouldDeletePhysicalFile = false;
+                            // Check if the picture is being used by any associated tools
+                            if (!associatedTools.isEmpty()) {
+                                for (Tool associatedTool : associatedTools) {
+                                    Tool fullTool = toolService.getToolById(associatedTool.getId()).orElse(null);
+                                    if (fullTool != null && fullTool.getPicturePaths() != null && 
+                                        fullTool.getPicturePaths().contains(picturePath)) {
+                                        logger.info("Picture {} is still in use by the associated tool (ID: {}), not deleting physical file", 
+                                            picturePath, fullTool.getId());
+                                        shouldDeletePhysicalFile = false;
+                                        break;
+                                    }
                                 }
                             }
                             
@@ -547,5 +609,105 @@ public class PassdownController {
         
         // Redirect back to passdown details
         return "redirect:/passdown/" + passdownId;
+    }
+    
+    // ========== Excel Import Endpoints ==========
+    
+    /**
+     * Step 1: Parse Excel and return tool/tech matches for user confirmation
+     */
+    @PostMapping("/import/parse")
+    @ResponseBody
+    public Map<String, Object> parseExcelForImport(@RequestParam("file") MultipartFile file) {
+        logger.info("Starting Excel parse for import. File: {}", file.getOriginalFilename());
+        
+        try {
+            // Get current user's location
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+            User currentUser = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            if (currentUser.getActiveSite() == null) {
+                throw new RuntimeException("No active location set for user");
+            }
+            
+            Map<String, Object> result = passdownExcelImportService.parseExcelForReview(file, currentUser.getActiveSite());
+            result.put("success", true);
+            return result;
+            
+        } catch (Exception e) {
+            logger.error("Error parsing Excel file: {}", e.getMessage(), e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", e.getMessage());
+            return error;
+        }
+    }
+    
+    /**
+     * Step 2: Generate preview with confirmed mappings
+     */
+    @PostMapping("/import/preview")
+    @ResponseBody
+    public Map<String, Object> generateImportPreview(
+            @RequestParam("file") MultipartFile file,
+            @RequestPart("toolMappings") Map<String, Long> toolMappings,
+            @RequestPart("techMappings") Map<String, Long> techMappings) {
+        logger.info("Generating import preview with confirmed mappings");
+        
+        try {
+            // Get current user's location
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+            User currentUser = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            if (currentUser.getActiveSite() == null) {
+                throw new RuntimeException("No active location set for user");
+            }
+            
+            Map<String, Object> result = passdownExcelImportService.generatePreview(
+                file, currentUser.getActiveSite(), toolMappings, techMappings
+            );
+            result.put("success", true);
+            return result;
+            
+        } catch (Exception e) {
+            logger.error("Error generating preview: {}", e.getMessage(), e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", e.getMessage());
+            return error;
+        }
+    }
+    
+    /**
+     * Step 3: Confirm and import passdowns
+     */
+    @PostMapping("/import/confirm")
+    @ResponseBody
+    @Transactional
+    public Map<String, Object> confirmImport(@RequestBody List<Map<String, Object>> finalPassdownData) {
+        logger.info("Confirming import of {} passdowns", finalPassdownData.size());
+        
+        try {
+            // Get current user
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+            User currentUser = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            Map<String, Object> result = passdownExcelImportService.importPassdowns(finalPassdownData, currentUser);
+            result.put("success", true);
+            return result;
+            
+        } catch (Exception e) {
+            logger.error("Error importing passdowns: {}", e.getMessage(), e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", e.getMessage());
+            return error;
+        }
     }
 } 

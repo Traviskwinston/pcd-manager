@@ -901,13 +901,417 @@
         </div>
     </div>
 
-    <!-- Add Moving Part Modal (Reusable Fragment) -->
-    <div th:replace="~{fragments/moving-part-modal :: addMovingPartModal('addMovingPartModal', '#', ${tools}, 'destinationContainerForm', 'addDestinationBtnForm')}"></div>
-
-    <!-- Include the JavaScript for the modal -->
-    <script th:replace="~{fragments/moving-part-modal :: movingPartModalScript('destinationContainerForm', 'addDestinationBtnForm')}"></script>
+    <!-- Add Moving Part Modal (Custom for Form Page - Client-side only) -->
+    <div class="modal fade" id="addMovingPartModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Moving Part</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="formMovingPartName" class="form-label">Part Name:</label>
+                        <input type="text" class="form-control" id="formMovingPartName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Movement:</label>
+                        <div class="mb-2">
+                            <strong class="me-2 d-block mb-1">From:</strong>
+                            <select class="form-select" id="formFromSelect" onchange="toggleFromCustomInput(this.value)">
+                                <option value="">Select source...</option>
+                                <option disabled>───── Custom Locations ─────</option>
+                                <option th:each="entry : ${customLocations}" 
+                                        th:value="'CL_' + ${entry.key.id}"
+                                        th:text="${entry.key.name + ' (' + entry.value + ')'}">
+                                    Custom Location
+                                </option>
+                                <option value="CUSTOM">-- New Custom Location --</option>
+                                <!-- Session custom locations will be inserted here by JavaScript -->
+                                <option disabled>───── Tools ─────</option>
+                                <option th:each="t : ${tools}"
+                                        th:value="${t.id}" 
+                                        th:text="${t.toolType != null && t.toolType.name() == 'AMATGASGUARD' ? ((t.systemName != null ? t.systemName : 'GasGuard') + (t.equipmentLocation != null ? ' - ' + t.equipmentLocation : '')) : (t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : ''))}">
+                                    Tool Name
+                                </option>
+                            </select>
+                            <input type="text" class="form-control mt-2 d-none" id="formFromCustomInput" placeholder="e.g., Cabinet, Office, Storage...">
+                        </div>
+                        
+                        <div class="mb-2">
+                            <strong class="me-2 d-block mb-1">To:</strong>
+                            <select class="form-select" id="formToSelect" onchange="toggleToCustomInputSimple(this.value)">
+                                <option value="">Select destination...</option>
+                                <option disabled>───── Custom Locations ─────</option>
+                                <option th:each="entry : ${customLocations}" 
+                                        th:value="'CL_' + ${entry.key.id}"
+                                        th:text="${entry.key.name + ' (' + entry.value + ')'}">
+                                    Custom Location
+                                </option>
+                                <option value="CUSTOM">-- New Custom Location --</option>
+                                <!-- Session custom locations will be inserted here by JavaScript -->
+                                <option disabled>───── Tools ─────</option>
+                                <option th:each="t : ${tools}"
+                                        th:value="${t.id}" 
+                                        th:text="${t.toolType != null && t.toolType.name() == 'AMATGASGUARD' ? ((t.systemName != null ? t.systemName : 'GasGuard') + (t.equipmentLocation != null ? ' - ' + t.equipmentLocation : '')) : (t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : ''))}">
+                                    Tool Name
+                                </option>
+                            </select>
+                            <input type="text" class="form-control mt-2 d-none" id="formToCustomInput" placeholder="e.g., Cabinet, Office, Storage...">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="formMovingPartNotes" class="form-label">Notes:</label>
+                        <textarea class="form-control" id="formMovingPartNotes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="addMovingPartToForm()">Add to RMA</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Validation Error Modal -->
+    <div class="modal fade" id="validationErrorModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-warning me-2"></i>Validation Error</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="validationErrorMessage"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Moving Part Modal JavaScript - Inline for Form Page -->
+    <script>
+        // Show validation error in modal instead of alert
+        function showValidationError(message) {
+            document.getElementById('validationErrorMessage').textContent = message;
+            const modal = new bootstrap.Modal(document.getElementById('validationErrorModal'));
+            modal.show();
+        }
+        
+        // Toggle custom location input for "From" field (for the modal)
+        function toggleFromCustomInput(value) {
+            const customInput = document.getElementById('formFromCustomInput');
+            
+            if (value === 'CUSTOM') {
+                customInput.classList.remove('d-none');
+                customInput.required = true;
+            } else {
+                customInput.classList.add('d-none');
+                customInput.required = false;
+                customInput.value = '';
+            }
+        }
+        
+        // Toggle custom location input for "To" field (for the modal)
+        function toggleToCustomInputSimple(value) {
+            const customInput = document.getElementById('formToCustomInput');
+            
+            if (value === 'CUSTOM') {
+                customInput.classList.remove('d-none');
+                customInput.required = true;
+            } else {
+                customInput.classList.add('d-none');
+                customInput.required = false;
+                customInput.value = '';
+            }
+        }
+        
+        // Track custom locations created during this session
+        const sessionCustomLocations = new Set();
+        
+        // Add custom location to dropdowns
+        function addCustomLocationToDropdowns(locationName) {
+            if (sessionCustomLocations.has(locationName)) {
+                return; // Already added
+            }
+            sessionCustomLocations.add(locationName);
+            
+            console.log('Adding custom location to dropdowns:', locationName);
+            
+            const fromSelect = document.getElementById('formFromSelect');
+            const toSelect = document.getElementById('formToSelect');
+            
+            // Create new options with (0) indicator
+            const newFromOption = document.createElement('option');
+            newFromOption.value = 'SESSION_' + locationName;
+            newFromOption.textContent = locationName + ' (0)';
+            
+            const newToOption = document.createElement('option');
+            newToOption.value = 'SESSION_' + locationName;
+            newToOption.textContent = locationName + ' (0)';
+            
+            // Find where to insert - right AFTER the "-- New Custom Location --" option
+            const fromCustomOption = fromSelect.querySelector('option[value="CUSTOM"]');
+            const toCustomOption = toSelect.querySelector('option[value="CUSTOM"]');
+            
+            if (fromCustomOption && toCustomOption) {
+                // Insert after the "-- New Custom Location --" option
+                if (fromCustomOption.nextSibling) {
+                    fromSelect.insertBefore(newFromOption, fromCustomOption.nextSibling);
+                } else {
+                    fromSelect.appendChild(newFromOption);
+                }
+                
+                if (toCustomOption.nextSibling) {
+                    toSelect.insertBefore(newToOption, toCustomOption.nextSibling);
+                } else {
+                    toSelect.appendChild(newToOption);
+                }
+                
+                console.log('Successfully added custom location to both dropdowns');
+            } else {
+                console.error('Could not find CUSTOM option in dropdowns');
+            }
+        }
+        
+        // Add moving part to the form (client-side)
+        function addMovingPartToForm() {
+            const partName = document.getElementById('formMovingPartName').value.trim();
+            const fromSelect = document.getElementById('formFromSelect');
+            const fromCustomInput = document.getElementById('formFromCustomInput');
+            const toSelect = document.getElementById('formToSelect');
+            const toCustomInput = document.getElementById('formToCustomInput');
+            const notes = document.getElementById('formMovingPartNotes').value.trim();
+            
+            // Validation
+            if (!partName) {
+                showValidationError('Please enter a part name');
+                return;
+            }
+            
+            const fromValue = fromSelect.value;
+            const fromCustomValue = fromCustomInput.value.trim();
+            const toValue = toSelect.value;
+            const toCustomValue = toCustomInput.value.trim();
+            
+            if (!fromValue || (fromValue === 'CUSTOM' && !fromCustomValue)) {
+                showValidationError('Please select or enter a source location');
+                return;
+            }
+            
+            if (!toValue || (toValue === 'CUSTOM' && !toCustomValue)) {
+                showValidationError('Please select or enter a destination location');
+                return;
+            }
+            
+            // Determine display names and actual values
+            let fromText, fromActualValue;
+            if (fromValue === 'CUSTOM') {
+                fromText = fromCustomValue;
+                fromActualValue = 'CUSTOM:' + fromCustomValue;
+                addCustomLocationToDropdowns(fromCustomValue);
+            } else if (fromValue.startsWith('SESSION_')) {
+                const locationName = fromValue.substring(8); // Remove 'SESSION_' prefix
+                fromText = locationName;
+                fromActualValue = 'CUSTOM:' + locationName;
+            } else {
+                fromText = fromSelect.options[fromSelect.selectedIndex].text;
+                fromActualValue = fromValue;
+            }
+            
+            let toText, toActualValue;
+            if (toValue === 'CUSTOM') {
+                toText = toCustomValue;
+                toActualValue = 'CUSTOM:' + toCustomValue;
+                addCustomLocationToDropdowns(toCustomValue);
+            } else if (toValue.startsWith('SESSION_')) {
+                const locationName = toValue.substring(8); // Remove 'SESSION_' prefix
+                toText = locationName;
+                toActualValue = 'CUSTOM:' + locationName;
+            } else {
+                toText = toSelect.options[toSelect.selectedIndex].text;
+                toActualValue = toValue;
+            }
+            
+            // Add row to table
+            const tbody = document.getElementById('moving-parts-table-body');
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td>${partName}</td>
+                <td>${fromText}</td>
+                <td>${toText}</td>
+                <td>${notes || '-'}</td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+                <input type="hidden" name="movingPartNames" value="${partName}">
+                <input type="hidden" name="movingPartFroms" value="${fromActualValue}">
+                <input type="hidden" name="movingPartTos" value="${toActualValue}">
+                <input type="hidden" name="movingPartNotes" value="${notes}">
+            `;
+            
+            // Clear modal and close
+            document.getElementById('formMovingPartName').value = '';
+            fromSelect.selectedIndex = 0;
+            toSelect.selectedIndex = 0;
+            document.getElementById('formMovingPartNotes').value = '';
+            fromCustomInput.classList.add('d-none');
+            fromCustomInput.value = '';
+            toCustomInput.classList.add('d-none');
+            toCustomInput.value = '';
+            
+            bootstrap.Modal.getInstance(document.getElementById('addMovingPartModal')).hide();
+        }
+        
+        // Toggle custom location input for "To" fields
+        function toggleToCustomInput(selectElement) {
+            const parentRow = selectElement.closest('.destination-row');
+            const customInput = parentRow.querySelector('.to-custom-input');
+            if (selectElement.value === 'CUSTOM') {
+                customInput.classList.remove('d-none');
+                customInput.required = true;
+                selectElement.required = false;
+            } else {
+                customInput.classList.add('d-none');
+                customInput.required = false;
+                customInput.value = '';
+                selectElement.required = true;
+            }
+        }
+        
+        // Add destination row functionality
+        function addDestinationRow(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error('Container not found:', containerId);
+                return;
+            }
+            
+            const newRow = document.createElement('div');
+            newRow.className = 'destination-row mb-2';
+            
+            const firstSelect = container.querySelector('.destination-select');
+            if (!firstSelect) {
+                console.error('First select not found in container');
+                return;
+            }
+            
+            const toolOptions = firstSelect.innerHTML;
+            
+            newRow.innerHTML = `
+                <div class="d-flex align-items-center mb-1">
+                    <strong class="me-2">To:</strong>
+                    <select class="form-select destination-select" name="destinationToolIds" onchange="toggleToCustomInput(this)" required>
+                        ${toolOptions}
+                    </select>
+                    <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-destination">
+                        <i class="bi bi-dash"></i>
+                    </button>
+                </div>
+                <input type="text" class="form-control d-none to-custom-input" name="toCustomLocations" placeholder="e.g., Cabinet, Office, Storage...">
+            `;
+            
+            container.appendChild(newRow);
+            updateRemoveButtons(containerId);
+        }
+        
+        function updateRemoveButtons(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const rows = container.querySelectorAll('.destination-row');
+            
+            rows.forEach((row, index) => {
+                const removeBtn = row.querySelector('.remove-destination');
+                if (removeBtn) {
+                    removeBtn.style.display = rows.length > 1 ? 'block' : 'none';
+                }
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Moving part modal script loaded for form page');
+            
+            // Setup form submission handler
+            const addForm = document.getElementById('add-moving-part-form');
+            console.log('Looking for add-moving-part-form:', addForm);
+            if (addForm) {
+                console.log('Attaching submit handler to add-moving-part-form');
+                addForm.addEventListener('submit', function(e) {
+                    console.log('Form submit handler triggered!');
+                    const fromSelect = document.getElementById('fromToolIdSelect');
+                    const hiddenInput = document.getElementById('fromToolId');
+                    const customInput = document.getElementById('fromCustomInput');
+                    
+                    console.log('fromSelect.value:', fromSelect ? fromSelect.value : 'NULL');
+                    console.log('customInput.value:', customInput ? customInput.value : 'NULL');
+                    console.log('hiddenInput.value:', hiddenInput ? hiddenInput.value : 'NULL');
+                    
+                    // Validate: must have either a tool selected OR custom location filled
+                    if (fromSelect && hiddenInput) {
+                        if (fromSelect.value === 'CUSTOM') {
+                            console.log('CUSTOM selected, checking customInput...');
+                            if (!customInput.value || customInput.value.trim() === '') {
+                                console.log('Custom input is empty, preventing submission');
+                                e.preventDefault();
+                                showValidationError('Please enter a custom location.');
+                                return false;
+                            }
+                            console.log('Custom location is valid:', customInput.value);
+                            hiddenInput.value = ''; // No tool ID for custom location
+                        } else if (fromSelect.value) {
+                            console.log('Tool selected:', fromSelect.value);
+                            hiddenInput.value = fromSelect.value;
+                        } else {
+                            // Neither tool nor custom location selected
+                            console.log('Nothing selected, preventing submission');
+                            e.preventDefault();
+                            showValidationError('Please select a source tool (From).');
+                            return false;
+                        }
+                    }
+                    
+                    console.log('Validation passed, allowing submission');
+                    
+                    // Handle destination selects - disable CUSTOM values so they don't submit
+                    const destSelects = addForm.querySelectorAll('.destination-select');
+                    destSelects.forEach(select => {
+                        if (select.value === 'CUSTOM') {
+                            select.disabled = true;
+                        }
+                    });
+                });
+            } else {
+                console.error('add-moving-part-form NOT FOUND!');
+            }
+            
+            // Add destination functionality for add modal
+            const addBtn = document.getElementById('addDestinationBtnForm');
+            if (addBtn) {
+                console.log('Found addDestinationBtnForm button');
+                addBtn.addEventListener('click', function() {
+                    console.log('Add destination button clicked');
+                    addDestinationRow('destinationContainerForm');
+                });
+            } else {
+                console.error('addDestinationBtnForm button not found');
+            }
+            
+            // Remove destination functionality
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.remove-destination')) {
+                    e.target.closest('.destination-row').remove();
+                    updateRemoveButtons('destinationContainerForm');
+                }
+            });
+        });
+    </script>
 <script th:src="@{/js/theme-toggle.js}"></script>
 <script>
         // Initialize RMA namespace
@@ -935,10 +1339,14 @@
             if (addMovingPartModalEl) {
                 addMovingPartModalEl.addEventListener('show.bs.modal', function () {
                     const toolSelect = document.getElementById('toolSelect');
-                    const destinationSelect = document.querySelector('#destinationContainerForm .destination-select');
+                    const destinationSelect = document.getElementById('formToSelect');
+                    
+                    console.log('[FORM PAGE] Modal opened, toolSelect value:', toolSelect ? toolSelect.value : 'NULL');
+                    console.log('[FORM PAGE] destinationSelect found:', destinationSelect ? 'YES' : 'NO');
                     
                     if (toolSelect && destinationSelect && toolSelect.value) {
                         // Set the destination tool to the currently selected tool in the main form
+                        console.log('[FORM PAGE] Setting destinationSelect to:', toolSelect.value);
                         destinationSelect.value = toolSelect.value;
                     }
                 });

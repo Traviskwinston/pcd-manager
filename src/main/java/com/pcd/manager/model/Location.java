@@ -43,6 +43,15 @@ public class Location {
     private boolean defaultLocation = false;
 
     // Default Customer Info (used to auto-fill RMAs when this is the active site)
+    @Column(name = "customer_name")
+    private String customerName;
+    
+    @Column(name = "customer_phone")
+    private String customerPhone;
+    
+    @Column(name = "customer_email")
+    private String customerEmail;
+    
     @Column(name = "ship_to_name")
     private String shipToName;
 
@@ -57,6 +66,13 @@ public class Location {
 
     @Column(name = "ship_to_zip")
     private String shipToZip;
+    
+    @Column(name = "ship_to_attn")
+    private String shipToAttn;
+
+    // Timezone for this location (e.g., "America/Phoenix", "America/Denver")
+    @Column(name = "time_zone")
+    private String timeZone;
 
     // Mapping of state names to their abbreviations
     private static final Map<String, String> STATE_ABBREVIATIONS = new HashMap<>();

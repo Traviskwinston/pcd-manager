@@ -154,11 +154,15 @@
                     Passdown Management
                 </h2>
             </div>
-            <div>
+            <div class="d-flex gap-2">
                 <a th:href="@{/passdown/new}" class="btn btn-primary">
                     <i class="fas fa-plus me-1"></i>
                     New Passdown
                 </a>
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importPassdownModal">
+                    <i class="fas fa-file-upload me-1"></i>
+                    Import from Excel
+                </button>
             </div>
         </div>
 
@@ -275,14 +279,16 @@
                             <tr class="data-table-row passdown-row"
                                 th:attr="data-comment=${passdown.comment},
                                          data-user=${passdown.user != null ? passdown.user.name : ''},
-                                         data-tool=${passdown.tool != null ? passdown.tool.name : ''},
+                                         data-tool=${passdown.tools != null && !passdown.tools.isEmpty() ? passdown.tools.iterator().next().name : ''},
                                          data-technician=${passdown.user != null ? passdown.user.name : ''},
                                          data-created-on=${passdown.createdDate != null ? #temporals.format(passdown.createdDate, 'yyyy-MM-dd') : ''},
                                          data-date=${#temporals.format(passdown.date, 'yyyy-MM-dd')}">
                                 <!-- Tool -->
                                 <td>
-                                    <span th:if="${passdown.tool != null}" th:text="${passdown.tool.name}" class="text-decoration-hover-underline"></span>
-                                    <span th:if="${passdown.tool == null}" class="text-muted">No Tool Selected</span>
+                                    <div th:if="${passdown.tools != null && !passdown.tools.isEmpty()}" class="d-flex flex-column gap-1">
+                                        <span th:each="tool : ${passdown.tools}" class="badge bg-primary text-wrap" th:text="${tool.name}">Tool</span>
+                                    </div>
+                                    <span th:if="${passdown.tools == null || passdown.tools.isEmpty()}" class="text-muted">No Tools</span>
                                 </td>
                                 
                                 <!-- Comment -->
@@ -298,7 +304,10 @@
                                 
                                 <!-- Technician -->
                                 <td>
-                                    <span th:text="${passdown.user != null ? passdown.user.name : 'Unknown User'}">User</span>
+                                    <div th:if="${passdown.assignedTechs != null && !passdown.assignedTechs.isEmpty()}" class="d-flex flex-column gap-1">
+                                        <span th:each="tech : ${passdown.assignedTechs}" class="badge bg-success text-wrap" th:text="${tech.name}">Technician</span>
+                                    </div>
+                                    <span th:if="${passdown.assignedTechs == null || passdown.assignedTechs.isEmpty()}" class="text-muted">No Assigned Techs</span>
                                 </td>
                                 
                                 <!-- Created On -->
@@ -452,6 +461,466 @@
             // Call initial count update
             updatePassdownCount();
         });
+    </script>
+    
+    <!-- Import Passdown Modal -->
+    <div class="modal fade" id="importPassdownModal" tabindex="-1" aria-labelledby="importPassdownModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="importPassdownModalLabel">Import Passdowns from Excel</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Excel Import Instructions:</strong>
+                        <br>
+                        Upload an Excel file with tabs for each month (Jan-Dec) containing columns:
+                        <ul class="mb-0 mt-2">
+                            <li><strong>Date:</strong> Date of the passdown</li>
+                            <li><strong>Tool:</strong> Tool name (e.g., BT151D, BT151D/BT152D for multiple tools)</li>
+                            <li><strong>Task:</strong> Task description (becomes the passdown comment)</li>
+                            <li><strong>Tech:</strong> Technician initials (e.g., TW, CJ/RD for multiple techs)</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Step 1: Upload File -->
+                    <div id="importStep1">
+                        <h6>Step 1: Upload Excel File</h6>
+                        <input type="file" class="form-control" id="excelFileInput" accept=".xlsx,.xls">
+                        <button type="button" class="btn btn-primary mt-3" onclick="uploadExcelFile()">
+                            Upload & Parse
+                        </button>
+                    </div>
+                    
+                    <!-- Step 2: Review & Confirm (Hidden initially) -->
+                    <div id="importStep2" style="display: none;">
+                        <h6>Step 2: Review Matches</h6>
+                        <p>Parsing completed! (Feature in progress)</p>
+                    </div>
+                    
+                    <!-- Step 3: Preview (Hidden initially) -->
+                    <div id="importStep3" style="display: none;">
+                        <h6>Step 3: Preview & Import</h6>
+                        <p>Preview will be displayed here (Feature in progress)</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Passdown Excel Import Implementation
+        let importState = {
+            file: null,
+            toolMappings: {},
+            techMappings: {},
+            previewData: []
+        };
+        
+        function uploadExcelFile() {
+            const fileInput = document.getElementById('excelFileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select an Excel file first');
+                return;
+            }
+            
+            importState.file = file;
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // Show loading
+            document.getElementById('importStep1').innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p class="mt-2">Parsing Excel file...</p></div>';
+            
+            // Call backend to parse
+            fetch('/passdown/import/parse', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayStep2(data);
+                } else {
+                    alert('Error parsing file: ' + (data.message || 'Unknown error'));
+                    resetStep1();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error uploading file: ' + error.message);
+                resetStep1();
+            });
+        }
+        
+        function resetStep1() {
+            document.getElementById('importStep1').innerHTML = `
+                <h6>Step 1: Upload Excel File</h6>
+                <input type="file" class="form-control" id="excelFileInput" accept=".xlsx,.xls">
+                <button type="button" class="btn btn-primary mt-3" onclick="uploadExcelFile()">
+                    Upload & Parse
+                </button>
+            `;
+        }
+        
+        async function displayStep2(data) {
+            // Hide step 1, show step 2
+            document.getElementById('importStep1').style.display = 'none';
+            document.getElementById('importStep2').style.display = 'block';
+
+            // Build mapping UI
+            const toolMatches = data.toolMatches || [];
+            const techMatches = data.techMatches || [];
+
+            // Fetch options for selects
+            const [toolsResp, usersResp] = await Promise.all([
+                fetch('/api/tools'),
+                fetch('/api/users')
+            ]);
+            const tools = await toolsResp.json();
+            const users = await usersResp.json();
+
+            // Initialize mappings state
+            importState.toolMappings = {};
+            importState.techMappings = {};
+
+            const toolRows = toolMatches.map((m, idx) => {
+                const selectedId = m.matched ? m.toolId : '';
+                if (selectedId) importState.toolMappings[m.excelString] = selectedId;
+                const options = [`<option value="">No Tool</option>`]
+                    .concat(tools.map(t => `<option value="${t.id}" ${t.id===selectedId? 'selected':''}>${t.name || ('Tool '+t.id)}</option>`))
+                    .join('');
+                return `
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <div class="flex-shrink-0" style="width: 180px;">
+                            <span class="badge bg-secondary text-wrap" title="${m.excelString}">${m.excelString}</span>
+                        </div>
+                        <div class="flex-grow-1">
+                            <select class="form-select form-select-sm" onchange="(function(v){importState.toolMappings['${m.excelString}']= v? Number(v): null;})(this.value)">
+                                ${options}
+                            </select>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            const techRows = techMatches.map(m => {
+                const selectedId = m.matched ? m.userId : '';
+                if (selectedId) importState.techMappings[m.initials] = selectedId;
+                const options = [`<option value="">No Technician</option>`]
+                    .concat(users.map(u => `<option value="${u.id}" ${u.id===selectedId? 'selected':''}>${u.name || ('User '+u.id)}</option>`))
+                    .join('');
+                return `
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <div class="flex-shrink-0" style="width: 120px;">
+                            <span class="badge bg-info" title="${m.initials}">${m.initials}</span>
+                        </div>
+                        <div class="flex-grow-1">
+                            <select class="form-select form-select-sm" onchange="(function(v){importState.techMappings['${m.initials}']= v? Number(v): null;})(this.value)">
+                                ${options}
+                            </select>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            document.getElementById('importStep2').innerHTML = `
+                <h6>Step 2: Review Matches</h6>
+                <p>Parsing completed! Found ${data.totalRows || 0} entries.</p>
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-tools me-2"></i>Tools Found</span>
+                                <small class="text-muted">Confirm or change matches</small>
+                            </div>
+                            <div class="card-body" style="max-height: 300px; overflow: auto;">
+                                ${toolRows || '<span class="text-muted">No tools detected</span>'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-people me-2"></i>Technician Initials</span>
+                                <small class="text-muted">Confirm or change matches</small>
+                            </div>
+                            <div class="card-body" style="max-height: 300px; overflow: auto;">
+                                ${techRows || '<span class="text-muted">No tech initials detected</span>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3 d-flex gap-2">
+                    <button type="button" class="btn btn-primary" onclick="generatePreview()">Next: Preview</button>
+                    <button type="button" class="btn btn-secondary" onclick="backToStep1()">Back</button>
+                </div>
+            `;
+        }
+        
+        function backToStep1() {
+            document.getElementById('importStep2').style.display = 'none';
+            document.getElementById('importStep1').style.display = 'block';
+            resetStep1();
+        }
+        
+        function generatePreview() {
+            document.getElementById('importStep2').innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p class="mt-2">Generating preview...</p></div>';
+            
+            const formData = new FormData();
+            formData.append('file', importState.file);
+            formData.append('toolMappings', new Blob([JSON.stringify(importState.toolMappings || {})], { type: 'application/json' }));
+            formData.append('techMappings', new Blob([JSON.stringify(importState.techMappings || {})], { type: 'application/json' }));
+            
+            fetch('/passdown/import/preview', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    importState.previewByMonth = data.passdownsByMonth || {};
+                    importState.previewDataTotal = data.totalEntries || 0;
+                    displayStep3(data);
+                } else {
+                    alert('Error generating preview: ' + (data.message || 'Unknown error'));
+                    displayStep2({ totalRows: 0 });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error generating preview: ' + error.message);
+                displayStep2({ totalRows: 0 });
+            });
+        }
+        
+        async function displayStep3(data) {
+            document.getElementById('importStep2').style.display = 'none';
+            document.getElementById('importStep3').style.display = 'block';
+            
+            const passdownsByMonth = importState.previewByMonth || {};
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            // Fetch tools and users for edit dropdowns
+            const [toolsResp, usersResp] = await Promise.all([
+                fetch('/api/tools'),
+                fetch('/api/users')
+            ]);
+            const tools = await toolsResp.json();
+            const users = await usersResp.json();
+            window.importEditOptions = { tools, users }; // Store for edit functions
+            
+            // Build tabs
+            const tabs = months.map(month => {
+                const entries = passdownsByMonth[month] || [];
+                const hasFlagged = entries.some(e => e.flagged);
+                const badge = hasFlagged ? `<i class="bi bi-exclamation-triangle text-warning ms-1"></i>` : '';
+                return `<li class="nav-item"><a class="nav-link ${month==='Jan'?'active':''}" data-bs-toggle="tab" href="#month-${month}">${month} (${entries.length})${badge}</a></li>`;
+            }).join('');
+            
+            // Build tab content
+            const tabPanes = months.map(month => {
+                const entries = passdownsByMonth[month] || [];
+                const rows = entries.map(e => {
+                    const toolNames = (e.toolIds || []).map(id => tools.find(t => t.id === id)?.name || 'Unknown').join(', ') || e.toolString || 'No Tool';
+                    const techNames = (e.techIds || []).map(id => users.find(u => u.id === id)?.name || 'Unknown').join(', ') || e.techString || 'No Technician';
+                    const flagClass = e.flagged ? 'table-warning' : '';
+                    return `
+                        <tr class="${flagClass}" id="row-${e.rowId}">
+                            <td><small>${e.dateString || 'No Date'}</small></td>
+                            <td><small class="text-truncate d-inline-block" style="max-width: 150px;" title="${toolNames}">${toolNames}</small></td>
+                            <td><small class="text-truncate d-inline-block" style="max-width: 200px;" title="${e.task || ''}">${e.task || 'No Task'}</small></td>
+                            <td><small class="text-truncate d-inline-block" style="max-width: 150px;" title="${techNames}">${techNames}</small></td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="editPreviewRow(${e.rowId})"><i class="bi bi-pencil"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="deletePreviewRow(${e.rowId})"><i class="bi bi-trash"></i></button>
+                            </td>
+                        </tr>`;
+                }).join('');
+                return `
+                    <div class="tab-pane fade ${month==='Jan'?'show active':''}" id="month-${month}">
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-hover">
+                                <thead class="sticky-top bg-light">
+                                    <tr>
+                                        <th>Date</th><th>Tool(s)</th><th>Task</th><th>Tech(s)</th><th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rows || '<tr><td colspan="5" class="text-center text-muted">No entries for this month</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>`;
+            }).join('');
+            
+            document.getElementById('importStep3').innerHTML = `
+                <h6>Step 3: Preview & Edit</h6>
+                <p>Review ${importState.previewDataTotal || 0} passdown(s) before importing. Edit or delete as needed.</p>
+                <ul class="nav nav-tabs mb-3">${tabs}</ul>
+                <div class="tab-content">${tabPanes}</div>
+                <div class="mt-3 d-flex gap-2">
+                    <button type="button" class="btn btn-success" onclick="confirmImport()"><i class="bi bi-upload me-1"></i>Import ${importState.previewDataTotal || 0} Passdowns</button>
+                    <button type="button" class="btn btn-secondary" onclick="backToStep2()">Back</button>
+                </div>
+            `;
+        }
+        
+        function editPreviewRow(rowId) {
+            // Find entry in preview data
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            let entry = null;
+            for (const month of months) {
+                const entries = importState.previewByMonth[month] || [];
+                entry = entries.find(e => e.rowId === rowId);
+                if (entry) break;
+            }
+            if (!entry) return;
+            
+            const { tools, users } = window.importEditOptions;
+            
+            // Build edit modal inline
+            const toolOptions = tools.map(t => `<option value="${t.id}" ${(entry.toolIds||[]).includes(t.id)?'selected':''}>${t.name}</option>`).join('');
+            const techOptions = users.map(u => `<option value="${u.id}" ${(entry.techIds||[]).includes(u.id)?'selected':''}>${u.name}</option>`).join('');
+            
+            const editHtml = `
+                <div class="modal fade" id="editRowModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Edit Passdown Entry</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Date</label>
+                                    <input type="date" class="form-control" id="editDate" value="${entry.date || ''}">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Tool(s)</label>
+                                    <select multiple class="form-select" id="editTools" size="5">${toolOptions}</select>
+                                    <small class="text-muted">Hold Ctrl to select multiple</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Task</label>
+                                    <textarea class="form-control" id="editTask" rows="2">${entry.task || ''}</textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Technician(s)</label>
+                                    <select multiple class="form-select" id="editTechs" size="5">${techOptions}</select>
+                                    <small class="text-muted">Hold Ctrl to select multiple</small>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" onclick="saveEditedRow(${rowId})">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            
+            // Remove old modal if exists
+            const oldModal = document.getElementById('editRowModal');
+            if (oldModal) oldModal.remove();
+            
+            // Add and show modal
+            document.body.insertAdjacentHTML('beforeend', editHtml);
+            const modal = new bootstrap.Modal(document.getElementById('editRowModal'));
+            modal.show();
+        }
+        
+        function saveEditedRow(rowId) {
+            // Find and update entry
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            for (const month of months) {
+                const entries = importState.previewByMonth[month] || [];
+                const entry = entries.find(e => e.rowId === rowId);
+                if (entry) {
+                    entry.date = document.getElementById('editDate').value;
+                    entry.dateString = entry.date;
+                    entry.toolIds = Array.from(document.getElementById('editTools').selectedOptions).map(o => Number(o.value));
+                    entry.task = document.getElementById('editTask').value;
+                    entry.techIds = Array.from(document.getElementById('editTechs').selectedOptions).map(o => Number(o.value));
+                    entry.flagged = !entry.date || entry.toolIds.length === 0 || entry.techIds.length === 0;
+                    break;
+                }
+            }
+            
+            // Close modal and refresh display
+            bootstrap.Modal.getInstance(document.getElementById('editRowModal')).hide();
+            displayStep3({ passdownsByMonth: importState.previewByMonth, totalEntries: importState.previewDataTotal });
+        }
+        
+        function deletePreviewRow(rowId) {
+            if (!confirm('Delete this passdown entry?')) return;
+            
+            // Remove from preview data
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            for (const month of months) {
+                const entries = importState.previewByMonth[month] || [];
+                const index = entries.findIndex(e => e.rowId === rowId);
+                if (index !== -1) {
+                    entries.splice(index, 1);
+                    importState.previewDataTotal--;
+                    break;
+                }
+            }
+            
+            // Refresh display
+            displayStep3({ passdownsByMonth: importState.previewByMonth, totalEntries: importState.previewDataTotal });
+        }
+        
+        function backToStep2() {
+            document.getElementById('importStep3').style.display = 'none';
+            document.getElementById('importStep2').style.display = 'block';
+            displayStep2({totalRows: importState.previewDataTotal || 0});
+        }
+        
+        function confirmImport() {
+            // Flatten all month data into single array
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const allEntries = [];
+            for (const month of months) {
+                const entries = importState.previewByMonth[month] || [];
+                allEntries.push(...entries);
+            }
+            
+            if (allEntries.length === 0) {
+                alert('No passdowns to import');
+                return;
+            }
+            
+            document.getElementById('importStep3').innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p class="mt-2">Importing ' + allEntries.length + ' passdowns...</p></div>';
+            
+            fetch('/passdown/import/confirm', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(allEntries)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const message = `Successfully imported ${data.imported || 0} passdowns!\n${data.skipped ? `Skipped ${data.skipped} duplicates.` : ''}`;
+                    alert(message);
+                    // Close modal and refresh page
+                    bootstrap.Modal.getInstance(document.getElementById('importPassdownModal')).hide();
+                    location.reload();
+                } else {
+                    alert('Error importing: ' + (data.message || 'Unknown error'));
+                    // Re-display step 3 so user can try again
+                    displayStep3({ passdownsByMonth: importState.previewByMonth, totalEntries: importState.previewDataTotal });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error importing: ' + error.message);
+                displayStep3({ passdownsByMonth: importState.previewByMonth, totalEntries: importState.previewDataTotal });
+            });
+        }
     </script>
 </body>
 </html> 

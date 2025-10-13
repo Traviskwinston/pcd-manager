@@ -10,7 +10,7 @@
 <div th:fragment="addMovingPartModal(modalId, actionUrl, tools, containerId, addButtonId)" class="modal fade" th:id="${modalId}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form th:action="${actionUrl}" method="post">
+            <form id="add-moving-part-form" th:action="${actionUrl}" method="post">
                 <div class="modal-header">
                     <h5 class="modal-title">Add Moving Part</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -41,35 +41,60 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Movement:</label>
-                        <div class="d-flex align-items-center mb-2">
-                            <strong class="me-2">From:</strong>
-                            <select class="form-select" id="fromToolId" name="fromToolId" required>
-                                <option value="">Select source tool...</option>
-                                <option th:each="t : ${tools}"
-                                        th:value="${t.id}" 
-                                        th:attr="data-location=${t.locationName},data-type=${t.toolType},data-type-display=${t.toolType != null ? t.toolType.getDisplayName() : ''}"
-                                        th:text="${t.toolType != null && t.toolType.name() == 'AMATGASGUARD' ? ((t.systemName != null ? t.systemName : 'GasGuard') + (t.equipmentLocation != null ? ' - ' + t.equipmentLocation : '')) : (t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : ''))}">
-                                    Tool Name
-                                </option>
-                            </select>
-                        </div>
-                        
-                        <!-- Destination Tools Container -->
-                        <div th:id="${containerId}">
-                            <div class="d-flex align-items-center mb-2 destination-row">
-                                <strong class="me-2">To:</strong>
-                                <select class="form-select destination-select" name="destinationToolIds" required>
-                                    <option value="">Select destination tool...</option>
+                        <div class="mb-2">
+                            <strong class="me-2 d-block mb-1">From:</strong>
+                            <select class="form-select" id="fromToolIdSelect" onchange="toggleFromCustomInput(this.value)">
+                                <option value="">Select source...</option>
+                                <optgroup label="─── Custom Locations ───" th:if="${customLocations != null && !customLocations.isEmpty()}">
+                                    <option th:each="entry : ${customLocations}" 
+                                            th:value="'CL_' + ${entry.key.id}"
+                                            th:text="${entry.key.name + ' (' + entry.value + ')'}">
+                                        Custom Location
+                                    </option>
+                                </optgroup>
+                                <option value="CUSTOM">-- New Custom Location --</option>
+                                <optgroup label="─── Tools ───">
                                     <option th:each="t : ${tools}"
                                             th:value="${t.id}" 
                                             th:attr="data-location=${t.locationName},data-type=${t.toolType},data-type-display=${t.toolType != null ? t.toolType.getDisplayName() : ''}"
                                             th:text="${t.toolType != null && t.toolType.name() == 'AMATGASGUARD' ? ((t.systemName != null ? t.systemName : 'GasGuard') + (t.equipmentLocation != null ? ' - ' + t.equipmentLocation : '')) : (t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : ''))}">
                                         Tool Name
                                     </option>
-                                </select>
-                                <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-destination" style="display: none;">
-                                    <i class="bi bi-dash"></i>
-                                </button>
+                                </optgroup>
+                            </select>
+                            <input type="hidden" id="fromToolId" name="fromToolId" value="">
+                            <input type="text" class="form-control mt-2 d-none" id="fromCustomInput" name="fromCustomLocation" placeholder="e.g., Cabinet, Office, Storage...">
+                        </div>
+                        
+                        <!-- Destination Tools Container -->
+                        <div th:id="${containerId}">
+                            <div class="destination-row mb-2">
+                                <div class="d-flex align-items-center mb-1">
+                                    <strong class="me-2">To:</strong>
+                                    <select class="form-select destination-select" name="destinationToolIds" onchange="toggleToCustomInput(this)" required>
+                                        <option value="">Select destination...</option>
+                                        <optgroup label="─── Custom Locations ───" th:if="${customLocations != null && !customLocations.isEmpty()}">
+                                            <option th:each="entry : ${customLocations}" 
+                                                    th:value="'CL_' + ${entry.key.id}"
+                                                    th:text="${entry.key.name + ' (' + entry.value + ')'}">
+                                                Custom Location
+                                            </option>
+                                        </optgroup>
+                                        <option value="CUSTOM">-- New Custom Location --</option>
+                                        <optgroup label="─── Tools ───">
+                                            <option th:each="t : ${tools}"
+                                                    th:value="${t.id}" 
+                                                    th:attr="data-location=${t.locationName},data-type=${t.toolType},data-type-display=${t.toolType != null ? t.toolType.getDisplayName() : ''}"
+                                                    th:text="${t.toolType != null && t.toolType.name() == 'AMATGASGUARD' ? ((t.systemName != null ? t.systemName : 'GasGuard') + (t.equipmentLocation != null ? ' - ' + t.equipmentLocation : '')) : (t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : ''))}">
+                                                Tool Name
+                                            </option>
+                                        </optgroup>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-danger btn-sm ms-2 remove-destination" style="display: none;">
+                                        <i class="bi bi-dash"></i>
+                                    </button>
+                                </div>
+                                <input type="text" class="form-control d-none to-custom-input" name="toCustomLocations" placeholder="e.g., Cabinet, Office, Storage...">
                             </div>
                         </div>
                         
@@ -164,7 +189,88 @@
 
 <!-- Moving Part Modal JavaScript Fragment -->
 <script th:fragment="movingPartModalScript(containerId, addButtonId)">
+    // Toggle custom location input for "From" field
+    function toggleFromCustomInput(value) {
+        const customInput = document.getElementById('fromCustomInput');
+        const fromSelect = document.getElementById('fromToolIdSelect');
+        const hiddenInput = document.getElementById('fromToolId');
+        
+        if (value === 'CUSTOM') {
+            customInput.classList.remove('d-none');
+            customInput.required = true;
+            hiddenInput.value = ''; // Clear tool ID when custom is selected
+        } else if (value) {
+            customInput.classList.add('d-none');
+            customInput.required = false;
+            customInput.value = '';
+            hiddenInput.value = value; // Set the tool ID
+        } else {
+            // Empty selection - clear everything
+            customInput.classList.add('d-none');
+            customInput.required = false;
+            customInput.value = '';
+            hiddenInput.value = '';
+        }
+    }
+    
+    // Update hidden field before form submission
+    function prepareMovingPartFormSubmission(formId) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        
+        form.addEventListener('submit', function(e) {
+            const fromSelect = document.getElementById('fromToolIdSelect');
+            const hiddenInput = document.getElementById('fromToolId');
+            const customInput = document.getElementById('fromCustomInput');
+            
+            // Validate: must have either a tool selected OR custom location filled
+            if (fromSelect.value === 'CUSTOM') {
+                if (!customInput.value || customInput.value.trim() === '') {
+                    e.preventDefault();
+                    alert('Please enter a custom location.');
+                    return false;
+                }
+                hiddenInput.value = ''; // No tool ID for custom location
+            } else if (fromSelect.value) {
+                hiddenInput.value = fromSelect.value;
+            } else {
+                // Neither tool nor custom location selected
+                e.preventDefault();
+                alert('Please select a source tool (From).');
+                return false;
+            }
+            
+            // Handle destination selects
+            const destSelects = form.querySelectorAll('.destination-select');
+            destSelects.forEach(select => {
+                if (select.value === 'CUSTOM') {
+                    select.disabled = true; // Don't submit "CUSTOM" value
+                }
+            });
+        });
+    }
+    
+    // Toggle custom location input for "To" fields
+    function toggleToCustomInput(selectElement) {
+        const parentRow = selectElement.closest('.destination-row');
+        const customInput = parentRow.querySelector('.to-custom-input');
+        if (selectElement.value === 'CUSTOM') {
+            customInput.classList.remove('d-none');
+            customInput.required = true;
+            selectElement.required = false;
+        } else {
+            customInput.classList.add('d-none');
+            customInput.required = false;
+            customInput.value = '';
+            selectElement.required = true;
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+        // Initialize form submission handler for edit form only
+        // (add form is handled inline in rma/form.html)
+        prepareMovingPartFormSubmission('edit-moving-part-form');
+        
         // Add destination functionality for the specific modal
         const addButtonIdValue = '/*[[${addButtonId}]]*/';
         const containerIdValue = '/*[[${containerId}]]*/';
@@ -191,7 +297,7 @@
         // Populate location filters from the current tool options
         const collectLocations = () => {
             const locs = new Set();
-            document.querySelectorAll('#fromToolId option[data-location], .destination-select option[data-location], #editFromToolId option[data-location]').forEach(opt => {
+            document.querySelectorAll('#fromToolIdSelect option[data-location], .destination-select option[data-location], #editFromToolId option[data-location]').forEach(opt => {
                 const loc = (opt.getAttribute('data-location') || '').trim();
                 if (loc) locs.add(loc);
             });
@@ -200,7 +306,7 @@
 
         const applyFilter = (filterValue) => {
             const showAll = !filterValue || filterValue === '__ALL__';
-            const selectors = ['#fromToolId', '.destination-select', '#editFromToolId'];
+            const selectors = ['#fromToolIdSelect', '.destination-select', '#editFromToolId'];
             selectors.forEach(sel => {
                 document.querySelectorAll(sel).forEach(selectEl => {
                     Array.from(selectEl.options).forEach(opt => {
@@ -236,7 +342,7 @@
         // Tool type filter population and logic
         const collectTypes = () => {
             const types = new Set();
-            document.querySelectorAll('#fromToolId option[data-type], .destination-select option[data-type], #editFromToolId option[data-type]').forEach(opt => {
+            document.querySelectorAll('#fromToolIdSelect option[data-type], .destination-select option[data-type], #editFromToolId option[data-type]').forEach(opt => {
                 const type = (opt.getAttribute('data-type-display') || opt.getAttribute('data-type') || '').trim();
                 if (type) types.add(type);
             });
@@ -245,7 +351,7 @@
 
         const applyTypeFilter = (typeValue) => {
             const showAll = !typeValue || typeValue === '__ALL__';
-            const selectors = ['#fromToolId', '.destination-select', '#editFromToolId'];
+            const selectors = ['#fromToolIdSelect', '.destination-select', '#editFromToolId'];
             selectors.forEach(sel => {
                 document.querySelectorAll(sel).forEach(selectEl => {
                     Array.from(selectEl.options).forEach(opt => {

@@ -36,8 +36,17 @@
                         <h5>Date</h5>
                         <p class="small" style="font-size: 0.875em;" th:text="${#temporals.format(passdown.date, 'EEEE, MMMM d, yyyy')}">Monday, January 1, 2023</p>
                         
-                        <h5>Tool</h5>
-                        <p th:text="${passdown.tool != null ? passdown.tool.name : 'No Tool'}">Tool Name</p>
+                        <h5>Tools</h5>
+                        <div th:if="${passdown.tools != null && !passdown.tools.isEmpty()}" class="d-flex flex-wrap gap-2">
+                            <span th:each="tool : ${passdown.tools}" class="badge bg-primary" th:text="${tool.name}">Tool</span>
+                        </div>
+                        <p th:if="${passdown.tools == null || passdown.tools.isEmpty()}" class="text-muted">No Tools</p>
+                        
+                        <h5 class="mt-3">Assigned Technicians</h5>
+                        <div th:if="${passdown.assignedTechs != null && !passdown.assignedTechs.isEmpty()}" class="d-flex flex-wrap gap-2">
+                            <span th:each="tech : ${passdown.assignedTechs}" class="badge bg-success" th:text="${tech.name}">Technician</span>
+                        </div>
+                        <p th:if="${passdown.assignedTechs == null || passdown.assignedTechs.isEmpty()}" class="text-muted">No Assigned Technicians</p>
                     </div>
                     <div class="col-md-6">
                         <h5>Comment</h5>
@@ -53,14 +62,13 @@
                     <div class="row">
                         <div th:each="picPath : ${passdown.picturePaths}" class="col-md-3 mb-3">
                             <div class="card h-100 shadow-sm">
-                                <div class="card-header p-2">
+                                <div class="card-header p-2 d-flex flex-wrap gap-1">
                                     <!-- Tags display -->
-                                    <span class="badge bg-info" th:if="${passdown.tool != null}" 
-                                          th:text="${'Tool: ' + passdown.tool.name}">Tool</span>
+                                    <span th:each="tool : ${passdown.tools}" class="badge bg-info" 
+                                          th:text="${'Tool: ' + tool.name}">Tool</span>
                                     <span class="badge bg-secondary" 
                                           th:text="${'Passdown: ' + #temporals.format(passdown.date, 'MM/dd/yyyy')}">Date</span>
-                                </div>
-                                <!-- Image Preview -->
+                                </div>                                <!-- Image Preview -->
                                 <div class="card-body d-flex justify-content-center align-items-center p-2">
                                     <img th:src="@{'/uploads/' + ${picPath}}" 
                                          th:alt="${passdown.pictureNames.get(picPath)}" 

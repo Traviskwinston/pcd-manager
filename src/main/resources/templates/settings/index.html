@@ -13,7 +13,9 @@
 
 <div class="container mt-4">
     <h2 class="mb-3">Settings</h2>
-    <div class="card">
+    
+    <!-- Tool Default Checklist Section -->
+    <div class="card mb-4">
         <div class="card-header">Tool Default Checklist</div>
         <div class="card-body">
             <div class="list-group">
@@ -25,6 +27,44 @@
                         data-bs-toggle="modal" data-bs-target="#checklistModal">
                 </button>
             </div>
+        </div>
+    </div>
+    
+    <!-- Excel Checkbox Section -->
+    <div class="card mb-4 border-success">
+        <div class="card-header bg-success text-white">
+            <i class="bi bi-check2-square me-2"></i>Excel Checkbox Manager
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">Check All Checkboxes</h5>
+            <p class="card-text">
+                Checks all checkboxes in <code>Blank RMA_PCDMANAGER.xlsx</code> by setting their linked cells to TRUE.
+                <br>Output: <code>Blank RMA_PCDMANAGER_CHECKED.xlsx</code>
+            </p>
+            <button type="button" class="btn btn-success" id="testCheckboxBtn">
+                <i class="bi bi-check-all me-2"></i>Check All Checkboxes
+            </button>
+            <div id="checkboxTestResult" class="mt-3"></div>
+        </div>
+    </div>
+    
+    <!-- Admin-Only: Danger Zone Section -->
+    <div class="card border-danger" th:if="${currentUser != null && currentUser.role == 'ADMIN'}">
+        <div class="card-header bg-danger text-white">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>Danger Zone - Admin Only
+        </div>
+        <div class="card-body">
+            <h5 class="card-title text-danger">Clear All Data</h5>
+            <p class="card-text">
+                <strong>Warning:</strong> This will permanently delete ALL data from the database including:
+                tools, RMAs, locations, track/trends, passdowns, comments, and all related records.
+                <br><br>
+                <strong>Note:</strong> This clears data but keeps the table structure intact. The website will remain functional.
+                Your admin account will be preserved. This action <strong>CANNOT be undone</strong>.
+            </p>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#clearDbWarning1Modal">
+                <i class="bi bi-trash3-fill me-2"></i>Clear All Data
+            </button>
         </div>
     </div>
 </div>
@@ -158,6 +198,229 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+
+<!-- First Warning Modal -->
+<div class="modal fade" id="clearDbWarning1Modal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Warning 1 of 2: Clear All Data
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger d-flex align-items-start" role="alert">
+                    <i class="bi bi-exclamation-octagon-fill fs-3 me-3"></i>
+                    <div>
+                        <h6 class="alert-heading">Are you absolutely sure?</h6>
+                        <p class="mb-0">This action will <strong>permanently delete ALL data</strong> from the database including:</p>
+                        <ul class="mb-0 mt-2">
+                            <li>All Tools and their histories</li>
+                            <li>All RMAs and documents</li>
+                            <li>All Users (except your admin account)</li>
+                            <li>All Locations</li>
+                            <li>All Track/Trends</li>
+                            <li>All Passdowns and Comments</li>
+                            <li>All NCSRs and Moving Parts</li>
+                        </ul>
+                        <p class="mb-0 mt-2"><strong>The table structure will remain</strong> and the website will stay functional.</p>
+                    </div>
+                </div>
+                <p class="text-danger fw-bold mb-0">
+                    <i class="bi bi-info-circle me-2"></i>This action CANNOT be undone!
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#clearDbWarning2Modal" data-bs-dismiss="modal">
+                    <i class="bi bi-arrow-right me-2"></i>I Understand, Continue
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Second Warning Modal (Final Confirmation) -->
+<div class="modal fade" id="clearDbWarning2Modal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Warning 2 of 2: Final Confirmation
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger" role="alert">
+                    <h5 class="alert-heading">
+                        <i class="bi bi-shield-fill-exclamation me-2"></i>FINAL WARNING
+                    </h5>
+                    <p>You are about to <strong>PERMANENTLY DELETE ALL DATA</strong> from the database.</p>
+                    <hr>
+                    <p class="mb-0"><strong>This is your last chance to cancel.</strong></p>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="confirmText" class="form-label">
+                        To confirm, type <code class="text-danger">DELETE ALL DATA</code> below:
+                    </label>
+                    <input type="text" class="form-control" id="confirmText" placeholder="Type here to confirm...">
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="confirmCheckbox">
+                    <label class="form-check-label" for="confirmCheckbox">
+                        I understand that this action is <strong>irreversible</strong> and will delete all data
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-danger" id="finalClearDbBtn" disabled>
+                    <i class="bi bi-trash3-fill me-2"></i>Delete All Data Now
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Handle final confirmation modal
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmText = document.getElementById('confirmText');
+    const confirmCheckbox = document.getElementById('confirmCheckbox');
+    const finalBtn = document.getElementById('finalClearDbBtn');
+    const modal2 = document.getElementById('clearDbWarning2Modal');
+    
+    // Enable/disable the final button based on confirmation
+    function updateFinalButton() {
+        const textMatches = confirmText && confirmText.value.trim() === 'DELETE ALL DATA';
+        const checkboxChecked = confirmCheckbox && confirmCheckbox.checked;
+        if (finalBtn) {
+            finalBtn.disabled = !(textMatches && checkboxChecked);
+        }
+    }
+    
+    if (confirmText) confirmText.addEventListener('input', updateFinalButton);
+    if (confirmCheckbox) confirmCheckbox.addEventListener('change', updateFinalButton);
+    
+    // Reset modal state when closed
+    if (modal2) {
+        modal2.addEventListener('hidden.bs.modal', function() {
+            if (confirmText) confirmText.value = '';
+            if (confirmCheckbox) confirmCheckbox.checked = false;
+            updateFinalButton();
+        });
+    }
+    
+    // Handle final confirmation
+    if (finalBtn) {
+        finalBtn.addEventListener('click', async function() {
+            // Disable button and show loading
+            finalBtn.disabled = true;
+            finalBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Deleting...';
+            
+            try {
+                const response = await fetch('/settings/admin/clear-database', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    // Close modal
+                    const modalInstance = bootstrap.Modal.getInstance(modal2);
+                    if (modalInstance) modalInstance.hide();
+                    
+                    // Show success message
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-success position-fixed top-0 start-50 translate-middle-x m-3';
+                    toast.style.zIndex = '9999';
+                    toast.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>Database cleared successfully. Redirecting...';
+                    document.body.appendChild(toast);
+                    
+                    // Redirect to login after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = '/login?logout';
+                    }, 2000);
+                } else {
+                    throw new Error('Failed to clear database');
+                }
+            } catch (error) {
+                // Show error message
+                const toast = document.createElement('div');
+                toast.className = 'alert alert-danger position-fixed top-0 start-50 translate-middle-x m-3';
+                toast.style.zIndex = '9999';
+                toast.innerHTML = '<i class="bi bi-x-circle-fill me-2"></i>Error clearing database: ' + error.message;
+                document.body.appendChild(toast);
+                
+                // Re-enable button
+                finalBtn.disabled = false;
+                finalBtn.innerHTML = '<i class="bi bi-trash3-fill me-2"></i>Delete All Data Now';
+                
+                setTimeout(() => toast.remove(), 5000);
+            }
+        });
+    }
+    
+    // Excel Checkbox Test Handler
+    const testCheckboxBtn = document.getElementById('testCheckboxBtn');
+    const checkboxTestResult = document.getElementById('checkboxTestResult');
+    
+    if (testCheckboxBtn) {
+        testCheckboxBtn.addEventListener('click', async function() {
+            testCheckboxBtn.disabled = true;
+            testCheckboxBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Testing...';
+            checkboxTestResult.innerHTML = '';
+            
+            try {
+                const response = await fetch('/settings/test-excel-checkboxes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success === 'true') {
+                    checkboxTestResult.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle-fill me-2"></i>${data.message}
+                            <br><br>
+                            <strong>✓ All checkboxes have been checked!</strong>
+                            <br>
+                            <small class="text-muted">Check the server logs for details about which cells were modified.</small>
+                        </div>
+                    `;
+                } else {
+                    checkboxTestResult.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-x-circle-fill me-2"></i>${data.message}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                checkboxTestResult.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-x-circle-fill me-2"></i>Error: ${error.message}
+                    </div>
+                `;
+            } finally {
+                testCheckboxBtn.disabled = false;
+                testCheckboxBtn.innerHTML = '<i class="bi bi-file-earmark-check me-2"></i>Test Checkbox Manipulation';
+            }
+        });
+    }
+});
+</script>
+
 </body>
 </html>
 

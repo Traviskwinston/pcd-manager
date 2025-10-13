@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+
+<!-- NCSR Bulk Upload Modal -->
+<div th:fragment="ncsrBulkUploadModal" class="modal fade" id="uploadNcsrModal" tabindex="-1" aria-labelledby="uploadNcsrModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl" style="max-width: 90vw;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="uploadNcsrModalLabel">
+                        <i class="bi bi-clipboard-data me-2"></i>Bulk Upload NCSR List
+                    </h5>
+                    <small class="text-muted">Upload Excel file with NCSR parts data</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="resetNcsrUpload()"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Step 1: File Upload -->
+                <div id="ncsrUploadStep1">
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-info-circle me-2"></i>How it works:</h6>
+                        <ol class="mb-0">
+                            <li>Upload your NCSR Excel file</li>
+                            <li>System auto-detects columns (Equipment #, Component, Part Location, etc.)</li>
+                            <li>Review and confirm column mapping</li>
+                            <li>System matches Equipment# with Tool Serial Numbers</li>
+                            <li>Choose actions for unmatched items (Create Tool, Ignore, or Manual Assignment)</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="text-center p-5 border border-dashed rounded" style="border-width: 2px !important;">
+                        <input type="file" id="ncsrExcelFile" accept=".xlsx,.xls" style="display: none;" onchange="handleNcsrFileSelect(event)">
+                        <i class="bi bi-file-earmark-spreadsheet fs-1 mb-3 text-primary"></i>
+                        <h5>Select NCSR Excel File</h5>
+                        <p class="text-muted mb-3">Click below to upload your NCSR list (.xlsx or .xls)</p>
+                        <button class="btn btn-primary" onclick="document.getElementById('ncsrExcelFile').click()">
+                            <i class="bi bi-upload me-2"></i>Choose Excel File
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Step 2: Column Mapping -->
+                <div id="ncsrUploadStep2" style="display: none;">
+                    <div class="alert alert-warning">
+                        <h6><i class="bi bi-exclamation-triangle me-2"></i>Column Mapping</h6>
+                        <p class="mb-0">Review detected columns. Confirm correct mappings or manually assign undetected columns.</p>
+                        <p class="mb-0 mt-2"><strong>Total rows in Excel:</strong> <span id="ncsrTotalRowCount">0</span></p>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6>Sample Row Preview:</h6>
+                            <div id="ncsrSampleRowPreview" class="p-3 bg-light rounded">
+                                <!-- Will be populated with sample row data -->
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Column Mapping:</h6>
+                            <div id="ncsrColumnMapping" class="p-3 bg-light rounded" style="max-height: 300px; overflow-y: auto;">
+                                <!-- Will be populated with column mappings -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-secondary" onclick="backToNcsrUpload()">
+                            <i class="bi bi-arrow-left me-2"></i>Back
+                        </button>
+                        <button class="btn btn-primary" onclick="processNcsrImport()">
+                            <i class="bi bi-check2 me-2"></i>Confirm & Process
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Step 3: Processing & Results -->
+                <div id="ncsrUploadStep3" style="display: none;">
+                    <!-- Stats Header -->
+                    <div class="d-flex justify-content-around mb-4 p-3 bg-light rounded">
+                        <div class="text-center">
+                            <i class="bi bi-check-circle text-info fs-3"></i>
+                            <div class="fw-bold fs-4" id="ncsrMatchedCount">0</div>
+                            <small class="text-muted">Matched</small>
+                        </div>
+                        <div class="text-center">
+                            <i class="bi bi-plus-circle text-success fs-3"></i>
+                            <div class="fw-bold fs-4" id="ncsrCreateCount">0</div>
+                            <small class="text-muted">Create</small>
+                        </div>
+                        <div class="text-center">
+                            <i class="bi bi-x-circle text-danger fs-3"></i>
+                            <div class="fw-bold fs-4" id="ncsrIgnoredCount">0</div>
+                            <small class="text-muted">Ignore</small>
+                        </div>
+                        <div class="text-center">
+                            <i class="bi bi-exclamation-triangle text-warning fs-3"></i>
+                            <div class="fw-bold fs-4" id="ncsrWarningCount">0</div>
+                            <small class="text-muted">Warning</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="mb-3 d-flex gap-2">
+                        <button class="btn btn-sm btn-success" onclick="bulkActionNcsr('create')">
+                            <i class="bi bi-plus-circle me-1"></i>Create Tools for All
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="bulkActionNcsr('ignore')">
+                            <i class="bi bi-x-circle me-1"></i>Ignore All
+                        </button>
+                    </div>
+                    
+                    <!-- NCSR Items List (scrollable with drag) -->
+                    <div id="ncsrItemsList" class="ncsr-import-list" style="max-height: 400px; overflow-y: auto; cursor: grab;">
+                        <!-- Will be populated with NCSR import items -->
+                    </div>
+                    
+                    <div class="mt-3 d-flex justify-content-between">
+                        <button class="btn btn-secondary" onclick="backToNcsrMapping()">
+                            <i class="bi bi-arrow-left me-2"></i>Back to Mapping
+                        </button>
+                        <button class="btn btn-success" onclick="finalizeNcsrImport()">
+                            <i class="bi bi-save me-2"></i>Finalize Import
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.ncsr-import-list {
+    user-select: none;
+}
+
+.ncsr-import-list:active {
+    cursor: grabbing;
+}
+
+.ncsr-import-item {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background-color: #fff;
+    transition: all 0.3s ease;
+}
+
+.ncsr-import-item.warning {
+    border-left: 4px solid #ffc107;
+}
+
+.ncsr-import-item.create {
+    background-color: #d4edda;
+}
+
+.ncsr-import-item.ignore {
+    background-color: #f8d7da;
+}
+
+.ncsr-column-mapping-item {
+    padding: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.ncsr-column-mapping-item:last-child {
+    border-bottom: none;
+}
+</style>
+
+<!-- All JavaScript functions are in /js/ncsr.js -->
+
+</body>
+</html>

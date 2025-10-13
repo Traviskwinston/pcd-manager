@@ -25,6 +25,12 @@ import org.slf4j.LoggerFactory;
 import javax.sql.DataSource;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -45,7 +51,7 @@ public class SecurityConfig {
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        LoggingDaoAuthenticationProvider authProvider = new LoggingDaoAuthenticationProvider(logger, passwordEncoder());
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
         if (passwordUpgradeService != null) {
@@ -58,6 +64,34 @@ public class SecurityConfig {
         return authProvider;
     }
     
+    // Custom DaoAuthenticationProvider with logging
+    private static class LoggingDaoAuthenticationProvider extends DaoAuthenticationProvider {
+        private final Logger log;
+        
+        public LoggingDaoAuthenticationProvider(Logger log, PasswordEncoder encoder) {
+            this.log = log;
+            setPasswordEncoder(encoder);
+        }
+        
+        @Override
+        protected void additionalAuthenticationChecks(org.springframework.security.core.userdetails.UserDetails userDetails,
+                org.springframework.security.authentication.UsernamePasswordAuthenticationToken authentication)
+                throws org.springframework.security.core.AuthenticationException {
+            log.info("=== PASSWORD COMPARISON ===");
+            log.info("Username: {}", userDetails.getUsername());
+            log.info("Password from form (raw): '{}'", authentication.getCredentials());
+            log.info("Password hash from DB: {}", userDetails.getPassword());
+            log.info("Attempting BCrypt comparison...");
+            try {
+                super.additionalAuthenticationChecks(userDetails, authentication);
+                log.info("✓ PASSWORD MATCH SUCCESS");
+            } catch (Exception e) {
+                log.error("✗ PASSWORD MATCH FAILED: {}", e.getMessage());
+                throw e;
+            }
+        }
+    }
+    
     @Bean
     public HttpSessionEventPublisher httpSessionEventPublisher() {
         return new HttpSessionEventPublisher();
@@ -66,6 +100,35 @@ public class SecurityConfig {
     @Bean
     public SessionRegistry sessionRegistry() {
         return new SessionRegistryImpl();
+    }
+    
+    @Bean
+    public AuthenticationSuccessHandler customAuthenticationSuccessHandler() {
+        return (HttpServletRequest request, HttpServletResponse response, Authentication authentication) -> {
+            try {
+                logger.info("=== LOGIN SUCCESS HANDLER ===");
+                logger.info("User '{}' logged in successfully", authentication.getName());
+                
+                // Create a new session (Spring Security will handle session fixation with newSession() strategy)
+                // No need to manually invalidate - the sessionFixation().newSession() does this safely
+                
+                logger.info("New session created by Spring Security");
+                logger.info("Redirecting to /dashboard");
+                response.sendRedirect("/dashboard");
+            } catch (Exception e) {
+                logger.error("ERROR in success handler: {}", e.getMessage(), e);
+                response.sendRedirect("/login?error=true");
+            }
+        };
+    }
+    
+    @Bean
+    public AuthenticationFailureHandler customAuthenticationFailureHandler() {
+        return (HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) -> {
+            logger.error("=== LOGIN FAILURE HANDLER ===");
+            logger.error("Authentication failed: {}", exception.getMessage(), exception);
+            response.sendRedirect("/login?error=true");
+        };
     }
 
     @Bean
@@ -89,8 +152,8 @@ public class SecurityConfig {
             .formLogin(form -> form
                 .loginPage("/login") // This is the page users are redirected to
                 .loginProcessingUrl("/login") // URL to submit the login form
-                .defaultSuccessUrl("/dashboard", true)
-                .failureUrl("/login?error=true")
+                .successHandler(customAuthenticationSuccessHandler()) // Use custom success handler
+                .failureHandler(customAuthenticationFailureHandler()) // Use custom failure handler
                 .usernameParameter("username") // Field name for the username in the form
                 .passwordParameter("password") // Field name for the password in the form
                 .permitAll() // Allow access to the login processing URL itself
@@ -104,8 +167,8 @@ public class SecurityConfig {
             )
             .sessionManagement(session -> session
                 .invalidSessionUrl("/login?timeout=true")
-                .sessionFixation().migrateSession()
-                .maximumSessions(1)
+                .sessionFixation().newSession() // Create a completely new session on login
+                .maximumSessions(-1) // Allow unlimited sessions - we'll manage cleanup ourselves
                     .maxSessionsPreventsLogin(false)
                     .expiredUrl("/login?expired=true")
                     .sessionRegistry(sessionRegistry())

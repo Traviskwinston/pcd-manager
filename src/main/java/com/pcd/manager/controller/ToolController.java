@@ -11,6 +11,7 @@ import com.pcd.manager.model.Note;
 import com.pcd.manager.model.ToolComment;
 import com.pcd.manager.model.TrackTrend;
 import com.pcd.manager.model.MovingPart;
+import com.pcd.manager.model.NCSR;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.repository.RmaRepository;
 import com.pcd.manager.repository.PassdownRepository;
@@ -25,6 +26,8 @@ import com.pcd.manager.service.TrackTrendService;
 import com.pcd.manager.service.AsyncDataService;
 import com.pcd.manager.service.MovingPartService;
 import com.pcd.manager.service.ChecklistTemplateService;
+import com.pcd.manager.service.NCSRService;
+import com.pcd.manager.service.CustomLocationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -88,12 +91,14 @@ public class ToolController {
     private final AsyncDataService asyncDataService;
     private final MovingPartService movingPartService;
     private final ChecklistTemplateService checklistTemplateService;
+    private final NCSRService ncsrService;
+    private final CustomLocationService customLocationService;
     
     @Value("${app.upload.dir:${user.home}/uploads}")
     private String uploadDir;
 
     @Autowired
-    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService, RmaRepository rmaRepository, PassdownRepository passdownRepository, ToolCommentRepository toolCommentRepository, TrackTrendRepository trackTrendRepository, AsyncDataService asyncDataService, MovingPartService movingPartService, ChecklistTemplateService checklistTemplateService) {
+    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService, RmaRepository rmaRepository, PassdownRepository passdownRepository, ToolCommentRepository toolCommentRepository, TrackTrendRepository trackTrendRepository, AsyncDataService asyncDataService, MovingPartService movingPartService, ChecklistTemplateService checklistTemplateService, NCSRService ncsrService, CustomLocationService customLocationService) {
         this.toolService = toolService;
         this.toolRepository = toolRepository;
         this.locationService = locationService;
@@ -108,6 +113,8 @@ public class ToolController {
         this.asyncDataService = asyncDataService;
         this.movingPartService = movingPartService;
         this.checklistTemplateService = checklistTemplateService;
+        this.ncsrService = ncsrService;
+        this.customLocationService = customLocationService;
     }
     
     @PostConstruct
@@ -223,6 +230,20 @@ public class ToolController {
             
             // Set upload date (index 25)
             tool.setUploadDate(convertSqlTimestampToLocalDateTime((java.sql.Timestamp) row[25]));
+            
+            // Set checklist completion boolean flags (indices 26-37)
+            tool.setCommissionComplete((Boolean) row[26]);
+            tool.setPreSl1Complete((Boolean) row[27]);
+            tool.setSl1Complete((Boolean) row[28]);
+            tool.setMechanicalPreSl1Complete((Boolean) row[29]);
+            tool.setMechanicalPostSl1Complete((Boolean) row[30]);
+            tool.setSpecificInputFunctionalityComplete((Boolean) row[31]);
+            tool.setModesOfOperationComplete((Boolean) row[32]);
+            tool.setSpecificSoosComplete((Boolean) row[33]);
+            tool.setFieldServiceReportComplete((Boolean) row[34]);
+            tool.setCertificateOfApprovalComplete((Boolean) row[35]);
+            tool.setTurnedOverToCustomerComplete((Boolean) row[36]);
+            tool.setStartUpSl03Complete((Boolean) row[37]);
             
             // Set the calculated status based on checklist completion
             tool.setStatus(tool.getCalculatedStatus());
@@ -444,6 +465,12 @@ public class ToolController {
         if (auth != null && auth.getName() != null) {
             userService.getUserByEmail(auth.getName()).ifPresent(currentUser -> {
                 model.addAttribute("currentUser", currentUser);
+                // Add custom locations for the user's active location
+                if (currentUser.getActiveSite() != null) {
+                    java.util.Map<com.pcd.manager.model.CustomLocation, Integer> customLocationsWithCounts = 
+                        customLocationService.getCustomLocationsWithPartCounts(currentUser.getActiveSite());
+                    model.addAttribute("customLocations", customLocationsWithCounts);
+                }
             });
         }
         
@@ -528,6 +555,12 @@ public class ToolController {
         
         // Add all tools for the move document/picture dropdowns and moving parts chain display
         List<Tool> allTools = toolService.getAllTools();
+        // Sort tools alphabetically by name
+        allTools.sort((t1, t2) -> {
+            String name1 = t1.getName() != null ? t1.getName().toLowerCase() : "";
+            String name2 = t2.getName() != null ? t2.getName().toLowerCase() : "";
+            return name1.compareTo(name2);
+        });
         model.addAttribute("allTools", allTools);
         
         Optional<Tool> toolOpt = toolService.getToolById(id);
@@ -620,6 +653,11 @@ public class ToolController {
             // Fetch Track/Trends associated with this tool
             List<TrackTrend> trackTrendsForTool = trackTrendService.getTrackTrendsByToolId(id);
             model.addAttribute("trackTrendsForTool", trackTrendsForTool);
+            
+            // Fetch NCSR parts associated with this tool
+            List<NCSR> ncsrParts = ncsrService.getNCSRsForTool(id);
+            model.addAttribute("ncsrParts", ncsrParts);
+            model.addAttribute("ncsrCount", ncsrParts.size());
         } else {
             logger.warn("Tool with ID {} not found", id);
         }
@@ -1545,6 +1583,18 @@ public class ToolController {
                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate certificateOfApprovalDate,
                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate turnedOverToCustomerDate,
                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startUpSl03Date,
+                                 @RequestParam(required = false) Boolean commissionComplete,
+                                 @RequestParam(required = false) Boolean preSl1Complete,
+                                 @RequestParam(required = false) Boolean sl1Complete,
+                                 @RequestParam(required = false) Boolean mechanicalPreSl1Complete,
+                                 @RequestParam(required = false) Boolean mechanicalPostSl1Complete,
+                                 @RequestParam(required = false) Boolean specificInputFunctionalityComplete,
+                                 @RequestParam(required = false) Boolean modesOfOperationComplete,
+                                 @RequestParam(required = false) Boolean specificSoosComplete,
+                                 @RequestParam(required = false) Boolean fieldServiceReportComplete,
+                                 @RequestParam(required = false) Boolean certificateOfApprovalComplete,
+                                 @RequestParam(required = false) Boolean turnedOverToCustomerComplete,
+                                 @RequestParam(required = false) Boolean startUpSl03Complete,
                                  RedirectAttributes redirectAttributes) {
         
         try {
@@ -1558,7 +1608,7 @@ public class ToolController {
             
             Tool tool = toolOpt.get();
             
-            // Update dates (completion status is automatically determined by date presence)
+            // Update dates
             tool.setCommissionDate(commissionDate);
             tool.setPreSl1Date(preSl1Date);
             tool.setSl1Date(sl1Date);
@@ -1571,6 +1621,20 @@ public class ToolController {
             tool.setCertificateOfApprovalDate(certificateOfApprovalDate);
             tool.setTurnedOverToCustomerDate(turnedOverToCustomerDate);
             tool.setStartUpSl03Date(startUpSl03Date);
+            
+            // Update completion checkboxes (independent of dates)
+            tool.setCommissionComplete(commissionComplete);
+            tool.setPreSl1Complete(preSl1Complete);
+            tool.setSl1Complete(sl1Complete);
+            tool.setMechanicalPreSl1Complete(mechanicalPreSl1Complete);
+            tool.setMechanicalPostSl1Complete(mechanicalPostSl1Complete);
+            tool.setSpecificInputFunctionalityComplete(specificInputFunctionalityComplete);
+            tool.setModesOfOperationComplete(modesOfOperationComplete);
+            tool.setSpecificSoosComplete(specificSoosComplete);
+            tool.setFieldServiceReportComplete(fieldServiceReportComplete);
+            tool.setCertificateOfApprovalComplete(certificateOfApprovalComplete);
+            tool.setTurnedOverToCustomerComplete(turnedOverToCustomerComplete);
+            tool.setStartUpSl03Complete(startUpSl03Complete);
             
             // If this is the first time any item gets checked for this tool, snapshot labels
             checklistTemplateService.snapshotLabelsIfFirstCheck(tool);
@@ -1847,5 +1911,59 @@ public class ToolController {
      */
     private static java.time.LocalDateTime convertSqlTimestampToLocalDateTime(java.sql.Timestamp sqlTimestamp) {
         return sqlTimestamp != null ? sqlTimestamp.toLocalDateTime() : null;
+    }
+    
+    /**
+     * Update basic information for a tool (AJAX endpoint)
+     */
+    @PostMapping("/{id}/update-basic-info")
+    @ResponseBody
+    public Map<String, Object> updateBasicInfo(@PathVariable Long id,
+                                               @RequestParam(required = false, defaultValue = "") String name,
+                                               @RequestParam(required = false, defaultValue = "") String secondaryName,
+                                               @RequestParam(required = false, defaultValue = "") String serialNumber1,
+                                               @RequestParam(required = false, defaultValue = "") String serialNumber2,
+                                               @RequestParam(required = false, defaultValue = "") String model1,
+                                               @RequestParam(required = false, defaultValue = "") String model2,
+                                               @RequestParam(required = false, defaultValue = "") String chemicalGasService,
+                                               @RequestParam(required = false, defaultValue = "") String setDate) {
+        try {
+            logger.info("Updating tool {} - Name: '{}', SecondaryName: '{}'", id, name, secondaryName);
+            
+            Tool tool = toolService.getToolById(id)
+                    .orElseThrow(() -> new RuntimeException("Tool not found"));
+            
+            logger.info("Before update - Tool name: '{}', secondaryName: '{}'", tool.getName(), tool.getSecondaryName());
+            
+            // Update fields
+            tool.setName(name.isEmpty() ? null : name);
+            tool.setSecondaryName(secondaryName.isEmpty() ? null : secondaryName);
+            tool.setSerialNumber1(serialNumber1.isEmpty() ? null : serialNumber1);
+            tool.setSerialNumber2(serialNumber2.isEmpty() ? null : serialNumber2);
+            tool.setModel1(model1.isEmpty() ? null : model1);
+            tool.setModel2(model2.isEmpty() ? null : model2);
+            tool.setChemicalGasService(chemicalGasService.isEmpty() ? null : chemicalGasService);
+            
+            // Parse and set date
+            if (setDate != null && !setDate.isEmpty()) {
+                try {
+                    tool.setSetDate(java.time.LocalDate.parse(setDate));
+                } catch (Exception e) {
+                    logger.warn("Invalid date format: {}", setDate);
+                }
+            } else {
+                tool.setSetDate(null);
+            }
+            
+            // Save the tool
+            Tool savedTool = toolService.saveTool(tool);
+            
+            logger.info("After save - Tool name: '{}', secondaryName: '{}'", savedTool.getName(), savedTool.getSecondaryName());
+            logger.info("Updated basic info for tool ID: {}", id);
+            return Map.of("success", true, "message", "Tool updated successfully");
+        } catch (Exception e) {
+            logger.error("Error updating tool basic info", e);
+            return Map.of("success", false, "message", "Error updating tool: " + e.getMessage());
+        }
     }
 } 

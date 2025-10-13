@@ -59,6 +59,24 @@
 
                     <hr class="my-4" />
                     <h5 class="mb-3">Default Customer Info</h5>
+                    <p class="text-muted small">This information will be used to auto-fill RMA forms for this location.</p>
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-12">
+                            <label for="customerName" class="form-label">Customer Name</label>
+                            <input type="text" class="form-control" id="customerName" th:field="*{customerName}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="customerPhone" class="form-label">Customer Phone</label>
+                            <input type="tel" class="form-control" id="customerPhone" th:field="*{customerPhone}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="customerEmail" class="form-label">Customer Email</label>
+                            <input type="email" class="form-control" id="customerEmail" th:field="*{customerEmail}">
+                        </div>
+                    </div>
+                    
+                    <h6 class="mb-3 mt-4">Shipping Address</h6>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="shipToName" class="form-label">Company Ship To Name</label>
@@ -79,6 +97,10 @@
                         <div class="col-md-4">
                             <label for="shipToZip" class="form-label">Zip Code</label>
                             <input type="text" class="form-control" id="shipToZip" th:field="*{shipToZip}">
+                        </div>
+                        <div class="col-md-12">
+                            <label for="shipToAttn" class="form-label">Attn:</label>
+                            <input type="text" class="form-control" id="shipToAttn" th:field="*{shipToAttn}">
                         </div>
                     </div>
                     

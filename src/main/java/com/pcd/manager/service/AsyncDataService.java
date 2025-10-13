@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Service for asynchronous data operations
@@ -69,7 +70,7 @@ public class AsyncDataService {
                     .distinct()
                     .collect(Collectors.toList());
             List<String> passdownTools = recentPassdowns.stream()
-                    .map(pd -> pd.getTool() != null ? pd.getTool().getName() : null)
+                    .flatMap(pd -> pd.getTools() != null ? pd.getTools().stream().map(Tool::getName) : Stream.empty())
                     .filter(Objects::nonNull)
                     .distinct()
                     .collect(Collectors.toList());

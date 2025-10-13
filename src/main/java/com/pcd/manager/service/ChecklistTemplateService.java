@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pcd.manager.model.Tool;
 import com.pcd.manager.model.ToolChecklistTemplate;
 import com.pcd.manager.repository.ToolChecklistTemplateRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +16,8 @@ import java.util.*;
 
 @Service
 public class ChecklistTemplateService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(ChecklistTemplateService.class);
 
     private final ToolChecklistTemplateRepository templateRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -41,7 +45,9 @@ public class ChecklistTemplateService {
             ChecklistMapping map = mappings.get(i);
             String label = labels.get(i);
             LocalDate date = readDate(tool, map.dateGetter);
-            boolean completed = date != null;
+            // Check both date AND completion boolean flag
+            Boolean completionFlag = readBoolean(tool, map.completionGetter);
+            boolean completed = (completionFlag != null && completionFlag) || date != null;
             result.add(new ChecklistItem(label, date, completed));
         }
         return result;
@@ -64,7 +70,19 @@ public class ChecklistTemplateService {
                 || tool.getFieldServiceReportDate() != null
                 || tool.getCertificateOfApprovalDate() != null
                 || tool.getTurnedOverToCustomerDate() != null
-                || tool.getStartUpSl03Date() != null;
+                || tool.getStartUpSl03Date() != null
+                || Boolean.TRUE.equals(tool.getCommissionComplete())
+                || Boolean.TRUE.equals(tool.getPreSl1Complete())
+                || Boolean.TRUE.equals(tool.getSl1Complete())
+                || Boolean.TRUE.equals(tool.getMechanicalPreSl1Complete())
+                || Boolean.TRUE.equals(tool.getMechanicalPostSl1Complete())
+                || Boolean.TRUE.equals(tool.getSpecificInputFunctionalityComplete())
+                || Boolean.TRUE.equals(tool.getModesOfOperationComplete())
+                || Boolean.TRUE.equals(tool.getSpecificSoosComplete())
+                || Boolean.TRUE.equals(tool.getFieldServiceReportComplete())
+                || Boolean.TRUE.equals(tool.getCertificateOfApprovalComplete())
+                || Boolean.TRUE.equals(tool.getTurnedOverToCustomerComplete())
+                || Boolean.TRUE.equals(tool.getStartUpSl03Complete());
         if (anyChecked && (tool.getChecklistLabelsJson() == null || tool.getChecklistLabelsJson().isBlank())) {
             try {
                 // Persist the labels currently displayed
@@ -108,18 +126,18 @@ public class ChecklistTemplateService {
 
     private List<ChecklistMapping> defaultMappings() {
         return Arrays.asList(
-                new ChecklistMapping("getCommissionDate", "Commission"),
-                new ChecklistMapping("getPreSl1Date", "PreSL1"),
-                new ChecklistMapping("getSl1Date", "SL1"),
-                new ChecklistMapping("getMechanicalPreSl1Date", "Mechanical: Pre SL1"),
-                new ChecklistMapping("getMechanicalPostSl1Date", "Mechanical: Post SL1"),
-                new ChecklistMapping("getSpecificInputFunctionalityDate", "Input Functionality Tested"),
-                new ChecklistMapping("getModesOfOperationDate", "Operation Modes Tested"),
-                new ChecklistMapping("getSpecificSoosDate", "SOO's Tested"),
-                new ChecklistMapping("getFieldServiceReportDate", "Field Service Report"),
-                new ChecklistMapping("getCertificateOfApprovalDate", "Certificate of Approval"),
-                new ChecklistMapping("getTurnedOverToCustomerDate", "Turned Over to Customer"),
-                new ChecklistMapping("getStartUpSl03Date", "Start-Up/SL03")
+                new ChecklistMapping("getCommissionDate", "getCommissionComplete", "Commission"),
+                new ChecklistMapping("getPreSl1Date", "getPreSl1Complete", "PreSL1"),
+                new ChecklistMapping("getSl1Date", "getSl1Complete", "SL1"),
+                new ChecklistMapping("getMechanicalPreSl1Date", "getMechanicalPreSl1Complete", "Mechanical: Pre SL1"),
+                new ChecklistMapping("getMechanicalPostSl1Date", "getMechanicalPostSl1Complete", "Mechanical: Post SL1"),
+                new ChecklistMapping("getSpecificInputFunctionalityDate", "getSpecificInputFunctionalityComplete", "Input Functionality Tested"),
+                new ChecklistMapping("getModesOfOperationDate", "getModesOfOperationComplete", "Operation Modes Tested"),
+                new ChecklistMapping("getSpecificSoosDate", "getSpecificSoosComplete", "SOO's Tested"),
+                new ChecklistMapping("getFieldServiceReportDate", "getFieldServiceReportComplete", "Field Service Report"),
+                new ChecklistMapping("getCertificateOfApprovalDate", "getCertificateOfApprovalComplete", "Certificate of Approval"),
+                new ChecklistMapping("getTurnedOverToCustomerDate", "getTurnedOverToCustomerComplete", "Turned Over to Customer"),
+                new ChecklistMapping("getStartUpSl03Date", "getStartUpSl03Complete", "Start-Up/SL03")
         );
     }
 
@@ -129,6 +147,21 @@ public class ChecklistTemplateService {
             Object value = m.invoke(tool);
             return (LocalDate) value;
         } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    private Boolean readBoolean(Tool tool, String getter) {
+        if (getter == null || getter.isEmpty()) {
+            return null;
+        }
+        try {
+            Method m = Tool.class.getMethod(getter);
+            Object value = m.invoke(tool);
+            logger.debug("Tool {}: {} returned {}", tool.getId(), getter, value);
+            return (Boolean) value;
+        } catch (Exception e) {
+            logger.warn("Failed to invoke {} on tool {}: {}", getter, tool.getId(), e.getMessage());
             return null;
         }
     }
@@ -147,10 +180,12 @@ public class ChecklistTemplateService {
 
     private static class ChecklistMapping {
         public final String dateGetter;
+        public final String completionGetter;
         public final String defaultLabel;
 
-        public ChecklistMapping(String dateGetter, String defaultLabel) {
+        public ChecklistMapping(String dateGetter, String completionGetter, String defaultLabel) {
             this.dateGetter = dateGetter;
+            this.completionGetter = completionGetter;
             this.defaultLabel = defaultLabel;
         }
     }

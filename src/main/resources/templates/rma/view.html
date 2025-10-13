@@ -873,9 +873,9 @@
                             <i class="bi bi-arrow-left-right me-2"></i>Moving Parts
                         </h6>
                         <div class="d-flex align-items-center gap-2">
-                            <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" data-bs-toggle="modal" data-bs-target="#addMovingPartModal" th:if="${rma.tool != null}">
+                            <button type="button" class="btn btn-sm btn-outline-primary detail-action-btn" data-bs-toggle="modal" data-bs-target="#addMovingPartModal">
                                 <i class="bi bi-plus"></i>
-                                </button>
+                            </button>
                             <span class="badge bg-secondary" th:text="${movingParts != null ? movingParts.size() : 0}">0</span>
                         </div>
                             </div>
@@ -901,16 +901,20 @@
                                         <td th:text="${movingPart.partName}">Part Name</td>
                                                 <td>
                                             <div class="small">
-                                                        <!-- Show from tool -->
+                                                        <!-- Show from tool or custom location -->
                                                         <span>
                                                             <a th:if="${movingPart.fromTool != null}" 
                                                                th:href="@{/tools/{id}(id=${movingPart.fromTool.id})}" 
                                                                th:text="${movingPart.fromTool.name}" 
                                                        class="text-decoration-none detail-text-primary">From Tool</a>
-                                                    <span th:if="${movingPart.fromTool == null}" class="detail-text-muted">-</span>
+                                                    <a th:if="${movingPart.fromTool == null && movingPart.fromCustomLocation != null}" 
+                                                       th:href="@{/Storage/{name}(name=${movingPart.fromCustomLocation})}"
+                                                       th:text="${movingPart.fromCustomLocation}"
+                                                       class="badge bg-info text-dark text-decoration-none">Custom Location</a>
+                                                    <span th:if="${movingPart.fromTool == null && movingPart.fromCustomLocation == null}" class="detail-text-muted">-</span>
                                                         </span>
                                                         
-                                                        <!-- Show full destination chain with arrows -->
+                                                        <!-- Show full destination chain with arrows (tools) -->
                                                 <th:block th:if="${movingPartDestinationChains != null && movingPartDestinationChains[movingPart.id] != null and !movingPartDestinationChains[movingPart.id].empty}">
                                                             <th:block th:each="destTool, iterStat : ${movingPartDestinationChains[movingPart.id]}">
                                                                 <i class="bi bi-arrow-right text-primary mx-2"></i>
@@ -920,8 +924,19 @@
                                                             </th:block>
                                                         </th:block>
                                                         
+                                                        <!-- Show custom destination locations -->
+                                                        <th:block th:if="${movingPart.toCustomLocationsList != null && !movingPart.toCustomLocationsList.empty}">
+                                                            <th:block th:each="customLoc : ${movingPart.toCustomLocationsList}">
+                                                                <i class="bi bi-arrow-right text-primary mx-2"></i>
+                                                                <a th:href="@{/Storage/{name}(name=${customLoc})}"
+                                                                   th:text="${customLoc}" 
+                                                                   class="badge bg-info text-dark text-decoration-none">Custom Location</a>
+                                                            </th:block>
+                                                        </th:block>
+                                                        
                                                         <!-- If no destinations at all -->
-                                                <th:block th:if="${movingPartDestinationChains == null || movingPartDestinationChains[movingPart.id] == null or movingPartDestinationChains[movingPart.id].empty}">
+                                                <th:block th:if="${(movingPartDestinationChains == null || movingPartDestinationChains[movingPart.id] == null or movingPartDestinationChains[movingPart.id].empty) 
+                                                                   && (movingPart.toCustomLocationsList == null || movingPart.toCustomLocationsList.empty)}">
                                                             <i class="bi bi-arrow-right text-primary mx-2"></i>
                                                     <span class="detail-text-muted">No Destination</span>
                                                         </th:block>
@@ -1923,7 +1938,7 @@
                     }
                     
                     // Update the page title (h1) with the new RMA/SAP number
-                    const pageTitle = document.querySelector('h1 span');
+                    const pageTitle = document.querySelector('h1 span.fw-semibold');
                     if (pageTitle) {
                         pageTitle.textContent = data.rmaNumber || 'New RMA';
                     }
@@ -2108,6 +2123,26 @@
                 document.getElementById('editPartName').value = partName;
                 document.getElementById('editFromToolId').value = fromToolId;
                 document.getElementById('editNotes').value = notes;
+                
+                // Open the modal
+                const editModal = new bootstrap.Modal(document.getElementById('editMovingPartModal'));
+                editModal.show();
+            });
+        });
+        
+        // Delete moving part button handler
+        document.querySelectorAll('.moving-part-delete-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                const partName = this.getAttribute('data-part-name');
+                
+                // Set the data in the delete modal
+                document.getElementById('deleteMovingPartId').value = id;
+                document.getElementById('deleteMovingPartName').textContent = partName;
+                
+                // Open the modal
+                const deleteModal = new bootstrap.Modal(document.getElementById('deleteMovingPartModal'));
+                deleteModal.show();
             });
         });
 
@@ -3608,13 +3643,19 @@
             const addMovingPartModal = document.getElementById('addMovingPartModal');
             if (addMovingPartModal && rmaConnectedToolId) {
                 addMovingPartModal.addEventListener('shown.bs.modal', function () {
-                    // Find the first "To" dropdown in the modal
-                    const firstToDropdown = addMovingPartModal.querySelector('#destinationContainerRma .destination-select');
-                    if (firstToDropdown) {
-                        // Set the value to the RMA's connected tool
-                        firstToDropdown.value = rmaConnectedToolId;
-                        console.log('Set moving part "To" field to connected tool:', rmaConnectedToolId);
-                    }
+                    // Wait a brief moment for modal to fully render
+                    setTimeout(() => {
+                        // Find the first "To" dropdown in the modal
+                        const firstToDropdown = addMovingPartModal.querySelector('.destination-select');
+                        console.log('Looking for destination dropdown, found:', firstToDropdown);
+                        if (firstToDropdown) {
+                            // Set the value to the RMA's connected tool
+                            firstToDropdown.value = rmaConnectedToolId;
+                            console.log('Set moving part "To" field to connected tool:', rmaConnectedToolId);
+                        } else {
+                            console.warn('Could not find destination dropdown in modal');
+                        }
+                    }, 100);
                 });
                 
                 // Reset form when modal is hidden to ensure clean state for next open

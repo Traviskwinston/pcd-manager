@@ -46,6 +46,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 
 @Controller
 @RequestMapping("/dashboard")
@@ -229,7 +230,7 @@ public class DashboardController {
                     .distinct()
                     .collect(Collectors.toList());
             passdownTools = recentPassdowns.stream()
-                    .map(pd -> pd.getTool() != null ? pd.getTool().getName() : null)
+                    .flatMap(pd -> pd.getTools() != null ? pd.getTools().stream().map(Tool::getName) : Stream.empty())
                     .filter(Objects::nonNull)
                     .distinct()
                     .collect(Collectors.toList());

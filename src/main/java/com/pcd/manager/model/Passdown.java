@@ -22,8 +22,8 @@ import jakarta.persistence.FetchType;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"user", "tool", "picturePaths", "pictureNames", "documentPaths", "documentNames"})
-@EqualsAndHashCode(exclude = {"user", "tool", "picturePaths", "pictureNames", "documentPaths", "documentNames"})
+@ToString(exclude = {"user", "tools", "assignedTechs", "picturePaths", "pictureNames", "documentPaths", "documentNames"})
+@EqualsAndHashCode(exclude = {"user", "tools", "assignedTechs", "picturePaths", "pictureNames", "documentPaths", "documentNames"})
 public class Passdown {
 
     @Id
@@ -39,13 +39,28 @@ public class Passdown {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdDate;
 
+    // User who created the passdown
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tool_id")
-    private Tool tool;
+    // Many-to-Many: A passdown can have multiple tools
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "passdown_tools",
+        joinColumns = @JoinColumn(name = "passdown_id"),
+        inverseJoinColumns = @JoinColumn(name = "tool_id")
+    )
+    private Set<Tool> tools = new HashSet<>();
+    
+    // Many-to-Many: A passdown can be assigned to multiple technicians
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "passdown_techs",
+        joinColumns = @JoinColumn(name = "passdown_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private Set<User> assignedTechs = new HashSet<>();
 
     // Pictures with upload tracking
     @OneToMany(mappedBy = "passdown", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)

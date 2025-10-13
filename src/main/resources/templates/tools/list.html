@@ -410,6 +410,10 @@
                     <i class="fas fa-upload me-1"></i>
                     Upload Tools
                 </button>
+                <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#uploadNcsrModal">
+                    <i class="bi bi-clipboard-data me-1"></i>
+                    Bulk Upload NCSR List
+                </button>
             </div>
         </div>
 
@@ -2651,5 +2655,140 @@
             return content;
         }
     </script>
+    
+    <!-- Custom Locations Section -->
+    <div th:if="${customLocations != null && !customLocations.isEmpty()}" class="container-fluid mt-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-box-seam me-2"></i>Custom Storage Locations
+                    <small class="ms-2">(<span th:text="${customLocations.size()}">0</span>)</small>
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40%;">Location Name</th>
+                                <th style="width: 15%;" class="text-center">Parts Count</th>
+                                <th style="width: 15%;" class="text-center">Moving Parts</th>
+                                <th style="width: 30%;">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="entry : ${customLocations}" class="clickable-row" style="cursor: pointer;" 
+                                th:onclick="|window.location.href='@{/custom-locations/{id}(id=${entry.key.id})}'|">
+                                <td>
+                                    <a th:href="@{/custom-locations/{id}(id=${entry.key.id})}" class="text-decoration-none text-reset fw-bold">
+                                        <i class="bi bi-box-seam text-primary me-2"></i>
+                                        <span th:text="${entry.key.name}">Location Name</span>
+                                    </a>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-success rounded-pill parts-count-badge" 
+                                          th:classappend="${entry.value == 0} ? 'bg-secondary' : 'bg-success'"
+                                          th:text="${entry.value}"
+                                          th:attr="data-bs-toggle=${entry.value > 0 ? 'tooltip' : null},
+                                                   data-bs-html='true',
+                                                   data-bs-title=${entry.value > 0 ? customLocationService.getCurrentPartsAtLocation(entry.key.id).stream().map(p -> '<div style=&quot;text-align:left;&quot;>' + p.get('partName') + (p.get('serialNumber') != null ? ' (' + p.get('serialNumber') + ')' : '') + '</div>').reduce('', (a, b) -> a + b) : null}"
+                                          style="cursor: pointer;">0</span>
+                                </td>
+                                <td class="text-center">
+                                    <a th:href="@{/custom-locations/{id}(id=${entry.key.id})}" class="btn btn-sm btn-outline-primary moving-parts-badge"
+                                       th:attr="data-bs-toggle=${entry.key.incomingMovingParts.size() + entry.key.outgoingMovingParts.size() > 0 ? 'tooltip' : null},
+                                                data-bs-html='true',
+                                                data-bs-title=${(entry.key.incomingMovingParts.size() + entry.key.outgoingMovingParts.size() > 0) ? 
+                                                    ('<strong>Incoming (' + entry.key.incomingMovingParts.size() + '):</strong><br>' + 
+                                                     (entry.key.incomingMovingParts.isEmpty() ? 'None' : entry.key.incomingMovingParts.stream().map(mp -> '<div style=&quot;text-align:left;&quot;>• ' + mp.getPartName() + ' from ' + (mp.getFromTool() != null ? mp.getFromTool().getName() : (mp.getFromCustomLocation() != null ? mp.getFromCustomLocation() : 'Unknown')) + '</div>').reduce('', (a, b) -> a + b)) + 
+                                                     '<br><strong>Outgoing (' + entry.key.outgoingMovingParts.size() + '):</strong><br>' + 
+                                                     (entry.key.outgoingMovingParts.isEmpty() ? 'None' : entry.key.outgoingMovingParts.stream().map(mp -> '<div style=&quot;text-align:left;&quot;>• ' + mp.getPartName() + ' to ' + (!mp.getDestinationToolIds().isEmpty() ? 'Tool' : (mp.getToCustomLocationsList() != null && !mp.getToCustomLocationsList().isEmpty() ? mp.getToCustomLocationsList().get(0) : 'Unknown')) + '</div>').reduce('', (a, b) -> a + b))) : null}">
+                                        <i class="bi bi-arrow-left-right me-1"></i>
+                                        <span th:text="${entry.key.incomingMovingParts.size() + entry.key.outgoingMovingParts.size()}">0</span>
+                                    </a>
+                                </td>
+                                <td>
+                                    <small class="text-muted" th:text="${entry.key.description ?: 'No description'}">Description</small>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- NCSR Bulk Upload Modal -->
+    <div th:replace="~{fragments/ncsr-bulk-upload-modal :: ncsrBulkUploadModal}"></div>
+    
+    <!-- NCSR Import Success Modal -->
+    <div class="modal fade" id="ncsrImportSuccessModal" tabindex="-1" aria-labelledby="ncsrImportSuccessModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="ncsrImportSuccessModalLabel">
+                        <i class="bi bi-check-circle-fill me-2"></i>Import Complete!
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <i class="bi bi-check-circle text-success mb-3" style="font-size: 4rem;"></i>
+                    <h4 class="mb-3">NCSR Import Successful</h4>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h3 class="text-success mb-0" id="ncsrSuccessSavedCount">0</h3>
+                                    <small class="text-muted">Saved</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h3 class="text-secondary mb-0" id="ncsrSuccessIgnoredCount">0</h3>
+                                    <small class="text-muted">Ignored</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" onclick="reloadAfterNcsrImport()">
+                        <i class="bi bi-arrow-clockwise me-2"></i>Reload Page
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- NCSR Import Error Modal -->
+    <div class="modal fade" id="ncsrImportErrorModal" tabindex="-1" aria-labelledby="ncsrImportErrorModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="ncsrImportErrorModalLabel">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Import Failed
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <i class="bi bi-x-circle text-danger mb-3" style="font-size: 4rem;"></i>
+                    <h4 class="mb-3">Import Failed</h4>
+                    <div class="alert alert-danger text-start">
+                        <strong>Error:</strong>
+                        <p class="mb-0 mt-2" id="ncsrErrorMessage">An unknown error occurred.</p>
+                    </div>
+                    <p class="text-muted">Please check the error message above and try again.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- NCSR JavaScript -->
+    <script th:src="@{/js/ncsr.js(v=${#dates.createNow().time})}"></script>
 </body>
 </html>

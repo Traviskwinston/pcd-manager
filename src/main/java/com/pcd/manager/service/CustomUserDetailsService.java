@@ -2,6 +2,8 @@ package com.pcd.manager.service;
 
 import com.pcd.manager.model.User;
 import com.pcd.manager.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -15,6 +17,7 @@ import java.util.List;
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
+    private static final Logger logger = LoggerFactory.getLogger(CustomUserDetailsService.class);
     private final UserRepository userRepository;
 
     @Autowired
@@ -24,10 +27,19 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        logger.info("=== AUTHENTICATION ATTEMPT ===");
+        logger.info("Attempting to load user with email/username: '{}'", username);
+        
         // In Spring Security, 'username' parameter is the identifier provided in login form
         // Since we're using email as the identifier, we'll search by email
         User user = userRepository.findByEmailIgnoreCase(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
+                .orElseThrow(() -> {
+                    logger.error("USER NOT FOUND: No user exists with email '{}'", username);
+                    return new UsernameNotFoundException("User not found with email: " + username);
+                });
+        
+        logger.info("USER FOUND: email={}, active={}, role={}", user.getEmail(), user.getActive(), user.getRole());
+        logger.info("Password hash in database: {}", user.getPassword());
 
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
         
@@ -38,10 +50,14 @@ public class CustomUserDetailsService implements UserDetailsService {
             authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
         }
 
+        boolean enabled = user.getActive() != null ? user.getActive() : true;
+        logger.info("Creating UserDetails - enabled={}, authorities={}", enabled, authorities);
+        logger.info("=== END AUTHENTICATION ATTEMPT ===");
+        
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(), // Use email as the username
                 user.getPassword(),
-                user.getActive() != null ? user.getActive() : true,   // enabled
+                enabled,   // enabled
                 true,   // accountNonExpired
                 true,   // credentialsNonExpired
                 true,   // accountNonLocked

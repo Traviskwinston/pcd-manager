@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${customLocation.name} + ' - Storage Location'">Storage Location</title>
+    <script th:src="@{/js/theme-instant.js}"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" th:href="@{/dark-mode.css}">
+</head>
+<body>
+    <div th:replace="~{fragments/navigation :: navbar('tools')}"></div>
+
+    <div class="container-fluid px-4 py-3">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a th:href="@{/dashboard}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a th:href="@{/tools}">Tools & Locations</a></li>
+                    <li class="breadcrumb-item active" aria-current="page" th:text="${customLocation.name}">Location</li>
+                </ol>
+            </nav>
+
+            <!-- Page Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="mb-0">
+                    <i class="bi bi-box-seam me-2 text-primary"></i>
+                    <span th:text="${customLocation.name}">Custom Location</span>
+                </h1>
+                <div>
+                    <small class="text-muted">
+                        <i class="bi bi-geo-alt me-1"></i>
+                        <span th:text="${customLocation.location.displayName}">Location</span>
+                    </small>
+                </div>
+            </div>
+
+            <!-- Main Content Grid -->
+            <div class="row g-3">
+                <!-- Left Column: Basic Info -->
+                <div class="col-lg-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Basic Information</h5>
+                            <button class="btn btn-sm btn-light" id="edit-info-btn">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div id="basic-info-view">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Name:</label>
+                                    <p class="mb-0" th:text="${customLocation.name}">Cabinet</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Description:</label>
+                                    <p class="mb-0" th:text="${customLocation.description ?: 'No description'}">Description here</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Created:</label>
+                                    <p class="mb-0" th:text="${#temporals.format(customLocation.createdAt, 'MMM dd, yyyy hh:mm a')}">Date</p>
+                                </div>
+                            </div>
+
+                            <div id="basic-info-edit" style="display: none;">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Name:</label>
+                                    <input type="text" class="form-control" id="edit-name" th:value="${customLocation.name}">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="edit-description" class="form-label fw-bold">Description:</label>
+                                    <textarea class="form-control" id="edit-description" rows="4" th:text="${customLocation.description}"></textarea>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-primary" id="save-info-btn">
+                                        <i class="bi bi-check-circle me-1"></i>Save
+                                    </button>
+                                    <button class="btn btn-secondary" id="cancel-info-btn">
+                                        <i class="bi bi-x-circle me-1"></i>Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Parts List -->
+                <div class="col-lg-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="bi bi-box me-2"></i>Parts (<span th:text="${currentParts.size()}">0</span>)</h5>
+                        </div>
+                        <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                            <div th:if="${currentParts.isEmpty()}" class="text-center text-muted py-3">
+                                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                                <p>No parts currently at this location</p>
+                            </div>
+                            <div th:if="${!currentParts.isEmpty()}">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Part Name</th>
+                                            <th>Part #</th>
+                                            <th>Serial #</th>
+                                            <th>Qty</th>
+                                            <th>Arrived</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="part : ${currentParts}">
+                                            <td th:text="${part.partName}">Part Name</td>
+                                            <td th:text="${part.partNumber ?: '-'}">Part #</td>
+                                            <td th:text="${part.serialNumber ?: '-'}">Serial #</td>
+                                            <td th:text="${part.quantity ?: 1}">1</td>
+                                            <td th:text="${#temporals.format(part.moveDate, 'MMM dd, yyyy')}">Date</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Moving Parts Section -->
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="bi bi-arrow-left-right me-2"></i>Moving Parts History</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="nav nav-tabs" id="movingPartsTab" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="incoming-tab" data-bs-toggle="tab" data-bs-target="#incoming" type="button" role="tab">
+                                        <i class="bi bi-arrow-down-circle me-1"></i>Incoming (<span th:text="${incomingMovingParts.size()}">0</span>)
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="outgoing-tab" data-bs-toggle="tab" data-bs-target="#outgoing" type="button" role="tab">
+                                        <i class="bi bi-arrow-up-circle me-1"></i>Outgoing (<span th:text="${outgoingMovingParts.size()}">0</span>)
+                                    </button>
+                                </li>
+                            </ul>
+                            <div class="tab-content mt-3" id="movingPartsTabContent">
+                                <!-- Incoming Tab -->
+                                <div class="tab-pane fade show active" id="incoming" role="tabpanel">
+                                    <div th:if="${incomingMovingParts.isEmpty()}" class="text-center text-muted py-3">
+                                        No parts have been moved to this location yet
+                                    </div>
+                                    <div th:if="${!incomingMovingParts.isEmpty()}" style="max-height: 400px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Part Name</th>
+                                                    <th>From</th>
+                                                    <th>Date</th>
+                                                    <th>RMA</th>
+                                                    <th>Notes</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr th:each="mp : ${incomingMovingParts}">
+                                                    <td th:text="${mp.partName}">Part</td>
+                                                    <td th:text="${mp.fromDisplayName}">From</td>
+                                                    <td th:text="${#temporals.format(mp.moveDate, 'MMM dd, yyyy')}">Date</td>
+                                                    <td>
+                                                        <a th:if="${mp.rma != null}" th:href="@{/rma/{id}(id=${mp.rma.id})}" th:text="'RMA-' + ${mp.rma.id}">RMA</a>
+                                                        <span th:if="${mp.rma == null}">-</span>
+                                                    </td>
+                                                    <td th:text="${mp.notes ?: '-'}">Notes</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Outgoing Tab -->
+                                <div class="tab-pane fade" id="outgoing" role="tabpanel">
+                                    <div th:if="${outgoingMovingParts.isEmpty()}" class="text-center text-muted py-3">
+                                        No parts have been moved from this location yet
+                                    </div>
+                                    <div th:if="${!outgoingMovingParts.isEmpty()}" style="max-height: 400px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Part Name</th>
+                                                    <th>To</th>
+                                                    <th>Date</th>
+                                                    <th>RMA</th>
+                                                    <th>Notes</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr th:each="mp : ${outgoingMovingParts}">
+                                                    <td th:text="${mp.partName}">Part</td>
+                                                    <td>
+                                                        <span th:if="${mp.toCustomLocationEntity != null}" th:text="${mp.toCustomLocationEntity.name}">To Location</span>
+                                                        <span th:if="${mp.toCustomLocationEntity == null && !mp.toCustomLocationsList.isEmpty()}" th:text="${mp.toCustomLocationsList.get(0)}">To</span>
+                                                        <span th:if="${mp.toCustomLocationEntity == null && mp.toCustomLocationsList.isEmpty()}">Tool</span>
+                                                    </td>
+                                                    <td th:text="${#temporals.format(mp.moveDate, 'MMM dd, yyyy')}">Date</td>
+                                                    <td>
+                                                        <a th:if="${mp.rma != null}" th:href="@{/rma/{id}(id=${mp.rma.id})}" th:text="'RMA-' + ${mp.rma.id}">RMA</a>
+                                                        <span th:if="${mp.rma == null}">-</span>
+                                                    </td>
+                                                    <td th:text="${mp.notes ?: '-'}">Notes</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/theme-toggle.js}"></script>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const customLocationId = /*[[${customLocation.id}]]*/ 0;
+
+        document.getElementById('edit-info-btn').addEventListener('click', function() {
+            document.getElementById('basic-info-view').style.display = 'none';
+            document.getElementById('basic-info-edit').style.display = 'block';
+        });
+
+        document.getElementById('cancel-info-btn').addEventListener('click', function() {
+            document.getElementById('basic-info-view').style.display = 'block';
+            document.getElementById('basic-info-edit').style.display = 'none';
+        });
+
+        document.getElementById('save-info-btn').addEventListener('click', function() {
+            const name = document.getElementById('edit-name').value;
+            const description = document.getElementById('edit-description').value;
+
+            fetch(`/custom-locations/${customLocationId}/update-basic-info`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `name=${encodeURIComponent(name)}&description=${encodeURIComponent(description)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // If name changed, redirect to ID-based URL to avoid 404
+                    window.location.href = `/custom-locations/${customLocationId}`;
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Error updating custom location: ' + error);
+            });
+        });
+        /*]]>*/
+    </script>
+</body>
+</html>

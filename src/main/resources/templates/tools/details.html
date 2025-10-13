@@ -259,6 +259,21 @@
             background: #e9ecef;
             transform: translateX(4px);
         }
+        
+        /* Clear Date Button Styling */
+        .clear-date-btn {
+            min-width: 38px;
+            padding: 0.375rem 0.5rem;
+        }
+        
+        .clear-date-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .clear-date-btn i {
+            font-size: 1rem;
+        }
 
         .checklist-item i {
             font-size: 1.1rem;
@@ -440,21 +455,39 @@
             <!-- Basic Information Panel -->
             <div class="card h-100">
             <div class="card-header">
-                <div class="d-flex flex-column">
-                    <h5 class="mb-0">
-                            <i class="bi bi-info-circle me-2"></i>Basic Information
-                    </h5>
-                    <div th:if="${tool.setDate != null}" class="mt-1">
-                        <small class="text-muted last-updated-info">
-                            <i class="bi bi-clock me-1"></i>
-                            Last Updated: 
-                            <span th:text="${#temporals.format(tool.setDate, 'MMM dd, yyyy')}">Date</span>
-                        </small>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="d-flex flex-column">
+                        <h5 class="mb-0">
+                                <i class="bi bi-info-circle me-2"></i>Basic Information
+                        </h5>
+                        <div th:if="${tool.setDate != null}" class="mt-1">
+                            <small class="text-muted last-updated-info">
+                                <i class="bi bi-clock me-1"></i>
+                                Last Updated: 
+                                <span th:text="${#temporals.format(tool.setDate, 'MMM dd, yyyy')}">Date</span>
+                            </small>
+                        </div>
                     </div>
+                    <button class="btn btn-sm btn-outline-primary" id="edit-basic-info-btn">
+                        <i class="bi bi-pencil me-1"></i>Edit
+                    </button>
                 </div>
             </div>
                 <div class="card-body">
-                    <div class="row g-4">
+                    <!-- View Mode -->
+                    <div id="basic-info-view" class="row g-4">
+                        <div class="col-md-6">
+                            <div class="d-flex flex-column">
+                                <small class="text-muted">Name</small>
+                                <strong th:text="${tool.name ?: 'N/A'}">Tool Name</strong>
+                    </div>
+                    </div>
+                        <div class="col-md-6">
+                            <div class="d-flex flex-column">
+                                <small class="text-muted">Secondary Name</small>
+                                <strong th:text="${tool.secondaryName ?: 'N/A'}">Secondary Name</strong>
+                        </div>
+                        </div>
                         <div class="col-md-6">
                             <div class="d-flex flex-column">
                                 <small class="text-muted">Type</small>
@@ -494,8 +527,54 @@
                             </div>
                     </div>
                 </div>
+                    
+                    <!-- Edit Mode -->
+                    <div id="basic-info-edit" class="row g-4" style="display: none;">
+                        <div class="col-md-6">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" id="edit-name" th:value="${tool.name}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Secondary Name</label>
+                            <input type="text" class="form-control" id="edit-secondaryname" th:value="${tool.secondaryName}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Serial Number 1</label>
+                            <input type="text" class="form-control" id="edit-serial1" th:value="${tool.serialNumber1}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Serial Number 2</label>
+                            <input type="text" class="form-control" id="edit-serial2" th:value="${tool.serialNumber2}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Model 1</label>
+                            <input type="text" class="form-control" id="edit-model1" th:value="${tool.model1}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Model 2</label>
+                            <input type="text" class="form-control" id="edit-model2" th:value="${tool.model2}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Chemical/Gas Service</label>
+                            <input type="text" class="form-control" id="edit-chemical" th:value="${tool.chemicalGasService}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Set Date</label>
+                            <input type="date" class="form-control" id="edit-setdate" th:value="${tool.setDate != null ? #temporals.format(tool.setDate, 'yyyy-MM-dd') : ''}">
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-primary" id="save-basic-info-btn">
+                                    <i class="bi bi-check-circle me-1"></i>Save
+                                </button>
+                                <button class="btn btn-secondary" id="cancel-basic-info-btn">
+                                    <i class="bi bi-x-circle me-1"></i>Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
 
             <!-- Upload Files Panel -->
             <div class="card h-100">
@@ -527,53 +606,140 @@
             </div>
         </div>
 
-        <!-- Tool Checklist Section -->
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <div class="d-flex flex-column">
-                    <h5 class="mb-0">
-                        <button class="btn btn-link p-0 text-decoration-none h5 mb-0 text-start" type="button" 
-                                data-bs-toggle="collapse" data-bs-target="#toolChecklistCollapse" 
-                                aria-expanded="true" aria-controls="toolChecklistCollapse">
-                            <i class="bi bi-check2-square me-2"></i>Tool Checklist
-                            <i class="bi bi-chevron-down ms-2 collapse-icon"></i>
+        <!-- Tool Checklist and NCSR Section -->
+        <div class="row mb-4">
+            <!-- Tool Checklist Section (2/3 width) -->
+            <div class="col-md-8">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div class="d-flex flex-column">
+                            <h5 class="mb-0">
+                                <button class="btn btn-link p-0 text-decoration-none h5 mb-0 text-start" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#toolChecklistCollapse" 
+                                        aria-expanded="true" aria-controls="toolChecklistCollapse">
+                                    <i class="bi bi-check2-square me-2"></i>Tool Checklist
+                                    <i class="bi bi-chevron-down ms-2 collapse-icon"></i>
+                                </button>
+                            </h5>
+                            <!-- Find the most recent checklist date -->
+                            <div class="mt-1">
+                                <small class="text-muted last-updated-info">
+                                    <i class="bi bi-clock me-1"></i>
+                                    Last Updated: 
+                                    <!-- Check for most recent dates in workflow order -->
+                                    <span th:if="${tool.startUpSl03Date != null}" th:text="${#temporals.format(tool.startUpSl03Date, 'MMM dd, yyyy')}">Date</span>
+                                    <span th:unless="${tool.startUpSl03Date != null}" th:if="${tool.turnedOverToCustomerDate != null}" th:text="${#temporals.format(tool.turnedOverToCustomerDate, 'MMM dd, yyyy')}">Date</span>
+                                    <span th:unless="${tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null}" th:if="${tool.certificateOfApprovalDate != null}" th:text="${#temporals.format(tool.certificateOfApprovalDate, 'MMM dd, yyyy')}">Date</span>
+                                    <span th:unless="${tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null or tool.certificateOfApprovalDate != null}" th:if="${tool.fieldServiceReportDate != null}" th:text="${#temporals.format(tool.fieldServiceReportDate, 'MMM dd, yyyy')}">Date</span>
+                                    <span th:unless="${tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null or tool.certificateOfApprovalDate != null or tool.fieldServiceReportDate != null}" th:if="${tool.sl1Date != null}" th:text="${#temporals.format(tool.sl1Date, 'MMM dd, yyyy')}">Date</span>
+                                    <span th:unless="${tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null or tool.certificateOfApprovalDate != null or tool.fieldServiceReportDate != null or tool.sl1Date != null}" th:if="${tool.commissionDate != null}" th:text="${#temporals.format(tool.commissionDate, 'MMM dd, yyyy')}">Date</span>
+                                    <span th:unless="${tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null or tool.certificateOfApprovalDate != null or tool.fieldServiceReportDate != null or tool.sl1Date != null or tool.commissionDate != null}" class="text-muted">No checklist dates set</span>
+                                    
+                                    <!-- Show user who likely made the last update -->
+                                    <span th:if="${checklistLastUpdatedBy != null and (tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null or tool.certificateOfApprovalDate != null or tool.fieldServiceReportDate != null or tool.sl1Date != null or tool.commissionDate != null)}">
+                                        by <span class="fw-bold" th:text="${checklistLastUpdatedBy.name != null and !#strings.isEmpty(checklistLastUpdatedBy.name) ? checklistLastUpdatedBy.name : (checklistLastUpdatedBy.firstName != null ? checklistLastUpdatedBy.firstName + ' ' + (checklistLastUpdatedBy.lastName != null ? checklistLastUpdatedBy.lastName : '') : checklistLastUpdatedBy.email)}">User Name</span>
+                                    </span>
+                                </small>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editChecklistModal">
+                            <i class="bi bi-pencil"></i>
                         </button>
-                    </h5>
-                    <!-- Find the most recent checklist date -->
-                    <div class="mt-1">
-                        <small class="text-muted last-updated-info">
-                            <i class="bi bi-clock me-1"></i>
-                            Last Updated: 
-                            <!-- Check for most recent dates in workflow order -->
-                            <span th:if="${tool.startUpSl03Date != null}" th:text="${#temporals.format(tool.startUpSl03Date, 'MMM dd, yyyy')}">Date</span>
-                            <span th:unless="${tool.startUpSl03Date != null}" th:if="${tool.turnedOverToCustomerDate != null}" th:text="${#temporals.format(tool.turnedOverToCustomerDate, 'MMM dd, yyyy')}">Date</span>
-                            <span th:unless="${tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null}" th:if="${tool.certificateOfApprovalDate != null}" th:text="${#temporals.format(tool.certificateOfApprovalDate, 'MMM dd, yyyy')}">Date</span>
-                            <span th:unless="${tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null or tool.certificateOfApprovalDate != null}" th:if="${tool.fieldServiceReportDate != null}" th:text="${#temporals.format(tool.fieldServiceReportDate, 'MMM dd, yyyy')}">Date</span>
-                            <span th:unless="${tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null or tool.certificateOfApprovalDate != null or tool.fieldServiceReportDate != null}" th:if="${tool.sl1Date != null}" th:text="${#temporals.format(tool.sl1Date, 'MMM dd, yyyy')}">Date</span>
-                            <span th:unless="${tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null or tool.certificateOfApprovalDate != null or tool.fieldServiceReportDate != null or tool.sl1Date != null}" th:if="${tool.commissionDate != null}" th:text="${#temporals.format(tool.commissionDate, 'MMM dd, yyyy')}">Date</span>
-                            <span th:unless="${tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null or tool.certificateOfApprovalDate != null or tool.fieldServiceReportDate != null or tool.sl1Date != null or tool.commissionDate != null}" class="text-muted">No checklist dates set</span>
-                            
-                            <!-- Show user who likely made the last update -->
-                            <span th:if="${checklistLastUpdatedBy != null and (tool.startUpSl03Date != null or tool.turnedOverToCustomerDate != null or tool.certificateOfApprovalDate != null or tool.fieldServiceReportDate != null or tool.sl1Date != null or tool.commissionDate != null)}">
-                                by <span class="fw-bold" th:text="${checklistLastUpdatedBy.name != null and !#strings.isEmpty(checklistLastUpdatedBy.name) ? checklistLastUpdatedBy.name : (checklistLastUpdatedBy.firstName != null ? checklistLastUpdatedBy.firstName + ' ' + (checklistLastUpdatedBy.lastName != null ? checklistLastUpdatedBy.lastName : '') : checklistLastUpdatedBy.email)}">User Name</span>
-                            </span>
-                        </small>
                     </div>
-                </div>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editChecklistModal">
-                    <i class="bi bi-pencil"></i>
-                </button>
-            </div>
-            <div class="collapse show" id="toolChecklistCollapse">
-                <div class="card-body">
-                    <div class="checklist-grid">
-                        <div class="checklist-item" th:each="item : ${checklistItems}">
-                            <i class="bi" th:classappend="${item.completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'"></i>
-                            <span class="flex-grow-1" th:text="${item.label}">Label</span>
-                            <span class="badge bg-light text-dark" th:if="${item.date != null}" th:text="${#temporals.format(item.date, 'MMM dd, yyyy')}">Date</span>
+                    <div class="collapse show" id="toolChecklistCollapse">
+                        <div class="card-body">
+                            <div th:if="${checklistItems == null || checklistItems.isEmpty()}" class="text-center text-muted">
+                                <p class="mb-0">No checklist items</p>
+                            </div>
+                            <div th:if="${checklistItems != null && !checklistItems.isEmpty()}" class="checklist-grid">
+                                <div class="checklist-item" th:each="item : ${checklistItems}">
+                                    <i class="bi" th:classappend="${item.completed} ? 'bi-check-circle-fill text-success' : 'bi-circle text-secondary'"></i>
+                                    <span class="flex-grow-1" th:text="${item.label}">Label</span>
+                                    <span class="badge bg-light text-dark" th:if="${item.date != null}" th:text="${#temporals.format(item.date, 'MMM dd, yyyy')}">Date</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
             </div>
+            
+            <!-- NCSR Section (1/3 width) -->
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-clipboard-data me-2"></i>NCSR
+                            <span class="badge bg-secondary ms-2" id="toolNcsrCount" th:text="${ncsrCount != null ? ncsrCount : 0}">0</span>
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                th:attr="data-tool-id=${tool.id},data-tool-name=${tool.name}"
+                                onclick="openNcsrModalFromButton(this)"
+                                title="View/Edit NCSR Parts">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    </div>
+                    <div class="card-body p-0 d-flex flex-column" style="height: calc(100% - 56px);">
+                        <!-- Empty State -->
+                        <div th:if="${ncsrParts == null || ncsrParts.isEmpty()}" class="text-center text-muted d-flex flex-column justify-content-center h-100 p-3">
+                            <i class="bi bi-clipboard-data fs-1 mb-3 opacity-50"></i>
+                            <p class="mb-0">No NCSR parts</p>
+                            <small class="text-muted">Click edit to add</small>
+                        </div>
+                        
+                        <!-- NCSR List with header -->
+                        <div th:if="${ncsrParts != null && !ncsrParts.isEmpty()}" class="d-flex flex-column h-100">
+                            <!-- Scrollable Content with Header -->
+                            <div class="ncsr-list-container flex-grow-1" 
+                                 style="overflow-x: auto; overflow-y: auto; cursor: grab; user-select: none;">
+                                <div class="d-flex flex-column" style="min-width: 500px;">
+                                    <!-- Header Row (scrolls with content) -->
+                                    <div class="d-flex align-items-center gap-3 p-2 bg-light border-bottom fw-bold sticky-top" style="min-width: 600px; font-size: 0.8rem;">
+                                        <div style="min-width: 70px; max-width: 70px;">Installed</div>
+                                        <div style="min-width: 110px; max-width: 110px; text-align: center;">
+                                            Part / Part #
+                                        </div>
+                                        <div class="flex-grow-1" style="min-width: 150px;">Component</div>
+                                        <div style="min-width: 90px;">Install Date</div>
+                                    </div>
+                                    
+                                    <!-- Data Rows -->
+                                    <div class="d-flex flex-column gap-2 p-2" style="min-width: 600px;">
+                                        <div th:each="ncsr : ${ncsrParts}" 
+                                             class="ncsr-row border rounded p-2 d-flex align-items-center gap-3"
+                                             style="min-width: 600px;">
+                                            <!-- Installed Checkbox Only -->
+                                            <div style="min-width: 70px; max-width: 70px;">
+                                                <input type="checkbox" 
+                                                       th:checked="${ncsr.installed}" 
+                                                       disabled 
+                                                       class="form-check-input">
+                                            </div>
+                                            
+                                            <!-- Part Name and Part Number Stacked -->
+                                            <div style="min-width: 110px; max-width: 110px; font-size: 0.75rem;">
+                                                <div class="fw-bold text-truncate" 
+                                                     th:text="${ncsr.partLocationId ?: 'N/A'}" 
+                                                     th:title="${ncsr.partLocationId}">Part Name</div>
+                                                <div class="text-truncate text-muted" 
+                                                     th:text="${ncsr.discrepantPartNumber ?: 'N/A'}" 
+                                                     th:title="${ncsr.discrepantPartNumber}">Part Number</div>
+                                            </div>
+                                            
+                                            <!-- Component -->
+                                            <div class="text-truncate flex-grow-1" style="min-width: 150px; font-size: 0.85rem;" 
+                                                 th:text="${ncsr.component ?: 'N/A'}" 
+                                                 th:title="${ncsr.component}">Component</div>
+                                            
+                                            <!-- Install Date -->
+                                            <div style="min-width: 90px; font-size: 0.85rem;" 
+                                                 th:text="${ncsr.installDate != null ? #temporals.format(ncsr.installDate, 'MM/dd/yyyy') : 'N/A'}">Date</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -674,16 +840,29 @@
                                         <td>
                                             <!-- Enhanced movement display with full destination chain -->
                                             <div>
-                                                <!-- Show from tool -->
+                                                <!-- Show from location (tool or custom) -->
                                                 <span>
                                                     <a th:if="${movingPart.fromTool != null}" 
                                                        th:href="@{/tools/{id}(id=${movingPart.fromTool.id})}" 
                                                        th:text="${movingPart.fromTool.name}" 
                                                        class="text-decoration-none">From Tool</a>
-                                                    <span th:if="${movingPart.fromTool == null}" class="text-muted">-</span>
+                                                    <a th:if="${movingPart.fromTool == null && movingPart.fromCustomLocationEntity != null}"
+                                                       th:href="@{/custom-locations/{id}(id=${movingPart.fromCustomLocationEntity.id})}"
+                                                       th:text="${movingPart.fromCustomLocationEntity.name}"
+                                                       class="text-decoration-none text-primary">
+                                                        <i class="bi bi-box-seam me-1"></i>Custom Location
+                                                    </a>
+                                                    <a th:if="${movingPart.fromTool == null && movingPart.fromCustomLocationEntity == null && movingPart.fromCustomLocation != null && !#strings.isEmpty(movingPart.fromCustomLocation)}"
+                                                       th:href="@{/Storage/{name}(name=${movingPart.fromCustomLocation})}"
+                                                       class="badge bg-info text-decoration-none">
+                                                        <i class="bi bi-box-seam me-1"></i>
+                                                        <span th:text="${movingPart.fromCustomLocation}">Custom</span>
+                                                    </a>
+                                                    <span th:if="${movingPart.fromTool == null && movingPart.fromCustomLocationEntity == null && (movingPart.fromCustomLocation == null || #strings.isEmpty(movingPart.fromCustomLocation))}" 
+                                                          class="text-muted">-</span>
                                                 </span>
                                                 
-                                                <!-- Show full destination chain with arrows -->
+                                                <!-- Show full destination chain with arrows (tools) -->
                                                 <th:block th:if="${movingPartDestinationChains != null && movingPartDestinationChains[movingPart.id] != null and !movingPartDestinationChains[movingPart.id].empty}">
                                                     <th:block th:each="destTool, iterStat : ${movingPartDestinationChains[movingPart.id]}">
                                                         <i class="bi bi-arrow-right text-primary mx-2"></i>
@@ -693,8 +872,32 @@
                                                     </th:block>
                                                 </th:block>
                                                 
+                                                <!-- Show custom location destination (entity) -->
+                                                <th:block th:if="${movingPart.toCustomLocationEntity != null}">
+                                                    <i class="bi bi-arrow-right text-primary mx-2"></i>
+                                                    <a th:href="@{/custom-locations/{id}(id=${movingPart.toCustomLocationEntity.id})}"
+                                                       th:text="${movingPart.toCustomLocationEntity.name}"
+                                                       class="text-decoration-none text-primary">
+                                                        <i class="bi bi-box-seam me-1"></i>Custom Location
+                                                    </a>
+                                                </th:block>
+                                                
+                                                <!-- Show custom location destination (text) -->
+                                                <th:block th:if="${movingPart.toCustomLocationEntity == null && movingPart.toCustomLocationsList != null && !movingPart.toCustomLocationsList.empty}">
+                                                    <th:block th:each="customLoc : ${movingPart.toCustomLocationsList}">
+                                                        <i class="bi bi-arrow-right text-primary mx-2"></i>
+                                                        <a th:href="@{/Storage/{name}(name=${customLoc})}"
+                                                           class="badge bg-info text-decoration-none">
+                                                            <i class="bi bi-box-seam me-1"></i>
+                                                            <span th:text="${customLoc}">Custom</span>
+                                                        </a>
+                                                    </th:block>
+                                                </th:block>
+                                                
                                                 <!-- If no destinations at all -->
-                                                <th:block th:if="${movingPartDestinationChains == null || movingPartDestinationChains[movingPart.id] == null or movingPartDestinationChains[movingPart.id].empty}">
+                                                <th:block th:if="${(movingPartDestinationChains == null || movingPartDestinationChains[movingPart.id] == null or movingPartDestinationChains[movingPart.id].empty) 
+                                                                   && movingPart.toCustomLocationEntity == null 
+                                                                   && (movingPart.toCustomLocationsList == null || movingPart.toCustomLocationsList.empty)}">
                                                     <i class="bi bi-arrow-right text-primary mx-2"></i>
                                                     <span class="text-muted">No Destination</span>
                                                 </th:block>
@@ -1052,8 +1255,7 @@
             </div>
         </div>
     </div>
-                            </div>
-                        </div>
+        </div>
     
     <!-- Comment Modal -->
     <div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
@@ -1799,102 +2001,244 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="editChecklistModalLabel">
-                        <i class="bi bi-check2-square me-2"></i>Edit Tool Checklist Dates
+                        <i class="bi bi-check2-square me-2"></i>Edit Tool Checklist
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form th:action="@{/tools/{id}/update-checklist(id=${tool.id})}" method="post">
                     <div class="modal-body">
+                        <!-- Check All / Uncheck All Buttons -->
+                        <div class="mb-3 d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="checkAllChecklist()">
+                                <i class="bi bi-check-all me-1"></i>Check All
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="uncheckAllChecklist()">
+                                <i class="bi bi-x me-1"></i>Uncheck All
+                            </button>
+                        </div>
+                        
                         <div class="row g-3">
                             <!-- Commission -->
                             <div class="col-md-6">
-                                <label for="commissionDate" class="form-label">Commission</label>
-                                <input type="date" class="form-control" id="commissionDate" name="commissionDate" 
-                                       th:value="${tool.commissionDate}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="commissionCheck" name="commissionComplete" 
+                                           th:checked="${tool.commissionComplete}">
+                                    <label for="commissionDate" class="form-label mb-0">Commission</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="commissionDate" name="commissionDate" 
+                                           th:value="${tool.commissionDate}" onchange="updateClearDateButton('commissionDate')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('commissionDate')" 
+                                            th:disabled="${tool.commissionDate == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- PreSL1 -->
                             <div class="col-md-6">
-                                <label for="preSl1Date" class="form-label">PreSL1</label>
-                                <input type="date" class="form-control" id="preSl1Date" name="preSl1Date" 
-                                       th:value="${tool.preSl1Date}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="preSl1Check" name="preSl1Complete" 
+                                           th:checked="${tool.preSl1Complete}">
+                                    <label for="preSl1Date" class="form-label mb-0">PreSL1</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="preSl1Date" name="preSl1Date" 
+                                           th:value="${tool.preSl1Date}" onchange="updateClearDateButton('preSl1Date')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('preSl1Date')" 
+                                            th:disabled="${tool.preSl1Date == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- SL1 -->
                             <div class="col-md-6">
-                                <label for="sl1Date" class="form-label">SL1</label>
-                                <input type="date" class="form-control" id="sl1Date" name="sl1Date" 
-                                       th:value="${tool.sl1Date}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="sl1Check" name="sl1Complete" 
+                                           th:checked="${tool.sl1Complete}">
+                                    <label for="sl1Date" class="form-label mb-0">SL1</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="sl1Date" name="sl1Date" 
+                                           th:value="${tool.sl1Date}" onchange="updateClearDateButton('sl1Date')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('sl1Date')" 
+                                            th:disabled="${tool.sl1Date == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Mechanical: Pre SL1 -->
                             <div class="col-md-6">
-                                <label for="mechanicalPreSl1Date" class="form-label">Mechanical: Pre SL1</label>
-                                <input type="date" class="form-control" id="mechanicalPreSl1Date" name="mechanicalPreSl1Date" 
-                                       th:value="${tool.mechanicalPreSl1Date}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="mechanicalPreSl1Check" name="mechanicalPreSl1Complete" 
+                                           th:checked="${tool.mechanicalPreSl1Complete}">
+                                    <label for="mechanicalPreSl1Date" class="form-label mb-0">Mechanical: Pre SL1</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="mechanicalPreSl1Date" name="mechanicalPreSl1Date" 
+                                           th:value="${tool.mechanicalPreSl1Date}" onchange="updateClearDateButton('mechanicalPreSl1Date')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('mechanicalPreSl1Date')" 
+                                            th:disabled="${tool.mechanicalPreSl1Date == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Mechanical: Post SL1 -->
                             <div class="col-md-6">
-                                <label for="mechanicalPostSl1Date" class="form-label">Mechanical: Post SL1</label>
-                                <input type="date" class="form-control" id="mechanicalPostSl1Date" name="mechanicalPostSl1Date" 
-                                       th:value="${tool.mechanicalPostSl1Date}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="mechanicalPostSl1Check" name="mechanicalPostSl1Complete" 
+                                           th:checked="${tool.mechanicalPostSl1Complete}">
+                                    <label for="mechanicalPostSl1Date" class="form-label mb-0">Mechanical: Post SL1</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="mechanicalPostSl1Date" name="mechanicalPostSl1Date" 
+                                           th:value="${tool.mechanicalPostSl1Date}" onchange="updateClearDateButton('mechanicalPostSl1Date')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('mechanicalPostSl1Date')" 
+                                            th:disabled="${tool.mechanicalPostSl1Date == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Input Functionality Tested -->
                             <div class="col-md-6">
-                                <label for="specificInputFunctionalityDate" class="form-label">Input Functionality Tested</label>
-                                <input type="date" class="form-control" id="specificInputFunctionalityDate" name="specificInputFunctionalityDate" 
-                                       th:value="${tool.specificInputFunctionalityDate}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="specificInputFunctionalityCheck" name="specificInputFunctionalityComplete" 
+                                           th:checked="${tool.specificInputFunctionalityComplete}">
+                                    <label for="specificInputFunctionalityDate" class="form-label mb-0">Input Functionality Tested</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="specificInputFunctionalityDate" name="specificInputFunctionalityDate" 
+                                           th:value="${tool.specificInputFunctionalityDate}" onchange="updateClearDateButton('specificInputFunctionalityDate')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('specificInputFunctionalityDate')" 
+                                            th:disabled="${tool.specificInputFunctionalityDate == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Operation Modes Tested -->
                             <div class="col-md-6">
-                                <label for="modesOfOperationDate" class="form-label">Operation Modes Tested</label>
-                                <input type="date" class="form-control" id="modesOfOperationDate" name="modesOfOperationDate" 
-                                       th:value="${tool.modesOfOperationDate}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="modesOfOperationCheck" name="modesOfOperationComplete" 
+                                           th:checked="${tool.modesOfOperationComplete}">
+                                    <label for="modesOfOperationDate" class="form-label mb-0">Operation Modes Tested</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="modesOfOperationDate" name="modesOfOperationDate" 
+                                           th:value="${tool.modesOfOperationDate}" onchange="updateClearDateButton('modesOfOperationDate')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('modesOfOperationDate')" 
+                                            th:disabled="${tool.modesOfOperationDate == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- SOO's Tested -->
                             <div class="col-md-6">
-                                <label for="specificSoosDate" class="form-label">SOO's Tested</label>
-                                <input type="date" class="form-control" id="specificSoosDate" name="specificSoosDate" 
-                                       th:value="${tool.specificSoosDate}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="specificSoosCheck" name="specificSoosComplete" 
+                                           th:checked="${tool.specificSoosComplete}">
+                                    <label for="specificSoosDate" class="form-label mb-0">SOO's Tested</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="specificSoosDate" name="specificSoosDate" 
+                                           th:value="${tool.specificSoosDate}" onchange="updateClearDateButton('specificSoosDate')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('specificSoosDate')" 
+                                            th:disabled="${tool.specificSoosDate == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Field Service Report -->
                             <div class="col-md-6">
-                                <label for="fieldServiceReportDate" class="form-label">Field Service Report</label>
-                                <input type="date" class="form-control" id="fieldServiceReportDate" name="fieldServiceReportDate" 
-                                       th:value="${tool.fieldServiceReportDate}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="fieldServiceReportCheck" name="fieldServiceReportComplete" 
+                                           th:checked="${tool.fieldServiceReportComplete}">
+                                    <label for="fieldServiceReportDate" class="form-label mb-0">Field Service Report</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="fieldServiceReportDate" name="fieldServiceReportDate" 
+                                           th:value="${tool.fieldServiceReportDate}" onchange="updateClearDateButton('fieldServiceReportDate')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('fieldServiceReportDate')" 
+                                            th:disabled="${tool.fieldServiceReportDate == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Certificate of Approval -->
                             <div class="col-md-6">
-                                <label for="certificateOfApprovalDate" class="form-label">Certificate of Approval</label>
-                                <input type="date" class="form-control" id="certificateOfApprovalDate" name="certificateOfApprovalDate" 
-                                       th:value="${tool.certificateOfApprovalDate}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="certificateOfApprovalCheck" name="certificateOfApprovalComplete" 
+                                           th:checked="${tool.certificateOfApprovalComplete}">
+                                    <label for="certificateOfApprovalDate" class="form-label mb-0">Certificate of Approval</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="certificateOfApprovalDate" name="certificateOfApprovalDate" 
+                                           th:value="${tool.certificateOfApprovalDate}" onchange="updateClearDateButton('certificateOfApprovalDate')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('certificateOfApprovalDate')" 
+                                            th:disabled="${tool.certificateOfApprovalDate == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Turned Over to Customer -->
                             <div class="col-md-6">
-                                <label for="turnedOverToCustomerDate" class="form-label">Turned Over to Customer</label>
-                                <input type="date" class="form-control" id="turnedOverToCustomerDate" name="turnedOverToCustomerDate" 
-                                       th:value="${tool.turnedOverToCustomerDate}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="turnedOverToCustomerCheck" name="turnedOverToCustomerComplete" 
+                                           th:checked="${tool.turnedOverToCustomerComplete}">
+                                    <label for="turnedOverToCustomerDate" class="form-label mb-0">Turned Over to Customer</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="turnedOverToCustomerDate" name="turnedOverToCustomerDate" 
+                                           th:value="${tool.turnedOverToCustomerDate}" onchange="updateClearDateButton('turnedOverToCustomerDate')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('turnedOverToCustomerDate')" 
+                                            th:disabled="${tool.turnedOverToCustomerDate == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Start-Up/SL03 -->
                             <div class="col-md-6">
-                                <label for="startUpSl03Date" class="form-label">Start-Up/SL03</label>
-                                <input type="date" class="form-control" id="startUpSl03Date" name="startUpSl03Date" 
-                                       th:value="${tool.startUpSl03Date}">
+                                <div class="d-flex align-items-center mb-2">
+                                    <input type="checkbox" class="form-check-input me-2 checklist-checkbox" id="startUpSl03Check" name="startUpSl03Complete" 
+                                           th:checked="${tool.startUpSl03Complete}">
+                                    <label for="startUpSl03Date" class="form-label mb-0">Start-Up/SL03</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="date" class="form-control checklist-date-input" id="startUpSl03Date" name="startUpSl03Date" 
+                                           th:value="${tool.startUpSl03Date}" onchange="updateClearDateButton('startUpSl03Date')">
+                                    <button type="button" class="btn btn-outline-secondary clear-date-btn" 
+                                            onclick="clearDate('startUpSl03Date')" 
+                                            th:disabled="${tool.startUpSl03Date == null}">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         
                         <div class="mt-4">
                             <div class="alert alert-info">
                                 <i class="bi bi-info-circle me-2"></i>
-                                <strong>Note:</strong> Setting a date will automatically mark the item as completed. Clear the date to mark as incomplete.
+                                <strong>Note:</strong> You can check items without setting a date. Dates are optional.
                             </div>
                         </div>
                     </div>
@@ -1992,9 +2336,178 @@
                 document.getElementById('unassignUserName').textContent = userName;
             }
         });
+        
+        // Checklist Check All / Uncheck All functions
+        function checkAllChecklist() {
+            const checkboxes = document.querySelectorAll('.checklist-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+        }
+        
+        function uncheckAllChecklist() {
+            const checkboxes = document.querySelectorAll('.checklist-checkbox');
+            checkboxes.forEach(checkbox => {
+                // Get the corresponding date input
+                const checkboxId = checkbox.id;
+                const dateId = checkboxId.replace('Check', 'Date');
+                const dateInput = document.getElementById(dateId);
+                
+                // Only uncheck if there's no date
+                if (!dateInput || !dateInput.value) {
+                    checkbox.checked = false;
+                }
+            });
+        }
+        
+        // Clear date for a specific checklist item
+        function clearDate(dateInputId) {
+            const dateInput = document.getElementById(dateInputId);
+            if (dateInput) {
+                dateInput.value = '';
+                updateClearDateButton(dateInputId);
+            }
+        }
+        
+        // Update the disabled state of the clear date button
+        function updateClearDateButton(dateInputId) {
+            const dateInput = document.getElementById(dateInputId);
+            const clearButton = dateInput ? dateInput.nextElementSibling : null;
+            
+            if (clearButton && clearButton.classList.contains('clear-date-btn')) {
+                clearButton.disabled = !dateInput.value;
+            }
+        }
+        
+        // Initialize clear date buttons on modal open
+        document.getElementById('editChecklistModal').addEventListener('shown.bs.modal', function() {
+            // Update all clear date buttons based on current values
+            document.querySelectorAll('.checklist-date-input').forEach(input => {
+                updateClearDateButton(input.id);
+            });
+        });
     </script>
 
     <!-- Moving Part Modal JavaScript -->
     <div th:replace="~{fragments/moving-part-modal :: movingPartModalScript('toolDestinationContainer', 'toolAddAnotherDestination')}"></div>
+    
+    <!-- NCSR Modal -->
+    <div th:replace="~{fragments/ncsr-modal :: ncsrModal}"></div>
+    
+    <!-- NCSR JavaScript -->
+    <script th:src="@{/js/ncsr.js}"></script>
+    
+    <script>
+        // Wrapper function to safely open NCSR modal from button click
+        function openNcsrModalFromButton(button) {
+            const toolId = button.getAttribute('data-tool-id');
+            const toolName = button.getAttribute('data-tool-name');
+            if (typeof openNcsrModal === 'function') {
+                openNcsrModal(toolId, toolName);
+            } else {
+                console.error('openNcsrModal function not found');
+            }
+        }
+        
+        // Initialize NCSR drag-to-scroll (both horizontal and vertical)
+        document.addEventListener('DOMContentLoaded', function() {
+            const ncsrContainer = document.querySelector('.ncsr-list-container');
+            if (ncsrContainer) {
+                let isDown = false;
+                let startX, startY;
+                let scrollLeft, scrollTop;
+
+                ncsrContainer.addEventListener('mousedown', (e) => {
+                    // Don't initiate drag if clicking on checkbox
+                    if (e.target.type === 'checkbox') return;
+                    
+                    isDown = true;
+                    ncsrContainer.style.cursor = 'grabbing';
+                    startX = e.pageX - ncsrContainer.offsetLeft;
+                    startY = e.pageY - ncsrContainer.offsetTop;
+                    scrollLeft = ncsrContainer.scrollLeft;
+                    scrollTop = ncsrContainer.scrollTop;
+                });
+
+                ncsrContainer.addEventListener('mouseleave', () => {
+                    isDown = false;
+                    ncsrContainer.style.cursor = 'grab';
+                });
+
+                ncsrContainer.addEventListener('mouseup', () => {
+                    isDown = false;
+                    ncsrContainer.style.cursor = 'grab';
+                });
+
+                ncsrContainer.addEventListener('mousemove', (e) => {
+                    if (!isDown) return;
+                    e.preventDefault();
+                    const x = e.pageX - ncsrContainer.offsetLeft;
+                    const y = e.pageY - ncsrContainer.offsetTop;
+                    const walkX = (x - startX) * 2; // Horizontal scroll speed
+                    const walkY = (y - startY) * 2; // Vertical scroll speed
+                    ncsrContainer.scrollLeft = scrollLeft - walkX;
+                    ncsrContainer.scrollTop = scrollTop - walkY;
+                });
+            }
+        });
+        
+        // Basic Information Edit/Save/Cancel functionality
+        const editBasicInfoBtn = document.getElementById('edit-basic-info-btn');
+        const saveBasicInfoBtn = document.getElementById('save-basic-info-btn');
+        const cancelBasicInfoBtn = document.getElementById('cancel-basic-info-btn');
+        const basicInfoView = document.getElementById('basic-info-view');
+        const basicInfoEdit = document.getElementById('basic-info-edit');
+        
+        if (editBasicInfoBtn) {
+            editBasicInfoBtn.addEventListener('click', function() {
+                basicInfoView.style.display = 'none';
+                basicInfoEdit.style.display = 'flex';
+                editBasicInfoBtn.style.display = 'none';
+            });
+        }
+        
+        if (cancelBasicInfoBtn) {
+            cancelBasicInfoBtn.addEventListener('click', function() {
+                basicInfoView.style.display = 'flex';
+                basicInfoEdit.style.display = 'none';
+                editBasicInfoBtn.style.display = 'block';
+            });
+        }
+        
+        if (saveBasicInfoBtn) {
+            saveBasicInfoBtn.addEventListener('click', function() {
+                const toolId = document.getElementById('toolPageEntityIdForJs').value;
+                const name = document.getElementById('edit-name').value;
+                const secondaryName = document.getElementById('edit-secondaryname').value;
+                const serial1 = document.getElementById('edit-serial1').value;
+                const serial2 = document.getElementById('edit-serial2').value;
+                const model1 = document.getElementById('edit-model1').value;
+                const model2 = document.getElementById('edit-model2').value;
+                const chemical = document.getElementById('edit-chemical').value;
+                const setDate = document.getElementById('edit-setdate').value;
+                
+                // Send AJAX request to update
+                fetch(`/tools/${toolId}/update-basic-info`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `name=${encodeURIComponent(name)}&secondaryName=${encodeURIComponent(secondaryName)}&serialNumber1=${encodeURIComponent(serial1)}&serialNumber2=${encodeURIComponent(serial2)}&model1=${encodeURIComponent(model1)}&model2=${encodeURIComponent(model2)}&chemicalGasService=${encodeURIComponent(chemical)}&setDate=${encodeURIComponent(setDate)}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error updating basic info: ' + error);
+                });
+            });
+        }
+    </script>
 </body>
 </html> 

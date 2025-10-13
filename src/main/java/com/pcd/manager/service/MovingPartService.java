@@ -70,19 +70,32 @@ public class MovingPartService {
     
     @Transactional
     public MovingPart createMovingPart(String partName, Long fromToolId, List<Long> destinationToolIds, String notes, Long noteId, Rma rma) {
+        return createMovingPart(partName, fromToolId, null, destinationToolIds, null, notes, noteId, rma);
+    }
+    
+    public MovingPart createMovingPart(String partName, Long fromToolId, String fromCustomLocation, 
+                                      List<Long> destinationToolIds, List<String> toCustomLocations, 
+                                      String notes, Long noteId, Rma rma) {
         MovingPart movingPart = new MovingPart();
         movingPart.setPartName(partName);
         movingPart.setMoveDate(LocalDateTime.now());
         movingPart.setNotes(notes);
         
-        // Set the from tool if provided
+        // Set the from tool or custom location
         if (fromToolId != null) {
             toolRepository.findById(fromToolId).ifPresent(movingPart::setFromTool);
+        } else if (fromCustomLocation != null && !fromCustomLocation.trim().isEmpty()) {
+            movingPart.setFromCustomLocation(fromCustomLocation.trim());
         }
         
-        // Set the destination chain
+        // Set the destination chain (tool IDs)
         if (destinationToolIds != null && !destinationToolIds.isEmpty()) {
             movingPart.setDestinationToolIds(destinationToolIds);
+        }
+        
+        // Set the custom location chain
+        if (toCustomLocations != null && !toCustomLocations.isEmpty()) {
+            movingPart.setToCustomLocationsList(toCustomLocations);
         }
         
         // Link note if provided

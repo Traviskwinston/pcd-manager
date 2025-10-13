@@ -96,22 +96,28 @@ public interface ToolRepository extends JpaRepository<Tool, Long> {
     List<Tool> findAllForListView();
     
     /**
-     * Ultra-lightweight query for tools list view - loads core tool data and checklist date fields
+     * Ultra-lightweight query for tools list view - loads core tool data and checklist date fields + completion flags
      * Returns: id, name, secondaryName, toolType, serialNumber1, serialNumber2, 
      *          model1, model2, status, locationName, createdAt, updatedAt,
      *          commissionDate, preSl1Date, sl1Date, mechanicalPreSl1Date, mechanicalPostSl1Date,
      *          specificInputFunctionalityDate, modesOfOperationDate, specificSoosDate,
      *          fieldServiceReportDate, certificateOfApprovalDate, turnedOverToCustomerDate, startUpSl03Date,
-     *          checklistLabelsJson, uploadDate
+     *          checklistLabelsJson, uploadDate,
+     *          commissionComplete, preSl1Complete, sl1Complete, mechanicalPreSl1Complete, mechanicalPostSl1Complete,
+     *          inputFunctionalityComplete, modesOperationComplete, soosComplete,
+     *          fieldServiceComplete, certificateApprovalComplete, turnedOverComplete, startUpSl03Complete
      */
-    @Query(value = "SELECT t.id, t.name, t.secondary_name, t.tool_type, t.serial_number1, t.serial_number2, " +
-           "t.model1, t.model2, t.status, t.location_name, t.created_at, t.updated_at, " +
-           "t.commission_date, t.pre_sl1date, t.sl1date, t.mechanical_pre_sl1date, t.mechanical_post_sl1date, " +
-           "t.specific_input_functionality_date, t.modes_of_operation_date, t.specific_soos_date, " +
-           "t.field_service_report_date, t.certificate_of_approval_date, t.turned_over_to_customer_date, t.start_up_sl03date, " +
-           "t.checklist_labels_json, t.upload_date " +
-           "FROM tools t " +
-           "ORDER BY t.upload_date ASC NULLS FIRST, t.updated_at DESC, t.created_at DESC", nativeQuery = true)
+        @Query(value = "SELECT t.id, t.name, t.secondary_name, t.tool_type, t.serial_number1, t.serial_number2, " +
+               "t.model1, t.model2, t.status, t.location_name, t.created_at, t.updated_at, " +
+               "t.commission_date, t.pre_sl1date, t.sl1date, t.mechanical_pre_sl1date, t.mechanical_post_sl1date, " +
+               "t.specific_input_functionality_date, t.modes_of_operation_date, t.specific_soos_date, " +
+               "t.field_service_report_date, t.certificate_of_approval_date, t.turned_over_to_customer_date, t.start_up_sl03date, " +
+               "t.checklist_labels_json, t.upload_date, " +
+               "t.commission_complete, t.pre_sl1_complete, t.sl1_complete, t.mechanical_pre_sl1_complete, t.mechanical_post_sl1_complete, " +
+               "t.specific_input_functionality_complete, t.modes_of_operation_complete, t.specific_soos_complete, " +
+               "t.field_service_report_complete, t.certificate_of_approval_complete, t.turned_over_to_customer_complete, t.start_up_sl03_complete " +
+               "FROM tools t " +
+               "ORDER BY t.upload_date ASC NULLS FIRST, t.updated_at DESC, t.created_at DESC", nativeQuery = true)
     List<Object[]> findAllForAsyncListView();
     
     /**

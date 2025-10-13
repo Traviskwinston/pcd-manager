@@ -155,9 +155,62 @@ public class DataInitializer implements CommandLineRunner {
         
         userRepository.save(guestUser);
         logger.info("Guest user created: Guest@pcdmanager.com");
+        
+        // Create Aaron Balliett user (AB initials)
+        User aaron = new User();
+        aaron.setEmail("Aaron.Balliett@emdgroup.com");
+        aaron.setPassword(passwordEncoder.encode("emdpassword1"));
+        aaron.setName("Aaron Balliett");
+        aaron.setRole("TECHNICIAN");
+        aaron.setActive(true);
+        defaultLocation.ifPresent(aaron::setActiveSite);
+        userRepository.save(aaron);
+        logger.info("Aaron Balliett user created: Aaron.Balliett@emdgroup.com (Initials: AB)");
+        
+        // Create Jose Martinez user (JM initials)
+        User jose = new User();
+        jose.setEmail("Jose.Martinez@emdgroup.com");
+        jose.setPassword(passwordEncoder.encode("emdpassword1"));
+        jose.setName("Jose Martinez");
+        jose.setRole("TECHNICIAN");
+        jose.setActive(true);
+        defaultLocation.ifPresent(jose::setActiveSite);
+        userRepository.save(jose);
+        logger.info("Jose Martinez user created: Jose.Martinez@emdgroup.com (Initials: JM)");
+        
+        // Create Raquel Dee user (RD initials)
+        User raquel = new User();
+        raquel.setEmail("Raquel.Dee@emdgroup.com");
+        raquel.setPassword(passwordEncoder.encode("emdpassword1"));
+        raquel.setName("Raquel Dee");
+        raquel.setRole("TECHNICIAN");
+        raquel.setActive(true);
+        defaultLocation.ifPresent(raquel::setActiveSite);
+        userRepository.save(raquel);
+        logger.info("Raquel Dee user created: Raquel.Dee@emdgroup.com (Initials: RD)");
+        
+        // Create Erasto Campo user (EC initials)
+        User erasto = new User();
+        erasto.setEmail("Erasto.Campo@emdgroup.com");
+        erasto.setPassword(passwordEncoder.encode("emdpassword1"));
+        erasto.setName("Erasto Campo");
+        erasto.setRole("TECHNICIAN");
+        erasto.setActive(true);
+        defaultLocation.ifPresent(erasto::setActiveSite);
+        userRepository.save(erasto);
+        logger.info("Erasto Campo user created: Erasto.Campo@emdgroup.com (Initials: EC)");
     }
     
     private void updateExistingUsers() {
+        // Fix admin password if it exists
+        Optional<User> adminUser = userRepository.findByEmailIgnoreCase("admin@pcd.com");
+        if (adminUser.isPresent()) {
+            User admin = adminUser.get();
+            admin.setPassword(passwordEncoder.encode("admin123"));
+            userRepository.save(admin);
+            logger.info("Reset admin password to admin123");
+        }
+        
         // Update Duane Smith password if he exists
         Optional<User> duaneUser = userRepository.findByEmailIgnoreCase("duane.smith@emdgroup.com");
         if (duaneUser.isPresent()) {
@@ -222,6 +275,74 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(guest);
             logger.info("Created Guest user: Guest@pcdmanager.com");
         }
+        
+        // Ensure Aaron Balliett exists (AB initials)
+        Optional<User> aaronUser = userRepository.findByEmailIgnoreCase("Aaron.Balliett@emdgroup.com");
+        if (aaronUser.isEmpty()) {
+            User aaron = new User();
+            aaron.setEmail("Aaron.Balliett@emdgroup.com");
+            aaron.setPassword(passwordEncoder.encode("emdpassword1"));
+            aaron.setName("Aaron Balliett");
+            aaron.setRole("TECHNICIAN");
+            aaron.setActive(true);
+            
+            Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
+            defaultLocation.ifPresent(aaron::setActiveSite);
+            
+            userRepository.save(aaron);
+            logger.info("Created Aaron Balliett user: Aaron.Balliett@emdgroup.com (Initials: AB)");
+        }
+        
+        // Ensure Jose Martinez exists (JM initials)
+        Optional<User> joseUser = userRepository.findByEmailIgnoreCase("Jose.Martinez@emdgroup.com");
+        if (joseUser.isEmpty()) {
+            User jose = new User();
+            jose.setEmail("Jose.Martinez@emdgroup.com");
+            jose.setPassword(passwordEncoder.encode("emdpassword1"));
+            jose.setName("Jose Martinez");
+            jose.setRole("TECHNICIAN");
+            jose.setActive(true);
+            
+            Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
+            defaultLocation.ifPresent(jose::setActiveSite);
+            
+            userRepository.save(jose);
+            logger.info("Created Jose Martinez user: Jose.Martinez@emdgroup.com (Initials: JM)");
+        }
+        
+        // Ensure Raquel Dee exists (RD initials)
+        Optional<User> raquelUser = userRepository.findByEmailIgnoreCase("Raquel.Dee@emdgroup.com");
+        if (raquelUser.isEmpty()) {
+            User raquel = new User();
+            raquel.setEmail("Raquel.Dee@emdgroup.com");
+            raquel.setPassword(passwordEncoder.encode("emdpassword1"));
+            raquel.setName("Raquel Dee");
+            raquel.setRole("TECHNICIAN");
+            raquel.setActive(true);
+            
+            Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
+            defaultLocation.ifPresent(raquel::setActiveSite);
+            
+            userRepository.save(raquel);
+            logger.info("Created Raquel Dee user: Raquel.Dee@emdgroup.com (Initials: RD)");
+        }
+        
+        // Ensure Erasto Campo exists (EC initials)
+        Optional<User> erastoUser = userRepository.findByEmailIgnoreCase("Erasto.Campo@emdgroup.com");
+        if (erastoUser.isEmpty()) {
+            User erasto = new User();
+            erasto.setEmail("Erasto.Campo@emdgroup.com");
+            erasto.setPassword(passwordEncoder.encode("emdpassword1"));
+            erasto.setName("Erasto Campo");
+            erasto.setRole("TECHNICIAN");
+            erasto.setActive(true);
+            
+            Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
+            defaultLocation.ifPresent(erasto::setActiveSite);
+            
+            userRepository.save(erasto);
+            logger.info("Created Erasto Campo user: Erasto.Campo@emdgroup.com (Initials: EC)");
+        }
     }
     
     private void createHardcodedTools() {
@@ -233,8 +354,16 @@ public class DataInitializer implements CommandLineRunner {
                 newF52.setState("Arizona");
                 newF52.setFab("52");
                 newF52.setDisplayName("AZ F52");
-                logger.info("LocationType for new F52 location will be null as Location.LocationType enum needs to be defined with FAB.");
+                newF52.setTimeZone("America/Phoenix"); // Arizona doesn't observe DST
+                newF52.setAddress("2850 E Broadway Rd, Tempe, AZ 85282");
                 newF52.setDefaultLocation(false);
+                
+                // Set default customer info
+                newF52.setCustomerName("EMD Electronics");
+                newF52.setCustomerPhone("(480) 555-0100");
+                newF52.setCustomerEmail("facilities@emdelectronics.com");
+                
+                logger.info("LocationType for new F52 location will be null as Location.LocationType enum needs to be defined with FAB.");
                 return locationRepository.save(newF52);
             });
 
@@ -521,7 +650,15 @@ public class DataInitializer implements CommandLineRunner {
                         newLocation.setFab("52");
                         newLocation.setName("Fab 52 Arizona");
                         newLocation.setDisplayName("AZ F52");
+                        newLocation.setTimeZone("America/Phoenix"); // Arizona doesn't observe DST
+                        newLocation.setAddress("2850 E Broadway Rd, Tempe, AZ 85282");
                         newLocation.setDefaultLocation(true);
+                        
+                        // Set default customer info
+                        newLocation.setCustomerName("EMD Electronics");
+                        newLocation.setCustomerPhone("(480) 555-0100");
+                        newLocation.setCustomerEmail("facilities@emdelectronics.com");
+                        
                         return locationRepository.save(newLocation);
                     });
             });

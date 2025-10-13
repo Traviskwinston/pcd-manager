@@ -39,9 +39,23 @@ public class MovingPart {
     @ManyToOne
     @JoinColumn(name = "from_tool_id")
     private Tool fromTool;
+    
+    @ManyToOne
+    @JoinColumn(name = "from_custom_location_id")
+    private CustomLocation fromCustomLocationEntity;
+    
+    @Column(name = "from_custom_location")
+    private String fromCustomLocation;
 
     @Column(name = "destination_chain", columnDefinition = "TEXT")
     private String destinationChain;
+    
+    @ManyToOne
+    @JoinColumn(name = "to_custom_location_id")
+    private CustomLocation toCustomLocationEntity;
+    
+    @Column(name = "to_custom_locations", columnDefinition = "TEXT")
+    private String toCustomLocations;
 
     @ManyToOne
     @JoinColumn(name = "rma_id", nullable = true)
@@ -124,6 +138,45 @@ public class MovingPart {
         List<Long> destinations = getDestinationToolIds();
         destinations.add(toolId);
         setDestinationToolIds(destinations);
+    }
+    
+    // Helper methods for custom locations
+    public List<String> getToCustomLocationsList() {
+        if (toCustomLocations == null || toCustomLocations.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(toCustomLocations, new TypeReference<List<String>>() {});
+        } catch (JsonProcessingException e) {
+            return new ArrayList<>();
+        }
+    }
+    
+    public void setToCustomLocationsList(List<String> customLocations) {
+        if (customLocations == null || customLocations.isEmpty()) {
+            this.toCustomLocations = null;
+            return;
+        }
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            this.toCustomLocations = mapper.writeValueAsString(customLocations);
+        } catch (JsonProcessingException e) {
+            this.toCustomLocations = null;
+        }
+    }
+    
+    /**
+     * Get the display name for the source location (tool or custom)
+     */
+    public String getFromDisplayName() {
+        if (fromCustomLocationEntity != null) {
+            return fromCustomLocationEntity.getName();
+        }
+        if (fromCustomLocation != null && !fromCustomLocation.trim().isEmpty()) {
+            return fromCustomLocation;
+        }
+        return fromTool != null ? fromTool.getName() : "Unknown";
     }
 
     @Override

@@ -65,12 +65,14 @@ public class ExcelService {
      * @throws IOException If an I/O error occurs
      */
     public byte[] populateRmaTemplate(Rma rma, User currentUser) throws IOException {
-        // Load the template from classpath
-        try (InputStream templateStream = getClass().getResourceAsStream("/reference-documents/BlankRMAcustom.xlsx")) {
+        // Load the template with checkbox links
+        Path templatePath = Paths.get("uploads/reference-documents/Blank RMA_PCDMANAGER.xlsx");
+        
+        try (InputStream templateStream = Files.newInputStream(templatePath)) {
             
             if (templateStream == null) {
-                logger.error("RMA template file not found in classpath");
-                throw new IOException("RMA template file not found in classpath");
+                logger.error("RMA template file not found at: {}", templatePath);
+                throw new IOException("RMA template file not found");
             }
             
             try (Workbook workbook = new XSSFWorkbook(templateStream);
@@ -100,6 +102,9 @@ public class ExcelService {
                 // If RMA is provided, populate RMA-specific fields
                 if (rma != null) {
                     populateRmaFields(sheet, rma);
+                    
+                    // Set checkboxes based on RMA data
+                    populateCheckboxes(sheet, rma);
                 }
                 
                 // Write the workbook to the output stream
@@ -202,26 +207,10 @@ public class ExcelService {
             setCellValue(sheet, "J18", tool.getChemicalGasService());
         }
         
-        // Process Impact Checkboxes
-        // Start-up/SO3 complete in J19
-        setCellValue(sheet, "J19", rma.getStartupSo3Complete() != null && rma.getStartupSo3Complete() ? "X" : "");
-        
-        // Interruption to Flow in J20
-        setCellValue(sheet, "J20", rma.getInterruptionToFlow() != null && rma.getInterruptionToFlow() ? "X" : "");
-        
-        // Interruption to Production in J21
-        setCellValue(sheet, "J21", rma.getInterruptionToProduction() != null && rma.getInterruptionToProduction() ? "X" : "");
-        
         // Downtime (hrs) in J22
         if (rma.getDowntimeHours() != null) {
             setCellValue(sheet, "J22", rma.getDowntimeHours().toString());
         }
-        
-        // Exposed to Process Gas or Chemicals checkbox in B34
-        setCellValue(sheet, "B34", rma.getExposedToProcessGasOrChemicals() != null && rma.getExposedToProcessGasOrChemicals() ? "X" : "");
-        
-        // Purged checkbox in B35
-        setCellValue(sheet, "B35", rma.getPurged() != null && rma.getPurged() ? "X" : "");
         
         // Instructions for exposed component in F35
         setCellValue(sheet, "F35", rma.getInstructionsForExposedComponent());
@@ -236,8 +225,7 @@ public class ExcelService {
         setCellValue(sheet, "B46", rma.getHowContained());      // How contained - B46
         setCellValue(sheet, "B47", rma.getWhoContained());      // Who contained - B47
         
-        // Failed on Install checkbox in B43
-        setCellValue(sheet, "B43", rma.getFailedOnInstall() != null && rma.getFailedOnInstall() ? "X" : "");
+        // Failed on Install - now handled by checkbox logic
         
         // Parts (up to 4) - using the correct template layout
         if (rma.getPartLineItems() != null && !rma.getPartLineItems().isEmpty()) {
@@ -270,8 +258,7 @@ public class ExcelService {
                            i+1, replacementCell, qtyCell, pnCell, descCell, part.getPartName(), part.getPartNumber(), part.getProductDescription(), 
                            part.getQuantity(), part.getReplacementRequired());
                 
-                // Set replacement required checkbox
-                setCellValue(sheet, replacementCell, part.getReplacementRequired() != null && part.getReplacementRequired() ? "X" : "");
+                // Replacement required - now handled by checkbox logic (A67-A74)
                 
                 // Set quantity
                 if (part.getQuantity() != null) {
@@ -332,6 +319,150 @@ public class ExcelService {
             }
         } else {
             logger.info("EXCEL EXPORT - No labor entries found for RMA {}", rma.getId());
+        }
+    }
+    
+    /**
+     * Populates checkboxes based on RMA data
+     * Sets linked cells (A61-A75) to check/uncheck checkboxes
+     */
+    private void populateCheckboxes(Sheet sheet, Rma rma) {
+        logger.info("EXCEL EXPORT - Populating checkboxes for RMA {}", rma.getId());
+        
+        // A61: Start-up/SO3 complete = YES
+        // A62: Start-up/SO3 complete = NO
+        if (rma.getStartupSo3Complete() != null && rma.getStartupSo3Complete()) {
+            setBooleanCellValue(sheet, "A61", true);  // YES
+        } else {
+            setBooleanCellValue(sheet, "A62", true);  // NO
+        }
+        
+        // A63: Interruption to flow = TRUE
+        // A64: Interruption to flow = FALSE
+        if (rma.getInterruptionToFlow() != null && rma.getInterruptionToFlow()) {
+            setBooleanCellValue(sheet, "A63", true);  // TRUE
+        } else {
+            setBooleanCellValue(sheet, "A64", true);  // FALSE
+        }
+        
+        // A65: Interruption to production = TRUE
+        // A66: Interruption to production = FALSE
+        if (rma.getInterruptionToProduction() != null && rma.getInterruptionToProduction()) {
+            setBooleanCellValue(sheet, "A65", true);  // TRUE
+        } else {
+            setBooleanCellValue(sheet, "A66", true);  // FALSE
+        }
+        
+        // Parts replacement checkboxes (A67-A74 for up to 4 parts)
+        if (rma.getPartLineItems() != null && !rma.getPartLineItems().isEmpty()) {
+            List<PartLineItem> parts = new ArrayList<>(rma.getPartLineItems());
+            
+            // Part 1: A67 (replace=YES), A68 (replace=NO)
+            if (parts.size() > 0) {
+                PartLineItem part1 = parts.get(0);
+                if (part1.getReplacementRequired() != null && part1.getReplacementRequired()) {
+                    setBooleanCellValue(sheet, "A67", true);  // Replace = YES
+                } else {
+                    setBooleanCellValue(sheet, "A68", true);  // Replace = NO
+                }
+            }
+            
+            // Part 2: A71 (replace=YES), A72 (replace=NO)
+            if (parts.size() > 1) {
+                PartLineItem part2 = parts.get(1);
+                if (part2.getReplacementRequired() != null && part2.getReplacementRequired()) {
+                    setBooleanCellValue(sheet, "A71", true);  // Replace = YES
+                } else {
+                    setBooleanCellValue(sheet, "A72", true);  // Replace = NO
+                }
+            }
+            
+            // Part 3: A69 (replace=YES), A70 (replace=NO)
+            if (parts.size() > 2) {
+                PartLineItem part3 = parts.get(2);
+                if (part3.getReplacementRequired() != null && part3.getReplacementRequired()) {
+                    setBooleanCellValue(sheet, "A69", true);  // Replace = YES
+                } else {
+                    setBooleanCellValue(sheet, "A70", true);  // Replace = NO
+                }
+            }
+            
+            // Part 4: A73 (replace=YES), A74 (replace=NO)
+            if (parts.size() > 3) {
+                PartLineItem part4 = parts.get(3);
+                if (part4.getReplacementRequired() != null && part4.getReplacementRequired()) {
+                    setBooleanCellValue(sheet, "A73", true);  // Replace = YES
+                } else {
+                    setBooleanCellValue(sheet, "A74", true);  // Replace = NO
+                }
+            }
+        }
+        
+        // Exposed to Process Gas/Chemical checkboxes (use the already-linked checkboxes 49, 50, 54)
+        // These checkboxes are linked to cells on the "Data" sheet
+        Workbook workbook = sheet.getWorkbook();
+        Sheet dataSheet = workbook.getSheet("Data");
+        if (dataSheet == null) {
+            logger.warn("EXCEL EXPORT - 'Data' sheet not found, cannot set checkbox cells for checkboxes 49, 50, 54");
+        } else {
+            if (rma.getExposedToProcessGasOrChemicals() != null) {
+                if (rma.getExposedToProcessGasOrChemicals()) {
+                    // Checkbox 49 = TRUE (exposed = yes) -> Data!A21
+                    setBooleanCellValue(dataSheet, "A21", true);
+                } else {
+                    // Checkbox 50 = TRUE (exposed = no) -> Data!A22
+                    setBooleanCellValue(dataSheet, "A22", true);
+                }
+            }
+            
+            // Purged checkbox
+            if (rma.getPurged() != null) {
+                if (rma.getPurged()) {
+                    // Checkbox 54 = TRUE (purged = yes) -> Data!A25
+                    setBooleanCellValue(dataSheet, "A25", true);
+                } else {
+                    // Purged = NO -> Main sheet A75
+                    setBooleanCellValue(sheet, "A75", true);
+                }
+            }
+        }
+        
+        logger.info("EXCEL EXPORT - Checkboxes populated for RMA {}", rma.getId());
+    }
+    
+    /**
+     * Set a boolean value to a cell (TRUE for checked checkboxes)
+     * Also sets the text color to white to hide the TRUE/FALSE text
+     */
+    private void setBooleanCellValue(Sheet sheet, String cellReference, boolean value) {
+        try {
+            CellReference ref = new CellReference(cellReference);
+            int rowIndex = ref.getRow();
+            int colIndex = ref.getCol();
+            
+            Row row = sheet.getRow(rowIndex);
+            if (row == null) {
+                row = sheet.createRow(rowIndex);
+            }
+            
+            Cell cell = row.getCell(colIndex);
+            if (cell == null) {
+                cell = row.createCell(colIndex);
+            }
+            
+            cell.setCellValue(value);
+            
+            // Set font color to white to hide the TRUE/FALSE text
+            Workbook workbook = sheet.getWorkbook();
+            CellStyle style = workbook.createCellStyle();
+            Font font = workbook.createFont();
+            font.setColor(IndexedColors.WHITE.getIndex());
+            style.setFont(font);
+            cell.setCellStyle(style);
+            
+            logger.debug("EXCEL EXPORT - Set checkbox cell {}!{} to {} (white text)", sheet.getSheetName(), cellReference, value);
+        } catch (Exception e) {
+            logger.error("EXCEL EXPORT - Error setting boolean cell value for {}: {}", cellReference, e.getMessage(), e);
         }
     }
     
