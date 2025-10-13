@@ -83,7 +83,7 @@ public class DataInitializer implements CommandLineRunner {
     private void createDefaultAdmin() {
         User adminUser = new User();
         adminUser.setEmail("admin@pcd.com");
-        adminUser.setPassword(passwordEncoder.encode("admin123"));
+        adminUser.setPassword(passwordEncoder.encode("5Z2eyQfc!"));
         adminUser.setName("Admin User");
         adminUser.setRole("ADMIN");
         adminUser.setActive(true);
@@ -94,7 +94,7 @@ public class DataInitializer implements CommandLineRunner {
         
         userRepository.save(adminUser);
         
-        logger.info("Default admin user created: admin@pcd.com / admin123");
+        logger.info("Default admin user created: admin@pcd.com / [updated password]");
     }
     
     private void createTestUsers() {
@@ -206,9 +206,9 @@ public class DataInitializer implements CommandLineRunner {
         Optional<User> adminUser = userRepository.findByEmailIgnoreCase("admin@pcd.com");
         if (adminUser.isPresent()) {
             User admin = adminUser.get();
-            admin.setPassword(passwordEncoder.encode("admin123"));
+            admin.setPassword(passwordEncoder.encode("5Z2eyQfc!"));
             userRepository.save(admin);
-            logger.info("Reset admin password to admin123");
+            logger.info("Reset admin password to new configured value");
         }
         
         // Update Duane Smith password if he exists
