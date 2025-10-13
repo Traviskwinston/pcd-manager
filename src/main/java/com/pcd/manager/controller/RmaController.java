@@ -573,6 +573,14 @@ public class RmaController {
         
         // Add all necessary model attributes (lean data only; heavy sections are lazy-loaded)
         model.addAttribute("rma", rma);
+        // Ensure comments are available for rendering on the detail page
+        try {
+            List<RmaComment> rmaComments = rmaService.getCommentsForRma(id);
+            model.addAttribute("rmaComments", rmaComments);
+        } catch (Exception e) {
+            logger.error("Failed to load comments for RMA {}: {}", id, e.getMessage(), e);
+            model.addAttribute("rmaComments", java.util.Collections.emptyList());
+        }
         // Provide initial lightweight counts so badges can render quickly
         try {
             Map<String, Integer> counts = rmaService.getRmaCounts(id);
@@ -1942,9 +1950,16 @@ public class RmaController {
                             @RequestParam("content") String content,
                             Authentication authentication,
                             RedirectAttributes redirectAttributes) {
+        logger.info("=== POST COMMENT ENDPOINT HIT ===");
+        logger.info("RMA ID: {}", id);
+        logger.info("Content: '{}'", content);
+        logger.info("Authentication: {}", authentication != null ? authentication.getName() : "NULL");
+        
         try {
             String userEmail = authentication.getName();
+            logger.info("Calling rmaService.addComment...");
             rmaService.addComment(id, content, userEmail);
+            logger.info("Comment added successfully!");
             redirectAttributes.addFlashAttribute("message", "Comment added successfully");
         } catch (Exception e) {
             logger.error("Error adding comment to RMA {}: {}", id, e.getMessage(), e);

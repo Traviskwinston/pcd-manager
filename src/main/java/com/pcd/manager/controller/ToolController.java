@@ -674,6 +674,17 @@ public class ToolController {
         List<TrackTrend> allTrackTrends = trackTrendService.getAllTrackTrends();
         model.addAttribute("allTrackTrends", allTrackTrends);
         
+        // Add custom locations for the moving parts modal
+        if (principal != null) {
+            userService.getUserByEmail(principal.getName()).ifPresent(currentUser -> {
+                if (currentUser.getActiveSite() != null) {
+                    java.util.Map<com.pcd.manager.model.CustomLocation, Integer> customLocationsWithCounts = 
+                        customLocationService.getCustomLocationsWithPartCounts(currentUser.getActiveSite());
+                    model.addAttribute("customLocations", customLocationsWithCounts);
+                }
+            });
+        }
+        
         return "tools/details";
     }
 

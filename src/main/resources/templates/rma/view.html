@@ -1633,21 +1633,19 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
-                <form th:action="@{/rma/{id}/post-comment(id=${rma.id})}" method="post">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="commentContent" class="form-label">Comment</label>
-                            <textarea class="form-control" id="commentContent" name="content" rows="4" required 
-                                      placeholder="Enter your comment..."></textarea>
-                                    </div>
-                                        </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-send me-2"></i>Post Comment
-                        </button>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="commentContent" class="form-label">Comment</label>
+                        <textarea class="form-control" id="commentContent" name="content" rows="4" required 
+                                  placeholder="Enter your comment..."></textarea>
                     </div>
-                </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="submitCommentBtn">
+                        <i class="bi bi-send me-2"></i>Post Comment
+                    </button>
+                </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1869,6 +1867,53 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script th:src="@{/js/theme-toggle.js}"></script>
+    <script th:inline="javascript">
+        // RMA Comment Submission
+        /*<![CDATA[*/
+        document.addEventListener('DOMContentLoaded', function() {
+            const submitBtn = document.getElementById('submitCommentBtn');
+            const commentTextarea = document.getElementById('commentContent');
+            const rmaId = /*[[${rma.id}]]*/ 0;
+            
+            console.log('Comment script loaded - RMA ID:', rmaId);
+            console.log('Submit button found:', submitBtn != null);
+            console.log('Textarea found:', commentTextarea != null);
+            
+            if (submitBtn && commentTextarea) {
+                submitBtn.addEventListener('click', function() {
+                    const content = commentTextarea.value.trim();
+                    
+                    console.log('Submit button clicked! Content:', content);
+                    
+                    if (!content) {
+                        alert('Please enter a comment');
+                        return;
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('content', content);
+                    
+                    console.log('Posting comment to RMA', rmaId);
+                    
+                    fetch('/rma/' + rmaId + '/post-comment', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        console.log('Response received:', response.status);
+                        window.location.reload();
+                    })
+                    .catch(error => {
+                        console.error('Error posting comment:', error);
+                        alert('Error posting comment: ' + error.message);
+                    });
+                });
+            } else {
+                console.error('Submit button or textarea NOT FOUND!');
+            }
+        });
+        /*]]>*/
+    </script>
     <script th:inline="javascript">
         const rmaPageId = document.getElementById('rmaPageEntityIdForJs').value;
         const rmaConnectedToolId = /*[[${rma.tool?.id}]]*/ null;

@@ -450,13 +450,13 @@ public class DataInitializer implements CommandLineRunner {
         list.add(new ToolData("JK151D", null, "Slurry", "2313325", "2309011", "200463160-1", "200463161-37"));
         list.add(new ToolData("WL151D", null, "Slurry", "2315214", "2309011", "200464053-1", "200463381-41"));
         list.add(new ToolData("HG151D", null, "Slurry", "2313556", "2309011", "200465024-2", "200465023-46"));
-        list.add(new ToolData("HG152D", "FA151D", "Slurry", "2313556", "2309011", "200466493-4", "200455775-28"));
+        list.add(new ToolData("HG152D", "FA151D/VB151D", "Slurry", "2313556", "2309011", "200466493-4", "200455775-28"));
         list.add(new ToolData("RE151D", null, "Slurry", "2313330", "2309011", "200463698-2", "200463697-43"));
         list.add(new ToolData("EF151D", null, "Slurry", "2313329", "2309011", "200463290-1", "200463291-38"));
         list.add(new ToolData("VC151D", null, "Slurry", "2312620", "2309011", "200462472-2", "200455801-31"));
         list.add(new ToolData("TM151D", null, "Slurry", "2312617", "2309011", "200460354-2", "200455771-24"));
         list.add(new ToolData("XJ151D", "AE151D", "Slurry", "2313557", "2309011", "200466049-4", "200466048-52"));
-        list.add(new ToolData("WC151D", null, "Slurry", "2312624", "2309011", "200465018-2", "200465019-44"));
+        list.add(new ToolData("WC151D", "KB151D", "Slurry", "2312624", "2309011", "200465018-2", "200465019-44"));
         list.add(new ToolData("JS151D", null, "Slurry", "2312618", "2309011", "200460356-2", "200455773-26"));
         list.add(new ToolData("RFT151D", null, "Slurry", "2310218", "2309011", "200460355-3", "200455772-25"));
         list.add(new ToolData("RFT152D", null, "Slurry", "2310218", "2309011", "200466533-4", "200469736-64"));
