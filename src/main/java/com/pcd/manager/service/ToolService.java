@@ -148,6 +148,27 @@ public class ToolService {
     @CacheEvict(value = {"tools-list", "dropdown-data", "tool-details"}, allEntries = true)
     public void deleteTool(Long id) {
         logger.info("Deleting tool {} and evicting caches", id);
+        // Detach or cleanup dependent rows that could block deletion in Postgres
+        try {
+            // 1) Moving parts where this tool is the source (fromTool) or in destination chain
+            List<MovingPart> related = movingPartRepository.findAllByToolId(id);
+            if (related != null && !related.isEmpty()) {
+                logger.info("Detaching {} moving part records from Tool {}", related.size(), id);
+                for (MovingPart mp : related) {
+                    if (mp.getFromTool() != null && id.equals(mp.getFromTool().getId())) {
+                        mp.setFromTool(null);
+                    }
+                    // destinationToolIds is likely an embedded list; clear occurrences of this tool id
+                    if (mp.getDestinationToolIds() != null && !mp.getDestinationToolIds().isEmpty()) {
+                        mp.getDestinationToolIds().removeIf(tid -> tid != null && tid.equals(id));
+                    }
+                }
+                movingPartRepository.saveAll(related);
+            }
+        } catch (Exception e) {
+            logger.warn("Error detaching moving parts for Tool {}: {}", id, e.getMessage());
+        }
+
         toolRepository.deleteById(id);
     }
 

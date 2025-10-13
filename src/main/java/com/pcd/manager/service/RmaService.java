@@ -555,6 +555,20 @@ public class RmaService {
         logger.info("Attempting to delete RMA ID: {}", id);
         Rma rma = getRmaById(id).orElseThrow(() -> new RuntimeException("RMA not found: " + id));
 
+        // First, detach MovingPart rows from this RMA (preserve tool history)
+        try {
+            List<MovingPart> partsLinkedToRma = movingPartRepository.findByRmaId(id);
+            if (partsLinkedToRma != null && !partsLinkedToRma.isEmpty()) {
+                logger.info("Detaching {} moving part records from RMA {} (preserving tool history)", partsLinkedToRma.size(), id);
+                for (MovingPart mp : partsLinkedToRma) {
+                    mp.setRma(null);
+                }
+                movingPartRepository.saveAll(partsLinkedToRma);
+            }
+        } catch (Exception e) {
+            logger.error("Error detaching MovingPart rows for RMA {}: {}", id, e.getMessage(), e);
+        }
+
         // Detach pictures and documents from the tool if there is one
         if (rma.getTool() != null) {
             Tool tool = rma.getTool();
@@ -649,7 +663,8 @@ public class RmaService {
             }
         }
         
-        rmaRepository.deleteById(id);
+        // Use entity delete to ensure JPA cascades remove children (comments, docs, pictures, collections)
+        rmaRepository.delete(rma);
         logger.info("Successfully deleted RMA ID: {}", id);
     }
 
