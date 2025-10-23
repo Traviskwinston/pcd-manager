@@ -36,7 +36,7 @@
             
             <h2>Login</h2>
             
-            <form th:action="@{/login}" method="post" id="loginForm">
+            <form action="/login" method="post" id="loginForm" onsubmit="console.log('Form submitted to /login with POST'); console.log('Username:', document.getElementById('username').value);">
                 <div class="mb-3">
                     <label for="username" class="form-label">Email</label>
                     <input type="email" class="form-control" id="username" name="username" required placeholder="Enter your email" autocomplete="username">
@@ -59,7 +59,7 @@
             </form>
             
             <!-- Debug Form - Hidden by default -->
-            <form th:action="@{/manual-login}" method="post" id="debugForm" style="display: none;" class="mt-4">
+            <form action="/manual-login" method="post" id="debugForm" style="display: none;" class="mt-4">
                 <div class="alert alert-info" role="alert">
                     <small>This is a debug login that will check your credentials but won't log you in.</small>
                 </div>
@@ -105,7 +105,8 @@
         // Clear any existing cookies on page load to fix potential authentication issues
         document.addEventListener('DOMContentLoaded', function() {
             // Force clear JSESSIONID by setting it to expire in the past
-            document.cookie = "JSESSIONID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            // REMOVED: This was destroying sessions and preventing login
+            // document.cookie = "JSESSIONID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             
             // Initialize theme for login page
             initLoginTheme();

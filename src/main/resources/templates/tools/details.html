@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <th:block th:replace="~{fragments/head-favicon :: favicon-links}"></th:block>
     <title>PCD Manager - Tool Details</title>
     <!-- Immediate theme application to prevent flash -->
     <script th:src="@{/js/theme-instant.js}"></script>
@@ -784,7 +785,16 @@
                                            style="color: #0d6efd; cursor: pointer;">
                                         </i>
                                     </div>
-                                    <small class="text-muted" th:text="${rma.customerName ?: 'N/A'}">Customer</small>
+                                    <!-- Display up to 4 part names or descriptions -->
+                                    <div th:if="${rma.partLineItems != null && !rma.partLineItems.isEmpty()}" class="mt-1">
+                                        <small class="text-muted">
+                                            <i class="bi bi-box me-1"></i>
+                                            <span th:each="part, iterStat : ${rma.partLineItems}" th:if="${iterStat.index < 4}">
+                                                <span th:text="${part.partName != null && !part.partName.isEmpty() ? part.partName : (part.productDescription ?: 'N/A')}">Part Name</span>
+                                                <span th:if="${!iterStat.last && iterStat.index < 3}">, </span>
+                                            </span>
+                                        </small>
+                                    </div>
                                     </div>
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="badge" 

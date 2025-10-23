@@ -466,12 +466,12 @@
             </div>
 
             <!-- Title for Standard Tools -->
-            <div th:if="${!standardTools.empty}" class="mt-3 mb-2" id="standard-title">
+            <div class="mt-3 mb-2" id="standard-title">
                 <h5 class="text-muted">Slurry/Chemblend</h5>
             </div>
 
             <!-- Responsive Table Container - Standard Tools (non-GasGuard) -->
-            <div th:if="${!standardTools.empty}" class="data-table-responsive table-responsive tools-table-container" id="tools-table-container" th:attr="data-type-view=${typeView}">
+            <div class="data-table-responsive table-responsive tools-table-container" id="tools-table-container" th:attr="data-type-view=${typeView}">
                 <table class="table data-table-compact">
                     <thead>
                         <tr>
@@ -550,11 +550,17 @@
                         </tr>
                     </thead>
                     <tbody>
+                        <tr th:if="${#lists.isEmpty(standardTools)}">
+                            <td colspan="11" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+                                <p class="mt-2 mb-0">No tools</p>
+                            </td>
+                        </tr>
                         <tr th:each="tool : ${standardTools}" class="data-table-row tool-row clickable-row"
                             th:attr="data-tool-id=${tool.id},
-                                     data-name=${tool.name + (tool.secondaryName != null ? ' (' + tool.secondaryName + ')' : '')},
-                                     data-serial-number=${(tool.serialNumber1 != null ? tool.serialNumber1 : '') + (tool.serialNumber2 != null ? (tool.serialNumber1 != null ? '/' : '') + tool.serialNumber2 : '')},
-                                     data-model=${(tool.model1 != null ? tool.model1 : '') + (tool.model2 != null ? (tool.model1 != null ? '/' : '') + tool.model2 : '')},
+                                     data-name=${tool.name + ((tool.secondaryName != null and !#strings.isEmpty(tool.secondaryName)) ? ' (' + tool.secondaryName + ')' : '')},
+                                     data-serial-number=${(!#strings.isEmpty(tool.serialNumber1) ? tool.serialNumber1 : '') + (!#strings.isEmpty(tool.serialNumber2) ? (!#strings.isEmpty(tool.serialNumber1) ? '/' : '') + tool.serialNumber2 : '')},
+                                     data-model=${(!#strings.isEmpty(tool.model1) ? tool.model1 : '') + (!#strings.isEmpty(tool.model2) ? (!#strings.isEmpty(tool.model1) ? '/' : '') + tool.model2 : '')},
                                      data-tool-type=${tool.toolType != null ? tool.toolType : 'Not specified'},
                                      data-status=${tool.status != null ? tool.status.name() : 'NOT_STARTED'},
                                      data-location-name=${tool.locationName != null ? tool.locationName : 'Unknown Location'},
@@ -566,7 +572,7 @@
                                      data-created-at=${tool.createdAt != null ? #temporals.format(tool.createdAt, 'yyyy-MM-dd HH:mm') : ''}">
                             <td style="text-align: left;">
                                 <strong th:text="${tool.name}">Tool Name</strong>
-                                <span th:if="${tool.secondaryName != null}" 
+                                <span th:if="${tool.secondaryName != null and !#strings.isEmpty(tool.secondaryName)}" 
                                       class="text-muted ms-1" 
                                       th:text="'(' + ${tool.secondaryName} + ')'"></span>
 
@@ -582,21 +588,21 @@
                             <td style="text-align: left;">
                                 <!-- For GasGuard, show Serial#1/Serial#2 in this column -->
                                 <span th:if="${typeView == 'AMATGASGUARD'}">
-                                    <span th:if="${tool.serialNumber1 != null}" th:text="${tool.serialNumber1}">Serial Number 1</span>
-                                    <span th:if="${tool.serialNumber1 != null and tool.serialNumber2 != null}">/</span>
-                                    <span th:if="${tool.serialNumber2 != null}" th:text="${tool.serialNumber2}">Serial Number 2</span>
-                                <span th:if="${tool.serialNumber1 == null and tool.serialNumber2 == null}" class="text-muted">-</span>
+                                    <span th:if="${!#strings.isEmpty(tool.serialNumber1)}" th:text="${tool.serialNumber1}">Serial Number 1</span>
+                                    <span th:if="${!#strings.isEmpty(tool.serialNumber1) and !#strings.isEmpty(tool.serialNumber2)}">/</span>
+                                    <span th:if="${!#strings.isEmpty(tool.serialNumber2)}" th:text="${tool.serialNumber2}">Serial Number 2</span>
+                                <span th:if="${#strings.isEmpty(tool.serialNumber1) and #strings.isEmpty(tool.serialNumber2)}" class="text-muted">-</span>
                                 </span>
                                 <span th:unless="${typeView == 'AMATGASGUARD'}">
-                                    <span th:if="${tool.serialNumber1 != null}" th:text="${tool.serialNumber1}">Serial Number 1</span>
-                                    <span th:if="${tool.serialNumber1 != null and tool.serialNumber2 != null}">/</span>
-                                    <span th:if="${tool.serialNumber2 != null}" th:text="${tool.serialNumber2}">Serial Number 2</span>
-                                    <span th:if="${tool.serialNumber1 == null and tool.serialNumber2 == null}" class="text-muted">-</span>
+                                    <span th:if="${!#strings.isEmpty(tool.serialNumber1)}" th:text="${tool.serialNumber1}">Serial Number 1</span>
+                                    <span th:if="${!#strings.isEmpty(tool.serialNumber1) and !#strings.isEmpty(tool.serialNumber2)}">/</span>
+                                    <span th:if="${!#strings.isEmpty(tool.serialNumber2)}" th:text="${tool.serialNumber2}">Serial Number 2</span>
+                                    <span th:if="${#strings.isEmpty(tool.serialNumber1) and #strings.isEmpty(tool.serialNumber2)}" class="text-muted">-</span>
                                 </span>
                             </td>
                             <td style="text-align: left;">
-                                <span th:if="${tool.model1 != null}" th:text="${tool.model1}">Model 1</span><span th:if="${tool.model1 != null and tool.model2 != null}">/</span><span th:if="${tool.model2 != null}" th:text="${tool.model2}">Model 2</span>
-                                <span th:if="${tool.model1 == null and tool.model2 == null}" class="text-muted">-</span>
+                                <span th:if="${!#strings.isEmpty(tool.model1)}" th:text="${tool.model1}">Model 1</span><span th:if="${!#strings.isEmpty(tool.model1) and !#strings.isEmpty(tool.model2)}">/</span><span th:if="${!#strings.isEmpty(tool.model2)}" th:text="${tool.model2}">Model 2</span>
+                                <span th:if="${#strings.isEmpty(tool.model1) and #strings.isEmpty(tool.model2)}" class="text-muted">-</span>
                             </td>
                             <td style="text-align: center;">
                                                             <span th:text="${tool.locationName ?: 'Unknown Location'}">Location</span>
@@ -822,12 +828,12 @@
             </div>
 
             <!-- Title for GasGuard Tools -->
-            <div th:if="${gasguardTools != null and !gasguardTools.empty}" class="mt-4 mb-2" id="gasguard-title">
+            <div class="mt-4 mb-2" id="gasguard-title">
                 <h5 class="text-muted">GasGuards</h5>
         </div>
 
             <!-- GasGuard Table (separate, below) -->
-            <div th:if="${gasguardTools != null and !gasguardTools.empty}" class="data-table-responsive table-responsive tools-table-container mt-1" id="gasguard-table-container" data-type-view="AMATGASGUARD">
+            <div class="data-table-responsive table-responsive tools-table-container mt-1" id="gasguard-table-container" data-type-view="AMATGASGUARD">
                 <table class="table data-table-compact gasguard-table">
                     <thead>
                         <tr>
@@ -922,6 +928,12 @@
                         </tr>
                     </thead>
                     <tbody>
+                        <tr th:if="${#lists.isEmpty(gasguardTools)}">
+                            <td colspan="11" class="text-center text-muted py-5">
+                                <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+                                <p class="mt-2 mb-0">No tools</p>
+                            </td>
+                        </tr>
                         <tr th:each="tool : ${gasguardTools}" class="data-table-row tool-row clickable-row"
                             th:attr="data-tool-id=${tool.id},
                                      data-name=${tool.systemName != null ? tool.systemName : (tool.name != null ? tool.name : '')},
@@ -1267,12 +1279,13 @@
                 
                 // Show/hide entire sections based on filtered visibility
                 const standardVisible = document.querySelectorAll('#tools-table-container .tool-row:not([style*="display: none"])').length > 0;
-                if (standardTitle) standardTitle.style.display = standardVisible ? '' : 'none';
-                if (standardTable) standardTable.style.display = standardVisible ? '' : 'none';
+                // Always keep headers/tables visible, even with no rows
+                if (standardTitle) standardTitle.style.display = '';
+                if (standardTable) standardTable.style.display = '';
 
                 const gasguardVisible = document.querySelectorAll('#gasguard-table-container .tool-row:not([style*="display: none"])').length > 0;
-                if (gasguardTitle) gasguardTitle.style.display = gasguardVisible ? '' : 'none';
-                if (gasguardTable) gasguardTable.style.display = gasguardVisible ? '' : 'none';
+                if (gasguardTitle) gasguardTitle.style.display = '';
+                if (gasguardTable) gasguardTable.style.display = '';
 
                 // Show/hide global empty-state if both sections are empty after filtering
                 const showEmpty = !standardVisible && !gasguardVisible;

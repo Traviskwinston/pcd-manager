@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -246,26 +248,50 @@ public class SettingsController {
     }
     
     /**
-     * Check all checkboxes in Blank RMA_PCDMANAGER.xlsx
-     * Finds linked cells and sets them to TRUE
+     * Analyzes an uploaded Excel file to identify all checkboxes and their states
+     * Used to understand the checkbox structure in uploaded RMA files
      */
-    @PostMapping("/test-excel-checkboxes")
-    public ResponseEntity<?> testExcelCheckboxes() {
+    @PostMapping("/analyze-rma-checkboxes")
+    public ResponseEntity<?> analyzeRmaCheckboxes(@RequestParam("file") MultipartFile file) {
         try {
-            logger.info("Checking all checkboxes in Blank RMA_PCDMANAGER.xlsx...");
-            excelCheckboxService.checkAllCheckboxes();
+            if (file.isEmpty()) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Please select a file to upload");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
             
-            Map<String, String> response = new HashMap<>();
-            response.put("success", "true");
-            response.put("message", "All checkboxes checked! Output: uploads/reference-documents/Blank RMA_PCDMANAGER_CHECKED.xlsx");
+            logger.info("Analyzing checkboxes in uploaded file: {} ({} bytes)", 
+                       file.getOriginalFilename(), file.getSize());
             
-            return ResponseEntity.ok(response);
+            // Save file temporarily
+            String tempDir = System.getProperty("java.io.tmpdir");
+            String tempFileName = "checkbox-analysis-" + System.currentTimeMillis() + ".xlsx";
+            java.nio.file.Path tempFile = java.nio.file.Paths.get(tempDir, tempFileName);
+            
+            try {
+                file.transferTo(tempFile.toFile());
+                logger.info("Saved temporary file: {}", tempFile);
+                
+                // Analyze the file
+                Map<String, Object> analysis = excelCheckboxService.analyzeCheckboxes(tempFile.toString());
+                
+                return ResponseEntity.ok(analysis);
+                
+            } finally {
+                // Clean up temp file
+                try {
+                    java.nio.file.Files.deleteIfExists(tempFile);
+                    logger.info("Deleted temporary file: {}", tempFile);
+                } catch (Exception e) {
+                    logger.warn("Could not delete temp file: {}", tempFile, e);
+                }
+            }
+            
         } catch (Exception e) {
-            logger.error("Error checking checkboxes", e);
-            Map<String, String> response = new HashMap<>();
-            response.put("success", "false");
-            response.put("message", "Error: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            logger.error("Error analyzing Excel checkboxes", e);
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 }

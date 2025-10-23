@@ -31,6 +31,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -137,8 +139,9 @@ public class SecurityConfig {
             .authenticationProvider(authenticationProvider())   // Ensure our DAO provider is registered
             .csrf(csrf -> csrf.disable()) // Disable CSRF for now until we debug the login issues
             .authorizeHttpRequests(auth -> auth
-                // Explicitly permit necessary static resources and login
-                .requestMatchers("/login", "/manual-login", "/css/**", "/js/**", "/images/**", "/login.css").permitAll()
+                // Allow GET to /login page (form display)
+                .requestMatchers(new AntPathRequestMatcher("/login", "GET")).permitAll()
+                .requestMatchers("/manual-login", "/css/**", "/js/**", "/images/**", "/login.css").permitAll()
                 .requestMatchers("/h2-console/**").permitAll() // Allow access to H2 console
                 .requestMatchers("/api/public/**").permitAll() // Public endpoints
                 .requestMatchers("/api/auth/**").permitAll() // Authentication endpoints
@@ -151,7 +154,7 @@ public class SecurityConfig {
             )
             .formLogin(form -> form
                 .loginPage("/login") // This is the page users are redirected to
-                .loginProcessingUrl("/login") // URL to submit the login form
+                .loginProcessingUrl("/login") // URL to submit the login form (handled by Spring Security filter)
                 .successHandler(customAuthenticationSuccessHandler()) // Use custom success handler
                 .failureHandler(customAuthenticationFailureHandler()) // Use custom failure handler
                 .usernameParameter("username") // Field name for the username in the form
@@ -168,8 +171,8 @@ public class SecurityConfig {
             .sessionManagement(session -> session
                 .invalidSessionUrl("/login?timeout=true")
                 .sessionFixation().newSession() // Create a completely new session on login
-                .maximumSessions(-1) // Allow unlimited sessions - we'll manage cleanup ourselves
-                    .maxSessionsPreventsLogin(false)
+                .maximumSessions(-1) // Allow unlimited concurrent sessions per user
+                    .maxSessionsPreventsLogin(false) // Don't prevent login due to session limits
                     .expiredUrl("/login?expired=true")
                     .sessionRegistry(sessionRegistry())
             );

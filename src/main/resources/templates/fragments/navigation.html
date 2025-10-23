@@ -1,17 +1,4 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head>
-    <meta charset="UTF-8">
-    <!-- Immediate theme application to prevent flash -->
-    <script th:src="@{/js/theme-instant.js}"></script>
-    <!-- Dark Mode CSS -->
-    <link rel="stylesheet" th:href="@{/dark-mode.css}">
-    <!-- Dark Mode JavaScript -->
-    <script th:src="@{/js/theme-toggle.js}"></script>
-</head>
-<body>
-    <!-- Navigation Fragment -->
-    <nav th:fragment="navbar(activeTab)" class="navbar navbar-expand-lg navbar-dark bg-dark">
+<nav xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" th:fragment="navbar(activeTab)" class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="/dashboard">
                 PCD Manager
@@ -39,10 +26,7 @@
                     <li class="nav-item">
                         <a class="nav-link" th:classappend="${activeTab == 'rma' ? 'active' : ''}" href="/rma">RMA Matrix</a>
                     </li>
-                    <!-- Track/Trend tab -->
-                    <li class="nav-item">
-                        <a class="nav-link" th:classappend="${activeTab == 'tracktrend' ? 'active' : ''}" href="/tracktrend">Track/Trend</a>
-                    </li>
+                    <!-- Track/Trend tab removed per request: consolidated into RMA views -->
                     <li class="nav-item">
                         <a class="nav-link" th:classappend="${activeTab == 'passdown' ? 'active' : ''}" href="/passdown">Passdown</a>
                     </li>
@@ -78,5 +62,3 @@
             </div>
         </div>
     </nav>
-</body>
-</html> 

@@ -82,10 +82,22 @@ public class Rma {
 
     private String salesOrder;
     private String serviceOrder;
+    private String returnMaterialsTo;
 
     @ManyToOne
     @JoinColumn(name = "tool_id")
     private Tool tool;
+
+    /**
+     * New: Multiple affected tools per RMA. Backfilled from legacy tool_id.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "rma_tools",
+        joinColumns = @JoinColumn(name = "rma_id"),
+        inverseJoinColumns = @JoinColumn(name = "tool_id")
+    )
+    private Set<Tool> affectedTools = new HashSet<>();
 
     @ManyToMany
     @JoinTable(
@@ -152,6 +164,7 @@ public class Rma {
     private Boolean purged = false;
     private Boolean startupSo3Complete = false;
     private Boolean failedOnInstall = false;
+    private Boolean purgedAndDoubleBaggedGoodsEnclosed = false;
     
     @Column(columnDefinition = "TEXT")
     private String instructionsForExposedComponent;

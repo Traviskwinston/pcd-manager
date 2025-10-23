@@ -8,6 +8,7 @@ public enum RmaStatus {
     WAITING_CUSTOMER("Waiting on Customer"),
     WAITING_ENGINEERING("Waiting on Engineering"),
     WAITING_FSE("Waiting on FSE"),
+    MISSING_LABOR_HOURS("Missing Labor Hours"),
     COMPLETED("Completed");
     
     private final String displayName;

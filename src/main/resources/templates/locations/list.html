@@ -83,79 +83,184 @@
                     No locations found. Click "Add New Location" to create one.
                 </div>
                 
-                <div th:if="${!locations.empty}" class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                            <tr>
-                                <th>State</th>
-                                <th>Fab</th>
-                                <th>Display Name</th>
-                                <th>Current</th>
-                                <th>Default</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:each="location : ${locations}" th:id="'row-' + ${location.id}" class="location-row">
-                                <td><span th:text="${location.state}">Arizona</span></td>
-                                <td><span th:text="${location.fab}">52</span></td>
-                                <td><span th:text="${location.displayName}">AZ F52</span></td>
-                                <td>
-                                    <!-- Show if this is the current location -->
-                                    <span th:if="${currentLocation != null && currentLocation.id == location.id}" class="badge bg-primary">Current</span>
-                                    <!-- Show switch button if not current location -->
-                                    <form th:unless="${currentLocation != null && currentLocation.id == location.id}" 
-                                          th:action="@{/locations/switch/{id}(id=${location.id})}" 
-                                          method="post" class="d-inline">
-                                        <button type="submit" class="btn btn-sm btn-outline-primary" title="Switch to this location">
-                                            <i class="bi bi-arrow-right-circle"></i> Switch
-                                        </button>
-                                    </form>
-                                </td>
-                                <td>
-                                    <span th:if="${location.default}" class="badge bg-success">Default</span>
-                                    <form th:unless="${location.default}" th:action="@{/locations/{id}/default(id=${location.id})}" method="post" class="d-inline">
-                                        <button type="submit" class="btn btn-sm btn-outline-success" title="Set as Default">
-                                            <i class="bi bi-star"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                                <td class="action-buttons">
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        <a th:href="@{/locations/edit/{id}(id=${location.id})}"
-                                           class="btn btn-outline-secondary btn-icon" title="Edit">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                        <button type="button" class="btn btn-outline-danger btn-icon" title="Delete"
-                                                data-bs-toggle="modal" th:data-bs-target="${'#deleteModal-' + location.id}">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                    
-                                    <!-- Delete Modal -->
-                                    <div class="modal fade" th:id="${'deleteModal-' + location.id}" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="deleteModalLabel">Confirm Delete</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    Are you sure you want to delete this location?
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                    <form th:action="@{/locations/{id}/delete(id=${location.id})}" method="post" class="d-inline">
-                                                        <button type="submit" class="btn btn-danger">Delete</button>
-                                                    </form>
-                                                </div>
+                <!-- Accordion grouped by state -->
+                <div th:if="${!locations.empty}" class="accordion" id="locationsAccordion">
+                    <!-- Arizona -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingArizona">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseArizona" aria-expanded="true" aria-controls="collapseArizona">
+                                <strong>Arizona</strong>
+                            </button>
+                        </h2>
+                        <div id="collapseArizona" class="accordion-collapse collapse show" aria-labelledby="headingArizona" data-bs-parent="#locationsAccordion">
+                            <div class="accordion-body p-0">
+                                <div class="list-group list-group-flush">
+                                    <div th:each="location : ${locations}" th:if="${location.state == 'Arizona'}" 
+                                         class="list-group-item list-group-item-action location-row" 
+                                         style="padding-left: 8rem;"
+                                         th:classappend="${currentLocation != null && currentLocation.id == location.id ? 'current-location' : 'clickable-location'}"
+                                         th:data-location-id="${location.id}">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong th:text="${location.displayName}">Display Name</strong>
+                                                <br>
+                                                <small class="text-muted">Fab: <span th:text="${location.fab}">52</span></small>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <!-- Current Location Badge -->
+                                                <span th:if="${currentLocation != null && currentLocation.id == location.id}" 
+                                                      class="badge bg-primary align-self-center">Current</span>
+                                                
+                                                <!-- Hidden form for switching (if not current) -->
+                                                <form th:unless="${currentLocation != null && currentLocation.id == location.id}" 
+                                                      th:id="'switchForm-' + ${location.id}"
+                                                      th:action="@{/locations/switch/{id}(id=${location.id})}" 
+                                                      method="post" class="d-none">
+                                                </form>
+                                                
+                                                <!-- Default Location Badge -->
+                                                <span th:if="${location.default}" class="badge bg-success align-self-center">Default</span>
+                                                <!-- Set as Default button if not default -->
+                                                <form th:unless="${location.default}" 
+                                                      th:action="@{/locations/{id}/default(id=${location.id})}" 
+                                                      method="post" class="d-inline"
+                                                      onclick="event.stopPropagation();">
+                                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Set as Default">
+                                                        <i class="bi bi-star-fill"></i>
+                                                    </button>
+                                                </form>
+                                                
+                                                <!-- Edit button -->
+                                                <a th:href="@{/locations/edit/{id}(id=${location.id})}"
+                                                   class="btn btn-outline-secondary btn-sm" title="Edit"
+                                                   onclick="event.stopPropagation();">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
                                             </div>
                                         </div>
                                     </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- New Mexico -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingNewMexico">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNewMexico" aria-expanded="true" aria-controls="collapseNewMexico">
+                                <strong>New Mexico</strong>
+                            </button>
+                        </h2>
+                        <div id="collapseNewMexico" class="accordion-collapse collapse show" aria-labelledby="headingNewMexico" data-bs-parent="#locationsAccordion">
+                            <div class="accordion-body p-0">
+                                <div class="list-group list-group-flush">
+                                    <div th:each="location : ${locations}" th:if="${location.state == 'New Mexico'}" 
+                                         class="list-group-item list-group-item-action location-row" 
+                                         style="padding-left: 8rem;"
+                                         th:classappend="${currentLocation != null && currentLocation.id == location.id ? 'current-location' : 'clickable-location'}"
+                                         th:data-location-id="${location.id}">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong th:text="${location.displayName}">Display Name</strong>
+                                                <br>
+                                                <small class="text-muted">Fab: <span th:text="${location.fab}">52</span></small>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <!-- Current Location Badge -->
+                                                <span th:if="${currentLocation != null && currentLocation.id == location.id}" 
+                                                      class="badge bg-primary align-self-center">Current</span>
+                                                
+                                                <!-- Hidden form for switching (if not current) -->
+                                                <form th:unless="${currentLocation != null && currentLocation.id == location.id}" 
+                                                      th:id="'switchForm-' + ${location.id}"
+                                                      th:action="@{/locations/switch/{id}(id=${location.id})}" 
+                                                      method="post" class="d-none">
+                                                </form>
+                                                
+                                                <!-- Default Location Badge -->
+                                                <span th:if="${location.default}" class="badge bg-success align-self-center">Default</span>
+                                                <!-- Set as Default button if not default -->
+                                                <form th:unless="${location.default}" 
+                                                      th:action="@{/locations/{id}/default(id=${location.id})}" 
+                                                      method="post" class="d-inline"
+                                                      onclick="event.stopPropagation();">
+                                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Set as Default">
+                                                        <i class="bi bi-star-fill"></i>
+                                                    </button>
+                                                </form>
+                                                
+                                                <!-- Edit button -->
+                                                <a th:href="@{/locations/edit/{id}(id=${location.id})}"
+                                                   class="btn btn-outline-secondary btn-sm" title="Edit"
+                                                   onclick="event.stopPropagation();">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Ireland -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingIreland">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseIreland" aria-expanded="true" aria-controls="collapseIreland">
+                                <strong>Ireland</strong>
+                            </button>
+                        </h2>
+                        <div id="collapseIreland" class="accordion-collapse collapse show" aria-labelledby="headingIreland" data-bs-parent="#locationsAccordion">
+                            <div class="accordion-body p-0">
+                                <div class="list-group list-group-flush">
+                                    <div th:each="location : ${locations}" th:if="${location.state == 'Ireland'}" 
+                                         class="list-group-item list-group-item-action location-row" 
+                                         style="padding-left: 8rem;"
+                                         th:classappend="${currentLocation != null && currentLocation.id == location.id ? 'current-location' : 'clickable-location'}"
+                                         th:data-location-id="${location.id}">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong th:text="${location.displayName}">Display Name</strong>
+                                                <br>
+                                                <small class="text-muted">Fab: <span th:text="${location.fab}">52</span></small>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <!-- Current Location Badge -->
+                                                <span th:if="${currentLocation != null && currentLocation.id == location.id}" 
+                                                      class="badge bg-primary align-self-center">Current</span>
+                                                
+                                                <!-- Hidden form for switching (if not current) -->
+                                                <form th:unless="${currentLocation != null && currentLocation.id == location.id}" 
+                                                      th:id="'switchForm-' + ${location.id}"
+                                                      th:action="@{/locations/switch/{id}(id=${location.id})}" 
+                                                      method="post" class="d-none">
+                                                </form>
+                                                
+                                                <!-- Default Location Badge -->
+                                                <span th:if="${location.default}" class="badge bg-success align-self-center">Default</span>
+                                                <!-- Set as Default button if not default -->
+                                                <form th:unless="${location.default}" 
+                                                      th:action="@{/locations/{id}/default(id=${location.id})}" 
+                                                      method="post" class="d-inline"
+                                                      onclick="event.stopPropagation();">
+                                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Set as Default">
+                                                        <i class="bi bi-star-fill"></i>
+                                                    </button>
+                                                </form>
+                                                
+                                                <!-- Edit button -->
+                                                <a th:href="@{/locations/edit/{id}(id=${location.id})}"
+                                                   class="btn btn-outline-secondary btn-sm" title="Edit"
+                                                   onclick="event.stopPropagation();">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -163,6 +268,21 @@
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script th:src="@{/js/theme-toggle.js}"></script>
+    <style>
+        .clickable-location {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .clickable-location:hover {
+            background-color: rgba(13, 110, 253, 0.1) !important;
+        }
+        [data-bs-theme="dark"] .clickable-location:hover {
+            background-color: rgba(13, 110, 253, 0.25) !important;
+        }
+        .current-location {
+            cursor: default;
+        }
+    </style>
     <script>
         // Auto-dismiss alerts after 5 seconds
         document.addEventListener('DOMContentLoaded', function() {
@@ -173,9 +293,18 @@
                     bsAlert.close();
                 });
             }, 5000);
+            
+            // Handle location row clicks
+            document.querySelectorAll('.clickable-location').forEach(function(row) {
+                row.addEventListener('click', function(e) {
+                    const locationId = this.getAttribute('data-location-id');
+                    const form = document.getElementById('switchForm-' + locationId);
+                    if (form) {
+                        form.submit();
+                    }
+                });
+            });
         });
-
-        // Inline editing removed: edit now navigates to a dedicated page
     </script>
 </body>
 </html> 

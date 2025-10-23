@@ -1,6 +1,7 @@
 package com.pcd.manager.model;
 
 public enum RmaPriority {
+    NONE("None"),
     LOW("Low"),
     MEDIUM("Medium"),
     HIGH("High"),

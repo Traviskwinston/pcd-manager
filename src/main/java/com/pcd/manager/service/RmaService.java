@@ -57,6 +57,7 @@ public class RmaService {
     private final RmaCommentRepository rmaCommentRepository;
     private final UserRepository userRepository;
     private final MovingPartRepository movingPartRepository;
+    private final ReturnAddressService returnAddressService;
 
     private static final List<String> IMAGE_TYPES = Arrays.asList(
         "image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp"
@@ -71,7 +72,8 @@ public class RmaService {
                      PassdownService passdownService,
                      RmaCommentRepository rmaCommentRepository,
                      UserRepository userRepository,
-                     MovingPartRepository movingPartRepository) {
+                     MovingPartRepository movingPartRepository,
+                     ReturnAddressService returnAddressService) {
         this.rmaRepository = rmaRepository;
         this.rmaPictureRepository = rmaPictureRepository;
         this.rmaDocumentRepository = rmaDocumentRepository;
@@ -81,6 +83,7 @@ public class RmaService {
         this.rmaCommentRepository = rmaCommentRepository;
         this.userRepository = userRepository;
         this.movingPartRepository = movingPartRepository;
+        this.returnAddressService = returnAddressService;
     }
 
     @Cacheable(value = "rma-list", key = "'all-rmas'")
@@ -438,6 +441,12 @@ public class RmaService {
             note.setSpacingBefore(8f);
             doc.add(note);
 
+            // Fine print instruction
+            com.lowagie.text.Paragraph finePrint = new com.lowagie.text.Paragraph("Print this form and place in package with Returns Good Label", new com.lowagie.text.Font(com.lowagie.text.Font.HELVETICA, 8, com.lowagie.text.Font.ITALIC));
+            finePrint.setSpacingBefore(15f);
+            finePrint.setAlignment(com.lowagie.text.Element.ALIGN_CENTER);
+            doc.add(finePrint);
+
             doc.close();
             return baos.toByteArray();
         } catch (Exception e) {
@@ -493,14 +502,33 @@ public class RmaService {
 
             doc.add(new com.lowagie.text.Paragraph(" "));
 
-            // Ship To block (blank lines only)
+            // Ship To block - use return address if available
             com.lowagie.text.pdf.PdfPTable ship = new com.lowagie.text.pdf.PdfPTable(new float[]{1.2f, 3.8f});
             ship.setWidthPercentage(100);
             com.lowagie.text.pdf.PdfPCell sl = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase("Ship to:", labelFont));
             sl.setBorder(com.lowagie.text.Rectangle.NO_BORDER);
             ship.addCell(sl);
-            String shipLines = "____________________________\n____________________________\n____________________________";
-            com.lowagie.text.pdf.PdfPCell sv = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(shipLines, valueFont));
+            
+            // Try to get the return address from returnMaterialsTo
+            String shipToAddress = "";
+            if (rma.getReturnMaterialsTo() != null && !rma.getReturnMaterialsTo().isEmpty()) {
+                try {
+                    java.util.Optional<com.pcd.manager.model.ReturnAddress> returnAddress = 
+                        returnAddressService.getReturnAddressByName(rma.getReturnMaterialsTo());
+                    if (returnAddress.isPresent()) {
+                        shipToAddress = returnAddress.get().getAddress();
+                    }
+                } catch (Exception e) {
+                    logger.warn("Could not find return address for: {}", rma.getReturnMaterialsTo());
+                }
+            }
+            
+            // If no address found, use blank lines
+            if (shipToAddress.isEmpty()) {
+                shipToAddress = "____________________________\n____________________________\n____________________________";
+            }
+            
+            com.lowagie.text.pdf.PdfPCell sv = new com.lowagie.text.pdf.PdfPCell(new com.lowagie.text.Phrase(shipToAddress, valueFont));
             sv.setBorder(com.lowagie.text.Rectangle.BOX);
             sv.setFixedHeight(90f);
             sv.setPadding(8);
@@ -1924,15 +1952,22 @@ public class RmaService {
     }
 
     @Transactional
-    public void updateRmaStatus(Long rmaId, RmaStatus newStatus) {
+    @org.springframework.cache.annotation.CacheEvict(value = {"rma-list", "rma-details", "dashboard-data"}, allEntries = true)
+    public Rma updateRmaStatus(Long rmaId, RmaStatus newStatus) {
         Rma rma = rmaRepository.findById(rmaId)
             .orElseThrow(() -> new IllegalArgumentException("RMA not found with ID: " + rmaId));
         rma.setStatus(newStatus);
+        // Business rule: when status becomes COMPLETED, set priority to NONE by default
+        if (newStatus == RmaStatus.COMPLETED) {
+            rma.setPriority(RmaPriority.NONE);
+        }
         rmaRepository.save(rma);
         logger.info("Updated status for RMA ID {} to {}", rmaId, newStatus);
+        return rma;
     }
     
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = {"rma-list", "rma-details", "dashboard-data"}, allEntries = true)
     public void updateRmaPriority(Long rmaId, RmaPriority newPriority) {
         Rma rma = rmaRepository.findById(rmaId)
             .orElseThrow(() -> new IllegalArgumentException("RMA not found with ID: " + rmaId));

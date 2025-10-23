@@ -30,21 +30,81 @@
         </div>
     </div>
     
-    <!-- Excel Checkbox Section -->
-    <div class="card mb-4 border-success">
-        <div class="card-header bg-success text-white">
-            <i class="bi bi-check2-square me-2"></i>Excel Checkbox Manager
+    <!-- Excel Checkbox Analysis Section -->
+    <div class="card mb-4 border-info">
+        <div class="card-header bg-info text-white">
+            <i class="bi bi-search me-2"></i>RMA Excel Checkbox Analyzer
         </div>
         <div class="card-body">
-            <h5 class="card-title">Check All Checkboxes</h5>
+            <h5 class="card-title">Analyze RMA Checkboxes</h5>
             <p class="card-text">
-                Checks all checkboxes in <code>Blank RMA_PCDMANAGER.xlsx</code> by setting their linked cells to TRUE.
-                <br>Output: <code>Blank RMA_PCDMANAGER_CHECKED.xlsx</code>
+                Upload an Excel file to analyze which ctrlProp checkboxes have the "checked" attribute.
+                <br>This helps us understand the checkbox structure in uploaded RMA files from the field.
             </p>
-            <button type="button" class="btn btn-success" id="testCheckboxBtn">
-                <i class="bi bi-check-all me-2"></i>Check All Checkboxes
+            
+            <div class="mb-3">
+                <label for="checkboxAnalysisFile" class="form-label">Select Excel File:</label>
+                <input type="file" class="form-control" id="checkboxAnalysisFile" accept=".xlsx,.xls">
+            </div>
+            
+            <button type="button" class="btn btn-info" id="analyzeCheckboxBtn" disabled>
+                <i class="bi bi-search me-2"></i>Analyze Checkboxes
             </button>
-            <div id="checkboxTestResult" class="mt-3"></div>
+            
+            <!-- Mapping Reference -->
+            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" data-bs-toggle="collapse" data-bs-target="#mappingReference">
+                <i class="bi bi-info-circle me-1"></i>Show ctrlProp Mapping
+            </button>
+            <div class="collapse mt-2" id="mappingReference">
+                <div class="card card-body bg-light" style="max-height: 300px; overflow-y: auto;">
+                    <small>
+                        <strong>ctrlProp Mapping (TESTED & CONFIRMED):</strong><br>
+                        <code>ctrlProp1</code> = Start-up/SO3 Complete YES<br>
+                        <code>ctrlProp2</code> = Start-up/SO3 Complete NO<br>
+                        <code>ctrlProp3</code> = Interruption to Flow YES<br>
+                        <code>ctrlProp4</code> = Interruption to Flow NO<br>
+                        <code>ctrlProp5</code> = Interruption to Production YES<br>
+                        <code>ctrlProp6</code> = Interruption to Production NO<br>
+                        <code>ctrlProp7</code> = Part 1 Replacement Required YES<br>
+                        <code>ctrlProp8</code> = Part 1 Replacement Required NO<br>
+                        <code>ctrlProp9</code> = Part 3 Replacement Required YES<br>
+                        <code>ctrlProp10</code> = Part 3 Replacement Required NO<br>
+                        <code>ctrlProp11</code> = Part 2 Replacement Required YES<br>
+                        <code>ctrlProp12</code> = Part 2 Replacement Required NO<br>
+                        <code>ctrlProp13</code> = Part 4 Replacement Required YES<br>
+                        <code>ctrlProp14</code> = Part 4 Replacement Required NO<br>
+                        <code>ctrlProp15</code> = <strong class="text-warning">Exposed to Process Gas/Chemicals YES ✓</strong><br>
+                        <code>ctrlProp16</code> = <strong class="text-warning">Exposed to Process Gas/Chemicals NO ✓</strong><br>
+                        <code>ctrlProp17</code> = <strong class="text-info">Purged YES ✓</strong><br>
+                        <code>ctrlProp18</code> = <strong class="text-info">Purged NO ✓</strong><br>
+                        <code>ctrlProp19</code> = <strong class="text-danger">Failed on Install NO ✓</strong><br>
+                        <code>ctrlProp20</code> = <strong class="text-success">Failed on Install YES ✓</strong><br>
+                                        <code>ctrlProp21-24</code> = (Unknown/Reserved)<br>
+                                        <code>ctrlProp25</code> = <strong class="text-primary">Purged and Double Bagged Goods Enclosed YES ✓</strong><br>
+                                        <code>ctrlProp26</code> = <strong class="text-primary">Purged and Double Bagged Goods Enclosed NO ✓</strong><br>
+                                        <em class="text-muted">Note: If neither ctrlProp25 nor ctrlProp26 is checked, the field will be set to N/A (null)</em>
+                    </small>
+                </div>
+            </div>
+            
+            <div id="checkboxAnalysisResult" class="mt-3"></div>
+        </div>
+    </div>
+    
+    <!-- Admin-Only: RMA Settings Section -->
+    <div class="card border-primary mb-4" th:if="${currentUser != null && currentUser.role == 'ADMIN'}">
+        <div class="card-header bg-primary text-white">
+            <i class="bi bi-box-seam me-2"></i>RMA Settings - Admin Only
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">Manage Return Addresses</h5>
+            <p class="card-text">
+                Configure the return addresses that appear in the "Return Materials To" dropdown on RMA forms.
+                You can add, edit, or delete addresses as needed.
+            </p>
+            <a href="/settings/rma" class="btn btn-primary">
+                <i class="bi bi-gear-fill me-2"></i>Open RMA Settings
+            </a>
         </div>
     </div>
     
@@ -369,52 +429,190 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Excel Checkbox Test Handler
-    const testCheckboxBtn = document.getElementById('testCheckboxBtn');
-    const checkboxTestResult = document.getElementById('checkboxTestResult');
+    // Excel Checkbox Analyzer Handler
+    const analyzeCheckboxBtn = document.getElementById('analyzeCheckboxBtn');
+    const checkboxAnalysisResult = document.getElementById('checkboxAnalysisResult');
+    const checkboxAnalysisFile = document.getElementById('checkboxAnalysisFile');
     
-    if (testCheckboxBtn) {
-        testCheckboxBtn.addEventListener('click', async function() {
-            testCheckboxBtn.disabled = true;
-            testCheckboxBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Testing...';
-            checkboxTestResult.innerHTML = '';
+    // Enable/disable analyze button based on file selection
+    if (checkboxAnalysisFile) {
+        checkboxAnalysisFile.addEventListener('change', function() {
+            analyzeCheckboxBtn.disabled = !this.files || this.files.length === 0;
+        });
+    }
+    
+    if (analyzeCheckboxBtn) {
+        analyzeCheckboxBtn.addEventListener('click', async function() {
+            const fileInput = document.getElementById('checkboxAnalysisFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                checkboxAnalysisResult.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Please select an Excel file first.
+                    </div>
+                `;
+                return;
+            }
+            
+            analyzeCheckboxBtn.disabled = true;
+            analyzeCheckboxBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analyzing...';
+            checkboxAnalysisResult.innerHTML = '';
             
             try {
-                const response = await fetch('/settings/test-excel-checkboxes', {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch('/settings/analyze-rma-checkboxes', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    body: formData
                 });
                 
                 const data = await response.json();
                 
-                if (data.success === 'true') {
-                    checkboxTestResult.innerHTML = `
-                        <div class="alert alert-success">
-                            <i class="bi bi-check-circle-fill me-2"></i>${data.message}
-                            <br><br>
-                            <strong>✓ All checkboxes have been checked!</strong>
-                            <br>
-                            <small class="text-muted">Check the server logs for details about which cells were modified.</small>
+                if (data.error) {
+                    checkboxAnalysisResult.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-x-circle-fill me-2"></i><strong>Error:</strong> ${data.error}
                         </div>
                     `;
                 } else {
-                    checkboxTestResult.innerHTML = `
-                        <div class="alert alert-danger">
-                            <i class="bi bi-x-circle-fill me-2"></i>${data.message}
+                    let checkboxList = '';
+                    if (data.checkboxes && data.checkboxes.length > 0) {
+                        checkboxList = '<div class="table-responsive mt-3"><table class="table table-sm table-striped"><thead><tr><th>Sheet</th><th>Name</th><th>Position</th><th>Linked Cell</th><th>State</th></tr></thead><tbody>';
+                        data.checkboxes.forEach(cb => {
+                            const icon = cb.checked ? '<i class="bi bi-check-square-fill text-success"></i>' : '<i class="bi bi-square text-muted"></i>';
+                            const state = cb.checked ? '<span class="badge bg-success">CHECKED</span>' : '<span class="badge bg-secondary">UNCHECKED</span>';
+                            const linkedCell = cb.linkedCell && cb.linkedCell !== 'Not linked' ? `<code>${cb.linkedCell}</code>` : '<span class="text-muted">None</span>';
+                            checkboxList += `<tr><td>${cb.sheet}</td><td><code>${cb.name}</code></td><td><small>${cb.position}</small></td><td>${linkedCell}</td><td>${icon} ${state}</td></tr>`;
+                        });
+                        checkboxList += '</tbody></table></div>';
+                    }
+                    
+                    let zipLogHtml = '';
+                    if (data.zipAnalysisLog && data.zipAnalysisLog.length > 0) {
+                        zipLogHtml = `
+                            <div class="mt-4">
+                                <h5><i class="bi bi-file-earmark-zip me-2"></i>ZIP File Analysis</h5>
+                                <pre class="bg-dark text-light p-3" style="max-height: 500px; overflow-y: auto; font-size: 0.8em; border-radius: 5px;">${data.zipAnalysisLog.join('\n')}</pre>
+                            </div>
+                        `;
+                    }
+                    
+                    // Build ctrlProps summary
+                    let ctrlPropsHtml = '';
+                    if (data.ctrlPropsTotal !== undefined) {
+                        // Build list of checked ctrlProps
+                        let checkedPropsList = '';
+                        if (data.checkedCtrlProps && data.checkedCtrlProps.length > 0) {
+                            // Sort ctrlProps numerically (ctrlProp1, ctrlProp2, ... ctrlProp18, etc.)
+                            const sortedProps = [...data.checkedCtrlProps].sort((a, b) => {
+                                const numA = parseInt(a.replace(/\D/g, ''));
+                                const numB = parseInt(b.replace(/\D/g, ''));
+                                return numA - numB;
+                            });
+                            
+                            checkedPropsList = `
+                                <div class="alert alert-success mt-3">
+                                    <h6 class="mb-2"><i class="bi bi-check-circle-fill me-2"></i>Checked ctrlProp Files (in order):</h6>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        ${sortedProps.map(prop => `<span class="badge bg-success fs-6">${prop}</span>`).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            checkedPropsList = `
+                                <div class="alert alert-warning mt-3">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>No checkboxes are checked in this file.
+                                </div>
+                            `;
+                        }
+                        
+                        ctrlPropsHtml = `
+                            <div class="alert alert-info mb-3">
+                                <h5><i class="bi bi-file-earmark-zip me-2"></i>✅ ACTUAL Checkbox States (from ZIP ctrlProps)</h5>
+                                <p class="mb-2">These are the TRUE checkbox states read directly from the Excel file's internal XML:</p>
+                                <div class="row mt-3">
+                                    <div class="col-md-4">
+                                        <div class="card bg-primary text-white">
+                                            <div class="card-body text-center">
+                                                <h2 class="mb-0">${data.ctrlPropsTotal}</h2>
+                                                <p class="mb-0">Total</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card bg-success text-white">
+                                            <div class="card-body text-center">
+                                                <h2 class="mb-0">${data.ctrlPropsChecked}</h2>
+                                                <p class="mb-0">✓ Checked</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card bg-secondary text-white">
+                                            <div class="card-body text-center">
+                                                <h2 class="mb-0">${data.ctrlPropsUnchecked}</h2>
+                                                <p class="mb-0">☐ Unchecked</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                ${checkedPropsList}
+                            </div>
+                        `;
+                    }
+                    
+                    checkboxAnalysisResult.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle-fill me-2"></i><strong>Analysis Complete!</strong>
+                            <br><br>
+                            <strong>File:</strong> <code>${data.filePath}</code>
+                            <br><br>
+                            
+                            ${ctrlPropsHtml}
+                            
+                            <h5><i class="bi bi-diagram-3 me-2"></i>Checkbox Shapes Found (via Apache POI)</h5>
+                            <p class="text-muted small">Note: POI shape detection may not perfectly match the actual checkboxes. The ctrlProps data above is more accurate.</p>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="text-primary">${data.totalCheckboxes}</h3>
+                                            <small class="text-muted">Total Checkboxes</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="text-success">${data.checkedCheckboxes}</h3>
+                                            <small class="text-muted">Checked</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="text-secondary">${data.uncheckedCheckboxes}</h3>
+                                            <small class="text-muted">Unchecked</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            ${checkboxList}
                         </div>
                     `;
                 }
             } catch (error) {
-                checkboxTestResult.innerHTML = `
+                checkboxAnalysisResult.innerHTML = `
                     <div class="alert alert-danger">
-                        <i class="bi bi-x-circle-fill me-2"></i>Error: ${error.message}
+                        <i class="bi bi-x-circle-fill me-2"></i><strong>Error:</strong> ${error.message}
                     </div>
                 `;
             } finally {
-                testCheckboxBtn.disabled = false;
-                testCheckboxBtn.innerHTML = '<i class="bi bi-file-earmark-check me-2"></i>Test Checkbox Manipulation';
+                analyzeCheckboxBtn.disabled = false;
+                analyzeCheckboxBtn.innerHTML = '<i class="bi bi-search me-2"></i>Analyze Checkboxes';
             }
         });
     }

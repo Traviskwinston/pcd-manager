@@ -41,6 +41,9 @@ public class ExcelService {
 
     @Autowired
     private UserService userService;
+    
+    @Autowired
+    private com.pcd.manager.service.ReturnAddressService returnAddressService;
 
     @PostConstruct
     public void init() {
@@ -66,7 +69,7 @@ public class ExcelService {
      */
     public byte[] populateRmaTemplate(Rma rma, User currentUser) throws IOException {
         // Load the template with checkbox links
-        Path templatePath = Paths.get("uploads/reference-documents/Blank RMA_PCDMANAGER.xlsx");
+        Path templatePath = Paths.get("uploads/reference-documents/BlankRMA.xlsx");
         
         try (InputStream templateStream = Files.newInputStream(templatePath)) {
             
@@ -170,8 +173,46 @@ public class ExcelService {
         setCellValue(sheet, "B17", rma.getCustomerPhone()); // Contact Phone Number
         
         // Tool Information
-        Tool tool = rma.getTool();
-        if (tool != null) {
+        // If multiple affected tools: write "Multiple" in F14 and J16 and fill "Multiple Parent Systems" sheet
+        if (rma.getAffectedTools() != null && !rma.getAffectedTools().isEmpty() && rma.getAffectedTools().size() > 1) {
+            setCellValue(sheet, "F14", "Multiple");
+            setCellValue(sheet, "J16", "Multiple");
+
+            try {
+                Workbook wb = sheet.getWorkbook();
+                Sheet multiSheet = wb.getSheet("Multiple Parent Systems");
+                if (multiSheet == null) {
+                    multiSheet = wb.createSheet("Multiple Parent Systems");
+                }
+                int startRow = 2; // B3
+                int row = startRow;
+                for (Tool t : rma.getAffectedTools()) {
+                    Row r = multiSheet.getRow(row);
+                    if (r == null) r = multiSheet.createRow(row);
+                    // Column A: Model numbers (model1/model2)
+                    Cell a = r.getCell(0); if (a == null) a = r.createCell(0);
+                    String model = (t.getModel1() != null ? t.getModel1() : "");
+                    if (t.getModel2() != null && !t.getModel2().isEmpty()) model += (model.isEmpty() ? "" : "/") + t.getModel2();
+                    a.setCellValue(model);
+                    // Column B: Serial numbers (serialNumber1/serialNumber2)
+                    Cell b = r.getCell(1); if (b == null) b = r.createCell(1);
+                    String serial = (t.getSerialNumber1() != null ? t.getSerialNumber1() : "");
+                    if (t.getSerialNumber2() != null && !t.getSerialNumber2().isEmpty()) serial += (serial.isEmpty() ? "" : "/") + t.getSerialNumber2();
+                    b.setCellValue(serial);
+                    // Column C: Tool Name (+ Alt Names)
+                    Cell c = r.getCell(2); if (c == null) c = r.createCell(2);
+                    String name = (t.getName() != null ? t.getName() : "");
+                    if (t.getSecondaryName() != null && !t.getSecondaryName().isEmpty()) name += " (" + t.getSecondaryName() + ")";
+                    c.setCellValue(name);
+                    row++;
+                    if (row > 48) break; // up to B49 per spec
+                }
+            } catch (Exception e) {
+                logger.warn("Failed writing Multiple Parent Systems sheet: {}", e.getMessage());
+            }
+        } else {
+            Tool tool = rma.getTool();
+            if (tool != null) {
             // Model Numbers in J16
             String modelNumbers = "";
             if (tool.getModel1() != null && !tool.getModel1().isEmpty()) {
@@ -205,6 +246,7 @@ public class ExcelService {
             
             // Chemical/Gas Service in J18
             setCellValue(sheet, "J18", tool.getChemicalGasService());
+            }
         }
         
         // Downtime (hrs) in J22
@@ -258,7 +300,7 @@ public class ExcelService {
                            i+1, replacementCell, qtyCell, pnCell, descCell, part.getPartName(), part.getPartNumber(), part.getProductDescription(), 
                            part.getQuantity(), part.getReplacementRequired());
                 
-                // Replacement required - now handled by checkbox logic (A67-A74)
+                // Replacement required - now handled by ctrlProp checkboxes (ctrlProp7-14) on import only
                 
                 // Set quantity
                 if (part.getQuantity() != null) {
@@ -324,94 +366,28 @@ public class ExcelService {
     
     /**
      * Populates checkboxes based on RMA data
-     * Sets linked cells (A61-A75) to check/uncheck checkboxes
+     * NOTE: Now only sets Data sheet cells (A21, A22, A25) for exposedToProcessGasOrChemicals and purged
+     * All other checkboxes (ctrlProp1-26) are NOT populated on export - they rely on the template's checkboxes
      */
     private void populateCheckboxes(Sheet sheet, Rma rma) {
-        logger.info("EXCEL EXPORT - Populating checkboxes for RMA {}", rma.getId());
+        logger.info("EXCEL EXPORT - Populating Data sheet checkbox cells for RMA {}", rma.getId());
         
-        // A61: Start-up/SO3 complete = YES
-        // A62: Start-up/SO3 complete = NO
-        if (rma.getStartupSo3Complete() != null && rma.getStartupSo3Complete()) {
-            setBooleanCellValue(sheet, "A61", true);  // YES
-        } else {
-            setBooleanCellValue(sheet, "A62", true);  // NO
-        }
-        
-        // A63: Interruption to flow = TRUE
-        // A64: Interruption to flow = FALSE
-        if (rma.getInterruptionToFlow() != null && rma.getInterruptionToFlow()) {
-            setBooleanCellValue(sheet, "A63", true);  // TRUE
-        } else {
-            setBooleanCellValue(sheet, "A64", true);  // FALSE
-        }
-        
-        // A65: Interruption to production = TRUE
-        // A66: Interruption to production = FALSE
-        if (rma.getInterruptionToProduction() != null && rma.getInterruptionToProduction()) {
-            setBooleanCellValue(sheet, "A65", true);  // TRUE
-        } else {
-            setBooleanCellValue(sheet, "A66", true);  // FALSE
-        }
-        
-        // Parts replacement checkboxes (A67-A74 for up to 4 parts)
-        if (rma.getPartLineItems() != null && !rma.getPartLineItems().isEmpty()) {
-            List<PartLineItem> parts = new ArrayList<>(rma.getPartLineItems());
-            
-            // Part 1: A67 (replace=YES), A68 (replace=NO)
-            if (parts.size() > 0) {
-                PartLineItem part1 = parts.get(0);
-                if (part1.getReplacementRequired() != null && part1.getReplacementRequired()) {
-                    setBooleanCellValue(sheet, "A67", true);  // Replace = YES
-                } else {
-                    setBooleanCellValue(sheet, "A68", true);  // Replace = NO
-                }
-            }
-            
-            // Part 2: A71 (replace=YES), A72 (replace=NO)
-            if (parts.size() > 1) {
-                PartLineItem part2 = parts.get(1);
-                if (part2.getReplacementRequired() != null && part2.getReplacementRequired()) {
-                    setBooleanCellValue(sheet, "A71", true);  // Replace = YES
-                } else {
-                    setBooleanCellValue(sheet, "A72", true);  // Replace = NO
-                }
-            }
-            
-            // Part 3: A69 (replace=YES), A70 (replace=NO)
-            if (parts.size() > 2) {
-                PartLineItem part3 = parts.get(2);
-                if (part3.getReplacementRequired() != null && part3.getReplacementRequired()) {
-                    setBooleanCellValue(sheet, "A69", true);  // Replace = YES
-                } else {
-                    setBooleanCellValue(sheet, "A70", true);  // Replace = NO
-                }
-            }
-            
-            // Part 4: A73 (replace=YES), A74 (replace=NO)
-            if (parts.size() > 3) {
-                PartLineItem part4 = parts.get(3);
-                if (part4.getReplacementRequired() != null && part4.getReplacementRequired()) {
-                    setBooleanCellValue(sheet, "A73", true);  // Replace = YES
-                } else {
-                    setBooleanCellValue(sheet, "A74", true);  // Replace = NO
-                }
-            }
-        }
-        
-        // Exposed to Process Gas/Chemical checkboxes (use the already-linked checkboxes 49, 50, 54)
+        // Exposed to Process Gas/Chemical and Purged checkboxes (use Data sheet cells)
         // These checkboxes are linked to cells on the "Data" sheet
         Workbook workbook = sheet.getWorkbook();
         Sheet dataSheet = workbook.getSheet("Data");
         if (dataSheet == null) {
-            logger.warn("EXCEL EXPORT - 'Data' sheet not found, cannot set checkbox cells for checkboxes 49, 50, 54");
+            logger.warn("EXCEL EXPORT - 'Data' sheet not found, cannot set checkbox cells for exposed/purged");
         } else {
             if (rma.getExposedToProcessGasOrChemicals() != null) {
                 if (rma.getExposedToProcessGasOrChemicals()) {
                     // Checkbox 49 = TRUE (exposed = yes) -> Data!A21
                     setBooleanCellValue(dataSheet, "A21", true);
+                    logger.debug("EXCEL EXPORT - Set Data!A21 = true (exposed YES)");
                 } else {
                     // Checkbox 50 = TRUE (exposed = no) -> Data!A22
                     setBooleanCellValue(dataSheet, "A22", true);
+                    logger.debug("EXCEL EXPORT - Set Data!A22 = true (exposed NO)");
                 }
             }
             
@@ -420,14 +396,16 @@ public class ExcelService {
                 if (rma.getPurged()) {
                     // Checkbox 54 = TRUE (purged = yes) -> Data!A25
                     setBooleanCellValue(dataSheet, "A25", true);
+                    logger.debug("EXCEL EXPORT - Set Data!A25 = true (purged YES)");
                 } else {
-                    // Purged = NO -> Main sheet A75
-                    setBooleanCellValue(sheet, "A75", true);
+                    // Purged = NO - handled by ctrlProp15, no export needed
+                    logger.debug("EXCEL EXPORT - Purged NO (will be handled by ctrlProp15 on import)");
                 }
             }
         }
         
-        logger.info("EXCEL EXPORT - Checkboxes populated for RMA {}", rma.getId());
+        logger.info("EXCEL EXPORT - Data sheet checkbox cells populated for RMA {}", rma.getId());
+        logger.warn("EXCEL EXPORT - NOTE: Other checkboxes (startup, interruption, parts, failedOnInstall) are NOT set on export. They must be manually checked in Excel or exist in the template.");
     }
     
     /**
@@ -576,7 +554,22 @@ public class ExcelService {
     private Map<String, Object> extractRmaDataFromExcel(InputStream inputStream) {
         Map<String, Object> extractedData = new HashMap<>();
         
-        try (Workbook workbook = WorkbookFactory.create(inputStream)) {
+        // First, we need to read the file as bytes to extract ctrlProps from ZIP
+        byte[] excelBytes;
+        try {
+            excelBytes = inputStream.readAllBytes();
+        } catch (IOException e) {
+            logger.error("Error reading Excel file bytes for checkbox extraction", e);
+            extractedData.put("error", "Failed to read Excel file: " + e.getMessage());
+            return extractedData;
+        }
+        
+        // Extract checkbox states from ctrlProps in ZIP
+        Map<Integer, Boolean> checkboxStates = extractCheckboxStatesFromZip(excelBytes);
+        logger.info("Extracted {} checkbox states from ZIP ctrlProps", checkboxStates.size());
+        
+        // Now parse the Excel file normally
+        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(excelBytes))) {
             Sheet sheet = workbook.getSheetAt(0); // Assuming data is on the first sheet
             if (sheet == null) {
                 extractedData.put("error", "First sheet is null or workbook is empty");
@@ -638,6 +631,44 @@ public class ExcelService {
             // Location from E14 (used for display, not direct RMA field mapping usually)
             extractedData.put("locationName", getCellStringValue(sheet, "E14"));
             
+            // Return Materials To from B19 - attempt to match with database
+            String returnMaterialsToRaw = getCellStringValue(sheet, "B19");
+            if (returnMaterialsToRaw != null && !returnMaterialsToRaw.isEmpty() && !returnMaterialsToRaw.equalsIgnoreCase("N/A")) {
+                // Try to find a matching address in the database
+                try {
+                    java.util.List<com.pcd.manager.model.ReturnAddress> allAddresses = returnAddressService.getAllReturnAddresses();
+                    com.pcd.manager.model.ReturnAddress matchedAddress = null;
+                    
+                    // Try exact match first
+                    for (com.pcd.manager.model.ReturnAddress addr : allAddresses) {
+                        if (addr.getName().equalsIgnoreCase(returnMaterialsToRaw.trim())) {
+                            matchedAddress = addr;
+                            break;
+                        }
+                    }
+                    
+                    // If no exact match, try partial match (contains)
+                    if (matchedAddress == null) {
+                        for (com.pcd.manager.model.ReturnAddress addr : allAddresses) {
+                            if (addr.getName().toLowerCase().contains(returnMaterialsToRaw.trim().toLowerCase()) ||
+                                returnMaterialsToRaw.trim().toLowerCase().contains(addr.getName().toLowerCase())) {
+                                matchedAddress = addr;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (matchedAddress != null) {
+                        extractedData.put("returnMaterialsTo", matchedAddress.getName());
+                        logger.info("Matched return address from B19: '{}' -> '{}'", returnMaterialsToRaw, matchedAddress.getName());
+                    } else {
+                        logger.warn("No match found for return address in B19: '{}'", returnMaterialsToRaw);
+                    }
+                } catch (Exception e) {
+                    logger.warn("Error matching return address from B19: {}", e.getMessage());
+                }
+            }
+            
             // Reason For Request from G7
             extractedData.put("reasonForRequest", getCellStringValue(sheet, "G7"));
             // DSS Product Line from G9
@@ -679,6 +710,9 @@ public class ExcelService {
                     parsedSerial1 = toolInfoRaw.trim();
                 }
             }
+            // Normalize to ignore spaces inside serials (e.g., "200455774 - 27" -> "200455774-27")
+            if (parsedSerial1 != null) parsedSerial1 = parsedSerial1.replaceAll("\\s+", "");
+            if (parsedSerial2 != null) parsedSerial2 = parsedSerial2.replaceAll("\\s+", "");
             
             // Example: If F14 is "MODELXYZ 12345/67890"
             // parsedSerial1 should be "12345" (or "MODELXYZ 12345" depending on exact parsing)
@@ -717,9 +751,44 @@ public class ExcelService {
             extractedData.put("parsedSerial2", parsedSerial2);
 
             // Model Number (Parent Commodity Code) from J16
-            extractedData.put("parentCommodityCode", getCellStringValue(sheet, "J16"));
+            String j16Value = getCellStringValue(sheet, "J16");
+            extractedData.put("parentCommodityCode", j16Value);
             // Chemical/Gas Service from J18
             extractedData.put("chemicalGasService", getCellStringValue(sheet, "J18"));
+            // If F14 and J16 are both blank OR either says 'multiple', scan the "Multiple Parent Systems" sheet (B3..B49)
+            boolean f14Blank = (toolInfoRaw == null || toolInfoRaw.trim().isEmpty());
+            boolean j16Blank = (j16Value == null || j16Value.trim().isEmpty());
+            boolean isMultipleFlag = (toolInfoRaw != null && toolInfoRaw.trim().equalsIgnoreCase("multiple"))
+                    || (j16Value != null && j16Value.trim().equalsIgnoreCase("multiple"));
+            if ((f14Blank && j16Blank) || isMultipleFlag) {
+                try {
+                    Workbook wb = sheet.getWorkbook();
+                    Sheet multiSheet = wb.getSheet("Multiple Parent Systems");
+                    if (multiSheet != null) {
+                        List<String> multipleSerials = new ArrayList<>();
+                        // Rows B3..B49 => row indices 2..48, column index 1
+                        for (int r = 2; r <= 48; r++) {
+                            Row row = multiSheet.getRow(r);
+                            if (row == null) continue;
+                            Cell cell = row.getCell(1); // Column B
+                            if (cell == null) continue;
+                            String val = cell.getCellType() == CellType.NUMERIC ?
+                                    new java.text.DecimalFormat("0").format(cell.getNumericCellValue()) :
+                                    cell.toString();
+                            if (val != null) {
+                                val = val.trim().replaceAll("\\s+", "");
+                                if (!val.isEmpty()) multipleSerials.add(val);
+                            }
+                        }
+                        if (!multipleSerials.isEmpty()) {
+                            extractedData.put("multipleSerials", multipleSerials);
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.warn("Failed scanning 'Multiple Parent Systems' sheet: {}", e.getMessage());
+                }
+            }
+
             // Downtime (hrs) from J22
             String downtimeStr = getCellStringValue(sheet, "J22");
             if (downtimeStr != null && !downtimeStr.isEmpty()) {
@@ -770,8 +839,38 @@ public class ExcelService {
             extractedData.put("howContained", getCellStringValue(sheet, "B46"));      // How contained
             extractedData.put("whoContained", getCellStringValue(sheet, "B47"));      // Who contained
             
-            // Boolean flags (exposedToProcessGasOrChemicals, purged) - these were removed as per user request
-            // as they should not be extracted from Excel.
+            // Process checkbox states from ctrlProps (ZIP-based extraction)
+            processCheckboxStates(extractedData, checkboxStates);
+            
+            // FALLBACK: Also read from Data sheet cells if ctrlProps didn't provide values
+            // This is for backward compatibility with older Excel files
+            if (dataSheet != null) {
+                // Only use Data sheet values if ctrlProps didn't already set them
+                if (!extractedData.containsKey("exposedToProcessGasOrChemicals")) {
+                    // Data!A21 = Exposed YES (checkbox 49)
+                    Boolean exposedYes = getBooleanCellValue(dataSheet, "A21");
+                    // Data!A22 = Exposed NO (checkbox 50)
+                    Boolean exposedNo = getBooleanCellValue(dataSheet, "A22");
+                    
+                    if (exposedYes != null && exposedYes) {
+                        extractedData.put("exposedToProcessGasOrChemicals", true);
+                        logger.debug("exposedToProcessGasOrChemicals = true (from Data!A21 fallback)");
+                    } else if (exposedNo != null && exposedNo) {
+                        extractedData.put("exposedToProcessGasOrChemicals", false);
+                        logger.debug("exposedToProcessGasOrChemicals = false (from Data!A22 fallback)");
+                    }
+                }
+                
+                if (!extractedData.containsKey("purged")) {
+                    // Data!A25 = Purged YES (checkbox 54)
+                    Boolean purgedYes = getBooleanCellValue(dataSheet, "A25");
+                    
+                    if (purgedYes != null && purgedYes) {
+                        extractedData.put("purged", true);
+                        logger.debug("purged = true (from Data!A25 fallback)");
+                    }
+                }
+            }
 
             // Extract Labor entries from A51-A55 (Description), D51-D55 (Technician), G51-G55 (Hours), H51-H55 (Date), I51-I55 (Price/Hr)
             List<Map<String, Object>> laborEntries = new ArrayList<>();
@@ -831,6 +930,9 @@ public class ExcelService {
                 logger.info("Extracted {} labor entries", laborEntries.size());
             } else {
                 logger.info("No labor entries found in Excel");
+                // Set status to MISSING_LABOR_HOURS if no labor entries found
+                extractedData.put("status", "MISSING_LABOR_HOURS");
+                logger.info("Setting status to MISSING_LABOR_HOURS due to missing labor entries");
             }
 
             logger.info("Final extracted data: {}", extractedData);
@@ -1176,5 +1278,235 @@ public class ExcelService {
             cell.setCellValue(java.sql.Date.valueOf(date));
             cell.setCellStyle(dateStyle);
         }
+    }
+    
+    /**
+     * Extracts checkbox states from ctrlProps files in the Excel ZIP structure
+     * 
+     * @param excelBytes The Excel file as byte array
+     * @return Map of checkbox number to checked state (true if checked, false/absent if not)
+     */
+    private Map<Integer, Boolean> extractCheckboxStatesFromZip(byte[] excelBytes) {
+        Map<Integer, Boolean> checkboxStates = new HashMap<>();
+        
+        try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new ByteArrayInputStream(excelBytes))) {
+            java.util.zip.ZipEntry entry;
+            
+            while ((entry = zis.getNextEntry()) != null) {
+                String entryName = entry.getName();
+                
+                // Look for ctrlProps files: xl/ctrlProps/ctrlProp1.xml, ctrlProp2.xml, etc.
+                if (entryName.matches("xl/ctrlProps/ctrlProp\\d+\\.xml")) {
+                    byte[] content = zis.readAllBytes();
+                    String xmlContent = new String(content, java.nio.charset.StandardCharsets.UTF_8);
+                    
+                    // Extract the checkbox number from filename (e.g., "ctrlProp6.xml" -> 6)
+                    String fileName = entryName.substring(entryName.lastIndexOf('/') + 1);
+                    String numberStr = fileName.replaceAll("[^0-9]", "");
+                    
+                    if (!numberStr.isEmpty()) {
+                        int checkboxNumber = Integer.parseInt(numberStr);
+                        
+                        // Check if checkbox is checked by looking for checked="Checked" attribute
+                        boolean isChecked = xmlContent.contains("checked=\"Checked\"");
+                        
+                        checkboxStates.put(checkboxNumber, isChecked);
+                        logger.info("CHECKBOX EXTRACT - ctrlProp{}.xml: {} (checked=\"Checked\" {})", 
+                                   checkboxNumber, isChecked ? "✓ CHECKED" : "☐ unchecked", 
+                                   isChecked ? "FOUND" : "not found");
+                    }
+                }
+                
+                zis.closeEntry();
+            }
+            
+            logger.info("Extracted {} checkbox states from ZIP: {}", checkboxStates.size(), checkboxStates);
+            
+        } catch (Exception e) {
+            logger.error("Error extracting checkbox states from ZIP", e);
+        }
+        
+        return checkboxStates;
+    }
+    
+    /**
+     * Processes checkbox states and maps them to RMA fields
+     * 
+     * Mapping (TESTED & CONFIRMED):
+     * - ctrlProp1: startupSo3Complete = YES
+     * - ctrlProp2: startupSo3Complete = NO
+     * - ctrlProp3: interruptionToFlow = TRUE
+     * - ctrlProp4: interruptionToFlow = FALSE
+     * - ctrlProp5: interruptionToProduction = TRUE
+     * - ctrlProp6: interruptionToProduction = FALSE
+     * - ctrlProp7: part1.replacementRequired = YES
+     * - ctrlProp8: part1.replacementRequired = NO
+     * - ctrlProp9: part3.replacementRequired = YES
+     * - ctrlProp10: part3.replacementRequired = NO
+     * - ctrlProp11: part2.replacementRequired = YES
+     * - ctrlProp12: part2.replacementRequired = NO
+     * - ctrlProp13: part4.replacementRequired = YES
+     * - ctrlProp14: part4.replacementRequired = NO
+     * - ctrlProp15: exposedToProcessGasOrChemicals = YES
+     * - ctrlProp16: exposedToProcessGasOrChemicals = NO
+     * - ctrlProp17: purged = YES
+     * - ctrlProp18: purged = NO
+     * - ctrlProp19: failedOnInstall = NO
+     * - ctrlProp20: failedOnInstall = YES
+     * - ctrlProp21-24: (unknown/reserved)
+     * - ctrlProp25: purgedAndDoubleBaggedGoodsEnclosed = YES
+     * - ctrlProp26: purgedAndDoubleBaggedGoodsEnclosed = NO
+     * 
+     * @param extractedData The extracted data map to populate
+     * @param checkboxStates The checkbox states from ZIP
+     */
+    private void processCheckboxStates(Map<String, Object> extractedData, Map<Integer, Boolean> checkboxStates) {
+        // Start-up/SO3 Complete (ctrlProp1 = YES, ctrlProp2 = NO)
+        if (checkboxStates.getOrDefault(1, false)) {
+            extractedData.put("startupSo3Complete", true);
+            logger.debug("startupSo3Complete = true (from ctrlProp1)");
+        } else if (checkboxStates.getOrDefault(2, false)) {
+            extractedData.put("startupSo3Complete", false);
+            logger.debug("startupSo3Complete = false (from ctrlProp2)");
+        }
+        
+        // Interruption to Flow (ctrlProp3 = TRUE, ctrlProp4 = FALSE)
+        if (checkboxStates.getOrDefault(3, false)) {
+            extractedData.put("interruptionToFlow", true);
+            logger.debug("interruptionToFlow = true (from ctrlProp3)");
+        } else if (checkboxStates.getOrDefault(4, false)) {
+            extractedData.put("interruptionToFlow", false);
+            logger.debug("interruptionToFlow = false (from ctrlProp4)");
+        }
+        
+        // Interruption to Production (ctrlProp5 = TRUE, ctrlProp6 = FALSE)
+        if (checkboxStates.getOrDefault(5, false)) {
+            extractedData.put("interruptionToProduction", true);
+            logger.debug("interruptionToProduction = true (from ctrlProp5)");
+        } else if (checkboxStates.getOrDefault(6, false)) {
+            extractedData.put("interruptionToProduction", false);
+            logger.debug("interruptionToProduction = false (from ctrlProp6)");
+        }
+        
+        // Exposed to Process Gas or Chemicals (ctrlProp15 = YES, ctrlProp16 = NO)
+        if (checkboxStates.getOrDefault(15, false)) {
+            extractedData.put("exposedToProcessGasOrChemicals", true);
+            logger.debug("exposedToProcessGasOrChemicals = true (from ctrlProp15 - YES)");
+        } else if (checkboxStates.getOrDefault(16, false)) {
+            extractedData.put("exposedToProcessGasOrChemicals", false);
+            logger.debug("exposedToProcessGasOrChemicals = false (from ctrlProp16 - NO)");
+        }
+        
+        // Purged (ctrlProp17 = YES, ctrlProp18 = NO)
+        if (checkboxStates.getOrDefault(17, false)) {
+            extractedData.put("purged", true);
+            logger.debug("purged = true (from ctrlProp17 - YES)");
+        } else if (checkboxStates.getOrDefault(18, false)) {
+            extractedData.put("purged", false);
+            logger.debug("purged = false (from ctrlProp18 - NO)");
+        }
+        
+        // Failed on Install (ctrlProp19 = NO, ctrlProp20 = YES) - SWAPPED BASED ON TESTING
+        if (checkboxStates.getOrDefault(19, false)) {
+            extractedData.put("failedOnInstall", false);
+            logger.debug("failedOnInstall = false (from ctrlProp19 - NO)");
+        } else if (checkboxStates.getOrDefault(20, false)) {
+            extractedData.put("failedOnInstall", true);
+            logger.debug("failedOnInstall = true (from ctrlProp20 - YES)");
+        }
+        
+        // Purged and Double Bagged Goods Enclosed (ctrlProp25 = YES, ctrlProp26 = NO, neither = N/A)
+        if (checkboxStates.getOrDefault(25, false)) {
+            extractedData.put("purgedAndDoubleBaggedGoodsEnclosed", true);
+            logger.debug("purgedAndDoubleBaggedGoodsEnclosed = true (from ctrlProp25 - YES)");
+        } else if (checkboxStates.getOrDefault(26, false)) {
+            extractedData.put("purgedAndDoubleBaggedGoodsEnclosed", false);
+            logger.debug("purgedAndDoubleBaggedGoodsEnclosed = false (from ctrlProp26 - NO)");
+        } else {
+            // Neither checked = N/A (null)
+            extractedData.put("purgedAndDoubleBaggedGoodsEnclosed", null);
+            logger.debug("purgedAndDoubleBaggedGoodsEnclosed = null (neither ctrlProp25 nor ctrlProp26 checked - N/A)");
+        }
+        
+        // Part Replacement Required checkboxes
+        // Get parts list (if it exists)
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> parts = (List<Map<String, Object>>) extractedData.get("parts");
+        
+        if (parts != null && !parts.isEmpty()) {
+            // Part 1: ctrlProps7 = YES, ctrlProps8 = NO
+            if (parts.size() > 0) {
+                if (checkboxStates.getOrDefault(7, false)) {
+                    parts.get(0).put("replacementRequired", true);
+                    logger.debug("Part 1 replacementRequired = true (from ctrlProps7)");
+                } else if (checkboxStates.getOrDefault(8, false)) {
+                    parts.get(0).put("replacementRequired", false);
+                    logger.debug("Part 1 replacementRequired = false (from ctrlProps8)");
+                }
+            }
+            
+            // Part 2: ctrlProps11 = YES, ctrlProps12 = NO
+            if (parts.size() > 1) {
+                if (checkboxStates.getOrDefault(11, false)) {
+                    parts.get(1).put("replacementRequired", true);
+                    logger.debug("Part 2 replacementRequired = true (from ctrlProps11)");
+                } else if (checkboxStates.getOrDefault(12, false)) {
+                    parts.get(1).put("replacementRequired", false);
+                    logger.debug("Part 2 replacementRequired = false (from ctrlProps12)");
+                }
+            }
+            
+            // Part 3: ctrlProps9 = YES, ctrlProps10 = NO
+            if (parts.size() > 2) {
+                if (checkboxStates.getOrDefault(9, false)) {
+                    parts.get(2).put("replacementRequired", true);
+                    logger.debug("Part 3 replacementRequired = true (from ctrlProps9)");
+                } else if (checkboxStates.getOrDefault(10, false)) {
+                    parts.get(2).put("replacementRequired", false);
+                    logger.debug("Part 3 replacementRequired = false (from ctrlProps10)");
+                }
+            }
+            
+            // Part 4: ctrlProps13 = YES, ctrlProps14 = NO
+            if (parts.size() > 3) {
+                if (checkboxStates.getOrDefault(13, false)) {
+                    parts.get(3).put("replacementRequired", true);
+                    logger.debug("Part 4 replacementRequired = true (from ctrlProps13)");
+                } else if (checkboxStates.getOrDefault(14, false)) {
+                    parts.get(3).put("replacementRequired", false);
+                    logger.debug("Part 4 replacementRequired = false (from ctrlProps14)");
+                }
+            }
+        }
+    }
+    
+    /**
+     * Gets a boolean value from a cell using Excel A1 notation
+     * 
+     * @param sheet The sheet to read from
+     * @param cellRef The cell reference (e.g., "A21")
+     * @return The boolean value, or null if cell doesn't exist or isn't boolean
+     */
+    private Boolean getBooleanCellValue(Sheet sheet, String cellRef) {
+        try {
+            CellReference ref = new CellReference(cellRef);
+            Row row = sheet.getRow(ref.getRow());
+            if (row == null) {
+                return null;
+            }
+            
+            Cell cell = row.getCell(ref.getCol());
+            if (cell == null) {
+                return null;
+            }
+            
+            if (cell.getCellType() == CellType.BOOLEAN) {
+                return cell.getBooleanCellValue();
+            }
+        } catch (Exception e) {
+            logger.debug("Could not read boolean cell value from {}: {}", cellRef, e.getMessage());
+        }
+        
+        return null;
     }
 } 

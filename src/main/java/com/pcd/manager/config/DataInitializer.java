@@ -3,10 +3,12 @@ package com.pcd.manager.config;
 import com.pcd.manager.model.User;
 import com.pcd.manager.model.Tool;
 import com.pcd.manager.model.Location;
+import com.pcd.manager.model.ReturnAddress;
 import com.pcd.manager.model.MapGridItem;
 import com.pcd.manager.repository.UserRepository;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.repository.LocationRepository;
+import com.pcd.manager.repository.ReturnAddressRepository;
 import com.pcd.manager.repository.MapGridItemRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +33,7 @@ public class DataInitializer implements CommandLineRunner {
     private final LocationRepository locationRepository;
     private final PasswordEncoder passwordEncoder;
     private final MapGridItemRepository mapGridItemRepository;
+    private final ReturnAddressRepository returnAddressRepository;
 
     @Autowired
     public DataInitializer(
@@ -38,12 +41,14 @@ public class DataInitializer implements CommandLineRunner {
             ToolRepository toolRepository,
             LocationRepository locationRepository,
             PasswordEncoder passwordEncoder,
-            MapGridItemRepository mapGridItemRepository) {
+            MapGridItemRepository mapGridItemRepository,
+            ReturnAddressRepository returnAddressRepository) {
         this.userRepository = userRepository;
         this.toolRepository = toolRepository;
         this.locationRepository = locationRepository;
         this.passwordEncoder = passwordEncoder;
         this.mapGridItemRepository = mapGridItemRepository;
+        this.returnAddressRepository = returnAddressRepository;
     }
 
     @Override
@@ -72,11 +77,31 @@ public class DataInitializer implements CommandLineRunner {
             // Create facility grid layout
             createFacilityGridLayout();
             
+            // Ensure default RMA return address exists
+            ensureDefaultReturnAddress();
+
             logger.info("Data initialization completed successfully.");
 
         } catch (Exception e) {
             logger.error("Error during data initialization: {}", e.getMessage(), e);
             // Log the error but allow the application to continue
+        }
+    }
+
+    private void ensureDefaultReturnAddress() {
+        try {
+            // Create 'Vultee Street' if not present
+            boolean exists = returnAddressRepository.findByName("Vultee Street").isPresent();
+            if (!exists) {
+                ReturnAddress addr = new ReturnAddress();
+                addr.setName("Vultee Street");
+                addr.setAddress("Versum Materials\n1919 Vultee Street\nAllentown, Pa. 18103");
+                addr.setIsDefault(true);
+                returnAddressRepository.save(addr);
+                logger.info("Seeded default return address: Vultee Street");
+            }
+        } catch (Exception e) {
+            logger.warn("Could not seed default return address: {}", e.getMessage());
         }
     }
 

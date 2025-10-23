@@ -533,6 +533,7 @@
                                                 <div class="priority-filter-item">
                                                     <div class="priority-filter-left">
                                                         <span class="badge bg-danger priority-count-square priority-count" data-priority="URGENT">0</span>
+                                                        <span class="badge bg-success priority-count-square priority-count" data-priority="NONE">0</span>
                                                         <span>Urgent</span>
                                                     </div>
                                                     <input class="form-check-input priority-filter" type="checkbox" value="URGENT" id="priority-URGENT" checked>
@@ -694,6 +695,7 @@
                                 <!-- Priority -->
                                 <td class="text-center">
                                     <span th:if="*{priority != null}" th:switch="*{priority.name()}">
+                                        <span th:case="'NONE'" class="badge rounded-pill bg-success priority-badge" th:text="*{priority.displayName}"></span>
                                         <span th:case="'LOW'" class="badge rounded-pill bg-success priority-badge" th:text="*{priority.displayName}"></span>
                                         <span th:case="'MEDIUM'" class="badge rounded-pill bg-primary priority-badge" th:text="*{priority.displayName}"></span>
                                         <span th:case="'HIGH'" class="badge rounded-pill bg-warning text-dark priority-badge" th:text="*{priority.displayName}"></span>
@@ -1974,6 +1976,7 @@
 
                 const getPriorityBadgeClass = (priority) => {
                     const priorityMap = {
+                        'NONE': 'bg-success',
                         'LOW': 'bg-success',
                         'MEDIUM': 'bg-primary',
                         'HIGH': 'bg-warning text-dark',

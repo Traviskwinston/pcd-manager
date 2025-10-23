@@ -102,8 +102,20 @@ RMA.excel = {
         // Populate dates
         this.populateDates(data);
 
-        // Populate tool information - using matchedToolId or fallback to toolInfo
-        if (data.matchedToolId || data.toolInfo) { 
+        // Populate tool information / affected tools
+        if (data.affectedToolIds && Array.isArray(data.affectedToolIds) && data.affectedToolIds.length > 0) {
+            // One or more tools returned from Excel: push into the form's selection set and render
+            if (window.formSelected && typeof window.formRenderChips === 'function' && typeof window.formRenderToolPicker === 'function') {
+                data.affectedToolIds.forEach(id => window.formSelected.add(Number(id)));
+                window.formRenderChips();
+                window.formRenderToolPicker();
+            } else {
+                // Fallback: set hidden CSV
+                const hidden = document.getElementById('affectedToolIds');
+                if (hidden) hidden.value = data.affectedToolIds.join(',');
+            }
+        } else if (data.matchedToolId || data.toolInfo) { 
+            // Single tool case
             this.populateToolInfo(data); // Pass the whole data object
         }
 
@@ -134,7 +146,9 @@ RMA.excel = {
             'city': data.city,
             'state': data.state,
             'zipCode': data.zipCode,
-            'instructionsForExposedComponent': data.instructionsForExposedComponent
+            'instructionsForExposedComponent': data.instructionsForExposedComponent,
+            'downtimeHours': data.downtimeHours,
+            'returnMaterialsTo': data.returnMaterialsTo
         };
 
         if (data.rmaNumber) {
@@ -158,8 +172,13 @@ RMA.excel = {
                 const element = document.getElementById(id);
                 if (element) {
                     element.value = value;
+                    
+                    // Trigger change event for returnMaterialsTo to update address preview and purged section
+                    if (id === 'returnMaterialsTo') {
+                        const event = new Event('change', { bubbles: true });
+                        element.dispatchEvent(event);
+                    }
                 } else {
-                    console.warn(`Element with ID '${id}' not found for Excel data population.`);
                 }
             }
         });
@@ -167,7 +186,8 @@ RMA.excel = {
         const selectFields = {
             'reasonForRequest': data.reasonForRequest,
             'dssProductLine': data.dssProductLine,
-            'systemDescription': data.systemDescription
+            'systemDescription': data.systemDescription,
+            'status': data.status
         };
 
         Object.entries(selectFields).forEach(([id, value]) => {
@@ -183,7 +203,6 @@ RMA.excel = {
                         }
                     }
                     if (!found) {
-                        console.warn(`Option for value '${value}' not found in select element '${id}'.`);
                     }
                 }
             }
@@ -205,6 +224,73 @@ RMA.excel = {
                 purgedNo.checked = data.purged === false;
             }
         }
+        if (data.startupSo3Complete !== undefined) {
+            const startupYes = document.getElementById('startupSo3CompleteYes');
+            const startupNo = document.getElementById('startupSo3CompleteNo');
+            if (startupYes && startupNo) {
+                startupYes.checked = data.startupSo3Complete === true;
+                startupNo.checked = data.startupSo3Complete === false;
+            }
+        }
+        if (data.interruptionToFlow !== undefined) {
+            const flowYes = document.getElementById('interruptionToFlowYes');
+            const flowNo = document.getElementById('interruptionToFlowNo');
+            if (flowYes && flowNo) {
+                flowYes.checked = data.interruptionToFlow === true;
+                flowNo.checked = data.interruptionToFlow === false;
+            }
+        }
+        if (data.interruptionToProduction !== undefined) {
+            const prodYes = document.getElementById('interruptionToProductionYes');
+            const prodNo = document.getElementById('interruptionToProductionNo');
+            if (prodYes && prodNo) {
+                prodYes.checked = data.interruptionToProduction === true;
+                prodNo.checked = data.interruptionToProduction === false;
+            }
+        }
+        if (data.failedOnInstall !== undefined) {
+            const failedYes = document.getElementById('failedOnInstallYes');
+            const failedNo = document.getElementById('failedOnInstallNo');
+            if (failedYes && failedNo) {
+                failedYes.checked = data.failedOnInstall === true;
+                failedNo.checked = data.failedOnInstall === false;
+            }
+        }
+        if (data.purgedAndDoubleBaggedGoodsEnclosed !== undefined) {
+            const baggedYes = document.getElementById('purgedAndDoubleBaggedGoodsEnclosedYes');
+            const baggedNo = document.getElementById('purgedAndDoubleBaggedGoodsEnclosedNo');
+            const baggedNA = document.getElementById('purgedAndDoubleBaggedNA');
+            const baggedOptions = document.getElementById('purgedAndDoubleBaggedOptions');
+            const hiddenInput = document.getElementById('purgedAndDoubleBaggedHidden');
+            
+            if (data.purgedAndDoubleBaggedGoodsEnclosed === null) {
+                if (baggedNA) {
+                    baggedNA.checked = true;
+                    baggedNA.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                if (baggedOptions) {
+                    baggedOptions.classList.add('d-none');
+                    baggedOptions.style.display = 'none';
+                }
+            } else {
+                if (baggedNA) baggedNA.checked = false;
+                if (baggedOptions) {
+                    baggedOptions.classList.remove('d-none');
+                    baggedOptions.style.display = 'block';
+                }
+                if (data.purgedAndDoubleBaggedGoodsEnclosed === true) {
+                    if (baggedYes) {
+                        baggedYes.checked = true;
+                        baggedYes.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                } else {
+                    if (baggedNo) {
+                        baggedNo.checked = true;
+                        baggedNo.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            }
+        }
     },
 
     /**
@@ -212,11 +298,8 @@ RMA.excel = {
      * @param {Array} parts - Array of part data
      */
     populatePartLineItems(parts) {
-        console.log('Populating part line items:', parts);
-        
         const tbody = document.getElementById('partsTableBody');
         if (!tbody) {
-            console.warn('Parts table body not found');
             return;
         }
 
@@ -297,7 +380,6 @@ RMA.excel = {
             updateRemovePartButtonStates();
         }
 
-        console.log(`Populated ${parts.length} part line items`);
     },
 
 
@@ -307,12 +389,8 @@ RMA.excel = {
      * @param {Array} laborEntries - Array of labor entry data
      */
     populateLaborEntries(laborEntries) {
-        console.log('Populating labor entries:', laborEntries);
-        
-        // Clear existing labor rows
         const tbody = document.getElementById('laborTableBody');
         if (!tbody) {
-            console.warn('Labor table body not found');
             return;
         }
         
@@ -418,7 +496,6 @@ RMA.excel = {
             updateRemoveButtonStates();
         }
         
-        console.log(`Populated ${laborEntries.length} labor entries`);
     },
 
     /**
@@ -453,23 +530,14 @@ RMA.excel = {
      * Populate tool information
      * @param {Object} data - Excel data containing tool information
      */
-    populateToolInfo(data) { // Expects the whole data object from parse-excel response
+    populateToolInfo(data) {
         const toolSelect = document.getElementById('toolSelect');
-        if (!toolSelect) {
-            console.warn("toolSelect element not found for populateToolInfo.");
-            return;
-        }
-
         let toolIdToSelect = null;
 
-        // Priority 1: Use matchedToolId if provided by the backend
         if (data.matchedToolId) {
             toolIdToSelect = data.matchedToolId.toString();
-            console.log(`Attempting to select tool by matchedToolId: ${toolIdToSelect}`);
         }
-        // Priority 2: Fallback to existing logic if no matchedToolId (e.g., data.toolInfo from old structure)
         else if (data.toolInfo && (data.toolInfo.name || data.toolInfo.serialNumber)) {
-            console.log("matchedToolId not found, attempting fallback to data.toolInfo");
             const toolInfo = data.toolInfo;
             const options = Array.from(toolSelect.options);
             const matchingOption = options.find(option => {
@@ -485,26 +553,27 @@ RMA.excel = {
             });
             if (matchingOption) {
                 toolIdToSelect = matchingOption.value;
-                console.log(`Found matching option by toolInfo: ${toolIdToSelect}`);
             }
         }
 
         if (toolIdToSelect) {
-            if (toolSelect.value !== toolIdToSelect) {
-                console.log(`Setting toolSelect.value to: ${toolIdToSelect}`);
-                toolSelect.value = toolIdToSelect;
-                // Dispatch change event to trigger other UI updates (like tool details display)
-                const event = new Event('change', { bubbles: true });
-                toolSelect.dispatchEvent(event);
-                console.log('Dispatched change event on toolSelect.');
-            } else {
-                console.log(`Tool ${toolIdToSelect} already selected.`);
-                 // Even if already selected, ensure details are displayed if they aren't.
-                // This might require checking if RMA.tools.displayToolDetails needs to be called explicitly.
-                // For now, relying on the change event or existing selection to handle it.
+            if (toolSelect) {
+                if (toolSelect.value !== toolIdToSelect) {
+                    toolSelect.value = toolIdToSelect;
+                    const event = new Event('change', { bubbles: true });
+                    toolSelect.dispatchEvent(event);
+                }
             }
-        } else {
-            console.warn('No toolIdToSelect determined by populateToolInfo.');
+
+            try {
+                if (window.formSelected) {
+                    window.formSelected.add(Number(toolIdToSelect));
+                    if (typeof window.formRenderChips === 'function') window.formRenderChips();
+                    if (typeof window.formRenderToolPicker === 'function') window.formRenderToolPicker();
+                    const hidden = document.getElementById('affectedToolIds');
+                    if (hidden) hidden.value = Array.from(window.formSelected).join(',');
+                }
+            } catch (e) {}
         }
     },
 

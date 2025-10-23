@@ -71,6 +71,7 @@ public class RmaController {
     private final MovingPartService movingPartService;
     private final TrackTrendService trackTrendService;
     private final CustomLocationService customLocationService;
+    private final ReturnAddressService returnAddressService;
     
     // Repository dependencies for optimized queries
     private final com.pcd.manager.repository.RmaRepository rmaRepository;
@@ -89,6 +90,7 @@ public class RmaController {
                          MovingPartService movingPartService,
                          TrackTrendService trackTrendService,
                          CustomLocationService customLocationService,
+                         ReturnAddressService returnAddressService,
                          com.pcd.manager.repository.RmaRepository rmaRepository,
                          com.pcd.manager.repository.RmaCommentRepository rmaCommentRepository,
                          com.pcd.manager.repository.MovingPartRepository movingPartRepository) {
@@ -103,9 +105,28 @@ public class RmaController {
         this.movingPartService = movingPartService;
         this.trackTrendService = trackTrendService;
         this.customLocationService = customLocationService;
+        this.returnAddressService = returnAddressService;
         this.rmaRepository = rmaRepository;
         this.rmaCommentRepository = rmaCommentRepository;
         this.movingPartRepository = movingPartRepository;
+    }
+    
+    /**
+     * Custom data binder to handle empty strings for Boolean fields
+     * Converts empty strings to null for Boolean properties
+     */
+    @InitBinder
+    public void initBinder(org.springframework.web.bind.WebDataBinder binder) {
+        binder.registerCustomEditor(Boolean.class, new java.beans.PropertyEditorSupport() {
+            @Override
+            public void setAsText(String text) {
+                if (text == null || text.trim().isEmpty()) {
+                    setValue(null);
+                } else {
+                    setValue(Boolean.valueOf(text));
+                }
+            }
+        });
     }
 
     @GetMapping
@@ -544,6 +565,13 @@ public class RmaController {
         // Add current user name to the model for use in the form
         model.addAttribute("currentUserName", currentUserName);
         
+        // Add current user object to the model for multi-tool selector
+        if (authentication != null && authentication.getName() != null) {
+            userService.getUserByEmail(authentication.getName()).ifPresent(user -> {
+                model.addAttribute("currentUser", user);
+            });
+        }
+        
         // Add custom locations for the moving parts modal
         if (authentication != null && authentication.getName() != null) {
             userService.getUserByEmail(authentication.getName()).ifPresent(user -> {
@@ -555,10 +583,13 @@ public class RmaController {
             });
         }
         
+        // Add return addresses for dropdown
+        model.addAttribute("returnAddresses", returnAddressService.getAllReturnAddresses());
+        
         return "rma/form";
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public String showRma(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
         logger.info("Showing RMA page for ID: {}", id);
         Optional<Rma> rmaOpt = rmaService.getRmaById(id);
@@ -609,6 +640,21 @@ public class RmaController {
         }
         model.addAttribute("allToolsOptions", toolOptionsHtml.toString());
         model.addAttribute("allTools", allTools);
+        
+        // Add return addresses for dropdown
+        model.addAttribute("returnAddresses", returnAddressService.getAllReturnAddresses());
+        
+        // Add return ship address if available
+        if (rma.getReturnMaterialsTo() != null && !rma.getReturnMaterialsTo().isEmpty()) {
+            returnAddressService.getReturnAddressByName(rma.getReturnMaterialsTo()).ifPresent(returnAddress -> {
+                String address = returnAddress.getAddress();
+                if (address != null) {
+                    // Trim leading and trailing whitespace including newlines
+                    address = address.trim();
+                }
+                model.addAttribute("returnShipAddress", address);
+            });
+        }
         
         // Add custom locations for the moving parts modal
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -731,24 +777,27 @@ public class RmaController {
         model.addAttribute("technicians", userService.getAllUsers());
         model.addAttribute("importExcel", importExcel);
         
+        // Add current user object to the model for multi-tool selector
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            userService.getUserByEmail(auth.getName()).ifPresent(user -> {
+                model.addAttribute("currentUser", user);
+                
+                // Add custom locations for the moving parts modal
+                if (user.getActiveSite() != null) {
+                    Map<CustomLocation, Integer> customLocationsWithCounts = 
+                        customLocationService.getCustomLocationsWithPartCounts(user.getActiveSite());
+                    model.addAttribute("customLocations", customLocationsWithCounts);
+                }
+            });
+        }
+        
         // Add all RMAs for transfer functionality
         model.addAttribute("allRmas", rmaService.getAllRmas());
         
         // Add moving parts associated with this RMA
         List<MovingPart> movingParts = movingPartService.getMovingPartsByRmaId(id);
         model.addAttribute("movingParts", movingParts);
-        
-        // Add custom locations for the moving parts modal
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getName() != null) {
-            userService.getUserByEmail(auth.getName()).ifPresent(currentUser -> {
-                if (currentUser.getActiveSite() != null) {
-                    Map<CustomLocation, Integer> customLocationsWithCounts = 
-                        customLocationService.getCustomLocationsWithPartCounts(currentUser.getActiveSite());
-                    model.addAttribute("customLocations", customLocationsWithCounts);
-                }
-            });
-        }
         
         return "rma/form";
     }
@@ -828,6 +877,26 @@ public class RmaController {
 
             if (matchedToolId != null) {
                 response.put("matchedToolId", matchedToolId);
+            }
+
+            // If F14/J16 indicated "Multiple" or both blank, backend provided serials from "Multiple Parent Systems"
+            if (extractedData.containsKey("multipleSerials")) {
+                @SuppressWarnings("unchecked")
+                List<String> serials = (List<String>) extractedData.get("multipleSerials");
+                if (serials != null && !serials.isEmpty()) {
+                    // Find tools by either SN1 or SN2 match (across all locations)
+                    Set<Long> affectedIds = new java.util.HashSet<>();
+                    for (String sn : serials) {
+                        if (sn == null || sn.trim().isEmpty()) continue;
+                        toolService.findToolBySerialNumber(sn).ifPresent(t -> affectedIds.add(t.getId()));
+                        toolService.findToolBySerialNumber2(sn).ifPresent(t -> affectedIds.add(t.getId()));
+                    }
+                    if (!affectedIds.isEmpty()) {
+                        response.put("affectedToolIds", new java.util.ArrayList<>(affectedIds));
+                        // Clear single matched tool to avoid confusion on the form
+                        response.remove("matchedToolId");
+                    }
+                }
             }
 
             // Add the document info to the response AFTER potential matchedToolId
@@ -1023,6 +1092,34 @@ public class RmaController {
                 logger.info("Filtered parts: kept {} out of {} total parts", filteredParts.size(), originalParts.size());
             }
             
+            // Sync affected tools from hidden CSV (affectedToolIds)
+            try {
+                String affectedCsv = request.getParameter("affectedToolIds");
+                if (affectedCsv != null) {
+                    java.util.Set<Tool> affected = new java.util.HashSet<>();
+                    for (String idStr : affectedCsv.split(",")) {
+                        String s = idStr.trim();
+                        if (s.isEmpty()) continue;
+                        try {
+                            Long tid = Long.parseLong(s);
+                            toolService.getToolById(tid).ifPresent(affected::add);
+                        } catch (NumberFormatException ignore) {}
+                    }
+                    rma.setAffectedTools(affected);
+                    // Mirror legacy single tool field for display if exactly one selected
+                    if (affected.size() == 1) {
+                        rma.setTool(affected.iterator().next());
+                    } else if (affected.isEmpty()) {
+                        // keep existing tool as-is
+                    } else {
+                        rma.setTool(null);
+                    }
+                    logger.info("Setting affectedTools on RMA: {} ids", affected.size());
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to parse affectedToolIds: {}", e.getMessage());
+            }
+
             // Convert back to array for the service method
             MultipartFile[] combinedUploads = allFiles.isEmpty() ? null : allFiles.toArray(new MultipartFile[0]);
             
@@ -1073,39 +1170,46 @@ public class RmaController {
     @GetMapping("/api/tool/{id}")
     @ResponseBody
     public Map<String, Object> ajaxGetToolDetails(@PathVariable Long id) {
-        Map<String, Object> result = new HashMap<>();
+        Map<String, Object> response = new HashMap<>();
         Optional<Tool> toolOpt = toolService.getToolById(id);
         
         if (toolOpt.isPresent()) {
             Tool tool = toolOpt.get();
-            result.put("id", tool.getId());
-            result.put("name", tool.getName());
-            result.put("secondaryName", tool.getSecondaryName());
-            result.put("toolType", tool.getToolType());
-            result.put("serialNumber1", tool.getSerialNumber1());
-            result.put("serialNumber2", tool.getSerialNumber2());
-            result.put("model1", tool.getModel1());
-            result.put("model2", tool.getModel2());
+            Map<String, Object> toolDetails = new HashMap<>();
+            toolDetails.put("id", tool.getId());
+            toolDetails.put("name", tool.getName());
+            toolDetails.put("secondaryName", tool.getSecondaryName());
+            toolDetails.put("toolType", tool.getToolType() != null ? tool.getToolType().getDisplayName() : "");
+            toolDetails.put("serialNumber1", tool.getSerialNumber1());
+            toolDetails.put("serialNumber2", tool.getSerialNumber2());
+            toolDetails.put("model1", tool.getModel1());
+            toolDetails.put("model2", tool.getModel2());
             
             // Add new tool fields
-            result.put("commissionDate", tool.getCommissionDate());
-            result.put("chemicalGasService", tool.getChemicalGasService());
-            result.put("startUpSl03Date", tool.getStartUpSl03Date());
+            toolDetails.put("commissionDate", tool.getCommissionDate());
+            toolDetails.put("chemicalGasService", tool.getChemicalGasService());
+            toolDetails.put("startUpSl03Date", tool.getStartUpSl03Date());
             
             // Add GasGuard specific fields
-            result.put("systemName", tool.getSystemName());
-            result.put("equipmentLocation", tool.getEquipmentLocation());
-            result.put("configNumber", tool.getConfigNumber());
-            result.put("equipmentSet", tool.getEquipmentSet());
+            toolDetails.put("systemName", tool.getSystemName());
+            toolDetails.put("equipmentLocation", tool.getEquipmentLocation());
+            toolDetails.put("configNumber", tool.getConfigNumber());
+            toolDetails.put("equipmentSet", tool.getEquipmentSet());
             
             if (tool.getLocationName() != null) {
                 Map<String, Object> location = new HashMap<>();
                 location.put("displayName", tool.getLocationName());
-                result.put("location", location);
+                toolDetails.put("location", location);
             }
+            
+            response.put("success", true);
+            response.put("toolDetails", toolDetails);
+        } else {
+            response.put("success", false);
+            response.put("message", "Tool not found");
         }
         
-        return result;
+        return response;
     }
 
     // Add API endpoint for getting all tools
@@ -2021,11 +2125,17 @@ public class RmaController {
                     RmaStatus newStatus = RmaStatus.valueOf(statusParam);
                     rma.setStatus(newStatus);
                     
-                    rmaService.saveRma(rma, null);
+                    // Persist status change (service also enforces business rules like priority on COMPLETED)
+                    rma = rmaService.updateRmaStatus(id, newStatus);
                     response.put("success", true);
                     response.put("message", "Status updated successfully");
                     response.put("newStatusDisplay", newStatus.getDisplayName());
                     response.put("newStatus", newStatus.name());
+                    // Also return updated priority if it changed due to rule
+                    if (rma.getPriority() != null) {
+                        response.put("newPriority", rma.getPriority().name());
+                        response.put("newPriorityDisplay", rma.getPriority().getDisplayName());
+                    }
                     
                 } catch (IllegalArgumentException e) {
                     response.put("success", false);
@@ -2218,6 +2328,7 @@ public class RmaController {
             String rmaNumber = request.getParameter("rmaNumber");
             String sapNotificationNumber = request.getParameter("sapNotificationNumber");
             String serviceOrder = request.getParameter("serviceOrder");
+            String returnMaterialsTo = request.getParameter("returnMaterialsTo");
             String reasonForRequest = request.getParameter("reasonForRequest");
             String dssProductLine = request.getParameter("dssProductLine");
             String systemDescription = request.getParameter("systemDescription");
@@ -2241,6 +2352,11 @@ public class RmaController {
             // Update service order
             if (serviceOrder != null) {
                 rma.setServiceOrder(serviceOrder.trim().isEmpty() ? null : serviceOrder.trim());
+            }
+            
+            // Update return materials to
+            if (returnMaterialsTo != null) {
+                rma.setReturnMaterialsTo(returnMaterialsTo.trim().isEmpty() ? null : returnMaterialsTo.trim());
             }
             
             // Update reason for request
@@ -2298,7 +2414,7 @@ public class RmaController {
                 rma.setTool(null);
             }
             
-            // Update Location
+            // Update Location (only if explicitly provided)
             if (locationIdStr != null && !locationIdStr.trim().isEmpty()) {
                 try {
                     Long locationId = Long.parseLong(locationIdStr);
@@ -2315,9 +2431,8 @@ public class RmaController {
                     response.put("message", "Invalid location ID format");
                     return response;
                 }
-            } else {
-                rma.setLocation(null); 
             }
+            // Don't set location to null if locationIdStr is not provided - keep existing location
 
             // Update Technician
             if (technicianName != null) {
@@ -2357,6 +2472,7 @@ public class RmaController {
             
             // Add response data for Basic Information fields
             response.put("serviceOrder", rma.getServiceOrder());
+            response.put("returnMaterialsTo", rma.getReturnMaterialsTo());
             response.put("reasonForRequestDisplay", rma.getReasonForRequest() != null ? rma.getReasonForRequest().getDisplayName() : null);
             response.put("dssProductLineDisplay", rma.getDssProductLine() != null ? rma.getDssProductLine().getDisplayName() : null);
             response.put("systemDescriptionDisplay", rma.getSystemDescription() != null ? rma.getSystemDescription().getDisplayName() : null);
@@ -3542,6 +3658,59 @@ public class RmaController {
         return response;
     }
 
+    /**
+     * Update affected tools (ManyToMany)
+     * Accepts request parameter "toolIds" as comma-separated list of IDs.
+     */
+    @PostMapping("/{id}/update-tools")
+    @ResponseBody
+    public Map<String, Object> updateRmaTools(@PathVariable Long id, @RequestParam(name = "toolIds", required = false) String toolIdsCsv) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Optional<Rma> rmaOpt = rmaService.getRmaById(id);
+            if (!rmaOpt.isPresent()) {
+                response.put("success", false);
+                response.put("message", "RMA not found");
+                return response;
+            }
+
+            Rma rma = rmaOpt.get();
+            java.util.Set<Tool> newTools = new java.util.HashSet<>();
+            if (toolIdsCsv != null && !toolIdsCsv.trim().isEmpty()) {
+                String[] ids = toolIdsCsv.split(",");
+                for (String idStr : ids) {
+                    String trimmed = idStr.trim();
+                    if (trimmed.isEmpty()) continue;
+                    try {
+                        Long toolId = Long.parseLong(trimmed);
+                        toolService.getToolById(toolId).ifPresent(newTools::add);
+                    } catch (NumberFormatException ignore) {}
+                }
+            }
+
+            rma.setAffectedTools(newTools);
+            // Maintain legacy single tool: if exactly one selected, mirror it; otherwise null
+            if (newTools.size() == 1) {
+                rma.setTool(newTools.iterator().next());
+            } else if (newTools.isEmpty()) {
+                // keep existing single tool as-is when none selected? requirement prefers editing via this button, so clear it
+                rma.setTool(null);
+            } else {
+                rma.setTool(null);
+            }
+
+            rmaService.saveRma(rma, null);
+
+            response.put("success", true);
+            response.put("message", "Affected tools updated");
+            response.put("count", newTools.size());
+        } catch (Exception e) {
+            logger.error("Error updating affected tools for RMA {}", id, e);
+            response.put("success", false);
+            response.put("message", "Error updating affected tools: " + e.getMessage());
+        }
+        return response;
+    }
 
 
     @PostMapping("/{id}/update-process-impact")

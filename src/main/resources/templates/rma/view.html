@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <th:block th:replace="~{fragments/head-favicon :: favicon-links}"></th:block>
     <title>PCD Manager - RMA Details</title>
+    <!-- Immediate theme application to prevent flash -->
+    <script th:src="@{/js/theme-instant.js}"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" th:href="@{/dark-mode.css}">
@@ -174,6 +177,11 @@
             background-color: rgba(255, 255, 255, 0.2) !important;
             color: white !important;
         }
+        /* Selected tool highlight in affected tools list */
+        .selected-tool-active {
+            background-color: var(--bs-primary) !important;
+            color: #fff !important;
+        }
     </style>
 </head>
 <body>
@@ -191,8 +199,14 @@
                     </h1>
                     <div class="title-meta small text-muted mb-2">
                         <span th:if="${rma.location != null}" th:text="${rma.location.displayName}">Location</span>
-                        <span th:if="${rma.location != null && rma.tool != null}" class="mx-2">•</span>
-                        <span th:if="${rma.tool != null}" th:text="${rma.tool.name}">Tool</span>
+                        <span th:if="${rma.location != null && (rma.tool != null || (rma.affectedTools != null and !#lists.isEmpty(rma.affectedTools)))}" class="mx-2">•</span>
+                        <span th:if="${rma.tool != null and (rma.affectedTools == null or #lists.isEmpty(rma.affectedTools) or rma.affectedTools.size() == 1)}" th:text="${rma.tool.name}">Tool</span>
+                        <span th:if="${rma.affectedTools != null and rma.affectedTools.size() > 1}"
+                              class="text-primary"
+                              data-bs-toggle="popover" data-bs-html="true"
+                              th:attr="data-bs-content=${#strings.arrayJoin(rma.affectedTools.?[true].![name], '<br/>')}">
+                            Multiple
+                        </span>
                     </div>
                     <div class="detail-meta">
                         <!-- Status Badge -->
@@ -213,10 +227,11 @@
                         <!-- Priority Badge -->
                         <span id="priority-view-mode-container" th:if="${rma.priority != null}" 
                               th:class="${'badge detail-priority-badge rma-priority-badge border border-light ' + 
-                                                                (rma.priority.name() == 'LOW' ? 'bg-info' : 
-                                                                (rma.priority.name() == 'MEDIUM' ? 'bg-warning text-dark' : 
-                                                                (rma.priority.name() == 'HIGH' ? 'bg-danger' : 
-                                                                (rma.priority.name() == 'URGENT' ? 'bg-danger text-uppercase' : 'bg-light text-dark'))))}"
+                                                               (rma.priority.name() == 'NONE' ? 'bg-success' : 
+                                                               (rma.priority.name() == 'LOW' ? 'bg-info' : 
+                                                               (rma.priority.name() == 'MEDIUM' ? 'bg-warning text-dark' : 
+                                                               (rma.priority.name() == 'HIGH' ? 'bg-danger' : 
+                                                               (rma.priority.name() == 'URGENT' ? 'bg-danger text-uppercase' : 'bg-light text-dark')))))}"
                               th:text="${rma.priority.displayName ?: rma.priority}"
                               onclick="enterPriorityEditMode()"
                               title="Click to change priority">Priority</span>
@@ -347,6 +362,18 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">Return Materials To</small>
+                                        <strong id="viewReturnMaterialsTo" th:text="${rma.returnMaterialsTo ?: 'N/A'}">Return Materials To</strong>
+                                    </div>
+                                </div>
+                                <div class="col-md-12 mt-2" th:if="${returnShipAddress != null && !returnShipAddress.isEmpty()}">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">Return Ship To Address</small>
+                                        <pre class="form-control bg-light" style="white-space:pre-wrap; height:auto; min-height: 70px;" th:text="${returnShipAddress}">Address details</pre>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
                                         <small class="detail-text-muted">Reason for Request</small>
                                         <strong id="viewReasonForRequest" th:text="${rma.reasonForRequest?.displayName ?: 'N/A'}">Reason</strong>
                                     </div>
@@ -372,33 +399,48 @@
                                 <!-- Tool Information moved into Basic Information full-width bottom row -->
                                 <div class="col-12">
                                     <div class="rma-tool-info">
-                                        <div th:if="${rma.tool != null}" class="d-flex flex-column gap-2">
-                                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                                                <div class="d-flex align-items-center flex-wrap gap-2">
-                                                    <i class="bi bi-tools fs-4"></i>
-                                                    <a th:href="@{/tools/{id}(id=${rma.tool?.id})}" class="text-decoration-none">
-                                                        <span th:text="${rma.tool?.name}">Tool Name</span>
-                                                    </a>
-                                                    <span th:if="${rma.tool?.secondaryName}" class="text-muted" th:text="${rma.tool.secondaryName}">Secondary Name</span>
-                                                </div>
-                                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openToolSelectionModal()">
-                                                    <i class="bi bi-pencil"></i> Change Tool
-                                                </button>
-                                            </div>
-                                            <div class="small">
-                                                <span class="badge bg-light text-dark" th:text="${rma.tool?.toolType?.displayName ?: rma.tool?.toolType}">Type</span>
-                                                <span th:if="${rma.tool?.model1}" class="ms-2" th:text="'Model: ' + ${rma.tool.model1} + (${rma.tool?.model2} != null ? '/' + ${rma.tool.model2} : '')">Model</span>
-                                                <span th:if="${rma.tool?.serialNumber1}" class="ms-2" th:text="'S/N: ' + ${rma.tool.serialNumber1}">Serial</span>
-                                            </div>
-                                        </div>
-                                        <div th:if="${rma.tool == null}" class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <i class="bi bi-tools fs-4 text-muted"></i>
-                                                <span class="text-muted">No tool assigned</span>
-                                            </div>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <small class="detail-text-muted">Affected Tools</small>
                                             <button type="button" class="btn btn-sm btn-outline-primary" onclick="openToolSelectionModal()">
-                                                <i class="bi bi-plus"></i> Assign Tool
+                                                <i class="bi bi-pencil"></i> Assign / Change Tools
                                             </button>
+                                        </div>
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <div id="rmaAffectedToolsList" class="list-group list-group-flush" style="max-height: 180px; overflow:auto;">
+                                                    <a th:each="t : ${rma.affectedTools}" href="#" class="list-group-item list-group-item-action py-1 px-2"
+                                                       th:classappend="${t.id == rma.tool?.id} ? ' selected-tool-active' : ''"
+                                                       th:attr="data-tool-id=${t.id}"
+                                                       th:text="${t.name + (t.secondaryName != null ? ' (' + t.secondaryName + ')' : '')}">
+                                                    </a>
+                                                    <div th:if="${rma.affectedTools == null || rma.affectedTools.isEmpty()}" class="text-muted small">No tools selected</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-8">
+                                                <div id="rmaSelectedToolDetails">
+                                                    <div th:if="${rma.tool != null}" class="d-flex flex-column gap-2">
+                                                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                                                <i class="bi bi-tools fs-4"></i>
+                                                                <a th:href="@{/tools/{id}(id=${rma.tool?.id})}" class="text-decoration-none">
+                                                                    <span th:text="${rma.tool?.name}">Tool Name</span>
+                                                                </a>
+                                                                <span th:if="${rma.tool?.secondaryName}" class="text-muted" th:text="${rma.tool.secondaryName}">Secondary Name</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="small d-flex flex-wrap align-items-center gap-3">
+                                                            <span th:if="${rma.tool?.model1}" class="ms-2 text-nowrap" th:text="'Model: ' + ${rma.tool.model1} + (${rma.tool?.model2} != null ? '/' + ${rma.tool.model2} : '')">Model</span>
+                                                            <span th:if="${rma.tool?.serialNumber1}" class="ms-2 text-nowrap" th:text="'S/N: ' + ${rma.tool.serialNumber1}">Serial</span>
+                                                    </div>
+                                                    </div>
+                                                    <div th:if="${rma.tool == null}" class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <i class="bi bi-tools fs-4 text-muted"></i>
+                                                            <span class="text-muted">No tool selected</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -417,6 +459,18 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Service Order</label>
                                         <input type="text" class="form-control" name="serviceOrder" th:value="${rma.serviceOrder}" placeholder="Enter service order">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Return Materials To</label>
+                                        <select class="form-select" name="returnMaterialsTo">
+                                            <option value="">-- Select Location --</option>
+                                            <option th:each="address : ${returnAddresses}" 
+                                                    th:value="${address.name}" 
+                                                    th:text="${address.name}"
+                                                    th:selected="${rma.returnMaterialsTo == address.name}">
+                                                Address
+                                            </option>
+                                        </select>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Reason for Request</label>
@@ -667,49 +721,7 @@
                 </div>
             </div>
 
-            <!-- Track/Trends Section (replaces duplicate Problem Details) -->
-            <div class="detail-section-fixed-height">
-                <div class="card detail-section-card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">
-                            <i class="bi bi-activity me-2"></i>Track/Trends
-                        </h6>
-                        <div class="d-flex align-items-center gap-2">
-                            <a th:href="@{/tracktrend}" class="btn btn-sm btn-outline-secondary detail-action-btn" title="Open Track/Trend List">
-                                <i class="bi bi-box-arrow-up-right"></i>
-                            </a>
-                        </div>
-                            </div>
-                    <div class="card-body">
-                        <div th:if="${trackTrends == null || trackTrends.isEmpty()}" class="detail-empty-state">
-                            <i class="bi bi-activity"></i>
-                            <p>No related Track/Trends</p>
-                                    </div>
-                        <div th:if="${trackTrends != null && !trackTrends.isEmpty()}" class="table-responsive">
-                            <table class="table table-striped detail-section-table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr th:each="tt : ${trackTrends}">
-                                        <td>
-                                            <a th:href="@{/tracktrend/{id}(id=${tt.id})}" th:text="${tt.name}" class="text-decoration-none detail-text-primary">TT</a>
-                                        </td>
-                                        <td>
-                                            <a th:href="@{/tracktrend/{id}(id=${tt.id})}" class="btn btn-sm btn-outline-primary" title="Open">
-                                                <i class="bi bi-box-arrow-up-right"></i>
-                                            </a>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                                </div>
-                    </div>
-                    </div>
-                </div>
+            <!-- Track/Trend Matrix moved to bottom section; header card removed -->
 
                 <!-- Process Impact Section -->
             <div class="detail-section-fixed-height">
@@ -786,6 +798,16 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex flex-column">
+                                        <small class="detail-text-muted">Purged and Double Bagged Goods Enclosed</small>
+                                        <div>
+                                            <span th:if="${rma.purgedAndDoubleBaggedGoodsEnclosed == null}" class="badge bg-secondary">N/A</span>
+                                            <span th:if="${rma.purgedAndDoubleBaggedGoodsEnclosed != null && rma.purgedAndDoubleBaggedGoodsEnclosed}" class="badge bg-success">Yes</span>
+                                            <span th:if="${rma.purgedAndDoubleBaggedGoodsEnclosed != null && !rma.purgedAndDoubleBaggedGoodsEnclosed}" class="badge bg-warning">No</span>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="col-12">
                                     <div class="d-flex flex-column">
                                         <small class="detail-text-muted">Instructions for Exposed Component</small>
@@ -844,6 +866,14 @@
                                         <select class="form-select" name="failedOnInstall">
                                             <option value="false" th:selected="${!rma.failedOnInstall}">No</option>
                                             <option value="true" th:selected="${rma.failedOnInstall}">Yes</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Purged and Double Bagged Goods Enclosed</label>
+                                        <select class="form-select" name="purgedAndDoubleBaggedGoodsEnclosed">
+                                            <option value="" th:selected="${rma.purgedAndDoubleBaggedGoodsEnclosed == null}">N/A</option>
+                                            <option value="true" th:selected="${rma.purgedAndDoubleBaggedGoodsEnclosed != null && rma.purgedAndDoubleBaggedGoodsEnclosed}">Yes</option>
+                                            <option value="false" th:selected="${rma.purgedAndDoubleBaggedGoodsEnclosed != null && !rma.purgedAndDoubleBaggedGoodsEnclosed}">No</option>
                                         </select>
                                     </div>
                                     <div class="col-12">
@@ -1404,6 +1434,54 @@
                 </div>
             </div>
 
+            <!-- Track/Trend Section -->
+            <div class="detail-section-fixed-height">
+                <div class="card detail-section-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-activity me-2"></i>Track/Trend
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${relatedTrackTrends == null or #lists.isEmpty(relatedTrackTrends)}" class="detail-empty-state">
+                            <i class="bi bi-activity"></i>
+                            <p>No related Track/Trends</p>
+                        </div>
+                        <div th:if="${relatedTrackTrends != null and !#lists.isEmpty(relatedTrackTrends)}" class="table-responsive">
+                            <table class="table table-striped align-middle">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 25%">Track/Trend</th>
+                                        <th style="width: 35%">Affected Tools</th>
+                                        <th style="width: 40%">Related RMAs</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="tt : ${relatedTrackTrends}">
+                                        <td>
+                                            <a th:href="@{/tracktrend/{id}(id=${tt.id})}" th:text="${tt.name}" class="text-decoration-none detail-text-primary"></a>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <a th:each="t : ${tt.affectedTools}" th:href="@{/tools/{id}(id=${t.id})}" class="badge bg-secondary text-decoration-none" th:text="${t.name}"></a>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <a th:each="r : ${tt.relatedRmas}" th:href="@{/rma/{id}(id=${r.id})}" class="badge bg-primary text-decoration-none" th:text="${r.referenceNumber != null ? r.referenceNumber : r.id}"></a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div> <!-- End detail-sections-grid -->
+    </div> <!-- End detail-main-grid -->
+
     <!-- Upload Files Modal -->
     <div class="modal fade" id="uploadFilesModal" tabindex="-1" aria-labelledby="uploadFilesModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -1650,7 +1728,7 @@
                                     </div>
                                 </div>
 
-    <!-- Labor Modal -->
+<!-- Labor Modal -->
     <div class="modal fade" id="laborModal" tabindex="-1" aria-labelledby="laborModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -1868,6 +1946,70 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script th:src="@{/js/theme-toggle.js}"></script>
     <script th:inline="javascript">
+        /*<![CDATA[*/
+        document.addEventListener('DOMContentLoaded', function() {
+            const list = document.getElementById('rmaAffectedToolsList');
+            if (!list) return;
+            const detailContainer = document.getElementById('rmaSelectedToolDetails');
+            // Auto-select first tool on load if available
+            const firstItem = list.querySelector('a.list-group-item');
+            if (firstItem) {
+                firstItem.classList.add('selected-tool-active');
+                const firstId = firstItem.getAttribute('data-tool-id');
+                if (firstId) {
+                    fetch(`/rma/api/tool/${firstId}`).then(r=>r.json()).then(data=>{
+                        if (!data || !data.success) return;
+                        const t = data.toolDetails || {};
+                        detailContainer.innerHTML = `
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <div class="d-flex align-items-center flex-wrap gap-2">
+                                    <i class="bi bi-tools fs-4"></i>
+                                    <a href="/tools/${firstId}" class="text-decoration-none"><span class="fw-semibold">${t.name || ''}</span></a>
+                                    <span class="badge bg-light text-dark">${t.toolType || ''}</span>
+                                </div>
+                                <a class="btn btn-sm btn-outline-primary" href="/tools/${firstId}"><i class="bi bi-eye"></i> View</a>
+                            </div>
+                            <div class="small mt-1 d-flex flex-wrap align-items-center gap-3">
+                                <span class="ms-2 text-nowrap">Model: ${(t.model1 || '')}${t.model2 ? '/' + t.model2 : ''}</span>
+                                <span class="ms-2 text-nowrap">S/N: ${(t.serialNumber1 || '')}${t.serialNumber2 ? '/' + t.serialNumber2 : ''}</span>
+                            </div>`;
+                    }).catch(()=>{});
+                }
+            }
+            list.addEventListener('click', function(e) {
+                const a = e.target.closest('a.list-group-item');
+                if (!a) return;
+                e.preventDefault();
+                const toolId = a.getAttribute('data-tool-id');
+                if (!toolId) return;
+                // highlight
+                Array.from(list.querySelectorAll('a.list-group-item')).forEach(el => el.classList.remove('selected-tool-active'));
+                a.classList.add('selected-tool-active');
+                // fetch details
+                fetch(`/rma/api/tool/${toolId}`).then(r=>r.json()).then(data=>{
+                    if (!data || !data.success) return;
+                    const t = data.toolDetails || {};
+                    // Render minimal details inline
+                    detailContainer.innerHTML = `
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                <i class="bi bi-tools fs-4"></i>
+                                <a href="/tools/${toolId}" class="text-decoration-none"><span class="fw-semibold">${t.name || ''}</span></a>
+                                <span class="badge bg-light text-dark">${t.toolType || ''}</span>
+                            </div>
+                            <a class="btn btn-sm btn-outline-primary" href="/tools/${toolId}"><i class="bi bi-eye"></i> View</a>
+                        </div>
+                        <div class="small mt-1 d-flex flex-wrap align-items-center gap-3">
+                            <span class="ms-2 text-nowrap">Model: ${(t.model1 || '')}${t.model2 ? '/' + t.model2 : ''}</span>
+                            <span class="ms-2 text-nowrap">S/N: ${(t.serialNumber1 || '')}${t.serialNumber2 ? '/' + t.serialNumber2 : ''}</span>
+                        </div>
+                    `;
+                }).catch(()=>{});
+            });
+        });
+        /*]]>*/
+    </script>
+    <script th:inline="javascript">
         // RMA Comment Submission
         /*<![CDATA[*/
         document.addEventListener('DOMContentLoaded', function() {
@@ -1945,6 +2087,7 @@
             // It's safer to explicitly get values.
             const referenceNumber = form.elements['referenceNumber'].value;
             const serviceOrder = form.elements['serviceOrder'].value;
+            const returnMaterialsTo = form.elements['returnMaterialsTo'].value;
             const reasonForRequest = form.elements['reasonForRequest'].value;
             const dssProductLine = form.elements['dssProductLine'].value;
             const systemDescription = form.elements['systemDescription'].value;
@@ -1954,6 +2097,7 @@
             // Send the Basic Information fields
             payload.append('referenceNumber', referenceNumber);
             payload.append('serviceOrder', serviceOrder);
+            payload.append('returnMaterialsTo', returnMaterialsTo);
             payload.append('reasonForRequest', reasonForRequest);
             payload.append('dssProductLine', dssProductLine);
             payload.append('systemDescription', systemDescription);
@@ -1991,16 +2135,23 @@
                     // Update other information with error handling
                     try {
                         const viewServiceOrder = document.getElementById('viewServiceOrder');
+                        const viewReturnMaterialsTo = document.getElementById('viewReturnMaterialsTo');
                         const viewReasonForRequest = document.getElementById('viewReasonForRequest');
                         const viewDssProductLine = document.getElementById('viewDssProductLine');
                         const viewSystemDescription = document.getElementById('viewSystemDescription');
                         const viewTechnicianName = document.getElementById('viewTechnicianName');
                         
                         if (viewServiceOrder) viewServiceOrder.textContent = data.serviceOrder || 'N/A';
+                        if (viewReturnMaterialsTo) viewReturnMaterialsTo.textContent = data.returnMaterialsTo || 'N/A';
                         if (viewReasonForRequest) viewReasonForRequest.textContent = data.reasonForRequestDisplay || 'N/A';
                         if (viewDssProductLine) viewDssProductLine.textContent = data.dssProductLineDisplay || 'N/A';
                         if (viewSystemDescription) viewSystemDescription.textContent = data.systemDescriptionDisplay || 'N/A';
                         if (viewTechnicianName) viewTechnicianName.textContent = data.technicianName || 'Not assigned';
+                        
+                        // Reload the page to update the Return Ship To Address display
+                        if (data.returnMaterialsTo) {
+                            location.reload();
+                        }
                         
                     } catch (error) {
                         console.warn('Some UI elements could not be updated:', error.message);
@@ -2334,11 +2485,42 @@
                     else if (data.newStatus === 'WAITING_CUSTOMER') badgeClass += 'bg-danger';
                     else if (data.newStatus === 'WAITING_ENGINEERING') badgeClass += 'bg-danger';
                     else if (data.newStatus === 'WAITING_FSE') badgeClass += 'bg-danger';
+                    else if (data.newStatus === 'MISSING_LABOR_HOURS') badgeClass += 'bg-dark';
                     else if (data.newStatus === 'COMPLETED') badgeClass += 'bg-success';
                     else badgeClass += 'bg-light text-dark';
                     
                     statusViewMode.className = badgeClass;
                     cancelStatusEdit(); // Switch back to view mode
+                    // If priority changed due to rule (COMPLETED -> MEDIUM), update UI
+                    if (data.newPriority && data.newPriorityDisplay) {
+                        const priorityViewContainer = document.getElementById('priority-view-mode-container');
+                        if (priorityViewContainer) {
+                            priorityViewContainer.textContent = data.newPriorityDisplay;
+                            let pClass = 'badge detail-priority-badge rma-priority-badge border border-light ';
+                            if (data.newPriority === 'NONE') pClass += 'bg-success';
+                            else if (data.newPriority === 'LOW') pClass += 'bg-info';
+                            else if (data.newPriority === 'MEDIUM') pClass += 'bg-warning text-dark';
+                            else if (data.newPriority === 'HIGH') pClass += 'bg-danger';
+                            else if (data.newPriority === 'URGENT') pClass += 'bg-danger text-uppercase';
+                            priorityViewContainer.className = pClass;
+                        }
+                        // Also sync the edit dropdown so the next edit reflects the new value
+                        const prioritySelect = document.getElementById('priority-select');
+                        if (prioritySelect) {
+                            prioritySelect.value = data.newPriority;
+                        }
+                    } else if (data.newStatus === 'COMPLETED') {
+                        // Fallback: if server did not return newPriority, set UI to NONE client-side
+                        const priorityViewContainer = document.getElementById('priority-view-mode-container');
+                        if (priorityViewContainer) {
+                            priorityViewContainer.textContent = 'None';
+                            priorityViewContainer.className = 'badge detail-priority-badge rma-priority-badge border border-light bg-success';
+                        }
+                        const prioritySelect = document.getElementById('priority-select');
+                        if (prioritySelect) {
+                            prioritySelect.value = 'NONE';
+                        }
+                    }
                 } else {
                     alert('Error updating status: ' + (data.message || 'Unknown error'));
                 }
@@ -2563,6 +2745,9 @@
             
             // Col 7: Failed on Install (Yes=danger, No=success)
             updateBadge(7, formData.get('failedOnInstall'), 'bg-danger', 'bg-success');
+            
+            // Col 8: Purged and Double Bagged Goods Enclosed (Yes=success, No=warning)
+            updateBadge(8, formData.get('purgedAndDoubleBaggedGoodsEnclosed'), 'bg-success', 'bg-warning');
             
             // Col 12: Instructions (paragraph text)
             const instructionsValue = formData.get('instructionsForExposedComponent');

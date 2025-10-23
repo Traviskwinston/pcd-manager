@@ -479,6 +479,50 @@ mvn spring-boot:run
 ## Development
 
 ### Code Style
+### Release Flow (Branches: develop -> main)
+
+This repository uses a simple two-branch model so development code ships to production with zero edits:
+
+- `develop`: day-to-day development
+- `main`: production (Render auto-deploys from this branch)
+
+Setup (one-time):
+- Create and push `develop`:
+  - `git checkout -b develop`
+  - `git push -u origin develop`
+- Set Render to deploy from `main` and configure env vars there:
+  - `SPRING_PROFILES_ACTIVE=prod`
+  - `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`
+- Protect `main` (require PRs/tests if desired).
+
+Daily workflow:
+1) Start from develop
+   - `git checkout develop && git pull`
+   - `git checkout -b feature/<name>`
+   - code → commit → `git push`
+   - open PR to `develop` → merge
+2) Release to production
+   - open PR `develop` → `main`
+   - merge → Render auto-deploys
+
+Profiles and configuration:
+- Local dev run: `set SPRING_PROFILES_ACTIVE=dev && mvn spring-boot:run`
+- Prod on Render: `SPRING_PROFILES_ACTIVE=prod` via env var
+- `application-prod.properties` uses only Postgres (no H2 fallback)
+- All secrets come from env vars; nothing hardcoded
+
+Schema changes (keep prod and dev in sync):
+- Always add a Flyway migration for any schema change (`src/main/resources/db/migration/VXX__desc.sql`)
+- Never rely on Hibernate auto-DDL in prod
+
+Data seeding:
+- Dev-only sample data via profile flags
+- Prod: minimal deterministic seeding only when required (admin)
+
+Deleting in prod vs local:
+- Service-layer deletes proactively detach or remove dependent rows so Postgres behavior matches H2
+- Optionally add ON DELETE CASCADE FKs via Flyway for stronger guarantees
+
 - **Java**: Following Google Java Style Guide
 - **JavaScript**: ES6+ with modern practices
 - **HTML/CSS**: Semantic markup with accessibility
