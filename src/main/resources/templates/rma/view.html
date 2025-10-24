@@ -1658,7 +1658,7 @@
                                  <th:block th:if="${allTrackTrends != null}"> <!-- Ensure allTrackTrends is passed to rma/view model -->
                                     <option th:each="tt : ${allTrackTrends}"
                                             th:value="${tt.id}"
-                                            th:text="${tt.name + ' (' + #temporals.format(tt.startDate, 'yyyy-MM-dd') + ')'}"></option>
+                                            th:text="${tt.name}"></option>
                                 </th:block>
                             </select>
                             </div>
