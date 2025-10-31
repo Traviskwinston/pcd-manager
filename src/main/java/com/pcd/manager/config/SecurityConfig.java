@@ -199,6 +199,7 @@ public class SecurityConfig {
                     .maxSessionsPreventsLogin(false) // Don't prevent login due to session limits
                     .expiredUrl("/login?expired=true")
                     .sessionRegistry(sessionRegistry())
+                .sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.ALWAYS) // Always create sessions
             );
             
         // Allow frames for H2 console

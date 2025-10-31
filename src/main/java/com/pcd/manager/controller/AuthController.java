@@ -73,6 +73,8 @@ public class AuthController {
     @GetMapping("/login")
     public String login(@RequestParam(value = "error", required = false) String error,
                         @RequestParam(value = "logout", required = false) String logout,
+                        @RequestParam(value = "timeout", required = false) String timeout,
+                        @RequestParam(value = "expired", required = false) String expired,
                         Model model) {
         if (error != null) {
             String errorMessage = "Invalid email or password!"; // Default message
@@ -95,6 +97,16 @@ public class AuthController {
 
         if (logout != null) {
             model.addAttribute("message", "You have been logged out successfully.");
+        }
+
+        if (timeout != null) {
+            model.addAttribute("error", "Your session has expired due to inactivity. Please log in again.");
+            logger.info("Session timeout redirect handled");
+        }
+
+        if (expired != null) {
+            model.addAttribute("error", "Your session has expired. Please log in again.");
+            logger.info("Session expired redirect handled");
         }
         
         // Add default location to model for the navigation fragment
@@ -281,6 +293,34 @@ public class AuthController {
     public String testPost(HttpServletRequest request) {
         logger.info("POST request received at /auth/test-post from IP: {}", request.getRemoteAddr());
         return "POST received successfully at " + new java.util.Date().toString();
+    }
+
+    // Session debugging endpoint
+    @GetMapping("/session-info")
+    @ResponseBody
+    public String getSessionInfo(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return "No active session";
+        }
+
+        StringBuilder info = new StringBuilder();
+        info.append("Session ID: ").append(session.getId()).append("\n");
+        info.append("Creation Time: ").append(new java.util.Date(session.getCreationTime())).append("\n");
+        info.append("Last Accessed: ").append(new java.util.Date(session.getLastAccessedTime())).append("\n");
+        info.append("Max Inactive Interval: ").append(session.getMaxInactiveInterval()).append(" seconds\n");
+        info.append("Is New: ").append(session.isNew()).append("\n");
+
+        // Get attribute names
+        java.util.Enumeration<String> attrNames = session.getAttributeNames();
+        info.append("Attributes:\n");
+        while (attrNames.hasMoreElements()) {
+            String name = attrNames.nextElement();
+            Object value = session.getAttribute(name);
+            info.append("  ").append(name).append(": ").append(value != null ? value.toString() : "null").append("\n");
+        }
+
+        return info.toString();
     }
 
     @GetMapping("/direct-login")
