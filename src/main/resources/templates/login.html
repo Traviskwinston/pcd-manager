@@ -36,7 +36,7 @@
             
             <h2>Login</h2>
             
-            <form action="/login" method="post" id="loginForm" onsubmit="console.log('Form submitted to /login with POST'); console.log('Username:', document.getElementById('username').value);">
+            <form th:action="@{/login}" method="post" id="loginForm" onsubmit="console.log('Form submitted to /login with POST'); console.log('Username:', document.getElementById('username').value);">
                 <div class="mb-3">
                     <label for="username" class="form-label">Email</label>
                     <input type="email" class="form-control" id="username" name="username" required placeholder="Enter your email" autocomplete="username">
@@ -55,6 +55,8 @@
                     <a href="#" onclick="toggleDebugForm(); return false;" class="text-decoration-none text-muted">
                         <small>Having trouble logging in?</small>
                     </a>
+                    <br>
+                    <button type="button" onclick="testPost()" class="btn btn-link btn-sm text-muted" style="font-size: 0.75rem;">Test POST</button>
                 </div>
             </form>
             
@@ -92,7 +94,7 @@
         function toggleDebugForm() {
             const loginForm = document.getElementById('loginForm');
             const debugForm = document.getElementById('debugForm');
-            
+
             if (loginForm.style.display === 'none') {
                 loginForm.style.display = 'block';
                 debugForm.style.display = 'none';
@@ -100,6 +102,25 @@
                 loginForm.style.display = 'none';
                 debugForm.style.display = 'block';
             }
+        }
+
+        function testPost() {
+            fetch('/auth/test-post', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'test=data'
+            })
+            .then(response => response.text())
+            .then(data => {
+                alert('POST Test Result: ' + data);
+                console.log('POST test response:', data);
+            })
+            .catch(error => {
+                alert('POST Test Failed: ' + error.message);
+                console.error('POST test error:', error);
+            });
         }
         
         // Clear any existing cookies on page load to fix potential authentication issues

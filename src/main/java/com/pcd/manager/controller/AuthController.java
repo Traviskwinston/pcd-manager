@@ -261,8 +261,16 @@ public class AuthController {
         }
     }
     
+    // Temporary POST probe endpoint to test if POST requests reach the application
+    @PostMapping("/auth/test-post")
+    @ResponseBody
+    public String testPost(HttpServletRequest request) {
+        logger.info("POST request received at /auth/test-post from IP: {}", request.getRemoteAddr());
+        return "POST received successfully at " + new java.util.Date().toString();
+    }
+
     @GetMapping("/direct-login")
-    public String directLogin(HttpServletRequest request, 
+    public String directLogin(HttpServletRequest request,
                              HttpServletResponse response,
                              @RequestParam(required = false, defaultValue = "admin@pcd.com") String email,
                              @RequestParam(required = false, defaultValue = "admin123") String password) {
