@@ -193,13 +193,13 @@ public class SecurityConfig {
                 .permitAll()
             )
             .sessionManagement(session -> session
+                .sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.ALWAYS) // Always create sessions
                 .invalidSessionUrl("/login?timeout=true")
                 .sessionFixation().newSession() // Create a completely new session on login
                 .maximumSessions(-1) // Allow unlimited concurrent sessions per user
                     .maxSessionsPreventsLogin(false) // Don't prevent login due to session limits
                     .expiredUrl("/login?expired=true")
                     .sessionRegistry(sessionRegistry())
-                .sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.ALWAYS) // Always create sessions
             );
             
         // Allow frames for H2 console
