@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-@Component
+    @Component
 public class DataInitializer implements CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(DataInitializer.class);
@@ -34,6 +34,7 @@ public class DataInitializer implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final MapGridItemRepository mapGridItemRepository;
     private final ReturnAddressRepository returnAddressRepository;
+    private final com.pcd.manager.service.UserService userService;
 
     @Autowired
     public DataInitializer(
@@ -42,13 +43,15 @@ public class DataInitializer implements CommandLineRunner {
             LocationRepository locationRepository,
             PasswordEncoder passwordEncoder,
             MapGridItemRepository mapGridItemRepository,
-            ReturnAddressRepository returnAddressRepository) {
+            ReturnAddressRepository returnAddressRepository,
+            com.pcd.manager.service.UserService userService) {
         this.userRepository = userRepository;
         this.toolRepository = toolRepository;
         this.locationRepository = locationRepository;
         this.passwordEncoder = passwordEncoder;
         this.mapGridItemRepository = mapGridItemRepository;
         this.returnAddressRepository = returnAddressRepository;
+        this.userService = userService;
     }
 
     @Override
@@ -107,35 +110,35 @@ public class DataInitializer implements CommandLineRunner {
 
     private void createDefaultAdmin() {
         User adminUser = new User();
-        adminUser.setEmail("admin@pcd.com");
-        adminUser.setPassword(passwordEncoder.encode("5Z2eyQfc!"));
+        adminUser.setEmail("admin@pcd.com"); // Will be normalized to lowercase by UserService
+        adminUser.setPassword("5Z2eyQfc!"); // UserService will encode it
         adminUser.setName("Admin User");
         adminUser.setRole("ADMIN");
         adminUser.setActive(true);
-        
+
         // Set default location as active site if available
         Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
         defaultLocation.ifPresent(adminUser::setActiveSite);
-        
-        userRepository.save(adminUser);
-        
+
+        userService.createUser(adminUser);
+
         logger.info("Default admin user created: admin@pcd.com / [updated password]");
     }
     
     private void createTestUsers() {
         User techUser = new User();
         techUser.setEmail("tech@pcd.com");
-        techUser.setPassword(passwordEncoder.encode("tech123"));
+        techUser.setPassword("tech123"); // UserService will encode it
         techUser.setName("Tech User");
         techUser.setRole("TECHNICIAN");
         techUser.setActive(true);
-        
+
         // Set default location as active site if available
         Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
         defaultLocation.ifPresent(techUser::setActiveSite);
-        
-        userRepository.save(techUser);
-        
+
+        userService.createUser(techUser);
+
         logger.info("Test technician user created: tech@pcd.com / tech123");
     }
     

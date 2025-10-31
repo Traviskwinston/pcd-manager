@@ -36,12 +36,17 @@ public class UserService {
      */
     @CacheEvict(value = {"users-list", "dropdown-data"}, allEntries = true)
     public User createUser(User user) {
+        // Normalize email to lowercase and trim whitespace
+        if (user.getEmail() != null) {
+            user.setEmail(user.getEmail().trim().toLowerCase());
+        }
+
         // Encode the password before saving
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
             user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
-        
-        logger.debug("Creating user and evicting caches");
+
+        logger.debug("Creating user with normalized email: {} and evicting caches", user.getEmail());
         return userRepository.save(user);
     }
 
@@ -50,11 +55,16 @@ public class UserService {
      */
     @CacheEvict(value = {"users-list", "dropdown-data"}, allEntries = true)
     public User updateUser(User user) {
+        // Normalize email to lowercase and trim whitespace
+        if (user.getEmail() != null) {
+            user.setEmail(user.getEmail().trim().toLowerCase());
+        }
+
         // Get the existing user to check if password needs updating
         Optional<User> existingUserOpt = userRepository.findById(user.getId());
         if (existingUserOpt.isPresent()) {
             User existingUser = existingUserOpt.get();
-            
+
             // If password is empty in the form, keep the existing password
             if (user.getPassword() == null || user.getPassword().isEmpty()) {
                 user.setPassword(existingUser.getPassword());
@@ -63,7 +73,8 @@ public class UserService {
                 user.setPassword(passwordEncoder.encode(user.getPassword()));
             }
         }
-        
+
+        logger.debug("Updating user with normalized email: {}", user.getEmail());
         return userRepository.save(user);
     }
 
