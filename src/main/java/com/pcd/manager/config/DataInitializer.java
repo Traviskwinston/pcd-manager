@@ -66,6 +66,9 @@ public class DataInitializer implements CommandLineRunner {
             } else {
                 // Update existing users if needed
                 updateExistingUsers();
+
+                // Normalize all existing user emails
+                normalizeExistingEmails();
             }
             
             // Create tools from CSV if none exist
@@ -387,7 +390,35 @@ public class DataInitializer implements CommandLineRunner {
             logger.info("Created Erasto Campo user: Erasto.Campo@emdgroup.com (Initials: EC)");
         }
     }
-    
+
+    private void normalizeExistingEmails() {
+        try {
+            List<User> allUsers = userRepository.findAll();
+            int normalizedCount = 0;
+
+            for (User user : allUsers) {
+                String originalEmail = user.getEmail();
+                if (originalEmail != null) {
+                    String normalizedEmail = originalEmail.trim().toLowerCase();
+                    if (!normalizedEmail.equals(originalEmail)) {
+                        user.setEmail(normalizedEmail);
+                        userRepository.save(user);
+                        normalizedCount++;
+                        logger.info("Normalized email for user {}: '{}' -> '{}'", user.getId(), originalEmail, normalizedEmail);
+                    }
+                }
+            }
+
+            if (normalizedCount > 0) {
+                logger.info("Normalized {} user emails to lowercase format", normalizedCount);
+            } else {
+                logger.info("All existing user emails are already normalized");
+            }
+        } catch (Exception e) {
+            logger.error("Error normalizing existing user emails: {}", e.getMessage(), e);
+        }
+    }
+
     private void createHardcodedTools() {
         Location f52Location = locationRepository.findByStateAndFab("Arizona", "52")
             .orElseGet(() -> {
