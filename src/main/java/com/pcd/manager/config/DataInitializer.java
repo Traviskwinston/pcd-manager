@@ -227,6 +227,21 @@ public class DataInitializer implements CommandLineRunner {
     }
     
     private void updateExistingUsers() {
+        // Reactivate ALL existing users to prevent login lockouts
+        List<User> allUsers = userRepository.findAll();
+        int reactivatedCount = 0;
+        for (User user : allUsers) {
+            if (user.getActive() == null || !user.getActive()) {
+                user.setActive(true);
+                userRepository.save(user);
+                reactivatedCount++;
+                logger.info("Reactivated inactive user: {} (ID: {})", user.getEmail(), user.getId());
+            }
+        }
+        if (reactivatedCount > 0) {
+            logger.info("Reactivated {} inactive users to prevent login lockouts", reactivatedCount);
+        }
+
         // Fix admin password if it exists
         Optional<User> adminUser = userRepository.findByEmailIgnoreCase("admin@pcd.com");
         if (adminUser.isPresent()) {
@@ -235,7 +250,7 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(admin);
             logger.info("Reset admin password to new configured value");
         }
-        
+
         // Update Duane Smith password if he exists
         Optional<User> duaneUser = userRepository.findByEmailIgnoreCase("duane.smith@emdgroup.com");
         if (duaneUser.isPresent()) {
@@ -244,7 +259,7 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(duane);
             logger.info("Updated Duane Smith password");
         }
-        
+
         // Ensure Travis exists and is admin
         Optional<User> travisUser = userRepository.findByEmailIgnoreCase("Travis.Winston@emdgroup.com");
         if (travisUser.isEmpty()) {
@@ -254,10 +269,10 @@ public class DataInitializer implements CommandLineRunner {
             travis.setName("Travis Winston");
             travis.setRole("ADMIN");
             travis.setActive(true);
-            
+
             Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
             defaultLocation.ifPresent(travis::setActiveSite);
-            
+
             userRepository.save(travis);
             logger.info("Created Travis Winston user: Travis.Winston@emdgroup.com");
         } else {
@@ -266,7 +281,7 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(travis);
             logger.info("Updated Travis Winston role to ADMIN");
         }
-        
+
         // Ensure Casey exists
         Optional<User> caseyUser = userRepository.findByEmailIgnoreCase("Casey.James@emdgroup.com");
         if (caseyUser.isEmpty()) {
@@ -276,14 +291,14 @@ public class DataInitializer implements CommandLineRunner {
             casey.setName("Casey James");
             casey.setRole("TECHNICIAN");
             casey.setActive(true);
-            
+
             Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
             defaultLocation.ifPresent(casey::setActiveSite);
-            
+
             userRepository.save(casey);
             logger.info("Created Casey James user: Casey.James@emdgroup.com");
         }
-        
+
         // Ensure Guest exists
         Optional<User> guestUser = userRepository.findByEmailIgnoreCase("Guest@pcdmanager.com");
         if (guestUser.isEmpty()) {
@@ -293,14 +308,14 @@ public class DataInitializer implements CommandLineRunner {
             guest.setName("Guest User");
             guest.setRole("TECHNICIAN");
             guest.setActive(true);
-            
+
             Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
             defaultLocation.ifPresent(guest::setActiveSite);
-            
+
             userRepository.save(guest);
             logger.info("Created Guest user: Guest@pcdmanager.com");
         }
-        
+
         // Ensure Aaron Balliett exists (AB initials)
         Optional<User> aaronUser = userRepository.findByEmailIgnoreCase("Aaron.Balliett@emdgroup.com");
         if (aaronUser.isEmpty()) {
@@ -310,14 +325,14 @@ public class DataInitializer implements CommandLineRunner {
             aaron.setName("Aaron Balliett");
             aaron.setRole("TECHNICIAN");
             aaron.setActive(true);
-            
+
             Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
             defaultLocation.ifPresent(aaron::setActiveSite);
-            
+
             userRepository.save(aaron);
             logger.info("Created Aaron Balliett user: Aaron.Balliett@emdgroup.com (Initials: AB)");
         }
-        
+
         // Ensure Jose Martinez exists (JM initials)
         Optional<User> joseUser = userRepository.findByEmailIgnoreCase("Jose.Martinez@emdgroup.com");
         if (joseUser.isEmpty()) {
@@ -327,14 +342,14 @@ public class DataInitializer implements CommandLineRunner {
             jose.setName("Jose Martinez");
             jose.setRole("TECHNICIAN");
             jose.setActive(true);
-            
+
             Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
             defaultLocation.ifPresent(jose::setActiveSite);
-            
+
             userRepository.save(jose);
             logger.info("Created Jose Martinez user: Jose.Martinez@emdgroup.com (Initials: JM)");
         }
-        
+
         // Ensure Raquel Dee exists (RD initials)
         Optional<User> raquelUser = userRepository.findByEmailIgnoreCase("Raquel.Dee@emdgroup.com");
         if (raquelUser.isEmpty()) {
@@ -344,14 +359,14 @@ public class DataInitializer implements CommandLineRunner {
             raquel.setName("Raquel Dee");
             raquel.setRole("TECHNICIAN");
             raquel.setActive(true);
-            
+
             Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
             defaultLocation.ifPresent(raquel::setActiveSite);
-            
+
             userRepository.save(raquel);
             logger.info("Created Raquel Dee user: Raquel.Dee@emdgroup.com (Initials: RD)");
         }
-        
+
         // Ensure Erasto Campo exists (EC initials)
         Optional<User> erastoUser = userRepository.findByEmailIgnoreCase("Erasto.Campo@emdgroup.com");
         if (erastoUser.isEmpty()) {
@@ -361,10 +376,10 @@ public class DataInitializer implements CommandLineRunner {
             erasto.setName("Erasto Campo");
             erasto.setRole("TECHNICIAN");
             erasto.setActive(true);
-            
+
             Optional<Location> defaultLocation = locationRepository.findByDefaultLocationIsTrue();
             defaultLocation.ifPresent(erasto::setActiveSite);
-            
+
             userRepository.save(erasto);
             logger.info("Created Erasto Campo user: Erasto.Campo@emdgroup.com (Initials: EC)");
         }

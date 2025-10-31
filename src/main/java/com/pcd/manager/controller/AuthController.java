@@ -75,8 +75,22 @@ public class AuthController {
                         @RequestParam(value = "logout", required = false) String logout,
                         Model model) {
         if (error != null) {
-            model.addAttribute("error", "Invalid email or password!");
-            logger.warn("Login error occurred for a user");
+            String errorMessage = "Invalid email or password!"; // Default message
+            if ("bad_credentials".equals(error)) {
+                errorMessage = "Invalid email or password!";
+            } else if ("user_not_found".equals(error)) {
+                errorMessage = "No account found with that email address.";
+            } else if ("account_disabled".equals(error)) {
+                errorMessage = "Your account has been disabled. Please contact an administrator.";
+            } else if ("account_locked".equals(error)) {
+                errorMessage = "Your account has been locked. Please contact an administrator.";
+            } else if ("account_expired".equals(error)) {
+                errorMessage = "Your account has expired. Please contact an administrator.";
+            } else if ("credentials_expired".equals(error)) {
+                errorMessage = "Your password has expired. Please contact an administrator.";
+            }
+            model.addAttribute("error", errorMessage);
+            logger.warn("Login error occurred: {}", error);
         }
 
         if (logout != null) {

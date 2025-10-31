@@ -129,7 +129,31 @@ public class SecurityConfig {
         return (HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) -> {
             logger.error("=== LOGIN FAILURE HANDLER ===");
             logger.error("Authentication failed: {}", exception.getMessage(), exception);
-            response.sendRedirect("/login?error=true");
+
+            // Determine the type of failure and redirect with appropriate error parameter
+            String errorParam = "error=true"; // Default generic error
+
+            if (exception instanceof org.springframework.security.authentication.BadCredentialsException) {
+                logger.error("FAILURE TYPE: Bad credentials (wrong password)");
+                errorParam = "error=bad_credentials";
+            } else if (exception instanceof org.springframework.security.core.userdetails.UsernameNotFoundException) {
+                logger.error("FAILURE TYPE: User not found");
+                errorParam = "error=user_not_found";
+            } else if (exception instanceof org.springframework.security.authentication.DisabledException) {
+                logger.error("FAILURE TYPE: Account disabled");
+                errorParam = "error=account_disabled";
+            } else if (exception instanceof org.springframework.security.authentication.LockedException) {
+                logger.error("FAILURE TYPE: Account locked");
+                errorParam = "error=account_locked";
+            } else if (exception instanceof org.springframework.security.authentication.AccountExpiredException) {
+                logger.error("FAILURE TYPE: Account expired");
+                errorParam = "error=account_expired";
+            } else if (exception instanceof org.springframework.security.authentication.CredentialsExpiredException) {
+                logger.error("FAILURE TYPE: Credentials expired");
+                errorParam = "error=credentials_expired";
+            }
+
+            response.sendRedirect("/login?" + errorParam);
         };
     }
 

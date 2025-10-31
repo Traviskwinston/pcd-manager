@@ -39,6 +39,9 @@ public class CustomUserDetailsService implements UserDetailsService {
                 });
         
         logger.info("USER FOUND: email={}, active={}, role={}", user.getEmail(), user.getActive(), user.getRole());
+        if (user.getActive() == null || !user.getActive()) {
+            logger.warn("SECURITY ALERT: User '{}' is INACTIVE and will be rejected by Spring Security", user.getEmail());
+        }
         logger.info("Password hash in database: {}", user.getPassword());
 
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
