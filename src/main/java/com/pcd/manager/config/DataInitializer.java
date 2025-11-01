@@ -76,10 +76,6 @@ public class DataInitializer implements CommandLineRunner {
                 createHardcodedTools();
             }
             
-            // Create specific user and assign to tool for testing
-            // This should run after tools are potentially created from CSV
-            createAndAssignDuaneSmith();
-            
             // Create facility grid layout
             createFacilityGridLayout();
             
@@ -257,14 +253,6 @@ public class DataInitializer implements CommandLineRunner {
             logger.info("Reset admin password to new configured value");
         }
 
-        // Update Duane Smith password if he exists
-        Optional<User> duaneUser = userRepository.findByEmailIgnoreCase("duane.smith@emdgroup.com");
-        if (duaneUser.isPresent()) {
-            User duane = duaneUser.get();
-            duane.setPassword(passwordEncoder.encode("emdpassword1"));
-            userRepository.save(duane);
-            logger.info("Updated Duane Smith password");
-        }
 
         // Ensure Travis exists and is admin
         Optional<User> travisUser = userRepository.findByEmailIgnoreCase("Travis.Winston@emdgroup.com");
@@ -557,69 +545,6 @@ public class DataInitializer implements CommandLineRunner {
         return list;
     }
     
-    private void createAndAssignDuaneSmith() {
-        Location arizonaF52 = locationRepository.findByStateAndFab("Arizona", "52").orElse(null); 
-                
-        if (arizonaF52 == null) {
-            logger.warn("Duane Smith assignment: Location Arizona F52 not found. This location should ideally be created by createHardcodedTools if missing.");
-        }
-        
-        Tool rr151d = toolRepository.findByName("RR151D").orElse(null); 
-
-        if (rr151d == null) {
-            logger.warn("Tool RR151D not found after hardcoded tool creation. Duane Smith cannot be assigned to it or have it as active tool.");
-        }
-
-        Optional<User> existingUser = userRepository.findByEmailIgnoreCase("duane.smith@emdgroup.com");
-
-        User duaneSmithUser;
-        if (existingUser.isEmpty()) {
-            duaneSmithUser = new User();
-            duaneSmithUser.setEmail("duane.smith@emdgroup.com");
-            duaneSmithUser.setPassword(passwordEncoder.encode("emdpassword1")); 
-            duaneSmithUser.setName("Duane Smith");
-            duaneSmithUser.setRole("TECHNICIAN");
-            duaneSmithUser.setActive(true);
-            if (arizonaF52 != null) duaneSmithUser.setActiveSite(arizonaF52);
-            userRepository.save(duaneSmithUser);
-            logger.info("Created user: Duane Smith (duane.smith@emdgroup.com)");
-        } else {
-            duaneSmithUser = existingUser.get();
-            logger.info("User Duane Smith already exists. Ensuring active site/tool are up-to-date.");
-        }
-
-        boolean userNeedsUpdate = false;
-        if (arizonaF52 != null && !arizonaF52.equals(duaneSmithUser.getActiveSite())) {
-            duaneSmithUser.setActiveSite(arizonaF52);
-            userNeedsUpdate = true;
-        }
-        if (rr151d != null && !rr151d.equals(duaneSmithUser.getActiveTool())) {
-            duaneSmithUser.setActiveTool(rr151d);
-            userNeedsUpdate = true;
-        } else if (rr151d == null && duaneSmithUser.getActiveTool() != null) { 
-            duaneSmithUser.setActiveTool(null);
-            userNeedsUpdate = true;
-        }
-
-        if (userNeedsUpdate) {
-            userRepository.save(duaneSmithUser);
-            logger.info("Updated active site/tool for Duane Smith.");
-        }
-
-        if (rr151d != null) {
-            boolean alreadyAssigned = rr151d.getCurrentTechnicians().stream()
-                                          .anyMatch(tech -> tech.getId().equals(duaneSmithUser.getId()));
-            if (!alreadyAssigned) {
-                 rr151d.getCurrentTechnicians().add(duaneSmithUser); 
-                 toolRepository.save(rr151d); 
-                 logger.info("Added/Ensured Duane Smith is in Tool RR151D's technician list.");
-            } else {
-                 logger.info("Duane Smith is already in Tool RR151D's technician list.");
-            }
-        } else {
-             logger.info("Tool RR151D not found, cannot update its technician list with Duane Smith.");
-        }
-    }
     
     private void createFacilityGridLayout() {
         logger.info("Creating facility grid layout...");
