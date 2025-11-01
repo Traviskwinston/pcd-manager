@@ -1306,7 +1306,8 @@
                     </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                <form th:action="@{/passdown}" method="post" enctype="multipart/form-data">
+                <form th:action="@{/passdown}" method="post" enctype="multipart/form-data" id="toolPassdownForm">
+                    <input type="hidden" name="redirectTo" th:value="${'/tools/' + tool.id}">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="passdownComment" class="form-label">Comment</label>
@@ -1315,12 +1316,11 @@
                         </div>
                         <div class="mb-3">
                             <label for="passdownDate" class="form-label">Date</label>
-                            <input type="date" class="form-control" id="passdownDate" name="date" required>
+                            <input type="date" class="form-control" id="passdownDate" name="date" required th:value="${#temporals.format(#temporals.createToday(), 'yyyy-MM-dd')}">
                         </div>
                         <div class="mb-3">
                             <label for="passdownTool" class="form-label">Tool</label>
-                            <select class="form-select" id="passdownTool" name="tool">
-                                <option value="">No Tool</option>
+                            <select class="form-select" id="passdownTool" name="toolIds" required>
                                 <option th:each="toolOption : ${allTools}" 
                                         th:value="${toolOption.id}" 
                                         th:text="${toolOption.name}"

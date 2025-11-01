@@ -241,13 +241,15 @@ public class PassdownController {
             @RequestParam(value = "toolIds", required = false) List<Long> toolIds,
             @RequestParam(value = "techIds", required = false) List<Long> techIds,
             @RequestParam(value = "pictureFile", required = false) MultipartFile pictureFile,
+            @RequestParam(value = "redirectTo", required = false) String redirectTo,
             RedirectAttributes redirectAttributes) {
 
-        logger.info("Starting passdown save process. ID: {}, Tools: {}, Techs: {}, Has picture: {}", 
+        logger.info("Starting passdown save process. ID: {}, Tools: {}, Techs: {}, Has picture: {}, RedirectTo: {}", 
                 passdownFormData.getId(), 
                 toolIds != null ? toolIds.size() : 0,
                 techIds != null ? techIds.size() : 0,
-                (pictureFile != null && !pictureFile.isEmpty()));
+                (pictureFile != null && !pictureFile.isEmpty()),
+                redirectTo);
 
         // Save file first before database transaction
         String newPicturePath = null;
@@ -309,6 +311,12 @@ public class PassdownController {
             Passdown savedPassdown = passdownService.savePassdown(passdownFormData, currentUser, newPicturePath, originalFilename);
             logger.info("Successfully saved passdown ID: {}", savedPassdown.getId());
             redirectAttributes.addFlashAttribute("message", "Passdown saved successfully");
+            
+            // Redirect to specified page or default to passdown list
+            if (redirectTo != null && !redirectTo.isEmpty()) {
+                logger.info("Redirecting to specified page: {}", redirectTo);
+                return "redirect:" + redirectTo;
+            }
             return "redirect:/passdown";
             
         } catch (Exception e) {
