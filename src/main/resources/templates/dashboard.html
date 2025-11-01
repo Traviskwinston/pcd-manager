@@ -762,15 +762,16 @@
                                                 <tr class="data-table-row dashboard-passdown-row clickable-row"
                                                     th:attr="data-comment=${passdown.comment},
                                                              data-user=${passdown.user != null ? passdown.user.name : ''},
-                                                             data-tool=${passdown.tool != null ? passdown.tool.name : ''},
+                                                             data-tool=${passdown.tools != null and !passdown.tools.isEmpty() ? passdown.tools.iterator().next().name : ''},
                                                              data-technician=${passdown.user != null ? passdown.user.name : ''},
                                                              data-created-on=${passdown.createdDate != null ? #temporals.format(passdown.createdDate, 'yyyy-MM-dd') : ''},
                                                              data-date=${#temporals.format(passdown.date, 'yyyy-MM-dd')}"
                                                     th:onclick="'window.location.href=\'/passdown/' + ${passdown.id} + '/view\''">
                                                     <!-- Tool -->
                                                     <td>
-                                                        <span th:if="${passdown.tool != null}" th:text="${passdown.tool.name}"></span>
-                                                        <span th:if="${passdown.tool == null}" class="text-muted">No Tool Selected</span>
+                                                        <span th:if="${passdown.tools != null and !passdown.tools.isEmpty()}" 
+                                                              th:text="${#strings.listJoin(passdown.tools.![name], ', ')}">Tool Name</span>
+                                                        <span th:if="${passdown.tools == null or passdown.tools.isEmpty()}" class="text-muted">No Tool Selected</span>
                                                     </td>
                                                     
                                                     <!-- Comment -->
