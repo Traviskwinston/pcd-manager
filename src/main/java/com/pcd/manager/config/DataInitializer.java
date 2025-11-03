@@ -243,6 +243,9 @@ public class DataInitializer implements CommandLineRunner {
         if (reactivatedCount > 0) {
             logger.info("Reactivated {} inactive users to prevent login lockouts", reactivatedCount);
         }
+        
+        // Validate and report password hash health
+        validatePasswordHashes(allUsers);
 
         // Fix admin password if it exists
         Optional<User> adminUser = userRepository.findByEmailIgnoreCase("admin@pcd.com");
@@ -404,6 +407,51 @@ public class DataInitializer implements CommandLineRunner {
             }
         } catch (Exception e) {
             logger.error("Error normalizing existing user emails: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Validate password hashes for all users to detect corruption
+     * This helps identify accounts that may have been locked out due to password hash issues
+     */
+    private void validatePasswordHashes(List<User> users) {
+        try {
+            int invalidCount = 0;
+            int nullCount = 0;
+            int emptyCount = 0;
+            
+            for (User user : users) {
+                String passwordHash = user.getPassword();
+                
+                if (passwordHash == null) {
+                    nullCount++;
+                    logger.error("CRITICAL: User '{}' (ID: {}) has NULL password hash - will cause login failures!", 
+                            user.getEmail(), user.getId());
+                } else if (passwordHash.isEmpty()) {
+                    emptyCount++;
+                    logger.error("CRITICAL: User '{}' (ID: {}) has EMPTY password hash - will cause login failures!", 
+                            user.getEmail(), user.getId());
+                } else if (!passwordHash.startsWith("$2a$") && !passwordHash.startsWith("$2b$") && !passwordHash.startsWith("$2y$")) {
+                    invalidCount++;
+                    logger.warn("WARNING: User '{}' (ID: {}) password hash does not appear to be bcrypt encoded (starts with: '{}') - may cause login issues", 
+                            user.getEmail(), user.getId(), 
+                            passwordHash.length() > 15 ? passwordHash.substring(0, 15) + "..." : passwordHash);
+                } else if (passwordHash.length() < 60) {
+                    invalidCount++;
+                    logger.warn("WARNING: User '{}' (ID: {}) password hash is too short ({} chars, expected 60) - may be corrupted", 
+                            user.getEmail(), user.getId(), passwordHash.length());
+                }
+            }
+            
+            if (nullCount > 0 || emptyCount > 0 || invalidCount > 0) {
+                logger.error("PASSWORD HASH VALIDATION FAILED: Found {} null, {} empty, {} invalid password hashes out of {} total users", 
+                        nullCount, emptyCount, invalidCount, users.size());
+                logger.error("These accounts will likely fail to authenticate. Consider using emergency reset for affected users.");
+            } else {
+                logger.info("Password hash validation passed: All {} users have valid bcrypt password hashes", users.size());
+            }
+        } catch (Exception e) {
+            logger.error("Error validating password hashes: {}", e.getMessage(), e);
         }
     }
 

@@ -219,13 +219,15 @@ public class AuthController {
             
             if (userOpt.isPresent()) {
                 User user = userOpt.get();
-                logger.info("User found for emergency reset: ID={}, Name={}", user.getId(), user.getName());
+                logger.info("User found for emergency reset: ID={}, Name={}, Email={}", user.getId(), user.getName(), user.getEmail());
                 
                 // Force user to be active
                 user.setActive(true);
                 
-                // Set the new password
-                user.setPassword(newPassword);
+                // Set the new password using the service method to ensure proper encoding
+                // This prevents double-encoding issues
+                userService.setUserPassword(user, newPassword);
+                logger.info("Password set for emergency reset user");
                 
                 // Ensure the user has admin role
                 if (user.getRole() == null || !user.getRole().equalsIgnoreCase("ADMIN")) {
@@ -233,11 +235,35 @@ public class AuthController {
                     user.setRole("ADMIN");
                 }
                 
-                // Save the updated user
-                User updatedUser = userService.updateUser(user);
-                logger.info("Emergency admin reset completed successfully for user ID: {}", updatedUser.getId());
+                // Save the updated user (don't use updateUser as it might re-encode the password)
+                // Instead, save directly but ensure email is normalized
+                if (user.getEmail() != null) {
+                    user.setEmail(user.getEmail().trim().toLowerCase());
+                }
+                User savedUser = userService.getUserById(user.getId())
+                    .orElseThrow(() -> new RuntimeException("User not found after lookup"));
                 
-                return "Success: User reset completed. You can now log in with the new password.";
+                // Update only the fields we need
+                savedUser.setActive(true);
+                savedUser.setPassword(user.getPassword()); // Already encoded by setUserPassword
+                savedUser.setRole("ADMIN");
+                if (user.getEmail() != null) {
+                    savedUser.setEmail(user.getEmail().trim().toLowerCase());
+                }
+                
+                // Use repository directly to avoid updateUser's password encoding logic
+                userRepository.save(savedUser);
+                logger.info("Emergency admin reset completed successfully for user ID: {} (Email: {})", savedUser.getId(), savedUser.getEmail());
+                
+                // Verify the password was set correctly by checking it
+                Optional<User> verifyUser = userRepository.findById(savedUser.getId());
+                if (verifyUser.isPresent() && userService.checkPassword(newPassword, verifyUser.get().getPassword())) {
+                    logger.info("Password verification successful for emergency reset user");
+                } else {
+                    logger.error("WARNING: Password verification failed for emergency reset user - login may not work!");
+                }
+                
+                return "Success: User reset completed. You can now log in with the new password: " + newPassword;
             } else {
                 logger.warn("Emergency reset failed: No user found with email: {}", email);
                 return "Error: No user found with that email address";

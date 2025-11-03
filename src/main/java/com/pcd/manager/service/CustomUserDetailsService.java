@@ -42,7 +42,18 @@ public class CustomUserDetailsService implements UserDetailsService {
         if (user.getActive() == null || !user.getActive()) {
             logger.warn("SECURITY ALERT: User '{}' is INACTIVE and will be rejected by Spring Security", user.getEmail());
         }
-        logger.info("Password hash in database: {}", user.getPassword());
+        
+        // Validate password hash format to detect corruption
+        String passwordHash = user.getPassword();
+        if (passwordHash == null || passwordHash.isEmpty()) {
+            logger.error("CRITICAL: User '{}' has NULL or EMPTY password hash - authentication will fail!", user.getEmail());
+        } else if (!passwordHash.startsWith("$2a$") && !passwordHash.startsWith("$2b$") && !passwordHash.startsWith("$2y$")) {
+            logger.error("CRITICAL: User '{}' password hash does not appear to be bcrypt encoded (starts with: {}) - authentication may fail!", 
+                    user.getEmail(), passwordHash.length() > 10 ? passwordHash.substring(0, 10) : passwordHash);
+        } else {
+            logger.debug("Password hash format valid for user {}", user.getEmail());
+        }
+        logger.info("Password hash length: {} characters", passwordHash != null ? passwordHash.length() : 0);
 
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
         

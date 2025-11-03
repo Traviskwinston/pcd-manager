@@ -69,8 +69,17 @@ public class UserService {
             if (user.getPassword() == null || user.getPassword().isEmpty()) {
                 user.setPassword(existingUser.getPassword());
             } else {
-                // Password was provided, encode the new password
-                user.setPassword(passwordEncoder.encode(user.getPassword()));
+                // Password was provided - check if it's already encoded
+                // If it's already encoded (bcrypt hash), use it as-is to prevent double-encoding
+                // If it's plaintext, encode it
+                if (isPasswordEncoded(user.getPassword())) {
+                    logger.debug("Password appears to be already encoded for user {}, using as-is", user.getEmail());
+                    // Password is already encoded, use it as-is
+                } else {
+                    // Password is plaintext, encode it
+                    user.setPassword(passwordEncoder.encode(user.getPassword()));
+                    logger.debug("Password encoded for user {}", user.getEmail());
+                }
             }
         }
 
@@ -185,5 +194,65 @@ public class UserService {
             logger.error("Error checking password: {}", e.getMessage());
             return false;
         }
+    }
+    
+    /**
+     * Check if a password is already bcrypt encoded
+     * Bcrypt hashes start with $2a$, $2b$, or $2y$ followed by the cost parameter
+     * @param password The password string to check
+     * @return True if the password appears to be already encoded, false otherwise
+     */
+    private boolean isPasswordEncoded(String password) {
+        if (password == null || password.isEmpty()) {
+            return false;
+        }
+        // Bcrypt hashes start with $2a$, $2b$, or $2y$ followed by a number
+        // Example: $2a$10$... (60 characters total)
+        return password.startsWith("$2a$") || password.startsWith("$2b$") || password.startsWith("$2y$");
+    }
+    
+    /**
+     * Set password for a user, encoding it if it's not already encoded
+     * This prevents double-encoding issues
+     * @param user The user to set the password for
+     * @param plaintextPassword The plaintext password to set
+     */
+    public void setUserPassword(User user, String plaintextPassword) {
+        if (plaintextPassword == null || plaintextPassword.isEmpty()) {
+            logger.warn("Attempted to set empty password for user {}", user.getEmail());
+            return;
+        }
+        
+        // Check if it's already encoded (shouldn't be, but defensive check)
+        if (isPasswordEncoded(plaintextPassword)) {
+            logger.warn("Password appears to already be encoded for user {}. Setting as-is, but this may cause issues.", user.getEmail());
+            user.setPassword(plaintextPassword);
+        } else {
+            // Encode the plaintext password
+            user.setPassword(passwordEncoder.encode(plaintextPassword));
+            logger.debug("Password encoded and set for user {}", user.getEmail());
+        }
+    }
+    
+    /**
+     * Update an existing user's password explicitly
+     * This method ensures the password is properly encoded
+     * @param user The user to update
+     * @param newPlaintextPassword The new plaintext password
+     * @return The updated user
+     */
+    @CacheEvict(value = {"users-list", "dropdown-data"}, allEntries = true)
+    public User updateUserPassword(Long userId, String newPlaintextPassword) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            throw new RuntimeException("User not found with ID: " + userId);
+        }
+        
+        User user = userOpt.get();
+        setUserPassword(user, newPlaintextPassword);
+        user.setActive(true); // Ensure user is active when password is reset
+        
+        logger.info("Password updated for user {} (ID: {})", user.getEmail(), userId);
+        return userRepository.save(user);
     }
 } 
