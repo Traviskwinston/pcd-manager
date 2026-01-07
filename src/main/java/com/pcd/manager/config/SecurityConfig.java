@@ -12,7 +12,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.core.userdetails.UserDetailsPasswordService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
@@ -43,8 +42,6 @@ public class SecurityConfig {
     
     @Autowired
     private CustomUserDetailsService userDetailsService;
-    @Autowired(required = false)
-    private UserDetailsPasswordService passwordUpgradeService;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -56,9 +53,6 @@ public class SecurityConfig {
         LoggingDaoAuthenticationProvider authProvider = new LoggingDaoAuthenticationProvider(logger, passwordEncoder());
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
-        if (passwordUpgradeService != null) {
-            authProvider.setUserDetailsPasswordService(passwordUpgradeService);
-        }
         
         // Add additional logging
         authProvider.setHideUserNotFoundExceptions(false); // Show user not found exceptions
@@ -111,6 +105,22 @@ public class SecurityConfig {
                 logger.info("=== LOGIN SUCCESS HANDLER ===");
                 logger.info("User '{}' logged in successfully", authentication.getName());
                 
+                // Check if remember-me was checked
+                String rememberMe = request.getParameter("remember-me");
+                HttpSession session = request.getSession(false);
+                
+                if (session != null) {
+                    if (rememberMe != null && "on".equals(rememberMe)) {
+                        // Set session timeout to 1 month (30 days = 2,592,000 seconds)
+                        session.setMaxInactiveInterval(2592000);
+                        logger.info("Remember-me enabled: Session timeout set to 30 days");
+                    } else {
+                        // Default session timeout (24 hours = 86,400 seconds)
+                        session.setMaxInactiveInterval(86400);
+                        logger.info("Remember-me not checked: Session timeout set to 24 hours");
+                    }
+                }
+                
                 // Create a new session (Spring Security will handle session fixation with newSession() strategy)
                 // No need to manually invalidate - the sessionFixation().newSession() does this safely
                 
@@ -142,15 +152,6 @@ public class SecurityConfig {
             } else if (exception instanceof org.springframework.security.authentication.DisabledException) {
                 logger.error("FAILURE TYPE: Account disabled");
                 errorParam = "error=account_disabled";
-            } else if (exception instanceof org.springframework.security.authentication.LockedException) {
-                logger.error("FAILURE TYPE: Account locked");
-                errorParam = "error=account_locked";
-            } else if (exception instanceof org.springframework.security.authentication.AccountExpiredException) {
-                logger.error("FAILURE TYPE: Account expired");
-                errorParam = "error=account_expired";
-            } else if (exception instanceof org.springframework.security.authentication.CredentialsExpiredException) {
-                logger.error("FAILURE TYPE: Credentials expired");
-                errorParam = "error=credentials_expired";
             }
 
             response.sendRedirect("/login?" + errorParam);
@@ -161,18 +162,16 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authenticationProvider(authenticationProvider())   // Ensure our DAO provider is registered
-            .csrf(csrf -> csrf.disable()) // Disable CSRF for now until we debug the login issues
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+            )
             .authorizeHttpRequests(auth -> auth
                 // Allow GET to /login page (form display)
                 .requestMatchers(new AntPathRequestMatcher("/login", "GET")).permitAll()
-                .requestMatchers("/manual-login", "/css/**", "/js/**", "/images/**", "/login.css").permitAll()
+                .requestMatchers("/css/**", "/js/**", "/images/**", "/login.css").permitAll()
                 .requestMatchers("/h2-console/**").permitAll() // Allow access to H2 console
                 .requestMatchers("/api/public/**").permitAll() // Public endpoints
-                .requestMatchers("/api/auth/**").permitAll() // Authentication endpoints
-                .requestMatchers("/api/auth/clear-my-session", "/api/auth/clear-session").permitAll()
-                .requestMatchers("/admin/emergency-reset").permitAll() // Emergency reset endpoint
-                .requestMatchers("/create-simple-admin").permitAll() // Simple admin creation endpoint
-                .requestMatchers("/direct-login").permitAll() // Direct login endpoint
+                .requestMatchers("/api/auth/clear-my-session").permitAll() // Session clearing endpoint
                 // Any other request must be authenticated (including root '/')
                 .anyRequest().authenticated()
             )

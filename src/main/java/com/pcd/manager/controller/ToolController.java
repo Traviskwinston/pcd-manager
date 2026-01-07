@@ -28,6 +28,8 @@ import com.pcd.manager.service.MovingPartService;
 import com.pcd.manager.service.ChecklistTemplateService;
 import com.pcd.manager.service.NCSRService;
 import com.pcd.manager.service.CustomLocationService;
+import com.pcd.manager.service.ToolTypeFieldDefinitionService;
+import com.pcd.manager.model.ToolTypeFieldDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -93,12 +95,13 @@ public class ToolController {
     private final ChecklistTemplateService checklistTemplateService;
     private final NCSRService ncsrService;
     private final CustomLocationService customLocationService;
+    private final ToolTypeFieldDefinitionService fieldDefinitionService;
     
     @Value("${app.upload.dir:${user.home}/uploads}")
     private String uploadDir;
 
     @Autowired
-    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService, RmaRepository rmaRepository, PassdownRepository passdownRepository, ToolCommentRepository toolCommentRepository, TrackTrendRepository trackTrendRepository, AsyncDataService asyncDataService, MovingPartService movingPartService, ChecklistTemplateService checklistTemplateService, NCSRService ncsrService, CustomLocationService customLocationService) {
+    public ToolController(ToolService toolService, ToolRepository toolRepository, LocationService locationService, RmaService rmaService, UserService userService, TrackTrendService trackTrendService, PassdownService passdownService, RmaRepository rmaRepository, PassdownRepository passdownRepository, ToolCommentRepository toolCommentRepository, TrackTrendRepository trackTrendRepository, AsyncDataService asyncDataService, MovingPartService movingPartService, ChecklistTemplateService checklistTemplateService, NCSRService ncsrService, CustomLocationService customLocationService, ToolTypeFieldDefinitionService fieldDefinitionService) {
         this.toolService = toolService;
         this.toolRepository = toolRepository;
         this.locationService = locationService;
@@ -115,6 +118,7 @@ public class ToolController {
         this.checklistTemplateService = checklistTemplateService;
         this.ncsrService = ncsrService;
         this.customLocationService = customLocationService;
+        this.fieldDefinitionService = fieldDefinitionService;
     }
     
     @PostConstruct
@@ -144,9 +148,38 @@ public class ToolController {
         logger.info("=== LOADING TOOLS LIST PAGE (ULTRA-OPTIMIZED) ===");
         long startTime = System.currentTimeMillis();
         
+        // Get user's active location for filtering
+        String filterLocationName = null;
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            Optional<User> userOpt = userService.getUserByEmail(auth.getName());
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                if (user.getActiveSite() != null) {
+                    filterLocationName = user.getActiveSite().getDisplayName() != null ? 
+                                       user.getActiveSite().getDisplayName() : user.getActiveSite().getName();
+                    logger.info("Filtering tools by user's active location: {}", filterLocationName);
+                }
+            }
+        }
+        
         // Use ultra-lightweight query for list view - only load essential fields as Object[]
         List<Object[]> toolData = toolRepository.findAllForAsyncListView();
         logger.info("Loaded {} tools for ultra-optimized list view", toolData.size());
+        
+        // Filter by location if user has an active location
+        if (filterLocationName != null && !toolData.isEmpty()) {
+            List<Object[]> filteredToolData = new ArrayList<>();
+            for (Object[] row : toolData) {
+                // locationName is at index 9
+                String locationName = (String) row[9];
+                if (locationName != null && locationName.equals(filterLocationName)) {
+                    filteredToolData.add(row);
+                }
+            }
+            toolData = filteredToolData;
+            logger.info("Filtered to {} tools for location: {}", toolData.size(), filterLocationName);
+        }
         
         if (toolData.isEmpty()) {
             model.addAttribute("tools", new ArrayList<>());
@@ -460,8 +493,7 @@ public class ToolController {
         // Add all locations for the location filter
         model.addAttribute("locations", locationService.getAllLocations());
         
-        // Add current user for default location filter
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        // Add current user for default location filter (reuse auth variable from above)
         if (auth != null && auth.getName() != null) {
             userService.getUserByEmail(auth.getName()).ifPresent(currentUser -> {
                 model.addAttribute("currentUser", currentUser);
@@ -541,6 +573,20 @@ public class ToolController {
         
         model.addAttribute("tool", tool);
         model.addAttribute("locations", locationService.getAllLocations());
+        
+        // Load field definitions and custom field values for the tool type
+        if (tool.getToolType() != null) {
+            String toolType = tool.getToolType().name();
+            List<ToolTypeFieldDefinition> fieldDefinitions = fieldDefinitionService.getFieldDefinitionsForToolType(toolType);
+            model.addAttribute("fieldDefinitions", fieldDefinitions);
+            
+            // Load existing custom field values if editing
+            if (tool.getId() != null) {
+                Map<String, String> customFields = toolService.getCustomFieldsForTool(tool.getId());
+                model.addAttribute("customFields", customFields);
+            }
+        }
+        
         if (tool.getToolType() == Tool.ToolType.AMATGASGUARD) {
             // Provide dynamic checklist labels based on GasGuard template
             model.addAttribute("checklistItems", checklistTemplateService.getChecklistForTool(tool));
@@ -570,6 +616,16 @@ public class ToolController {
             model.addAttribute("tool", tool);
             // Add checklist items resolved from template (labels) mapped to this tool's date fields
             model.addAttribute("checklistItems", checklistTemplateService.getChecklistForTool(tool));
+            
+            // Load field definitions and custom field values
+            if (tool.getToolType() != null) {
+                String toolType = tool.getToolType().name();
+                List<ToolTypeFieldDefinition> fieldDefinitions = fieldDefinitionService.getFieldDefinitionsForToolType(toolType);
+                model.addAttribute("fieldDefinitions", fieldDefinitions);
+                
+                Map<String, String> customFields = toolService.getCustomFieldsForTool(tool.getId());
+                model.addAttribute("customFields", customFields);
+            }
             
             // Fetch RMAs associated with this tool
             List<Rma> associatedRmas = rmaService.findRmasByToolId(id);
@@ -690,7 +746,29 @@ public class ToolController {
 
     @GetMapping("/{id}/edit")
     public String showEditForm(@PathVariable Long id, Model model) {
-        toolService.getToolById(id).ifPresent(tool -> model.addAttribute("tool", tool));
+        Optional<Tool> toolOpt = toolService.getToolById(id);
+        if (toolOpt.isPresent()) {
+            Tool tool = toolOpt.get();
+            model.addAttribute("tool", tool);
+            
+            // Load field definitions and custom field values
+            if (tool.getToolType() != null) {
+                String toolType = tool.getToolType().name();
+                List<ToolTypeFieldDefinition> fieldDefinitions = fieldDefinitionService.getFieldDefinitionsForToolType(toolType);
+                model.addAttribute("fieldDefinitions", fieldDefinitions);
+                
+                Map<String, String> customFields = toolService.getCustomFieldsForTool(tool.getId());
+                model.addAttribute("customFields", customFields);
+            }
+            
+            model.addAttribute("locations", locationService.getAllLocations());
+            
+            if (tool.getToolType() == Tool.ToolType.AMATGASGUARD) {
+                model.addAttribute("checklistItems", checklistTemplateService.getChecklistForTool(tool));
+                return "tools/form-gasguard";
+            }
+            return "tools/form";
+        }
         model.addAttribute("locations", locationService.getAllLocations());
         return "tools/form";
     }
@@ -698,7 +776,8 @@ public class ToolController {
     @PostMapping
     public String saveTool(
             @ModelAttribute Tool tool,
-            @RequestParam(value = "files", required = false) MultipartFile[] files) {
+            @RequestParam(value = "files", required = false) MultipartFile[] files,
+            @RequestParam Map<String, String> allParams) {
         
         logger.info("Starting tool save process for tool: {}", tool.getName());
         
@@ -799,8 +878,40 @@ public class ToolController {
             
             logger.info("Calling toolService.saveTool");
             try {
-                toolService.saveTool(tool);
-                logger.info("Tool saved successfully, redirecting to tool list");
+                Tool savedTool = toolService.saveTool(tool);
+                logger.info("Tool saved successfully with ID: {}, redirecting to tool list", savedTool.getId());
+                
+                // Extract and save custom fields
+                if (savedTool.getToolType() != null) {
+                    Map<String, String> customFields = new HashMap<>();
+                    String toolType = savedTool.getToolType().name();
+                    List<ToolTypeFieldDefinition> fieldDefinitions = fieldDefinitionService.getFieldDefinitionsForToolType(toolType);
+                    
+                    for (ToolTypeFieldDefinition def : fieldDefinitions) {
+                        String fieldKey = def.getFieldKey();
+                        String paramKey = "customFields[" + fieldKey + "]";
+                        String value = allParams.get(paramKey);
+                        
+                        if (value != null) {
+                            // Handle boolean checkbox - if not present, it's false
+                            if (def.getFieldType() == ToolTypeFieldDefinition.FieldType.BOOLEAN) {
+                                // Checkbox sends "on" when checked, or nothing when unchecked
+                                customFields.put(fieldKey, "on".equals(value) ? "true" : "false");
+                            } else {
+                                customFields.put(fieldKey, value);
+                            }
+                        } else if (def.getFieldType() == ToolTypeFieldDefinition.FieldType.BOOLEAN) {
+                            // Checkbox not checked
+                            customFields.put(fieldKey, "false");
+                        }
+                    }
+                    
+                    if (!customFields.isEmpty()) {
+                        toolService.saveCustomFields(savedTool.getId(), customFields);
+                        logger.info("Saved {} custom fields for tool {}", customFields.size(), savedTool.getId());
+                    }
+                }
+                
                 return "redirect:/tools";
             } catch (Exception e) {
                 logger.error("Error in toolService.saveTool: {}", e.getMessage(), e);

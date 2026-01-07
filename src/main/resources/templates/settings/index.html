@@ -30,6 +30,25 @@
         </div>
     </div>
     
+    <!-- Tool Type Field Definitions Section -->
+    <div class="card mb-4">
+        <div class="card-header">Tool Type Field Definitions</div>
+        <div class="card-body">
+            <p class="text-muted mb-3">Configure custom fields for each tool type. These fields will appear in tool forms and can be searched/filtered.</p>
+            <div class="list-group">
+                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                        th:each="t : ${toolTypes}"
+                        th:data-tool-type="${t.name()}"
+                        th:data-display-name="${t.displayName}"
+                        th:text="${t.name() == 'AMATGASGUARD' ? t.displayName + ' (AMAT)' : t.displayName}"
+                        data-bs-toggle="modal" data-bs-target="#fieldDefinitionsModal">
+                    <span>Edit Field Definitions</span>
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Excel Checkbox Analysis Section -->
     <div class="card mb-4 border-info">
         <div class="card-header bg-info text-white">
@@ -257,7 +276,312 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
+
+// Field Definitions Management
+document.addEventListener('DOMContentLoaded', function() {
+  const fieldDefinitionsModal = document.getElementById('fieldDefinitionsModal');
+  const fieldDefinitionsList = document.getElementById('fieldDefinitionsList');
+  const addFieldBtn = document.getElementById('addFieldBtn');
+  const saveFieldDefinitionsBtn = document.getElementById('saveFieldDefinitionsBtn');
+  let currentToolType = '';
+  
+  // Open modal with selected tool type
+  document.querySelectorAll('[data-bs-target="#fieldDefinitionsModal"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentToolType = btn.getAttribute('data-tool-type');
+      const display = btn.getAttribute('data-display-name');
+      const label = (currentToolType === 'AMATGASGUARD') ? `${display} (AMAT)` : display;
+      document.getElementById('fieldDefinitionsModalTitle').textContent = `Field Definitions - ${label}`;
+      document.getElementById('fieldDefinitionsToolType').value = currentToolType;
+      loadFieldDefinitions(currentToolType);
+    });
+  });
+  
+  async function loadFieldDefinitions(toolType) {
+    fieldDefinitionsList.innerHTML = '';
+    try {
+      const res = await fetch(`/settings/tool-fields/${toolType}`);
+      if (res.ok) {
+        const definitions = await res.json();
+        definitions.forEach(def => addFieldDefinitionRow(def));
+      }
+    } catch (e) {
+      console.error('Error loading field definitions:', e);
+    }
+  }
+  
+  function addFieldDefinitionRow(def = null) {
+    const row = document.createElement('div');
+    row.className = 'field-definition-row mb-3 p-3 border rounded';
+    if (def && def.id) {
+      row.dataset.fieldId = def.id;
+    }
+    
+    const fieldType = def ? def.fieldType : 'TEXT';
+    const dropdownOptions = def && def.dropdownOptions ? def.dropdownOptions : [];
+    
+    row.innerHTML = `
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label small">Field Key</label>
+          <input type="text" class="form-control form-control-sm field-key" 
+                 value="${def ? (def.fieldKey || '') : ''}" 
+                 ${def && def.id ? 'readonly' : ''} 
+                 placeholder="device_description">
+          <small class="text-muted">Unique identifier (letters, numbers, underscores only)</small>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small">Field Label</label>
+          <input type="text" class="form-control form-control-sm field-label" 
+                 value="${def ? (def.fieldLabel || '') : ''}" 
+                 placeholder="Device Description">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">Field Type</label>
+          <select class="form-select form-select-sm field-type">
+            <option value="TEXT" ${fieldType === 'TEXT' ? 'selected' : ''}>Text</option>
+            <option value="NUMBER" ${fieldType === 'NUMBER' ? 'selected' : ''}>Number</option>
+            <option value="DROPDOWN" ${fieldType === 'DROPDOWN' ? 'selected' : ''}>Dropdown</option>
+            <option value="DATE" ${fieldType === 'DATE' ? 'selected' : ''}>Date</option>
+            <option value="BOOLEAN" ${fieldType === 'BOOLEAN' ? 'selected' : ''}>Boolean</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">Required</label>
+          <div class="form-check form-switch">
+            <input class="form-check-input field-required" type="checkbox" 
+                   ${def && def.isRequired ? 'checked' : ''}>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <button type="button" class="btn btn-sm btn-outline-danger delete-field-btn">
+            <i class="bi bi-trash"></i>
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary move-up-btn">
+            <i class="bi bi-arrow-up"></i>
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary move-down-btn">
+            <i class="bi bi-arrow-down"></i>
+          </button>
+        </div>
+      </div>
+      <div class="dropdown-options-container mt-2" style="display: ${fieldType === 'DROPDOWN' ? 'block' : 'none'};">
+        <label class="form-label small">Dropdown Options</label>
+        <div class="dropdown-options-list"></div>
+        <button type="button" class="btn btn-sm btn-outline-primary add-option-btn">
+          <i class="bi bi-plus"></i> Add Option
+        </button>
+      </div>
+    `;
+    
+    // Setup dropdown options
+    const optionsContainer = row.querySelector('.dropdown-options-list');
+    if (dropdownOptions.length > 0) {
+      dropdownOptions.forEach(opt => addDropdownOption(optionsContainer, opt));
+    }
+    
+    // Show/hide dropdown options based on field type
+    const fieldTypeSelect = row.querySelector('.field-type');
+    const dropdownContainer = row.querySelector('.dropdown-options-container');
+    fieldTypeSelect.addEventListener('change', function() {
+      dropdownContainer.style.display = this.value === 'DROPDOWN' ? 'block' : 'none';
+    });
+    
+    // Add dropdown option button
+    row.querySelector('.add-option-btn').addEventListener('click', () => {
+      addDropdownOption(optionsContainer, '');
+    });
+    
+    // Delete field button
+    row.querySelector('.delete-field-btn').addEventListener('click', () => {
+      if (def && def.id) {
+        if (confirm('Delete this field definition? This will not delete existing tool data.')) {
+          fetch(`/settings/tool-fields/${currentToolType}/${def.fieldKey}`, {
+            method: 'DELETE'
+          }).then(() => row.remove());
+        }
+      } else {
+        row.remove();
+      }
+    });
+    
+    // Move up/down buttons
+    row.querySelector('.move-up-btn').addEventListener('click', () => {
+      const prev = row.previousElementSibling;
+      if (prev) {
+        row.parentNode.insertBefore(row, prev);
+      }
+    });
+    
+    row.querySelector('.move-down-btn').addEventListener('click', () => {
+      const next = row.nextElementSibling;
+      if (next) {
+        row.parentNode.insertBefore(next, row);
+      }
+    });
+    
+    fieldDefinitionsList.appendChild(row);
+  }
+  
+  function addDropdownOption(container, value = '') {
+    const optionDiv = document.createElement('div');
+    optionDiv.className = 'input-group mb-2';
+    optionDiv.innerHTML = `
+      <input type="text" class="form-control form-control-sm dropdown-option" value="${value}" placeholder="Option value">
+      <button type="button" class="btn btn-sm btn-outline-danger remove-option-btn">
+        <i class="bi bi-x"></i>
+      </button>
+    `;
+    optionDiv.querySelector('.remove-option-btn').addEventListener('click', () => optionDiv.remove());
+    container.appendChild(optionDiv);
+  }
+  
+  addFieldBtn.addEventListener('click', () => addFieldDefinitionRow());
+  
+  saveFieldDefinitionsBtn.addEventListener('click', async () => {
+    const rows = fieldDefinitionsList.querySelectorAll('.field-definition-row');
+    const definitions = [];
+    
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const fieldKey = row.querySelector('.field-key').value.trim();
+      const fieldLabel = row.querySelector('.field-label').value.trim();
+      const fieldType = row.querySelector('.field-type').value;
+      const isRequired = row.querySelector('.field-required').checked;
+      
+      if (!fieldKey || !fieldLabel) {
+        alert('Field Key and Field Label are required');
+        return;
+      }
+      
+      // Validate field key format
+      if (!/^[a-zA-Z0-9_]+$/.test(fieldKey)) {
+        alert(`Field Key "${fieldKey}" must contain only letters, numbers, and underscores`);
+        return;
+      }
+      
+      const definition = {
+        id: row.dataset.fieldId ? parseInt(row.dataset.fieldId) : null,
+        toolType: currentToolType,
+        fieldKey: fieldKey,
+        fieldLabel: fieldLabel,
+        fieldType: fieldType,
+        isRequired: isRequired,
+        displayOrder: i
+      };
+      
+      // Add dropdown options if type is DROPDOWN
+      if (fieldType === 'DROPDOWN') {
+        const options = Array.from(row.querySelectorAll('.dropdown-option'))
+          .map(input => input.value.trim())
+          .filter(v => v.length > 0);
+        if (options.length === 0) {
+          alert('Dropdown fields must have at least one option');
+          return;
+        }
+        definition.dropdownOptions = options;
+      }
+      
+      definitions.push(definition);
+    }
+    
+    // Save each definition
+    try {
+      for (const def of definitions) {
+        const body = {
+          fieldKey: def.fieldKey,
+          fieldLabel: def.fieldLabel,
+          fieldType: def.fieldType,
+          isRequired: def.isRequired,
+          displayOrder: def.displayOrder
+        };
+        
+        if (def.fieldType === 'DROPDOWN' && def.dropdownOptions) {
+          body.dropdownOptions = def.dropdownOptions;
+        }
+        
+        if (def.id) {
+          body.id = def.id;
+        }
+        
+        const res = await fetch(`/settings/tool-fields/${currentToolType}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        
+        if (!res.ok) {
+          const error = await res.text();
+          throw new Error(error);
+        }
+      }
+      
+      // Reorder if needed
+      const orderedIds = definitions.map(d => d.id).filter(id => id != null);
+      if (orderedIds.length > 1) {
+        await fetch(`/settings/tool-fields/${currentToolType}/reorder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderedIds)
+        });
+      }
+      
+      const toast = document.createElement('div');
+      toast.className = 'alert alert-success position-fixed top-0 end-0 m-3';
+      toast.textContent = 'Field definitions saved';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2000);
+      
+      // Reload to get updated IDs
+      loadFieldDefinitions(currentToolType);
+    } catch (e) {
+      const toast = document.createElement('div');
+      toast.className = 'alert alert-danger position-fixed top-0 end-0 m-3';
+      toast.textContent = 'Error saving field definitions: ' + e.message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+  });
+});
 </script>
+
+<!-- Field Definitions Modal -->
+<div class="modal fade" id="fieldDefinitionsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="fieldDefinitionsModalTitle">Edit Field Definitions</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info d-flex align-items-start" role="alert">
+          <i class="bi bi-info-circle me-2 mt-1"></i>
+          <div>
+            <strong>Field Definitions:</strong> Configure custom fields that will appear in tool forms for this tool type.
+            <ul class="mb-0 mt-2">
+              <li><strong>Field Key:</strong> Unique identifier (e.g., "device_description") - cannot be changed after creation</li>
+              <li><strong>Field Label:</strong> Display name shown in forms (e.g., "Device Description")</li>
+              <li><strong>Field Type:</strong> Text, Number, Dropdown, Date, or Boolean</li>
+              <li><strong>Dropdown Options:</strong> For dropdown fields, add the available options</li>
+            </ul>
+          </div>
+        </div>
+        <input type="hidden" id="fieldDefinitionsToolType">
+        <div class="mb-2 d-flex justify-content-between align-items-center">
+          <label class="form-label mb-0">Field Definitions</label>
+          <button class="btn btn-sm btn-outline-primary" id="addFieldBtn">
+            <i class="bi bi-plus"></i> Add Field
+          </button>
+        </div>
+        <div id="fieldDefinitionsList"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="saveFieldDefinitionsBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- First Warning Modal -->
 <div class="modal fade" id="clearDbWarning1Modal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">

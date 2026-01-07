@@ -1,0 +1,629 @@
+================================================================================
+NCSR BULK UPLOAD FUNCTIONALITY DEFINITION
+================================================================================
+Purpose: Comprehensive documentation for rebuilding the NCSR Bulk Upload
+         functionality in Rust (or any other language). This document describes
+         the 3-step upload process, flexible column detection, tool matching,
+         and all business logic required to recreate this feature.
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+The NCSR Bulk Upload feature allows users to bulk import NCSR (Non-Conformance
+Service Report) records from Excel files. The process is divided into 3 steps:
+
+1. **Preview**: Parse Excel file, auto-detect columns, show preview with column mapping
+2. **Import**: Import NCSRs with column mapping, match Equipment# to Tools, show results
+3. **Finalize**: User reviews matched/unmatched items, chooses actions (Save, Ignore, Create Tool)
+
+Key Features:
+- Flexible column detection (supports 30+ field aliases)
+- Automatic tool matching by Equipment# or Tool ID#
+- Tool creation from unmatched NCSRs
+- Preview before final import
+- Warning/error tracking
+- Action-based finalization (save, ignore, create tool)
+
+================================================================================
+2. EXCEL FILE FORMAT REQUIREMENTS
+================================================================================
+
+File Format:
+- File Type: .xlsx or .xls (Excel format)
+- First sheet is used (sheet index 0)
+- First row must be header row with column names
+- Data rows start from row 2 (index 1)
+
+Supported Columns (Flexible Header Names):
+The system supports 30+ NCSR fields with multiple aliases per field. See
+"Column Aliases" section for complete list.
+
+Key Fields:
+- Equipment# (or Tool ID#): Used for tool matching
+- Component, Part Location, Description: Core NCSR data
+- Status: OPEN or CLOSED
+- Dates: Multiple date fields supported
+- Various tracking fields: PO numbers, suppliers, etc.
+
+================================================================================
+3. THREE-STEP UPLOAD PROCESS
+================================================================================
+
+STEP 1: PREVIEW EXCEL (Column Detection)
+-----------------------------------------
+Endpoint: POST /api/ncsr/preview-import
+Request: MultipartFile (Excel file)
+Response: {
+    headerRow: string[],
+    detectedColumns: Map<columnIndex, fieldName>,
+    undetectedColumns: string[],
+    rowData: Map<columnIndex, value>[],
+    sampleRow: Map<columnIndex, value>,
+    totalRows: number
+}
+
+Process:
+1. Open Excel workbook (first sheet)
+2. Read header row (row 0)
+3. Detect columns using alias matching
+4. Read up to 100 sample rows for preview
+5. Count total non-empty rows
+6. Return preview data
+
+STEP 2: IMPORT WITH COLUMN MAPPING
+-----------------------------------
+Endpoint: POST /api/ncsr/import
+Request: 
+    - MultipartFile (Excel file)
+    - columnMapping: JSON string (Map<columnIndex, fieldName>)
+Response: {
+    ncsrs: NCSR[],           // Successfully matched NCSRs
+    warnings: Warning[],     // Unmatched NCSRs (can create tool)
+    errors: Error[],        // Parse errors
+    stats: {
+        total: number,
+        created: number,
+        ignored: number,
+        warnings: number
+    }
+}
+
+Process:
+1. Re-open Excel file
+2. Skip header row
+3. For each data row:
+   a. Parse row to NCSR using column mapping
+   b. Extract Equipment# or Tool ID# for matching
+   c. Try to match to existing Tool
+   d. If matched: Add to ncsrs list
+   e. If not matched: Add to warnings list (with canCreateTool flag)
+4. Return results (no saving yet - preview only)
+
+STEP 3: FINALIZE IMPORT
+-----------------------
+Endpoint: POST /api/ncsr/finalize-import
+Request: {
+    items: [
+        {
+            action: "save" | "ignore" | "create",
+            ncsr: NCSR (as map)
+        }
+    ]
+}
+Response: {
+    success: boolean,
+    saved: number,
+    ignored: number
+}
+
+Process:
+1. For each item in items:
+   a. If action = "ignore": Skip, increment ignored
+   b. If action = "create": Create Tool from NCSR, then save NCSR
+   c. If action = "save": Save NCSR as-is
+2. Return statistics
+
+================================================================================
+4. FLEXIBLE COLUMN DETECTION
+================================================================================
+
+Column Aliases:
+The system supports 30+ NCSR fields with multiple aliases per field. Detection
+is case-insensitive and handles variations in naming.
+
+Complete Column Alias Map:
+- versumEmdQuote: "Versum/EMD Quote", "Versum Quote", "EMD Quote", "Quote"
+- customerLocation: "Customer Location", "Customer", "Cust Location"
+- customerPo: "Customer PO#", "Customer PO", "PO#", "PO Number"
+- customerPoReceivedDate: "Customer PO Received Date", "PO Received Date", "PO Date"
+- supplier: "Supplier", "Vendor"
+- supplierPoOrProductionOrder: "Supplier PO# or Production Order", "Supplier PO", "Production Order", "PO/Production Order"
+- finishDate: "Finish Date", "Completion Date", "Done Date"
+- mmNumber: "MM#", "Model #", "Model Number", "MM", "Model"
+- equipmentNumber: "Equipment #", "Equipment Number", "Equip #", "Equip Number", "Equipment"
+- serialNumber: "Serial #", "Serial Number", "Serial", "S/N"
+- description: "Description", "Desc", "Part Description"
+- toolIdNumber: "Tool ID#", "Tool ID", "ToolID", "Tool Number"
+- component: "Component", "Part Component", "Comp"
+- discrepantPartMfg: "Discrepant Part Mfg", "Part Mfg", "Manufacturer", "Mfg"
+- discrepantPartNumber: "Discrepant Part Number", "Part Number", "Part #", "PN"
+- partLocationId: "Part Location/I.D.", "Part Location", "Location/ID", "Location"
+- partQuantity: "Part Quantity", "Quantity", "Qty", "QTY"
+- estShipDate: "Est Ship Date", "Estimated Ship Date", "Ship Date", "Est. Ship"
+- ecrNumber: "ECR#", "ECR", "ECR Number"
+- contractManufacturer: "Contract Manufacturer", "Contract Mfg", "CM"
+- trackingNumberSupplierToFse: "Tracking # from Supplier to FSE", "Tracking Number", "Tracking #", "Tracking"
+- notificationToRobin: "Notification to Robin (Where shipped)", "Notification to Robin", "Where Shipped", "Robin Notification"
+- workInstructionRequired: "Work Instruction Required?", "WI Required", "Work Instruction", "WI Required?"
+- workInstructionIdentifier: "Work Instruction Identifier", "WI Identifier", "WI ID", "Work Instruction ID"
+- fseFieldServiceCompletionDate: "FSE Field Service Completion Date", "FSE Completion Date", "Service Completion Date", "Completion Date"
+- toolOwner: "Tool Owner", "Owner"
+- status: "Open\\nClosed", "Open/Closed", "Status", "Open Closed"
+- comments: "Comments", "Notes", "Comment"
+
+Detection Process (detectFieldName):
+1. Normalize header: trim, lowercase
+2. For each field in alias map:
+   a. For each alias:
+      - Compare normalized header to normalized alias
+      - Handle special characters: Remove "/" and "#" for comparison
+      - If match: Return field name
+3. Return null if no match (undetected column)
+
+Special Character Handling:
+- "/" and "#" are removed for comparison
+- Example: "Equipment #" matches "Equipment Number"
+
+================================================================================
+5. TOOL MATCHING LOGIC
+================================================================================
+
+Matching Value Extraction:
+1. **Primary**: Equipment# field
+   - If Equipment# has value → use it for matching
+   - Source: "Equipment#"
+
+2. **Fallback**: Tool ID# field
+   - If Equipment# is empty, extract from Tool ID#
+   - Pattern: Extract tool name from Tool ID# (e.g., "BT151" from "BT151(2310216)")
+   - Source: "Tool ID#"
+
+Tool ID# Extraction (extractToolNameFromToolId):
+Input: Tool ID# string (e.g., "BT151(2310216)", "DSS100", "ECO200")
+
+Process:
+1. Pattern match: Regex "^([A-Z]{2,4}\\d{3})"
+   - Matches: 2-4 uppercase letters followed by 3 digits
+   - Examples: "BT151", "DSS100", "ECO200", "ABCD123"
+2. If pattern matches: Return matched group (tool name)
+3. Fallback: Extract everything before first "(" if present
+4. Final fallback: Return trimmed Tool ID# value
+
+Tool Matching (findPotentialToolMatches):
+Searches all tools in database using multiple matching strategies:
+
+1. **Exact Name Match** (case-insensitive):
+   - Match Equipment# to Tool.name
+   - Example: "BT151" matches Tool.name="BT151"
+
+2. **Secondary Name Match** (case-insensitive):
+   - Match Equipment# to Tool.secondaryName
+   - Example: "BT151" matches Tool.secondaryName="BT151"
+
+3. **Exact Serial Match**:
+   - Match Equipment# to Tool.serial1 or Tool.serial2
+   - Example: "SN123" matches Tool.serial1="SN123"
+
+4. **Case-Insensitive Serial Match**:
+   - Match Equipment# to Tool.serial1 or Tool.serial2 (case-insensitive)
+   - Example: "sn123" matches Tool.serial1="SN123"
+
+5. **Prefix Match** (if serial contains "-"):
+   - Extract prefix from serial (before "-")
+   - Match Equipment# to serial prefix
+   - Example: Equipment#="BT151" matches Tool.serial1="BT151-001"
+
+Matching Priority:
+- Returns list of all matching tools
+- First match in list is used for auto-assignment
+- If multiple tools match, user can choose in finalization step
+
+No Match Handling:
+- If no tool matches → Add to warnings list
+- Set canCreateTool = true
+- User can choose to create new Tool from NCSR data
+
+================================================================================
+6. NCSR PARSING
+================================================================================
+
+Parse Row to NCSR (parseRowToNCSR):
+1. Create new NCSR entity
+2. For each column in columnMapping:
+   a. Get cell at column index
+   b. Extract value as string
+   c. Set field value using setFieldValue()
+3. Set defaults:
+   - status: OPEN (if not set)
+   - installed: false (if not set)
+4. Return NCSR entity
+
+Field Value Setting (setFieldValue):
+Handles type conversion and special parsing for each field:
+
+String Fields:
+- Direct assignment: versumEmdQuote, customerLocation, customerPo, supplier, etc.
+
+Date Fields:
+- Parse using parseDateValue()
+- Fields: customerPoReceivedDate, finishDate, estShipDate, fseFieldServiceCompletionDate
+
+Integer Fields:
+- Parse quantity: Remove non-digits, parse as integer
+- Field: partQuantity
+
+Boolean Fields:
+- Parse using parseBooleanValue()
+- Field: workInstructionRequired
+
+Status Field:
+- Parse "Open/Closed" or "Open\\nClosed" or "Status"
+- If contains "OPEN" → status=OPEN, installed=false
+- If contains "CLOSED" or "CLOSE" → status=CLOSED, installed=true
+
+Comments Field:
+- Direct assignment (TEXT field)
+
+================================================================================
+7. DATE AND BOOLEAN PARSING
+================================================================================
+
+Date Parsing (parseDateValue):
+1. Check if cell is numeric and date-formatted:
+   - Use cell.getLocalDateTimeCellValue().toLocalDate()
+2. Otherwise, try parsing string as ISO date:
+   - LocalDate.parse(value)
+3. Return LocalDate or null if parsing fails
+
+Boolean Parsing (parseBooleanValue):
+Input: String value
+Process:
+1. Normalize: trim, lowercase
+2. Return true if value is:
+   - "yes"
+   - "true"
+   - "y"
+   - "1"
+3. Return false otherwise
+
+================================================================================
+8. TOOL CREATION FROM NCSR
+================================================================================
+
+Create Tool from NCSR (createToolFromNCSR):
+Input: NCSR entity
+Output: New Tool entity
+
+Process:
+1. Create new Tool entity
+2. Set fields:
+   - name: Tool ID# (or "Unknown" if not available)
+   - serial1: Equipment# value
+   - toolType: UNKNOWN (default, user should update later)
+   - locationName: "Unknown" (user should update later)
+3. Save tool using toolService.saveTool()
+4. Return created tool
+
+Note: Created tool has minimal data. User should update tool details
+      (type, location, etc.) after creation.
+
+================================================================================
+9. CELL VALUE EXTRACTION
+================================================================================
+
+getCellValueAsString:
+Handles all Excel cell types and converts to string representation.
+
+Cell Type Handling:
+1. STRING: Return string value directly
+2. NUMERIC:
+   a. If date-formatted: Convert to LocalDate string (ISO format)
+   b. Otherwise: Convert to long, then to string
+3. BOOLEAN: Convert to "true" or "false" string
+4. FORMULA: Return formula string (not evaluated)
+5. BLANK: Return empty string ""
+
+Date Detection:
+- Uses DateUtil.isCellDateFormatted(cell) to detect Excel date cells
+- Converts to LocalDate, then to ISO string: "YYYY-MM-DD"
+
+Numeric Handling:
+- Converts to long (removes decimals), then to string
+- Example: 123.0 → "123"
+
+================================================================================
+10. ROW PROCESSING
+================================================================================
+
+Row Validation:
+- Skip completely empty rows (all cells are empty/null)
+- Process all non-empty rows
+
+Empty Row Detection:
+- Check all cells in row
+- If all cells are empty/null → skip row
+- Otherwise → process row
+
+Row Numbering:
+- Header row: Row 0
+- First data row: Row 1 (Excel row 2)
+- Increment for each processed row
+- Used in error/warning messages
+
+Error Handling:
+- If error parsing a row:
+  - Add to errors list with row number and message
+  - Continue processing other rows
+  - Don't stop entire import
+
+Preview Limit:
+- Step 1 (Preview): Only shows first 100 rows for preview
+- Step 2 (Import): Processes all rows in file
+
+================================================================================
+11. WARNING AND ERROR TRACKING
+================================================================================
+
+Warning Types:
+1. **NO_EQUIPMENT**:
+   - No Equipment# or Tool ID# found in row
+   - Message: "No Equipment# or Tool ID# found. Manual tool assignment required."
+   - Action: User must manually assign tool
+
+2. **NO_MATCH**:
+   - Equipment# found but no matching tool
+   - Message: "No matching tool found for Equipment#: [value]"
+   - canCreateTool: true
+   - Action: User can create new tool or ignore
+
+Warning Structure:
+```rust
+struct Warning {
+    row: i32,
+    type: String,           // "NO_EQUIPMENT" or "NO_MATCH"
+    message: String,
+    ncsr: NCSR,            // Parsed NCSR entity
+    canCreateTool: bool,   // Only for NO_MATCH type
+}
+```
+
+Error Structure:
+```rust
+struct Error {
+    row: i32,
+    message: String,       // Error description
+}
+```
+
+Statistics:
+```rust
+struct Stats {
+    total: i32,            // Total non-empty rows processed
+    created: i32,          // NCSRs successfully matched and created
+    ignored: i32,          // Rows ignored (empty or user choice)
+    warnings: i32,         // Rows with warnings (unmatched)
+}
+```
+
+================================================================================
+12. FINALIZATION ACTIONS
+================================================================================
+
+Action Types:
+1. **"save"**: Save NCSR as-is (already matched to tool)
+2. **"ignore"**: Skip this NCSR (don't save)
+3. **"create"**: Create new Tool from NCSR, then save NCSR linked to new tool
+
+Finalization Process:
+1. For each item in items array:
+   a. Extract action and ncsr data
+   b. Reconstruct NCSR entity from map
+   c. Based on action:
+      - "ignore": Skip, increment ignored count
+      - "create": Create Tool, link NCSR to tool, save NCSR
+      - "save": Save NCSR (tool already linked)
+   d. Increment saved count
+2. Return statistics
+
+NCSR Reconstruction (reconstructNCSRFromMap):
+- Convert map back to NCSR entity
+- Handle all field types (strings, dates, booleans, integers)
+- Set defaults (status=OPEN, installed=false)
+
+================================================================================
+13. API ENDPOINTS SUMMARY
+================================================================================
+
+POST /api/ncsr/preview-import
+- Input: MultipartFile (Excel file)
+- Output: Preview data (headers, detected columns, sample rows)
+- Purpose: Step 1 - Column detection and preview
+
+POST /api/ncsr/import
+- Input: MultipartFile, columnMapping (JSON string)
+- Output: Import results (matched NCSRs, warnings, errors, stats)
+- Purpose: Step 2 - Import with tool matching (preview, no saving)
+
+POST /api/ncsr/finalize-import
+- Input: {items: [{action, ncsr}]}
+- Output: {success, saved, ignored}
+- Purpose: Step 3 - Finalize import with user actions
+
+POST /api/ncsr/create-tool-from-ncsr
+- Input: ncsrId (Long)
+- Output: {success, toolId, toolName}
+- Purpose: Create tool from existing NCSR (alternative to bulk create)
+
+Authentication:
+- All endpoints require authenticated user
+- User context may be used for tool creation defaults
+
+================================================================================
+14. RUST IMPLEMENTATION NOTES
+================================================================================
+
+Suggested Dependencies:
+- calamine or rust_xlsxwriter for Excel parsing (.xlsx/.xls files)
+- chrono for date/time handling
+- regex for pattern matching (tool name extraction)
+- serde for JSON serialization
+
+Key Structures:
+
+```rust
+// Column alias map
+type ColumnAliases = HashMap<String, Vec<String>>;
+
+// Column mapping (user-confirmed)
+type ColumnMapping = HashMap<String, String>; // columnIndex -> fieldName
+
+// Preview result
+struct PreviewResult {
+    header_row: Vec<String>,
+    detected_columns: HashMap<String, String>, // columnIndex -> fieldName
+    undetected_columns: Vec<String>,
+    row_data: Vec<HashMap<String, String>>,   // columnIndex -> value
+    sample_row: HashMap<String, String>,
+    total_rows: i32,
+}
+
+// Import result
+struct ImportResult {
+    ncsrs: Vec<NCSR>,           // Matched NCSRs
+    warnings: Vec<Warning>,     // Unmatched NCSRs
+    errors: Vec<Error>,         // Parse errors
+    stats: Stats,
+}
+
+// Finalization item
+struct FinalizationItem {
+    action: String,             // "save", "ignore", "create"
+    ncsr: HashMap<String, Value>, // NCSR data as map
+}
+```
+
+Key Functions to Implement:
+
+1. parse_excel_for_preview(file) -> Result<PreviewResult>
+2. detect_field_name(header: &str, aliases: &ColumnAliases) -> Option<String>
+3. import_from_excel(file, column_mapping) -> Result<ImportResult>
+4. parse_row_to_ncsr(row, column_mapping) -> Result<NCSR>
+5. set_field_value(ncsr, field_name, value, cell) -> Result<()>
+6. extract_tool_name_from_tool_id(tool_id: &str) -> Option<String>
+7. find_potential_tool_matches(equipment_number: &str) -> Vec<Tool>
+8. create_tool_from_ncsr(ncsr: &NCSR) -> Result<Tool>
+9. parse_date_value(cell, value: &str) -> Option<NaiveDate>
+10. parse_boolean_value(value: &str) -> bool
+11. get_cell_value_as_string(cell) -> String
+12. finalize_import(items: Vec<FinalizationItem>) -> Result<FinalizationStats>
+
+Regex Patterns:
+- Tool name extraction: Regex::new(r"^([A-Z]{2,4}\d{3})").unwrap()
+
+Column Aliases:
+- Implement as static HashMap or constant
+- Support case-insensitive matching
+- Handle special characters (#, /)
+
+Tool Matching:
+- Implement all 5 matching strategies
+- Return list of matches (not just first)
+- Log matching attempts for debugging
+
+Error Handling:
+- Use Result<T, E> for all operations
+- Continue processing rows even if one fails
+- Collect errors and return in result
+
+================================================================================
+15. EXAMPLE WORKFLOW
+================================================================================
+
+Example Excel File:
+Row 0 (Header): Equipment # | Component | Part Location | Description | Status
+Row 1: BT151 | Valve | Location A | Defective part | Open
+Row 2: GR152 | Pump | Location B | Needs replacement | Closed
+Row 3: UNKNOWN123 | Sensor | Location C | No match found | Open
+
+Step 1 - Preview:
+- Detects: Equipment# → equipmentNumber, Component → component, etc.
+- Shows preview of first 100 rows
+- User confirms column mapping
+
+Step 2 - Import:
+- Row 1: Matches Equipment#="BT151" to Tool.name="BT151" → Add to ncsrs
+- Row 2: Matches Equipment#="GR152" to Tool.name="GR152" → Add to ncsrs
+- Row 3: No match for "UNKNOWN123" → Add to warnings (canCreateTool=true)
+
+Result:
+- ncsrs: [NCSR1 (BT151), NCSR2 (GR152)]
+- warnings: [Warning (UNKNOWN123, canCreateTool=true)]
+- stats: {total: 3, created: 2, warnings: 1}
+
+Step 3 - Finalize:
+- User chooses: Save NCSR1, Save NCSR2, Create Tool for NCSR3
+- System creates Tool "UNKNOWN123", links NCSR3 to new tool, saves all
+
+Final Result: 3 NCSRs saved, 1 new Tool created
+
+================================================================================
+16. TESTING CONSIDERATIONS
+================================================================================
+
+Test Cases:
+
+1. Excel File Format:
+   - Valid .xlsx file with various column names
+   - Missing header row (should error)
+   - Empty file (should error)
+   - Multiple sheets (should use first sheet)
+
+2. Column Detection:
+   - Various header name variations
+   - Case-insensitive matching
+   - Special character handling (#, /)
+   - Undetected columns (should be listed)
+
+3. Tool Matching:
+   - Exact name matches
+   - Serial number matches
+   - Prefix matches
+   - No matches (should create warning)
+
+4. NCSR Parsing:
+   - All field types (string, date, boolean, integer)
+   - Missing fields (should use defaults)
+   - Invalid data (should handle gracefully)
+
+5. Tool Creation:
+   - Create tool from NCSR
+   - Link NCSR to new tool
+   - Update tool details after creation
+
+6. Finalization:
+   - Save action
+   - Ignore action
+   - Create action
+   - Mixed actions
+
+7. Error Handling:
+   - File read errors
+   - Parse errors
+   - Database errors
+   - Missing required fields
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+

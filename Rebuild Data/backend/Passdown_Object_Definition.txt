@@ -1,0 +1,664 @@
+================================================================================
+PASSDOWN OBJECT DEFINITION
+================================================================================
+Purpose: Comprehensive documentation for rebuilding the Passdown entity/model
+         in Rust (or any other language). This document describes all fields,
+         relationships, behaviors, constraints, and business logic.
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+The Passdown object represents a communication entry that documents work,
+observations, or information that needs to be passed from one shift or
+technician to another. Passdowns are associated with tools and can be assigned
+to multiple technicians for tracking and follow-up.
+
+Key Characteristics:
+- Passdowns are date-based entries with comments describing work or observations
+- A passdown can be associated with multiple tools (Many-to-Many)
+- A passdown can be assigned to multiple technicians (Many-to-Many)
+- Passdowns can include pictures for visual documentation
+- Each passdown is created by a user and tracks creation timestamp
+- Passdowns are displayed in chronological order (newest first)
+
+================================================================================
+2. DATABASE SCHEMA
+================================================================================
+
+Table Name: passdowns
+
+Columns:
+---------
+id (BIGINT, PRIMARY KEY, AUTO_INCREMENT)
+  - Unique identifier for the passdown
+  - Auto-generated sequential ID
+  - Used as foreign key in related tables
+
+comment (VARCHAR(10000), NULLABLE)
+  - The main content/description of the passdown
+  - Can be up to 10,000 characters
+  - Required field (enforced at application level)
+  - Editable in form
+  - Example: "Replaced filter on Tool X. Next shift should check pressure readings."
+
+date (DATE, NULLABLE)
+  - The date the passdown refers to
+  - Defaults to current date if not provided
+  - Required field (enforced at application level)
+  - Editable in form
+  - Used for filtering and sorting passdowns
+
+created_date (TIMESTAMP, NOT NULL, NOT UPDATABLE)
+  - Timestamp when the passdown was created
+  - Automatically set on creation (via @PrePersist)
+  - Cannot be updated after creation
+  - Used for audit trail and display
+
+last_edited_date (TIMESTAMP, NULLABLE)
+  - Timestamp of the MOST RECENT edit to this passdown
+  - Automatically updated whenever passdown is modified
+  - NULL if passdown has never been edited (only created)
+  - NOTE: This field only stores the LAST edit. For complete history, see edit_history table.
+  - Used for quick reference to when passdown was last modified
+
+last_edited_by_user_id (BIGINT, NULLABLE, FOREIGN KEY -> users.id)
+  - The user who made the MOST RECENT edit
+  - ManyToOne relationship to User
+  - Set automatically to current user when passdown is updated
+  - NULL if passdown has never been edited
+  - NOTE: This field only stores the LAST editor. For complete history, see edit_history table.
+  - Used for quick reference to who last modified the passdown
+
+user_id (BIGINT, NULLABLE, FOREIGN KEY -> users.id)
+  - The user who created the passdown
+  - ManyToOne relationship to User
+  - Set automatically to current user when saving
+  - Used for display and filtering
+
+Join Tables:
+------------
+passdown_tools (Many-to-Many relationship)
+  - passdown_id (BIGINT, FOREIGN KEY -> passdowns.id)
+  - tool_id (BIGINT, FOREIGN KEY -> tools.id)
+  - A passdown can be associated with multiple tools
+  - A tool can have multiple passdowns
+
+passdown_techs (Many-to-Many relationship)
+  - passdown_id (BIGINT, FOREIGN KEY -> passdowns.id)
+  - user_id (BIGINT, FOREIGN KEY -> users.id)
+  - A passdown can be assigned to multiple technicians
+  - A user can be assigned to multiple passdowns
+
+passdown_pictures_legacy (ElementCollection - Legacy Picture Storage)
+  - passdown_id (BIGINT, FOREIGN KEY -> passdowns.id)
+  - picture_path (VARCHAR)
+  - Stores file paths to uploaded pictures
+  - Legacy system but still actively used
+
+passdown_picture_names_legacy (ElementCollection - Legacy Picture Names)
+  - passdown_id (BIGINT, FOREIGN KEY -> passdowns.id)
+  - picture_path (VARCHAR, MAP KEY)
+  - original_filename (VARCHAR)
+  - Maps picture paths to their original filenames
+  - Legacy system but still actively used
+
+Audit History Table: passdown_edit_history
+  - Tracks ALL edits to passdowns (forever growing list)
+  - NEVER deleted - maintains complete audit trail
+  - Stores EVERY edit that has ever been made to a passdown
+  - Example: If UserB edits on Day 1, UserC edits on Day 2, UserD edits on Day 3,
+    there will be THREE separate entries in this table (one for each edit)
+  - The main passdowns table only stores the MOST RECENT edit in last_edited_date/last_edited_by_user_id
+  - This table stores the COMPLETE history of all edits
+  - Columns:
+    * id (BIGINT, PRIMARY KEY)
+    * passdown_id (BIGINT, FOREIGN KEY -> passdowns.id)
+    * edited_by_user_id (BIGINT, FOREIGN KEY -> users.id)
+    * edited_at (TIMESTAMP, NOT NULL)
+    * field_name (VARCHAR(255)) - Name of field that changed (or "ALL" for general edit)
+    * old_value (TEXT) - Previous value (can be NULL)
+    * new_value (TEXT) - New value (can be NULL)
+    * edit_type (VARCHAR(50)) - Type of edit: "CREATE", "UPDATE", "DELETE" (soft delete)
+  - Index on passdown_id for efficient history queries
+  - Index on edited_at for chronological sorting
+
+================================================================================
+3. FIELD DESCRIPTIONS AND VALIDATION RULES
+================================================================================
+
+REQUIRED FIELDS (Application-Level Validation):
+  - comment: Must not be null or empty when creating/updating
+  - date: Must not be null when creating/updating
+
+AUTO-SET FIELDS:
+  - createdDate: Automatically set to current timestamp on creation
+  - date: Defaults to current date if not provided
+  - user: Automatically set to current authenticated user when saving
+  - lastEditedDate: Automatically set to current timestamp when passdown is updated
+  - lastEditedBy: Automatically set to current authenticated user when passdown is updated
+
+VALIDATION RULES:
+  1. comment must be provided (non-empty)
+  2. date must be provided (defaults to today if not set)
+  3. Tools and assignedTechs are optional (can be empty sets)
+  4. Picture paths are optional
+
+BUSINESS LOGIC:
+  1. When creating a new passdown:
+     - If user has an active tool, it is auto-filled as the first tool
+     - Current user is auto-added to assigned technicians
+  2. When a picture is uploaded:
+     - Picture is saved to disk in "pictures" directory
+     - Picture path is added to picturePaths set
+     - Original filename is stored in pictureNames map
+     - If passdown has associated tools, picture is also added to those tools
+  3. Passdowns are always sorted by date descending (newest first)
+  4. When displaying passdowns, user, tools, and assignedTechs are eagerly loaded
+
+================================================================================
+4. COMPUTED PROPERTIES / METHODS
+================================================================================
+
+No computed properties. All fields are direct database columns or relationships.
+
+PrePersist Hook:
+  - Sets createdDate to current timestamp if null
+  - Sets date to current date if null
+
+================================================================================
+5. RELATIONSHIPS WITH OTHER OBJECTS
+================================================================================
+
+5.1 USER RELATIONSHIPS
+----------------------
+Relationship Type: Many-to-One (Many Passdowns can belong to one User)
+
+Passdown.user (ManyToOne -> User)
+  - The user who created the passdown
+  - Foreign Key: passdowns.user_id -> users.id
+  - Fetch Type: LAZY (loaded on demand)
+  - Set automatically to current authenticated user
+
+Relationship Type: Many-to-Many (Many Passdowns can be assigned to many Users)
+
+Passdown.assignedTechs (ManyToMany -> User)
+  - Technicians assigned to work on or follow up on the passdown
+  - Join Table: passdown_techs
+  - Foreign Keys: passdown_techs.passdown_id -> passdowns.id
+                  passdown_techs.user_id -> users.id
+  - Fetch Type: LAZY (loaded on demand)
+  - Can be empty (no assigned technicians)
+  - Editable in form (multi-select)
+
+Business Logic:
+  - Current user is auto-added to assignedTechs when creating new passdown
+  - Multiple technicians can be assigned to a single passdown
+  - Used for filtering and notification purposes
+
+5.2 TOOL RELATIONSHIPS
+----------------------
+Relationship Type: Many-to-Many (Many Passdowns can be associated with many Tools)
+
+Passdown.tools (ManyToMany -> Tool)
+  - Tools associated with this passdown
+  - Join Table: passdown_tools
+  - Foreign Keys: passdown_tools.passdown_id -> passdowns.id
+                  passdown_tools.tool_id -> tools.id
+  - Fetch Type: LAZY (loaded on demand)
+  - Can be empty (no associated tools)
+  - Editable in form (multi-select)
+
+Business Logic:
+  - If user has an active tool, it is auto-filled when creating new passdown
+  - Multiple tools can be associated with a single passdown
+  - When a picture is uploaded, it is also added to all associated tools
+  - Used for filtering passdowns by tool
+
+5.3 EDIT HISTORY RELATIONSHIPS
+------------------------------
+Relationship Type: One-to-Many (Passdown can have many Edit History entries)
+
+Passdown.editHistory (OneToMany -> PassdownEditHistory)
+  - Complete audit trail of all edits to this passdown
+  - Foreign Key: passdown_edit_history.passdown_id -> passdowns.id
+  - Fetch Type: LAZY (loaded on demand)
+  - Never deleted - maintains complete history
+  - Ordered by editedAt descending (newest first)
+
+PassdownEditHistory Entity:
+  - id: Primary key
+  - passdown: ManyToOne reference to Passdown
+  - editedBy: ManyToOne reference to User (who made the edit)
+  - editedAt: Timestamp of the edit
+  - fieldName: Name of field that changed (or "ALL" for general edit)
+  - oldValue: Previous value (TEXT, can be NULL)
+  - newValue: New value (TEXT, can be NULL)
+  - editType: "CREATE", "UPDATE", or "DELETE" (soft delete)
+
+Business Logic:
+  - Every edit creates a new history entry
+  - History entries are never deleted (forever growing list)
+  - Can track field-level changes or general edits
+  - Used for audit trail and accountability
+  - Example: If UserA creates passdown on Day 1, then UserB edits comment on Day 2,
+    both events are recorded in history
+
+5.4 PICTURE RELATIONSHIPS
+-------------------------
+Relationship Type: ElementCollection (Legacy String-Based Storage)
+
+Passdown.picturePaths (Set<String>)
+  - Set of file paths to uploaded pictures
+  - Stored in passdown_pictures_legacy table
+  - Legacy system but still actively used
+  - Paths are relative to upload base directory
+
+Passdown.pictureNames (Map<String, String>)
+  - Maps picture paths to original filenames
+  - Stored in passdown_picture_names_legacy table
+  - Key: picture_path, Value: original_filename
+  - Used for display and download
+
+Business Logic:
+  - Pictures are uploaded via multipart form
+  - Saved to "pictures" subdirectory in upload directory
+  - When picture is added to passdown, it's also added to associated tools
+  - Pictures can be deleted individually
+  - Pictures can be linked to tools or RMAs
+
+Note: There is a PassdownPicture entity (OneToMany relationship) defined in the
+model, but it is NOT actively used. The legacy picturePaths/pictureNames system
+is still the primary method for storing pictures.
+
+================================================================================
+6. REPOSITORY QUERIES / DATA ACCESS METHODS
+================================================================================
+
+Standard CRUD Operations:
+  - findAll() -> List<Passdown>
+  - findById(Long id) -> Optional<Passdown>
+  - save(Passdown) -> Passdown
+  - deleteById(Long id) -> void
+
+Custom Query Methods:
+
+findAllByOrderByDateDesc() -> List<Passdown>
+  - Returns all passdowns ordered by date descending
+  - Basic query without eager loading
+
+findAllWithUserAndToolOrderByDateDesc() -> List<Passdown>
+  - Returns all passdowns with user, tools, and assignedTechs eagerly loaded
+  - Uses LEFT JOIN FETCH to avoid N+1 queries
+  - Ordered by date descending
+  - Used for list views
+
+findByDateOrderByDateDesc(LocalDate date) -> List<Passdown>
+  - Finds passdowns for a specific date
+  - Basic query without eager loading
+
+findByDateWithUserAndToolOrderByDateDesc(LocalDate date) -> List<Passdown>
+  - Finds passdowns for a specific date with eager loading
+  - Uses LEFT JOIN FETCH
+  - Used for date-filtered views
+
+findByDateBetweenOrderByDateDesc(LocalDate startDate, LocalDate endDate) -> List<Passdown>
+  - Finds passdowns within a date range
+  - Basic query without eager loading
+
+findByDateBetweenWithUserAndToolOrderByDateDesc(LocalDate startDate, LocalDate endDate) -> List<Passdown>
+  - Finds passdowns within a date range with eager loading
+  - Uses LEFT JOIN FETCH
+  - Used for date range filtering
+
+findByToolIdWithUserAndToolOrderByDateDesc(Long toolId) -> List<Passdown>
+  - Finds all passdowns associated with a specific tool
+  - Eagerly loads user, tools, and assignedTechs
+  - Used for tool detail pages
+
+findByToolIdInOrderByDateDesc(List<Long> toolIds) -> List<Passdown>
+  - Bulk query for multiple tools (optimization)
+  - Returns passdowns for any of the provided tool IDs
+  - Used to avoid N+1 queries when loading passdowns for multiple tools
+
+findPassdownListDataByToolIds(List<Long> toolIds) -> List<Object[]>
+  - Lightweight query returning only essential fields
+  - Returns: [id, date, user.name, comment (truncated to 100 chars), tool.id]
+  - Used for optimized list views on tool detail pages
+
+findPotentialDuplicates(LocalDate date, String comment, List<Long> toolIds) -> List<Passdown>
+  - Checks for duplicate passdowns
+  - Matches by date, comment, and tool IDs
+  - Used during Excel import to detect duplicates
+
+================================================================================
+7. SERVICE LAYER METHODS
+================================================================================
+
+PassdownService provides the following operations:
+
+getAllPassdowns() -> List<Passdown>
+  - Returns all passdowns with eager loading
+  - Uses findAllWithUserAndToolOrderByDateDesc()
+
+getPassdownById(Long id) -> Optional<Passdown>
+  - Retrieves a single passdown by ID
+  - No eager loading (lazy loading)
+
+getPassdownByIdWithDetails(Long id) -> Optional<Passdown>
+  - Retrieves passdown with all collections initialized
+  - Forces initialization of picturePaths, pictureNames, tools, assignedTechs
+  - Used before updates to ensure proper collection handling
+
+getPassdownsByDate(LocalDate date) -> List<Passdown>
+  - Gets passdowns for a specific date
+  - Uses findByDateWithUserAndToolOrderByDateDesc()
+
+getPassdownsByDateRange(LocalDate startDate, LocalDate endDate) -> List<Passdown>
+  - Gets passdowns within a date range
+  - Uses findByDateBetweenWithUserAndToolOrderByDateDesc()
+
+getRecentPassdowns(int count) -> List<Passdown>
+  - Gets the most recent N passdowns
+  - Uses pagination with Sort.by("date").descending()
+
+savePassdown(Passdown passdownData, User currentUser, String newPicturePath, String originalFilename) -> Passdown
+  - Saves or updates a passdown
+  - Business Logic:
+    1. If updating existing passdown:
+       - Loads existing entity with all collections
+       - Compares old values with new values to detect changes
+       - Updates comment, date, tools, assignedTechs
+       - Sets lastEditedDate to current timestamp
+       - Sets lastEditedBy to currentUser
+       - Creates edit history entry for each changed field
+       - Preserves existing picturePaths and pictureNames
+    2. If creating new passdown:
+       - Initializes all collections
+       - Sets user to currentUser
+       - Sets createdDate to current timestamp
+       - Creates initial "CREATE" edit history entry
+    3. If newPicturePath provided:
+       - Adds picture path to picturePaths
+       - Adds filename mapping to pictureNames
+       - If tools are associated, also adds picture to those tools
+       - Creates edit history entry for picture addition
+  - Returns the saved passdown
+
+getPassdownEditHistory(Long passdownId) -> List<PassdownEditHistory>
+  - Retrieves all edit history entries for a passdown
+  - Ordered by editedAt descending (newest first)
+  - Used for displaying audit trail
+
+createEditHistoryEntry(Passdown passdown, User editedBy, String fieldName, String oldValue, String newValue, String editType) -> PassdownEditHistory
+  - Creates a new edit history entry
+  - Never deletes existing entries
+  - Used internally by savePassdown()
+
+deletePassdown(Long id) -> void
+  - Deletes a passdown by ID
+  - Cascade deletes associated pictures (if using PassdownPicture entity)
+  - Note: Legacy picture files are NOT automatically deleted
+
+================================================================================
+8. CONTROLLER ENDPOINTS / API
+================================================================================
+
+GET /passdown
+  - Lists all passdowns
+  - Optional query parameters: startDate, endDate (for filtering)
+  - Returns: passdown/list.html template
+  - Model attributes: passdowns (List<Passdown>), startDate, endDate
+
+GET /passdown/new
+  - Shows form to create new passdown
+  - Returns: passdown/form.html template
+  - Model attributes:
+    - passdown (new Passdown with auto-filled tool if user has active tool)
+    - tools (List<Tool>)
+    - users (List<User> for tech selection)
+    - today (LocalDate)
+
+GET /passdown/{id}
+  - Shows passdown details
+  - Returns: passdown/view.html template
+  - Model attributes: passdown (Passdown with all details)
+
+GET /passdown/{id}/history
+  - Shows edit history for a passdown
+  - Returns: passdown/history.html template
+  - Model attributes: passdown (Passdown), editHistory (List<PassdownEditHistory>)
+
+GET /passdown/{id}/edit
+  - Shows form to edit existing passdown
+  - Returns: passdown/form.html template
+  - Model attributes: same as /new
+
+POST /passdown
+  - Saves new or updates existing passdown
+  - Request Parameters:
+    - passdown (form data: id, comment, date)
+    - toolIds (List<Long> - multiple tool selections)
+    - techIds (List<Long> - multiple technician selections)
+    - pictureFile (MultipartFile - optional picture upload)
+    - redirectTo (String - optional redirect URL after save)
+  - On Success: Redirects to /passdown or redirectTo URL
+  - On Error: Returns to form with error message
+
+POST /passdown/{id}/update
+  - REST API endpoint for updating passdown
+  - Request Body: JSON with comment and date
+  - Returns: JSON response
+
+POST /passdown/{id}/pictures/delete
+  - Deletes a picture from passdown
+  - Request Parameter: picturePath (String)
+  - Removes picture from picturePaths and pictureNames
+  - Also removes from associated tools if linked
+  - Redirects back to passdown view
+
+DELETE /passdown/{id}
+  - Deletes a passdown
+  - Redirects to /passdown
+
+================================================================================
+9. BUSINESS RULES AND CONSTRAINTS
+================================================================================
+
+VALIDATION RULES:
+  1. comment is required (non-empty string)
+  2. date is required (defaults to current date if not provided)
+  3. user is automatically set to current authenticated user
+  4. Tools and assignedTechs are optional (can be empty)
+
+AUTO-FILL RULES:
+  1. When creating new passdown:
+     - If user has activeTool, it is added to tools set
+     - Current user is added to assignedTechs set
+  2. Date defaults to current date if not provided
+
+PICTURE HANDLING:
+  1. Pictures are uploaded via multipart form
+  2. Saved to "pictures" subdirectory in upload directory
+  3. File path is stored in picturePaths set
+  4. Original filename is stored in pictureNames map
+  5. When picture is added to passdown with tools, picture is also added to those tools
+  6. Pictures can be deleted individually
+  7. Legacy picture files are NOT automatically deleted when passdown is deleted
+
+SORTING AND DISPLAY:
+  1. Passdowns are always sorted by date descending (newest first)
+  2. When loading lists, user, tools, and assignedTechs are eagerly loaded
+  3. Comments are truncated to 100 characters in list views
+
+DUPLICATE DETECTION:
+  1. During Excel import, system checks for duplicates
+  2. Duplicates are identified by matching date, comment, and tool IDs
+  3. Users can choose to skip or import duplicates
+
+EDIT TRACKING AND AUDIT TRAIL:
+  1. EVERY edit creates a NEW history entry in passdown_edit_history table (never deleted)
+  2. The main passdowns table fields (lastEditedDate, lastEditedBy) are updated to reflect ONLY the most recent edit
+  3. The edit_history table stores ALL edits forever (complete audit trail)
+  4. History entries track:
+     - Who made the edit (user)
+     - When the edit was made (timestamp)
+     - What field changed (or "ALL" for general edit)
+     - Old value and new value
+     - Type of edit (CREATE, UPDATE, DELETE)
+  5. History is displayed in chronological order (newest first)
+  6. Nothing is truly deleted - soft deletes are tracked in history
+  7. Example: 
+     - UserA creates passdown on 2024-01-15 → Creates history entry #1
+     - UserB edits comment on 2024-01-16 → Creates history entry #2, updates lastEditedDate/lastEditedBy to UserB
+     - UserC edits date on 2024-01-17 → Creates history entry #3, updates lastEditedDate/lastEditedBy to UserC
+     - UserD edits comment on 2024-01-18 → Creates history entry #4, updates lastEditedDate/lastEditedBy to UserD
+     - Result: 4 entries in edit_history table (ALL edits preserved), lastEditedDate/lastEditedBy point to UserD's edit
+
+================================================================================
+10. RUST IMPLEMENTATION NOTES
+================================================================================
+
+Suggested Rust Structure:
+
+```rust
+use chrono::{NaiveDate, NaiveDateTime};
+use std::collections::{HashSet, HashMap};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Passdown {
+    pub id: Option<i64>,                    // Primary key, None for new records
+    pub comment: String,                     // Required, up to 10,000 chars
+    pub date: NaiveDate,                     // Required, defaults to today
+    pub created_date: NaiveDateTime,         // Auto-set on creation
+    pub last_edited_date: Option<NaiveDateTime>, // When last edited (None if never edited)
+    pub last_edited_by_user_id: Option<i64>, // Who last edited (None if never edited)
+    pub user_id: Option<i64>,                // Foreign key to users.id (creator)
+    pub tools: HashSet<i64>,                 // Many-to-Many: tool IDs
+    pub assigned_techs: HashSet<i64>,        // Many-to-Many: user IDs
+    pub picture_paths: HashSet<String>,       // Legacy picture storage
+    pub picture_names: HashMap<String, String>, // Maps path -> original filename
+}
+
+impl Passdown {
+    pub fn new(comment: String, date: NaiveDate, user_id: i64) -> Self {
+        Self {
+            id: None,
+            comment,
+            date,
+            created_date: chrono::Utc::now().naive_utc(),
+            user_id: Some(user_id),
+            tools: HashSet::new(),
+            assigned_techs: HashSet::new(),
+            picture_paths: HashSet::new(),
+            picture_names: HashMap::new(),
+        }
+    }
+    
+    pub fn add_picture(&mut self, path: String, original_filename: String) {
+        self.picture_paths.insert(path.clone());
+        self.picture_names.insert(path, original_filename);
+    }
+    
+    pub fn remove_picture(&mut self, path: &str) {
+        self.picture_paths.remove(path);
+        self.picture_names.remove(path);
+    }
+}
+```
+
+Database Constraints (SQL):
+- Primary key on id
+- Foreign key on user_id -> users.id
+- Join tables: passdown_tools, passdown_techs
+- ElementCollection tables: passdown_pictures_legacy, passdown_picture_names_legacy
+- Index on date for efficient sorting
+- Index on user_id for efficient filtering
+
+Validation:
+- comment must be non-empty
+- date must be provided (defaults to today)
+- user_id must be set (automatically to current user)
+
+Relationships:
+- User (Creator): ManyToOne (passdowns.user_id -> users.id)
+- Last Edited By: ManyToOne (passdowns.last_edited_by_user_id -> users.id)
+- Tools: ManyToMany (passdown_tools join table)
+- Assigned Techs: ManyToMany (passdown_techs join table)
+- Edit History: OneToMany (passdown_edit_history.passdown_id -> passdowns.id)
+
+Edit History Entity:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PassdownEditHistory {
+    pub id: Option<i64>,
+    pub passdown_id: i64,
+    pub edited_by_user_id: i64,
+    pub edited_at: NaiveDateTime,
+    pub field_name: String,        // Field that changed, or "ALL"
+    pub old_value: Option<String>, // Previous value
+    pub new_value: Option<String>, // New value
+    pub edit_type: String,         // "CREATE", "UPDATE", "DELETE"
+}
+```
+
+================================================================================
+11. EXAMPLE DATA
+================================================================================
+
+Example Passdown 1:
+  id: 1
+  comment: "Replaced filter on Tool X. Next shift should check pressure readings."
+  date: 2024-01-15
+  created_date: 2024-01-15 14:30:00
+  last_edited_date: 2024-01-16 09:20:00
+  last_edited_by_user_id: 7
+  user_id: 5
+  tools: [10, 12]
+  assigned_techs: [5, 7]
+  picture_paths: ["pictures/passdown_1_photo1.jpg"]
+  picture_names: {"pictures/passdown_1_photo1.jpg": "filter_replacement.jpg"}
+
+Example Passdown 2:
+  id: 2
+  comment: "Calibration completed. All readings within spec."
+  date: 2024-01-15
+  created_date: 2024-01-15 16:45:00
+  last_edited_date: null
+  last_edited_by_user_id: null
+  user_id: 3
+  tools: [10]
+  assigned_techs: [3]
+  picture_paths: []
+  picture_names: {}
+
+Example Edit History Entry:
+  id: 1
+  passdown_id: 1
+  edited_by_user_id: 7
+  edited_at: 2024-01-16 09:20:00
+  field_name: "comment"
+  old_value: "Replaced filter on Tool X."
+  new_value: "Replaced filter on Tool X. Next shift should check pressure readings."
+  edit_type: "UPDATE"
+
+================================================================================
+12. MIGRATION NOTES
+================================================================================
+
+When migrating data:
+1. Ensure user_id references valid users
+2. Preserve all tool associations in passdown_tools table
+3. Preserve all technician assignments in passdown_techs table
+4. Preserve picture paths and names (legacy system)
+5. Maintain date ordering for display
+
+Common Issues:
+- Missing user_id should reference system default user
+- Orphaned tool/tech associations should be cleaned up
+- Picture file paths may need to be updated if upload directory changes
+
+================================================================================
+END OF PASSDOWN OBJECT DEFINITION
+================================================================================
+

@@ -527,6 +527,31 @@
                                 </div>
                             </div>
                     </div>
+                    
+                    <!-- Custom Fields Display -->
+                    <div class="col-12 mt-3" th:if="${fieldDefinitions != null && !fieldDefinitions.isEmpty()}">
+                        <hr>
+                        <h6 class="mb-3">Custom Fields</h6>
+                        <div class="row g-3">
+                            <div th:each="fieldDef : ${fieldDefinitions}" class="col-md-6">
+                                <div class="d-flex flex-column">
+                                    <small class="text-muted" th:text="${fieldDef.fieldLabel}">Field Label</small>
+                                    <strong th:if="${customFields != null && customFields.containsKey(fieldDef.fieldKey)}">
+                                        <span th:if="${fieldDef.fieldType.name() == 'BOOLEAN'}">
+                                            <span th:text="${'true'.equals(customFields.get(fieldDef.fieldKey)) ? 'Yes' : 'No'}">Yes/No</span>
+                                        </span>
+                                        <span th:if="${fieldDef.fieldType.name() == 'DATE' && customFields.get(fieldDef.fieldKey) != null}">
+                                            <span th:text="${#temporals.format(#temporals.parse(customFields.get(fieldDef.fieldKey)), 'MMM dd, yyyy')}">Date</span>
+                                        </span>
+                                        <span th:if="${fieldDef.fieldType.name() != 'BOOLEAN' && fieldDef.fieldType.name() != 'DATE'}">
+                                            <span th:text="${customFields.get(fieldDef.fieldKey)}">Value</span>
+                                        </span>
+                                    </strong>
+                                    <span th:if="${customFields == null || !customFields.containsKey(fieldDef.fieldKey)}" class="text-muted">N/A</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                     
                     <!-- Edit Mode -->

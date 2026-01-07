@@ -1,0 +1,762 @@
+================================================================================
+PASSDOWN EXCEL IMPORT FUNCTIONALITY DEFINITION
+================================================================================
+Purpose: Comprehensive documentation for rebuilding the Passdown Excel Import
+         functionality in Rust (or any other language). This document describes
+         the complete 3-step import process, flexible data matching, Excel parsing,
+         and all business logic required to recreate this feature.
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+The Passdown Excel Import feature allows users to bulk import passdown records
+from Excel files (.xlsx format). The process is divided into 3 steps:
+
+1. **Parse & Match**: Parse Excel file, extract unique tools/technicians, and
+   attempt automatic matching to database entities. User confirms/corrects matches.
+
+2. **Preview**: Generate preview of all passdown entries organized by month,
+   with inferred dates and resolved tool/tech mappings. User can review and edit.
+
+3. **Import**: Save all passdown entries to database with final user-approved data.
+
+Key Features:
+- Flexible column detection (supports various header names)
+- Intelligent tool matching (handles variations like "GR151D" -> "GR151")
+- Technician matching by initials (e.g., "TW" matches "Travis Winston")
+- Automatic date inference for missing dates
+- Multi-sheet support
+- Duplicate detection (currently disabled but logic exists)
+- Timezone-aware date parsing
+
+================================================================================
+2. EXCEL FILE FORMAT REQUIREMENTS
+================================================================================
+
+File Format:
+- File Type: .xlsx (Excel 2007+ format, XLSXWorkbook)
+- Multiple sheets supported (all sheets are processed)
+- Each sheet should have a header row with column names
+
+Required Columns (Flexible Header Names):
+The system looks for columns by searching header text (case-insensitive, partial match):
+
+1. **Date Column**:
+   - Header must contain: "date"
+   - Examples: "Date", "Passdown Date", "Entry Date"
+   - Cell can be: Excel date format OR string date
+
+2. **Tool/Equipment Column**:
+   - Header must contain: "tool" OR "equipment"
+   - Examples: "Tool", "Equipment", "Tool Name", "Equipment Name"
+   - Can contain multiple tools separated by: /, \, or comma
+   - Examples: "GR151", "GR151/GR152", "GR151, GR152", "GR151\GR152"
+
+3. **Task/Comment Column**:
+   - Header must contain: "task" OR "issue" OR "comment" OR "description"
+   - Examples: "Task", "Issue", "Comment", "Description", "Task Description"
+   - Contains the passdown comment/text
+
+4. **Technician Column**:
+   - Header must contain: "tech"
+   - Examples: "Tech", "Technician", "Assigned Tech"
+   - Can contain multiple techs separated by: /, \, comma, or &
+   - Examples: "TW", "TW/JD", "TW, JD", "TW & JD"
+
+Optional/Filtered Values:
+- Tool values "Other" or "N/A" (case-insensitive) are ignored
+- Empty cells are skipped
+- Empty rows are skipped
+
+================================================================================
+3. THREE-STEP IMPORT PROCESS
+================================================================================
+
+STEP 1: PARSE EXCEL FOR REVIEW
+-------------------------------
+Endpoint: POST /passdowns/import/parse
+Request: MultipartFile (Excel file)
+Response: {
+    success: boolean,
+    totalRows: number,
+    toolMatches: [
+        {
+            excelString: string,      // Original string from Excel
+            matched: boolean,         // Whether auto-matched
+            toolId: number | null,    // Matched tool ID (if matched)
+            toolName: string | null   // Matched tool name (if matched)
+        }
+    ],
+    techMatches: [
+        {
+            initials: string,         // Extracted initials
+            matched: boolean,         // Whether auto-matched
+            userId: number | null,    // Matched user ID (if matched)
+            userName: string | null   // Matched user name (if matched)
+        }
+    ]
+}
+
+Process:
+1. Open Excel workbook (XLSXWorkbook)
+2. Iterate through all sheets
+3. For each sheet:
+   a. Find header row (first row containing "Date" or "Tool")
+   b. Map column indices by searching header text
+   c. Extract unique tool strings (split on /, \, comma)
+   d. Extract unique tech initials (split on /, \, comma, &)
+   e. Filter out "Other", "N/A", empty values
+4. Match tools to database (see Tool Matching section)
+5. Match technicians to database (see Technician Matching section)
+6. Return matches for user confirmation
+
+STEP 2: GENERATE PREVIEW
+-------------------------
+Endpoint: POST /passdowns/import/preview
+Request: 
+    - MultipartFile (Excel file)
+    - toolMappings: Map<string, number> (excelString -> toolId, or null for "No Tool")
+    - techMappings: Map<string, number> (initials -> userId, or null for "No Tech")
+Response: {
+    success: boolean,
+    totalEntries: number,
+    passdownsByMonth: {
+        "Jan": [entry, ...],
+        "Feb": [entry, ...],
+        ...
+        "Dec": [entry, ...]
+    }
+}
+
+Each entry structure:
+{
+    rowId: number,              // Sequential row number across all sheets
+    sheetName: string,           // Source sheet name
+    date: LocalDate | null,      // Parsed date (may be null initially)
+    dateString: string,          // Original date string from Excel
+    toolIds: number[],           // Resolved tool IDs (using mappings)
+    toolString: string,          // Original tool string from Excel
+    task: string,               // Task/comment text
+    techIds: number[],          // Resolved user IDs (using mappings)
+    techString: string,         // Original tech string from Excel
+    flagged: boolean            // True if missing date, tools, or techs
+}
+
+Process:
+1. Re-open Excel workbook
+2. Process all sheets and rows (same as Step 1)
+3. For each row:
+   a. Extract date, tool, task, tech strings
+   b. Parse date (with timezone conversion)
+   c. Resolve tools using toolMappings (split and map each part)
+   d. Resolve techs using techMappings (split and map each part)
+   e. Create entry object
+4. Infer missing dates (see Date Inference section)
+5. Organize entries by month (Jan-Dec)
+6. Flag entries missing critical data (date, tools, or techs)
+7. Return preview data
+
+STEP 3: CONFIRM AND IMPORT
+--------------------------
+Endpoint: POST /passdowns/import/confirm
+Request: List<Map<String, Object>> (final passdown entries from preview)
+Response: {
+    success: boolean,
+    imported: number,
+    skipped: number,
+    errors: string[]
+}
+
+Process:
+1. For each entry in finalPassdownData:
+   a. Parse date (from ISO string: "YYYY-MM-DD")
+   b. Extract task/comment
+   c. Convert toolIds (handle Integer/Long from JSON)
+   d. Convert techIds (handle Integer/Long from JSON)
+   e. Check for duplicates (currently disabled - see Duplicate Detection)
+   f. Create Passdown entity:
+      - date: LocalDate
+      - comment: String (task text)
+      - user: User (current logged-in user)
+      - createdDate: LocalDateTime.now()
+      - tools: Set<Tool> (from toolIds)
+      - assignedTechs: Set<User> (from techIds)
+   g. Save to database
+2. Return import statistics
+
+================================================================================
+4. FLEXIBLE COLUMN DETECTION
+================================================================================
+
+Header Row Detection:
+- Search all rows from top to bottom
+- First row containing "Date" OR "Tool" (case-insensitive) is the header row
+- If no header row found, skip that sheet
+
+Column Mapping (mapColumnIndices):
+For each cell in header row:
+1. Get cell value as string
+2. Convert to lowercase and trim
+3. Check for keywords (contains match, not exact):
+   - "date" -> maps to "date" column
+   - "tool" OR "equipment" -> maps to "tool" column
+   - "task" OR "issue" OR "comment" OR "description" -> maps to "task" column
+   - "tech" -> maps to "tech" column
+
+Example Headers That Work:
+- "Date", "Tool", "Task", "Tech"
+- "Passdown Date", "Equipment Name", "Issue Description", "Technician"
+- "Entry Date", "Tool/Equipment", "Comment", "Assigned Tech"
+- "Date", "Tool Name", "Task", "Tech Initials"
+
+Note: First match wins if multiple columns match same keyword.
+
+================================================================================
+5. TOOL MATCHING LOGIC (FLEXIBLE)
+================================================================================
+
+Purpose: Match Excel tool strings to database Tool entities with intelligent
+         fuzzy matching to handle variations.
+
+Input: Set of unique tool strings from Excel (e.g., "GR151D", "GR151/GR152")
+
+Process (matchTools):
+For each unique tool string:
+1. Split on delimiters: /, \, comma
+   - Example: "GR151/GR152" -> ["GR151", "GR152"]
+2. For each part:
+   a. Trim and convert to uppercase
+   b. Skip if empty
+   c. Extract "base" part by removing trailing letters:
+      - "GR151D" -> "GR151"
+      - "RFT152" -> "RFT152" (no trailing letters)
+      - "HG151F" -> "HG151"
+      - Regex: replaceAll("[A-Z]+$", "")
+   d. Search all tools in database:
+      - Check tool.name (case-insensitive):
+        * Exact match: "GR151D" == "GR151D"
+        * Base match: excelBase == dbBase
+      - Check tool.secondaryName (case-insensitive):
+        * Exact match: "GR151D" == "GR151D"
+        * Base match: excelBase == dbSecondaryBase
+   e. Return first match found
+3. Return match result:
+   {
+       excelString: string,      // Original part (trimmed, not uppercase)
+       matched: boolean,
+       toolId: number | null,
+       toolName: string | null
+   }
+
+Matching Rules:
+- Exact match: "GR151" matches "GR151" (case-insensitive)
+- Base match: "GR151D" matches "GR151" (strips trailing letters from both)
+- Checks both name and secondaryName fields
+- First match wins (if multiple tools match, first one is used)
+
+Example Matches:
+- Excel: "GR151D" -> Matches Tool.name="GR151" (base match)
+- Excel: "GR151" -> Matches Tool.name="GR151" (exact match)
+- Excel: "RFT152" -> Matches Tool.name="RFT152" (exact match)
+- Excel: "BT151" -> Matches Tool.secondaryName="BT151" (exact match)
+
+User Confirmation:
+- User sees list of all tool strings with match status
+- User can manually map unmatched tools to database tools
+- User can mark tools as "No Tool" (null mapping)
+- Final mappings stored as: Map<excelString, toolId | null>
+
+================================================================================
+6. TECHNICIAN MATCHING LOGIC (FLEXIBLE)
+================================================================================
+
+Purpose: Match Excel technician initials to database User entities by extracting
+         initials from full names.
+
+Input: Set of unique tech strings from Excel (e.g., "TW", "TW/JD")
+
+Process (matchTechnicians):
+For each unique tech string:
+1. Split on delimiters: /, \, comma, &
+   - Example: "TW/JD" -> ["TW", "JD"]
+   - Example: "TW & JD" -> ["TW", "JD"]
+2. For each part:
+   a. Trim and convert to uppercase
+   b. Validate format: Must match regex "^[A-Z]{2,4}$" (2-4 uppercase letters)
+   c. Skip if doesn't match pattern
+3. For each valid initials:
+   a. Search all users in database:
+      - Extract initials from user.name using extractInitials()
+      - Compare extracted initials (case-insensitive) with Excel initials
+   b. Return first match found
+
+Initials Extraction (extractInitials):
+Input: Full name string (e.g., "Travis Winston")
+Process:
+1. Split on whitespace: "Travis Winston" -> ["Travis", "Winston"]
+2. For each word part:
+   a. Take first character
+   b. Convert to uppercase
+   c. Append to result
+3. Return: "TW"
+
+Example Matches:
+- Excel: "TW" -> Matches User.name="Travis Winston" (initials: "TW")
+- Excel: "JD" -> Matches User.name="John Doe" (initials: "JD")
+- Excel: "ABC" -> Matches User.name="Alice Bob Charlie" (initials: "ABC")
+
+User Confirmation:
+- User sees list of all initials with match status
+- User can manually map unmatched initials to database users
+- User can mark initials as "No Tech" (null mapping)
+- Final mappings stored as: Map<initials (uppercase), userId | null>
+
+================================================================================
+7. DATE PARSING AND INFERENCE
+================================================================================
+
+Date Parsing (parseDate):
+Input: Excel cell, column index, timezone string
+Process:
+1. Get cell from row at column index
+2. Check cell type:
+   a. If NUMERIC and date-formatted:
+      - Get LocalDateTime from cell
+      - Convert to timezone (from Location.timeZone)
+      - Extract LocalDate
+   b. If STRING:
+      - Get string value
+      - Try parsing as ISO date (LocalDate.parse)
+      - TODO: Support multiple date formats (currently only ISO)
+3. Return LocalDate or null if parsing fails
+
+Timezone Handling:
+- Uses Location.timeZone field (e.g., "America/Phoenix")
+- Converts Excel date/time to location timezone before extracting date
+- Defaults to "America/Phoenix" if timezone is null
+
+Date Inference (inferMissingDates):
+Purpose: Fill in missing dates by analyzing surrounding entries
+
+Process:
+For each entry with null date:
+1. Find previous entry with date (search backwards)
+2. Find next entry with date (search forwards)
+3. Apply inference rules:
+   a. First entry (no previous, has next):
+      - Use same month as next entry
+      - Use day 1 (or same day if next is day 1)
+      - Formula: nextDate.withDayOfMonth(Math.min(nextDate.getDayOfMonth(), 1))
+   
+   b. Last entry (has previous, no next):
+      - Use same month as previous entry
+      - Use previous day + 1 (or last day of month if exceeds)
+      - Formula: prevDate.withDayOfMonth(Math.min(prevDate.getDayOfMonth() + 1, lastDayOfMonth))
+   
+   c. Middle entry (has both previous and next):
+      - Calculate midpoint between previous and next
+      - Formula: prevDate.plusDays(daysBetween / 2)
+      - daysBetween = ChronoUnit.DAYS.between(prevDate, nextDate)
+   
+   d. No surrounding dates:
+      - Use today's date (LocalDate.now())
+
+Example:
+- Entry 1: date=2024-01-05
+- Entry 2: date=null
+- Entry 3: date=2024-01-15
+- Inferred Entry 2: date=2024-01-10 (midpoint: 5 days between, midpoint = 5)
+
+================================================================================
+8. TOOL AND TECH RESOLUTION
+================================================================================
+
+Tool Resolution (resolveTools):
+Input: toolString from Excel, toolMappings (confirmed by user)
+Process:
+1. If toolString is null/empty, return empty list
+2. Split on delimiters: /, \, comma
+3. For each part:
+   a. Trim (preserve original case)
+   b. Look up in toolMappings
+   c. If found and not null, add toolId to result
+4. Return list of tool IDs
+
+Example:
+- toolString: "GR151/GR152"
+- toolMappings: {"GR151": 1, "GR152": 2}
+- Result: [1, 2]
+
+Tech Resolution (resolveTechs):
+Input: techString from Excel, techMappings (confirmed by user)
+Process:
+1. If techString is null/empty, return empty list
+2. Split on delimiters: /, \, comma, &
+3. For each part:
+   a. Trim and convert to uppercase
+   b. Look up in techMappings (key is uppercase)
+   c. If found and not null, add userId to result
+4. Return list of user IDs
+
+Example:
+- techString: "TW/JD"
+- techMappings: {"TW": 5, "JD": 7}
+- Result: [5, 7]
+
+================================================================================
+9. CELL VALUE EXTRACTION
+================================================================================
+
+getCellValueAsString:
+Handles all Excel cell types and converts to string representation.
+
+Cell Type Handling:
+1. STRING: Return string value directly
+2. NUMERIC:
+   a. If date-formatted: Convert to LocalDate string (ISO format: "YYYY-MM-DD")
+   b. Otherwise: Convert to long, then to string (removes decimals)
+3. BOOLEAN: Convert to "true" or "false" string
+4. FORMULA: Return formula string (not evaluated)
+5. BLANK/ERROR: Return null
+
+Date Detection:
+- Uses DateUtil.isCellDateFormatted(cell) to detect Excel date cells
+- Converts to LocalDateTime, then extracts LocalDate
+- Returns ISO format string: "2024-01-15"
+
+================================================================================
+10. ROW PROCESSING
+================================================================================
+
+Row Validation:
+- Skip null rows (row doesn't exist in sheet)
+- Skip empty rows (all cells are empty or null)
+- Process all other rows
+
+Empty Row Detection (isRowEmpty):
+- Iterate through all cells in row
+- If any cell has non-empty value, row is not empty
+- If all cells are empty/null, row is empty
+
+Row Counter:
+- Sequential counter across ALL sheets
+- Starts at 1 for first data row
+- Increments for each processed row
+- Used as rowId in entries for error reporting
+
+Sheet Processing:
+- Process all sheets in workbook
+- Each sheet processed independently
+- Header row found per sheet
+- Column mapping done per sheet
+- All entries collected into single list
+
+================================================================================
+11. PREVIEW ORGANIZATION
+================================================================================
+
+Month Organization:
+Entries are organized into 12 months: Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec
+
+Month Assignment:
+- If entry has date: Use month from date (passdownDate.getMonthValue() - 1 for array index)
+- If entry still has no date after inference: Assign to "Jan"
+
+Flagged Entries:
+An entry is flagged (needs attention) if ANY of:
+- date is null (after inference)
+- toolIds is empty AND toolString is null/empty
+- techIds is empty AND techString is null/empty
+
+Flagged entries should be highlighted in UI for user review.
+
+================================================================================
+12. DUPLICATE DETECTION
+================================================================================
+
+Note: Currently DISABLED in code (commented out) but logic exists.
+
+Duplicate Check (isDuplicate):
+A passdown is considered duplicate if ALL of these match:
+1. date: Exact match
+2. comment: Case-insensitive trimmed match
+3. tools: Same set of tool IDs (order doesn't matter)
+4. technicians: Same set of user IDs (order doesn't matter)
+
+Process:
+1. Query all passdowns for the date
+2. For each existing passdown:
+   a. Compare comment (trimmed, case-insensitive)
+   b. Compare tool ID sets (order-independent)
+   c. Compare tech ID sets (order-independent)
+   d. If all match, return true (duplicate)
+3. Return false (not duplicate)
+
+If duplicate found:
+- Skip import (don't create new passdown)
+- Increment skipped counter
+- Log duplicate detection
+
+================================================================================
+13. ERROR HANDLING
+================================================================================
+
+Parse Errors:
+- Missing header row: Skip sheet, log warning
+- Missing column: Use null for that field, continue processing
+- Date parse failure: Set date to null, will be inferred later
+- Tool/tech resolution failure: Set to empty list, entry will be flagged
+
+Import Errors:
+- Date parse failure: Add error message, skip entry, increment skipped
+- Tool/tech lookup failure: Skip missing IDs, continue with found ones
+- Database save failure: Add error message, skip entry, increment skipped
+- All errors collected in errors array: ["Row 5: Invalid date format", ...]
+
+Error Response Format:
+{
+    success: false,
+    message: "Error description"
+}
+
+Success Response Format:
+{
+    success: true,
+    imported: number,
+    skipped: number,
+    errors: string[]
+}
+
+================================================================================
+14. DATABASE OPERATIONS
+================================================================================
+
+Required Repositories:
+- ToolRepository: findAll(), findById(Long)
+- UserRepository: findAll(), findById(Long)
+- PassdownRepository: save(Passdown), findByDateWithUserAndToolOrderByDateDesc(LocalDate)
+
+Passdown Entity Creation:
+```rust
+// Pseudo-code structure
+Passdown {
+    date: LocalDate,                    // From entry.date
+    comment: String,                    // From entry.task
+    user: User,                         // Current logged-in user
+    createdDate: LocalDateTime,         // Now
+    tools: Set<Tool>,                   // From entry.toolIds
+    assignedTechs: Set<User>,           // From entry.techIds
+    // Other fields use defaults
+}
+```
+
+Transaction:
+- Import step runs in transaction (@Transactional)
+- If any error occurs, entire import can be rolled back (depending on error handling strategy)
+- Each passdown saved individually (not batch insert)
+
+================================================================================
+15. API ENDPOINTS SUMMARY
+================================================================================
+
+POST /passdowns/import/parse
+- Input: MultipartFile (Excel file)
+- Output: {success, totalRows, toolMatches, techMatches}
+- Purpose: Step 1 - Parse and match
+
+POST /passdowns/import/preview
+- Input: MultipartFile, toolMappings (Map), techMappings (Map)
+- Output: {success, totalEntries, passdownsByMonth}
+- Purpose: Step 2 - Generate preview
+
+POST /passdowns/import/confirm
+- Input: List<Map<String, Object>> (final passdown entries)
+- Output: {success, imported, skipped, errors}
+- Purpose: Step 3 - Import to database
+
+Authentication:
+- All endpoints require authenticated user
+- Current user retrieved from SecurityContext
+- User's active location used for timezone
+
+Validation:
+- User must have activeSite (active location) set
+- Excel file must be valid .xlsx format
+- File must be readable
+
+================================================================================
+16. RUST IMPLEMENTATION NOTES
+================================================================================
+
+Suggested Dependencies:
+- calamine or rust_xlsxwriter for Excel parsing (.xlsx files)
+- chrono for date/time handling
+- regex for pattern matching
+- serde for JSON serialization
+
+Key Structures:
+
+```rust
+// Tool match result
+struct ToolMatch {
+    excel_string: String,
+    matched: bool,
+    tool_id: Option<i64>,
+    tool_name: Option<String>,
+}
+
+// Tech match result
+struct TechMatch {
+    initials: String,
+    matched: bool,
+    user_id: Option<i64>,
+    user_name: Option<String>,
+}
+
+// Preview entry
+struct PreviewEntry {
+    row_id: i32,
+    sheet_name: String,
+    date: Option<chrono::NaiveDate>,
+    date_string: String,
+    tool_ids: Vec<i64>,
+    tool_string: String,
+    task: String,
+    tech_ids: Vec<i64>,
+    tech_string: String,
+    flagged: bool,
+}
+
+// Import result
+struct ImportResult {
+    imported: i32,
+    skipped: i32,
+    errors: Vec<String>,
+}
+```
+
+Key Functions to Implement:
+
+1. parse_excel_for_review(file, location) -> Result<ParseResult>
+2. match_tools(tool_strings, all_tools) -> Vec<ToolMatch>
+3. match_technicians(initials_set, all_users) -> Vec<TechMatch>
+4. extract_initials(full_name) -> String
+5. generate_preview(file, location, tool_mappings, tech_mappings) -> Result<PreviewResult>
+6. parse_date(cell, timezone) -> Option<NaiveDate>
+7. infer_missing_dates(entries) -> Vec<PreviewEntry>
+8. resolve_tools(tool_string, mappings) -> Vec<i64>
+9. resolve_techs(tech_string, mappings) -> Vec<i64>
+10. import_passdowns(entries, creator) -> Result<ImportResult>
+11. find_header_row(sheet) -> Option<usize>
+12. map_column_indices(header_row) -> HashMap<String, usize>
+13. get_cell_value_as_string(cell) -> Option<String>
+14. is_row_empty(row) -> bool
+
+Regex Patterns:
+- Tool base extraction: Regex::new(r"[A-Z]+$").unwrap() (remove trailing letters)
+- Initials validation: Regex::new(r"^[A-Z]{2,4}$").unwrap()
+
+Date Parsing:
+- Support Excel numeric dates (days since 1900-01-01)
+- Support ISO string dates: "YYYY-MM-DD"
+- Convert to timezone before extracting date
+- Use chrono::NaiveDate for date storage
+
+Error Handling:
+- Use Result<T, E> for all operations
+- Collect errors during import, don't fail fast
+- Return detailed error messages with row numbers
+
+================================================================================
+17. TESTING CONSIDERATIONS
+================================================================================
+
+Test Cases:
+
+1. Excel File Format:
+   - Valid .xlsx file with multiple sheets
+   - Missing header row (should skip sheet)
+   - Empty rows (should skip)
+   - Missing columns (should handle gracefully)
+
+2. Column Detection:
+   - Various header name variations
+   - Multiple columns matching same keyword (first wins)
+   - Case-insensitive matching
+
+3. Tool Matching:
+   - Exact matches
+   - Base matches (trailing letter variations)
+   - Multiple tools in one cell (split and match)
+   - Unmatched tools (user must map manually)
+
+4. Technician Matching:
+   - Initials extraction from various name formats
+   - Multiple techs in one cell (split and match)
+   - Unmatched initials (user must map manually)
+
+5. Date Parsing:
+   - Excel numeric dates
+   - String dates (ISO format)
+   - Invalid dates (should set to null, infer later)
+   - Timezone conversion
+
+6. Date Inference:
+   - First entry (no previous date)
+   - Last entry (no next date)
+   - Middle entry (has both)
+   - No surrounding dates (use today)
+
+7. Import:
+   - Valid entries (should import)
+   - Invalid entries (should skip, collect errors)
+   - Duplicate entries (if enabled, should skip)
+
+8. Error Handling:
+   - File read errors
+   - Parse errors
+   - Database errors
+   - Missing user/location
+
+================================================================================
+18. EXAMPLE WORKFLOW
+================================================================================
+
+1. User uploads Excel file:
+   File: passdowns.xlsx
+   Sheet 1: "January"
+     Date | Tool      | Task              | Tech
+     1/5  | GR151     | Checked pressure  | TW
+     1/6  | GR151/152 | Replaced filter   | TW/JD
+   
+   Sheet 2: "February"
+     Date | Tool | Task           | Tech
+     2/1  | BT151| Calibrated     | JD
+
+2. Step 1 - Parse:
+   - Extracts: tools=["GR151", "GR152", "BT151"], techs=["TW", "JD"]
+   - Matches: GR151->Tool(id=1), GR152->Tool(id=2), BT151->Tool(id=3)
+   - Matches: TW->User(id=5), JD->User(id=7)
+   - Returns matches for user confirmation
+
+3. User confirms mappings (all auto-matched correctly)
+
+4. Step 2 - Preview:
+   - Processes all rows
+   - Resolves tools: "GR151/152" -> [1, 2]
+   - Resolves techs: "TW/JD" -> [5, 7]
+   - Organizes by month: Jan=[entry1, entry2], Feb=[entry3]
+   - Returns preview
+
+5. User reviews preview, makes edits if needed
+
+6. Step 3 - Import:
+   - Creates 3 Passdown entities
+   - Saves to database
+   - Returns: {imported: 3, skipped: 0, errors: []}
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+

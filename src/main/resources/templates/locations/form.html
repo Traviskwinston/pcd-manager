@@ -24,10 +24,24 @@
             </div>
         </div>
 
+        <!-- Alert for error messages -->
+        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <span th:text="${error}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
         <div class="card">
             <div class="card-body">
                 <form th:action="@{/locations/save}" th:object="${location}" method="post">
                     <input type="hidden" th:field="*{id}" />
+                    
+                    <!-- Display global form errors -->
+                    <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+                        <ul class="mb-0">
+                            <li th:each="error : ${#fields.globalErrors()}" th:text="${error.getDefaultMessage()}"></li>
+                        </ul>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                     
                     <div class="mb-3">
                         <label for="state" class="form-label">State <span class="text-danger">*</span></label>

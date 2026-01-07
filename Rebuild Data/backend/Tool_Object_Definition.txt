@@ -1,0 +1,1159 @@
+================================================================================
+TOOL OBJECT DEFINITION
+================================================================================
+Purpose: Comprehensive documentation for rebuilding the Tool entity/model
+         in Rust (or any other language). This document describes all fields,
+         relationships, behaviors, constraints, and business logic.
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+The Tool object represents a physical piece of equipment that is being
+tracked, managed, and maintained. Tools can be of different types (ChemBlend,
+Slurry, GasGuard Source, GasGuard Distribution) and have modular checklist
+tracking that varies by tool type.
+
+Key Characteristics:
+- Tools are identified by name, serial numbers, and model numbers
+- Tools are associated with a location (stored as string for performance)
+- Tools have a status (NOT_STARTED, IN_PROGRESS, COMPLETED) based on checklist completion
+- Tools have modular checklists that vary by tool type:
+  * ChemBlend/Slurry: Standard commissioning checklist
+  * GasGuard (Source/Distribution): GasGuard-specific checklist
+- Tools track checklist dates and completion flags
+- Tools can be assigned to multiple technicians
+- Tools are central to RMAs, Passdowns, NCSRs, and TrackTrends
+
+================================================================================
+2. DATABASE SCHEMA
+================================================================================
+
+Table Name: tools
+
+Columns:
+---------
+id (BIGINT, PRIMARY KEY, AUTO_INCREMENT)
+  - Unique identifier for the tool
+  - Auto-generated sequential ID
+  - Used as foreign key in related tables
+
+name (VARCHAR, NOT NULL)
+  - Primary tool name
+  - Required field
+  - Editable in form
+  - Example: "Tool-001", "GasGuard System A"
+
+secondary_name (VARCHAR, NULLABLE)
+  - Secondary/alternate name for the tool
+  - Optional field
+  - Editable in form
+  - Example: "Backup System", "Secondary Unit"
+
+tool_type (VARCHAR, NULLABLE)
+  - Type of tool (enum stored as string)
+  - Values: GASGUARD_SOURCE, GASGUARD_DISTRIBUTION, CHEMBLEND, SLURRY
+  - Required field (enforced at application level)
+  - Editable in form
+  - Determines which checklist items are available
+  - Determines if device_description field is applicable
+  - GASGUARD_SOURCE and GASGUARD_DISTRIBUTION use GasGuard checklist
+  - CHEMBLEND and SLURRY use standard commissioning checklist
+
+serial1 (VARCHAR, NULLABLE)
+  - Serial number (renamed from serialNumber1)
+  - Optional field
+  - Editable in form
+  - Used for identification and searching
+  - Used for matching with NCSR equipment numbers
+
+serial2 (VARCHAR, NULLABLE)
+  - Second serial number (renamed from serialNumber2)
+  - Optional field
+  - Editable in form
+  - Used for identification
+  - Used for matching with NCSR equipment numbers
+
+model1 (VARCHAR, NULLABLE)
+  - First model number
+  - Optional field
+  - Editable in form
+
+model2 (VARCHAR, NULLABLE)
+  - Second model number
+  - Optional field
+  - Editable in form
+
+chemical_gas_service (VARCHAR, NULLABLE)
+  - Chemical or gas service information
+  - Optional field
+  - Editable in form
+
+device_description (VARCHAR, NULLABLE)
+  - GasGuard-specific: Device description
+  - Optional field, only applicable for GASGUARD_SOURCE and GASGUARD_DISTRIBUTION tool types
+  - Not applicable for CHEMBLEND or SLURRY
+  - Editable in form (GasGuard types only)
+  - Example: "Gas Cabinet", "VMB"
+  - Regular field on Tool (not using custom fields system)
+
+location_name (VARCHAR, NOT NULL)
+  - Location name as string (denormalized from Location for performance)
+  - Required field
+  - Editable in form
+  - Should match Location.displayName
+  - Used for filtering and display
+
+status (VARCHAR, NOT NULL)
+  - Tool status (enum stored as string)
+  - Values: NOT_STARTED, IN_PROGRESS, COMPLETED
+  - Required field, defaults to NOT_STARTED
+  - Can be manually set or calculated from checklist completion
+  - Editable in form
+
+start_date (DATE, NULLABLE)
+  - Date when checklist work started
+  - New field, separate from set_date, created_at, and edit dates
+  - Optional field
+  - Editable in form
+  - Represents when work on the tool's checklist began
+
+set_date (DATE, NULLABLE)
+  - Date when tool was set/installed
+  - Optional field, specific to Chemblend and Slurry tool types
+  - Editable in form
+  - Not applicable for GasGuard types
+
+created_at (TIMESTAMP, NULLABLE)
+  - Timestamp when tool was created
+  - Automatically set on creation (via @PrePersist)
+  - Used for audit trail
+  - Separate from start_date (creation date vs. when work started)
+
+updated_at (TIMESTAMP, NULLABLE)
+  - Timestamp when tool was last updated
+  - Automatically updated on modification (via @PreUpdate)
+  - Used for audit trail
+  - Separate from start_date (last edit date vs. when work started)
+
+last_edited_date (TIMESTAMP, NULLABLE)
+  - Timestamp of the MOST RECENT edit to this tool
+  - Automatically updated whenever tool is modified
+  - NULL if tool has never been edited (only created)
+  - NOTE: This field only stores the LAST edit. For complete history, see edit_history table.
+  - Used for quick reference to when tool was last modified
+
+last_edited_by_user_id (BIGINT, NULLABLE, FOREIGN KEY -> users.id)
+  - The user who made the MOST RECENT edit
+  - ManyToOne relationship to User
+  - Set automatically to current user when tool is updated
+  - NULL if tool has never been edited
+  - NOTE: This field only stores the LAST editor. For complete history, see edit_history table.
+  - Used for quick reference to who last modified the tool
+
+MODULAR CHECKLIST SYSTEM:
+  - Different tool types have different checklist items
+  - Each checklist item has both a date field and a boolean completion flag
+  - Item is considered complete if EITHER date is set OR boolean flag is true
+
+CHEMBLEND/SLURRY CHECKLIST (Default Checklist):
+  These tool types use the standard checklist with the following items:
+  
+  Date Fields (All DATE, NULLABLE):
+    - commission_date: Commission completion date
+    - pre_sl1_date: Pre SL1 completion date
+    - sl1_date: SL1 completion date
+    - sl2_date: SL2 completion date
+    - electrical_operation_pre_sl1_date: Electrical Operation Pre SL1 date
+    - hazardous_energy_checklist_date: Hazardous Energy Checklist date
+    - mechanical_pre_sl1_date: Mechanical Pre SL1 date
+    - mechanical_post_sl1_date: Mechanical Post SL1 date
+    - specific_input_functionality_date: Specific Input Functionality date
+    - modes_of_operation_date: Modes of Operation date
+    - specific_soos_date: Specific SOOS date
+    - field_service_report_date: Field Service Report date
+    - certificate_of_approval_date: Certificate of Approval date
+    - turned_over_to_customer_date: Turned Over to Customer date
+    - start_up_sl03_date: Start Up SL03 date
+  
+  Boolean Flags (All BOOLEAN, NULLABLE):
+    - commission_complete: Commission completion flag
+    - pre_sl1_complete: Pre SL1 completion flag
+    - sl1_complete: SL1 completion flag
+    - mechanical_pre_sl1_complete: Mechanical Pre SL1 completion flag
+    - mechanical_post_sl1_complete: Mechanical Post SL1 completion flag
+    - specific_input_functionality_complete: Specific Input Functionality completion flag
+    - modes_of_operation_complete: Modes of Operation completion flag
+    - specific_soos_complete: Specific SOOS completion flag
+    - field_service_report_complete: Field Service Report completion flag
+    - certificate_of_approval_complete: Certificate of Approval completion flag
+    - turned_over_to_customer_complete: Turned Over to Customer completion flag
+    - start_up_sl03_complete: Start Up SL03 completion flag
+
+GASGUARD (SOURCE AND DISTRIBUTION) CHECKLIST:
+  These tool types use a different checklist with the following items:
+  
+  Date Fields (All DATE, NULLABLE):
+    - distribution_system_utility_checklist_date: Distribution System Utility Checklist date
+    - inspection_sign_offs_date: Inspection Sign-Offs date
+    - piping_mechanical_date: Piping/Mechanical date
+    - electrical_date: Electrical date
+    - controller_date: Controller date
+    - calibration_date: Calibration date
+    - functional_test_date: Functional Test date
+    - functional_test_relay_outputs_date: Functional Test Relay Outputs date
+    - functional_test_user_setpoints_date: Functional Test User Setpoints date
+    - functional_test_program_modes_date: Functional Test Program Modes date
+    - functional_test_file_verification_date: Functional Test File Verification date
+  
+  Boolean Flags (All BOOLEAN, NULLABLE):
+    - distribution_system_utility_checklist_complete: Distribution System Utility Checklist flag
+    - inspection_sign_offs_complete: Inspection Sign-Offs flag
+    - piping_mechanical_complete: Piping/Mechanical flag
+    - electrical_complete: Electrical flag
+    - controller_complete: Controller flag
+    - calibration_complete: Calibration flag
+    - functional_test_complete: Functional Test flag
+    - functional_test_relay_outputs_complete: Functional Test Relay Outputs flag
+    - functional_test_user_setpoints_complete: Functional Test User Setpoints flag
+    - functional_test_program_modes_complete: Functional Test Program Modes flag
+    - functional_test_file_verification_complete: Functional Test File Verification flag
+
+CHECKLIST COMPLETION LOGIC:
+  - Each checklist item has both a date field and a boolean flag
+  - Item is considered complete if EITHER date is set OR boolean flag is true
+  - Helper methods check both date AND boolean flag for completion
+  - All fields are editable in form
+  - Boolean flags are independent of date fields (can be set without date)
+
+Join Tables:
+------------
+tool_technicians (Many-to-Many relationship)
+  - tool_id (BIGINT, FOREIGN KEY -> tools.id)
+  - user_id (BIGINT, FOREIGN KEY -> users.id)
+  - A tool can be assigned to multiple technicians
+  - A user can be assigned to multiple tools
+
+tool_tags (ElementCollection)
+  - tool_id (BIGINT, FOREIGN KEY -> tools.id)
+  - tag (VARCHAR)
+  - Set of tags for categorizing tools
+
+tool_documents (ElementCollection)
+  - tool_id (BIGINT, FOREIGN KEY -> tools.id)
+  - document_path (VARCHAR)
+  - File paths to uploaded documents
+
+tool_document_names (ElementCollection)
+  - tool_id (BIGINT, FOREIGN KEY -> tools.id)
+  - document_path (VARCHAR, MAP KEY)
+  - original_filename (VARCHAR)
+  - Maps document paths to original filenames
+
+tool_document_tags (ElementCollection)
+  - tool_id (BIGINT, FOREIGN KEY -> tools.id)
+  - document_path (VARCHAR, MAP KEY)
+  - document_tag (VARCHAR)
+  - Tags for documents
+
+tool_pictures_legacy (ElementCollection - Legacy Picture Storage)
+  - tool_id (BIGINT, FOREIGN KEY -> tools.id)
+  - picture_path (VARCHAR)
+  - Legacy system but still actively used
+
+tool_picture_names_legacy (ElementCollection - Legacy Picture Names)
+  - tool_id (BIGINT, FOREIGN KEY -> tools.id)
+  - picture_path (VARCHAR, MAP KEY)
+  - original_filename (VARCHAR)
+  - Maps picture paths to original filenames
+
+
+Audit History Table: tool_edit_history
+  - Tracks ALL edits to tools (forever growing list)
+  - NEVER deleted - maintains complete audit trail
+  - Stores EVERY edit that has ever been made to a tool
+  - Example: If UserB edits on Day 1, UserC edits on Day 2, UserD edits on Day 3,
+    there will be THREE separate entries in this table (one for each edit)
+  - The main tools table only stores the MOST RECENT edit in last_edited_date/last_edited_by_user_id
+  - This table stores the COMPLETE history of all edits
+  - Columns:
+    * id (BIGINT, PRIMARY KEY)
+    * tool_id (BIGINT, FOREIGN KEY -> tools.id)
+    * edited_by_user_id (BIGINT, FOREIGN KEY -> users.id)
+    * edited_at (TIMESTAMP, NOT NULL)
+    * field_name (VARCHAR(255)) - Name of field that changed (or "ALL" for general edit)
+    * old_value (TEXT) - Previous value (can be NULL)
+    * new_value (TEXT) - New value (can be NULL)
+    * edit_type (VARCHAR(50)) - Type of edit: "CREATE", "UPDATE", "DELETE" (soft delete)
+  - Index on tool_id for efficient history queries
+  - Index on edited_at for chronological sorting
+
+================================================================================
+3. FIELD DESCRIPTIONS AND VALIDATION RULES
+================================================================================
+
+REQUIRED FIELDS (Application-Level Validation):
+  - name: Must not be null or empty
+  - tool_type: Must not be null
+  - status: Must not be null (defaults to NOT_STARTED)
+  - location_name: Must not be null or empty
+
+AUTO-SET FIELDS:
+  - createdAt: Automatically set to current timestamp on creation
+  - updatedAt: Automatically updated on modification
+  - lastEditedDate: Automatically set to current timestamp when tool is updated
+  - lastEditedBy: Automatically set to current user when tool is updated
+
+VALIDATION RULES:
+  1. name is required (non-empty string)
+  2. tool_type is required (must be one of: GASGUARD_SOURCE, GASGUARD_DISTRIBUTION, CHEMBLEND, SLURRY)
+  3. status is required (defaults to NOT_STARTED)
+  4. location_name is required (non-empty string)
+  5. device_description is only applicable for GASGUARD_SOURCE and GASGUARD_DISTRIBUTION types
+  6. set_date is only applicable for CHEMBLEND and SLURRY types
+
+BUSINESS LOGIC:
+  1. Status can be manually set OR calculated from checklist completion
+  2. Checklist completion is determined by checking BOTH date field AND boolean flag
+  3. Different tool types have different checklist items (modular checklist system)
+  4. Location is stored as string (location_name) for performance, not as foreign key
+  5. start_date represents when checklist work began (separate from creation/edit dates)
+  6. set_date is only used for Chemblend and Slurry tool types
+  7. device_description is only applicable for GasGuard (Source and Distribution) types
+
+================================================================================
+4. COMPUTED PROPERTIES / METHODS
+================================================================================
+
+Helper Methods for Checklist Completion:
+  - Methods check BOTH date field AND boolean flag for completion
+  - Returns true if EITHER date is set OR boolean flag is true
+  
+  For Chemblend/Slurry:
+    - isCommissionCompleted() -> boolean
+    - isPreSl1Completed() -> boolean
+    - isSl1Completed() -> boolean
+    - isSl2Completed() -> boolean
+    - isMechanicalPreSl1Completed() -> boolean
+    - isMechanicalPostSl1Completed() -> boolean
+    - isSpecificInputFunctionalityCompleted() -> boolean
+    - isModesOfOperationCompleted() -> boolean
+    - isSpecificSoosCompleted() -> boolean
+    - isFieldServiceReportCompleted() -> boolean
+    - isCertificateOfApprovalCompleted() -> boolean
+    - isTurnedOverToCustomerCompleted() -> boolean
+    - isStartUpSl03Completed() -> boolean
+  
+  For GasGuard (Source and Distribution):
+    - isDistributionSystemUtilityChecklistCompleted() -> boolean
+    - isInspectionSignOffsCompleted() -> boolean
+    - isPipingMechanicalCompleted() -> boolean
+    - isElectricalCompleted() -> boolean
+    - isControllerCompleted() -> boolean
+    - isCalibrationCompleted() -> boolean
+    - isFunctionalTestCompleted() -> boolean
+    - isFunctionalTestRelayOutputsCompleted() -> boolean
+    - isFunctionalTestUserSetpointsCompleted() -> boolean
+    - isFunctionalTestProgramModesCompleted() -> boolean
+    - isFunctionalTestFileVerificationCompleted() -> boolean
+
+getCalculatedStatus() -> ToolStatus
+  - Calculates status based on checklist completion
+  - Counts completed checklist items based on tool type:
+    * Chemblend/Slurry: 15 total items (15 date fields, 12 boolean flags - some items only have dates)
+    * GasGuard (Source/Distribution): 11 total items
+  - Returns NOT_STARTED if 0 items completed
+  - Returns COMPLETED if all items completed
+  - Returns IN_PROGRESS otherwise
+
+PrePersist Hook:
+  - Sets createdAt to current timestamp if null
+  - Sets updatedAt to current timestamp if null
+
+PreUpdate Hook:
+  - Sets updatedAt to current timestamp
+
+================================================================================
+5. RELATIONSHIPS WITH OTHER OBJECTS
+================================================================================
+
+5.1 LOCATION RELATIONSHIPS
+--------------------------
+Relationship Type: Denormalized String Reference (NOT a foreign key)
+
+Tool.locationName (String field, NOT a foreign key)
+  - Tools store location as a STRING field (not a foreign key)
+  - This was converted from a foreign key relationship for performance
+  - The string value should match Location.displayName
+  - Foreign Key: NONE (denormalized for performance)
+  - Field: tools.location_name (VARCHAR, NOT NULL)
+
+Business Logic:
+  - When creating/editing a tool, locationName is set to Location.displayName
+  - Tools are filtered by matching locationName string to Location.displayName
+  - This allows fast filtering without JOINs
+
+5.2 USER RELATIONSHIPS
+----------------------
+Relationship Type: Many-to-Many (Many Tools can be assigned to many Users)
+
+Tool.currentTechnicians (ManyToMany -> User)
+  - Technicians currently assigned to work on the tool
+  - Join Table: tool_technicians
+  - Foreign Keys: tool_technicians.tool_id -> tools.id
+                  tool_technicians.user_id -> users.id
+  - Fetch Type: LAZY (loaded on demand)
+  - Can be empty (no assigned technicians)
+  - Editable in form (multi-select)
+
+Business Logic:
+  - Multiple technicians can be assigned to a single tool
+  - Used for filtering and quick access
+
+5.3 RMA RELATIONSHIPS
+---------------------
+Relationship Type: One-to-Many (One Tool can have many RMAs - Legacy)
+Relationship Type: Many-to-Many (Many Tools can be associated with many RMAs - New)
+
+Rma.tool (ManyToOne -> Tool) [Legacy]
+  - Primary tool associated with RMA
+  - Foreign Key: rma.tool_id -> tools.id
+  - Used for backward compatibility
+
+Rma.affectedTools (ManyToMany -> Tool) [New]
+  - All tools affected by this RMA
+  - Join Table: rma_tools
+  - Foreign Keys: rma_tools.rma_id -> rma.id
+                  rma_tools.tool_id -> tools.id
+  - Multiple tools can be associated with a single RMA
+
+Business Logic:
+  - RMAs can reference multiple tools
+  - Legacy tool_id is backfilled into affectedTools set
+  - Used for tracking which tools are involved in RMAs
+
+5.4 PASSDOWN RELATIONSHIPS
+--------------------------
+Relationship Type: Many-to-Many (Many Tools can be associated with many Passdowns)
+
+Passdown.tools (ManyToMany -> Tool)
+  - Tools associated with a passdown
+  - Join Table: passdown_tools
+  - Foreign Keys: passdown_tools.passdown_id -> passdowns.id
+                  passdown_tools.tool_id -> tools.id
+  - A tool can be associated with multiple passdowns
+
+Business Logic:
+  - Passdowns can reference multiple tools
+  - When a picture is uploaded to a passdown, it's also added to associated tools
+  - Used for filtering passdowns by tool
+
+5.5 TRACKTREND RELATIONSHIPS
+----------------------------
+Relationship Type: Many-to-Many (Many Tools can be part of many TrackTrends)
+
+TrackTrend.affectedTools (ManyToMany -> Tool)
+  - Tools affected by a track trend entry
+  - Join Table: track_trend_tools (via TrackTrend.affectedTools)
+  - A tool can be part of multiple track trends
+
+Business Logic:
+  - TrackTrends can reference multiple tools
+  - Used for tracking trends across multiple tools
+
+5.6 COMMENT RELATIONSHIPS
+-------------------------
+Relationship Type: One-to-Many (One Tool can have many Comments)
+
+ToolComment.tool (ManyToOne -> Tool)
+  - Comments associated with the tool
+  - Foreign Key: tool_comments.tool_id -> tools.id
+  - Fetch Type: LAZY (loaded on demand)
+  - Cascade delete: Comments are deleted when tool is deleted
+
+Business Logic:
+  - Tools can have multiple comments
+  - Comments track who made them and when
+  - Used for communication and notes
+
+5.7 PART MOVEMENT RELATIONSHIPS
+-------------------------------
+Relationship Type: One-to-Many (One Tool can have many Part Movements)
+
+PartMovement.tool (ManyToOne -> Tool)
+  - Parts that have been added to or removed from the tool
+  - Foreign Key: part_movements.tool_id -> tools.id
+  - Tracks part history for the tool
+
+MovingPart.fromTool (ManyToOne -> Tool)
+  - Parts moved from this tool to another location
+  - Foreign Key: moving_parts.from_tool_id -> tools.id
+  - Tracks parts that were moved out
+
+Business Logic:
+  - Tools track all part movements (additions and removals)
+  - Used for inventory tracking
+
+5.8 PICTURE RELATIONSHIPS
+-------------------------
+Relationship Type: One-to-Many (One Tool can have many Pictures - New)
+Relationship Type: ElementCollection (Legacy String-Based Storage)
+
+ToolPicture.tool (ManyToOne -> Tool)
+  - Modern picture storage with upload tracking
+  - Foreign Key: tool_pictures.tool_id -> tools.id
+  - Fetch Type: EAGER (loaded immediately)
+  - Cascade delete: Pictures are deleted when tool is deleted
+
+Tool.picturePaths (Set<String>)
+  - Legacy picture storage
+  - Stored in tool_pictures_legacy table
+  - Still actively used
+
+Tool.pictureNames (Map<String, String>)
+  - Maps picture paths to original filenames
+  - Stored in tool_picture_names_legacy table
+  - Still actively used
+
+Business Logic:
+  - Both systems are used (new ToolPicture entity and legacy paths)
+  - Pictures can be uploaded directly to tool or linked from passdowns/RMAs
+
+5.9 DOCUMENT RELATIONSHIPS
+--------------------------
+Relationship Type: ElementCollection (String-Based Storage)
+
+Tool.documentPaths (Set<String>)
+  - File paths to uploaded documents
+  - Stored in tool_documents table
+
+Tool.documentNames (Map<String, String>)
+  - Maps document paths to original filenames
+  - Stored in tool_document_names table
+
+Tool.documentTags (Map<String, String>)
+  - Tags for documents
+  - Stored in tool_document_tags table
+  - Key: document_path, Value: document_tag
+
+Business Logic:
+  - Documents are stored as file paths
+  - Documents can have tags for categorization
+
+5.10 NCSR RELATIONSHIPS
+----------------------
+Relationship Type: One-to-Many (One Tool can have many NCSRs)
+
+NCSR.tool (ManyToOne -> Tool)
+  - NCSR records associated with the tool
+  - Foreign Key: ncsrs.tool_id -> tools.id
+  - Fetch Type: LAZY (loaded on demand)
+  - NCSRs can also be matched to tools by equipment_number matching serial1 or serial2
+
+Business Logic:
+  - Tools can have multiple NCSR records
+  - NCSRs can be directly assigned to tool OR matched by equipment_number
+  - Equipment number matching checks both serial1 and serial2
+  - Used for tracking non-conforming supplier reports
+
+5.11 EDIT HISTORY RELATIONSHIPS
+--------------------------------
+Relationship Type: One-to-Many (Tool can have many Edit History entries)
+
+Tool.editHistory (OneToMany -> ToolEditHistory)
+  - Complete audit trail of all edits to this tool
+  - Foreign Key: tool_edit_history.tool_id -> tools.id
+  - Fetch Type: LAZY (loaded on demand)
+  - Never deleted - maintains complete history
+  - Ordered by edited_at descending (newest first)
+
+ToolEditHistory Entity:
+  - id: Primary key
+  - tool: ManyToOne reference to Tool
+  - editedBy: ManyToOne reference to User (who made the edit)
+  - editedAt: Timestamp of the edit
+  - fieldName: Name of field that changed (or "ALL" for general edit)
+  - oldValue: Previous value (TEXT, can be NULL)
+  - newValue: New value (TEXT, can be NULL)
+  - editType: "CREATE", "UPDATE", or "DELETE" (soft delete)
+
+Business Logic:
+  - Every edit creates a new history entry
+  - History entries are never deleted (forever growing list)
+  - Can track field-level changes or general edits
+  - Used for audit trail and accountability
+  - Example: If UserA creates tool on Day 1, then UserB edits name on Day 2,
+    both events are recorded in history
+
+================================================================================
+6. REPOSITORY QUERIES / DATA ACCESS METHODS
+================================================================================
+
+Standard CRUD Operations:
+  - findAll() -> List<Tool>
+  - findById(Long id) -> Optional<Tool>
+  - save(Tool) -> Tool
+  - deleteById(Long id) -> void
+
+Custom Query Methods:
+
+findByName(String name) -> Optional<Tool>
+  - Finds tool by exact name match (case-sensitive)
+
+findByNameIgnoreCase(String name) -> Optional<Tool>
+  - Finds tool by name (case-insensitive)
+
+findBySerial1(String serial1) -> Optional<Tool>
+  - Finds tool by first serial number (renamed from serialNumber1)
+
+findBySerial2(String serial2) -> Optional<Tool>
+  - Finds tool by second serial number (renamed from serialNumber2)
+
+findByModelAndNameSimilarity(String model, String namePattern) -> List<Tool>
+  - Finds tools by model and name similarity
+  - Uses LIKE pattern matching
+
+findByLocationName(String locationName) -> List<Tool>
+  - Finds all tools at a specific location
+  - Uses string matching on location_name field
+
+
+findByStatusWithLocation(String status) -> List<Tool>
+  - Finds tools by status
+
+findBySearchTerm(String searchTerm) -> List<Tool>
+  - Searches tools by name, serial1, or locationName
+  - Uses LIKE pattern matching (case-insensitive)
+
+findToolsAssignedToUser(Long userId) -> List<Tool>
+  - Finds all tools assigned to a user
+  - Uses native query with JOIN on tool_technicians table
+
+findByToolType(Tool.ToolType toolType) -> List<Tool>
+  - Finds all tools of a specific type
+
+findAllWithTechnicians() -> List<Tool>
+  - Finds all tools with technicians eagerly loaded
+  - Uses LEFT JOIN FETCH
+
+findByIdWithTechnicians(Long id) -> Optional<Tool>
+  - Finds specific tool with technicians eagerly loaded
+
+findAllWithAllRelations() -> List<Tool>
+  - Finds all tools with all related entities eagerly loaded
+  - Optimized for dashboard and list views
+
+findAllForListView() -> List<Tool>
+  - Lightweight query for list view
+  - Only loads essential fields and technicians
+
+findAllForAsyncListView() -> List<Object[]>
+  - Ultra-lightweight query for async list view
+  - Returns Object[] array with essential fields only
+  - Used for performance optimization
+
+================================================================================
+7. SERVICE LAYER METHODS
+================================================================================
+
+ToolService provides the following operations:
+
+getAllTools() -> List<Tool>
+  - Returns all tools
+  - Cached with key "all-tools"
+  - Cache is evicted when tools are modified
+
+getToolById(Long id) -> Optional<Tool>
+  - Retrieves a single tool by ID
+  - No caching
+
+saveTool(Tool tool) -> Tool
+  - Saves or updates a tool
+  - Business Logic:
+    1. If updating existing tool:
+       - Compares old values with new values to detect changes
+       - Sets lastEditedDate to current timestamp
+       - Sets lastEditedBy to current user
+       - Creates edit history entry for each changed field
+       - Updates updatedAt timestamp
+    2. If creating new tool:
+       - Sets createdAt to current timestamp
+       - Sets updatedAt to current timestamp
+       - Sets locationName from user's active location or system default
+       - Creates initial "CREATE" edit history entry
+    3. Evicts caches
+  - Returns the saved tool
+
+deleteTool(Long id) -> void
+  - Deletes a tool by ID
+  - Cascade deletes associated entities (comments, pictures, etc.)
+  - Evicts caches
+
+getToolEditHistory(Long toolId) -> List<ToolEditHistory>
+  - Retrieves all edit history entries for a tool
+  - Ordered by editedAt descending (newest first)
+  - Used for displaying audit trail
+
+createEditHistoryEntry(Tool tool, User editedBy, String fieldName, String oldValue, String newValue, String editType) -> ToolEditHistory
+  - Creates a new edit history entry
+  - Never deletes existing entries
+  - Used internally by saveTool()
+
+================================================================================
+8. CONTROLLER ENDPOINTS / API
+================================================================================
+
+GET /tools
+  - Lists all tools
+  - Optional query parameter: typeView (filter by tool type)
+  - Returns: tools/list.html template
+  - Model attributes: tools (List<Tool>), typeView
+
+GET /tools/new
+  - Shows form to create new tool
+  - Optional query parameter: toolType (preselect tool type)
+  - Returns: tools/form.html template
+  - Model attributes:
+    - tool (new Tool with default location)
+    - locations (List<Location>)
+    - checklistItems (varies by tool type)
+
+GET /tools/{id}
+  - Shows tool details
+  - Returns: tools/details.html template
+  - Model attributes: tool (Tool with all details)
+
+GET /tools/{id}/edit
+  - Shows form to edit existing tool
+  - Returns: tools/form.html template
+  - Model attributes: same as /new, with existing tool data
+
+POST /tools
+  - Saves new or updates existing tool
+  - Request Parameters:
+    - tool (form data: all tool fields)
+    - files (MultipartFile[] - optional document/picture uploads)
+  - On Success: Redirects to /tools
+  - On Error: Returns to form with error message
+
+GET /tools/{id}/history
+  - Shows edit history for a tool
+  - Returns: tools/history.html template
+  - Model attributes: tool (Tool), editHistory (List<ToolEditHistory>)
+
+DELETE /tools/{id}
+  - Deletes a tool
+  - Redirects to /tools
+
+================================================================================
+9. BUSINESS RULES AND CONSTRAINTS
+================================================================================
+
+VALIDATION RULES:
+  1. name is required (non-empty string)
+  2. tool_type is required (must be one of: GASGUARD_SOURCE, GASGUARD_DISTRIBUTION, CHEMBLEND, SLURRY)
+  3. status is required (defaults to NOT_STARTED)
+  4. location_name is required (non-empty string)
+  5. device_description is only applicable for GASGUARD_SOURCE and GASGUARD_DISTRIBUTION types
+  6. set_date is only applicable for CHEMBLEND and SLURRY types
+
+STATUS CALCULATION:
+  1. Status can be manually set OR calculated from checklist completion
+  2. Calculated status varies by tool type:
+     - Chemblend/Slurry: NOT_STARTED (0 items), IN_PROGRESS (1-14 items), COMPLETED (15 items)
+     - GasGuard (Source/Distribution): NOT_STARTED (0 items), IN_PROGRESS (1-10 items), COMPLETED (11 items)
+  3. Checklist completion checks BOTH date field AND boolean flag
+
+MODULAR CHECKLIST SYSTEM:
+  1. Different tool types have different checklist items
+  2. Chemblend and Slurry use the standard checklist (15 items: 15 date fields, 12 boolean flags)
+  3. GasGuard (Source) and GasGuard (Distribution) use GasGuard checklist (11 items)
+  4. Each checklist item has both a date field and a boolean flag (some items only have dates)
+  5. Item is considered complete if EITHER date is set OR boolean flag is true
+  6. Helper methods check both conditions
+  7. Checklist items are displayed based on tool type
+
+LOCATION HANDLING:
+  1. Location is stored as string (location_name) for performance
+  2. Should match Location.displayName
+  3. Defaults to user's active location or system default location
+  4. Used for filtering without JOINs
+
+TOOL TYPE SPECIFIC FIELDS:
+  1. device_description: Only applicable for GASGUARD_SOURCE and GASGUARD_DISTRIBUTION
+  2. set_date: Only applicable for CHEMBLEND and SLURRY
+  3. Checklist items vary by tool type (see MODULAR CHECKLIST SYSTEM)
+
+DATE FIELD DISTINCTIONS:
+  1. start_date: When checklist work began (user-set)
+  2. set_date: When tool was set/installed (Chemblend/Slurry only)
+  3. created_at: When tool record was created (system-set)
+  4. updated_at: When tool was last updated (system-set)
+  5. last_edited_date: When tool was last edited (system-set, for audit)
+  6. All dates serve different purposes and are tracked separately
+
+EDIT TRACKING AND AUDIT TRAIL:
+  1. EVERY edit creates a NEW history entry in tool_edit_history table (never deleted)
+  2. The main tools table fields (lastEditedDate, lastEditedBy) are updated to reflect ONLY the most recent edit
+  3. The edit_history table stores ALL edits forever (complete audit trail)
+  4. History entries track:
+     - Who made the edit (user)
+     - When the edit was made (timestamp)
+     - What field changed (or "ALL" for general edit)
+     - Old value and new value
+     - Type of edit (CREATE, UPDATE, DELETE)
+  5. History is displayed in chronological order (newest first)
+  6. Nothing is truly deleted - soft deletes are tracked in history
+  7. Example:
+     - UserA creates tool on 2024-01-10 → Creates history entry #1
+     - UserB edits name on 2024-01-15 → Creates history entry #2, updates lastEditedDate/lastEditedBy to UserB
+     - UserC edits status on 2024-01-20 → Creates history entry #3, updates lastEditedDate/lastEditedBy to UserC
+     - UserD edits checklist date on 2024-01-25 → Creates history entry #4, updates lastEditedDate/lastEditedBy to UserD
+     - Result: 4 entries in edit_history table (ALL edits preserved), lastEditedDate/lastEditedBy point to UserD's edit
+
+================================================================================
+10. TOOL TYPE ENUM
+================================================================================
+
+ToolType Enum Values:
+  - GASGUARD_SOURCE: "GasGuard (Source)" tool type
+  - GASGUARD_DISTRIBUTION: "GasGuard (Distribution)" tool type
+  - CHEMBLEND: "Chemblend" tool type
+  - SLURRY: "Slurry" tool type
+
+Each type has a displayName() method that returns the human-readable name.
+
+Tool types determine:
+  - Which checklist items are available (modular checklist system)
+  - Which form template is used
+  - Which fields are applicable (device_description for GasGuard, set_date for Chemblend/Slurry)
+  - Validation rules
+
+================================================================================
+11. TOOL STATUS ENUM
+================================================================================
+
+ToolStatus Enum Values:
+  - NOT_STARTED: Tool has not started checklist items
+  - IN_PROGRESS: Tool has some but not all checklist items completed
+  - COMPLETED: Tool has all checklist items completed
+
+Status can be:
+  - Manually set by user
+  - Automatically calculated from checklist completion
+  - Updated when checklist items are marked complete
+
+================================================================================
+12. RUST IMPLEMENTATION NOTES
+================================================================================
+
+Suggested Rust Structure:
+
+```rust
+use chrono::{NaiveDate, NaiveDateTime};
+use std::collections::{HashSet, HashMap};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ToolType {
+    GasGuardSource,      // "GasGuard (Source)"
+    GasGuardDistribution, // "GasGuard (Distribution)"
+    Chemblend,
+    Slurry,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ToolStatus {
+    NotStarted,
+    InProgress,
+    Completed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Tool {
+    pub id: Option<i64>,                    // Primary key, None for new records
+    pub name: String,                        // Required
+    pub secondary_name: Option<String>,
+    pub tool_type: ToolType,                 // Required
+    pub serial1: Option<String>,            // Renamed from serial_number1
+    pub serial2: Option<String>,            // Renamed from serial_number2
+    pub model1: Option<String>,
+    pub model2: Option<String>,
+    pub chemical_gas_service: Option<String>,
+    
+    // GasGuard-specific field
+    pub device_description: Option<String>,  // Only for GASGUARD_SOURCE and GASGUARD_DISTRIBUTION
+    
+    pub location_name: String,               // Required
+    pub status: ToolStatus,                  // Required, defaults to NotStarted
+    pub start_date: Option<NaiveDate>,      // When checklist work started (new field)
+    pub set_date: Option<NaiveDate>,        // When tool was set (Chemblend/Slurry only)
+    
+    pub created_at: NaiveDateTime,          // Auto-set on creation
+    pub updated_at: NaiveDateTime,          // Auto-updated on modification
+    pub last_edited_date: Option<NaiveDateTime>, // When last edited
+    pub last_edited_by_user_id: Option<i64>, // Who last edited
+    
+    // Chemblend/Slurry Checklist Dates (only used for CHEMBLEND and SLURRY types)
+    pub commission_date: Option<NaiveDate>,
+    pub pre_sl1_date: Option<NaiveDate>,
+    pub sl1_date: Option<NaiveDate>,
+    pub sl2_date: Option<NaiveDate>,
+    pub electrical_operation_pre_sl1_date: Option<NaiveDate>,
+    pub hazardous_energy_checklist_date: Option<NaiveDate>,
+    pub mechanical_pre_sl1_date: Option<NaiveDate>,
+    pub mechanical_post_sl1_date: Option<NaiveDate>,
+    pub specific_input_functionality_date: Option<NaiveDate>,
+    pub modes_of_operation_date: Option<NaiveDate>,
+    pub specific_soos_date: Option<NaiveDate>,
+    pub field_service_report_date: Option<NaiveDate>,
+    pub certificate_of_approval_date: Option<NaiveDate>,
+    pub turned_over_to_customer_date: Option<NaiveDate>,
+    pub start_up_sl03_date: Option<NaiveDate>,
+    
+    // Chemblend/Slurry Checklist Boolean Flags
+    pub commission_complete: Option<bool>,
+    pub pre_sl1_complete: Option<bool>,
+    pub sl1_complete: Option<bool>,
+    pub mechanical_pre_sl1_complete: Option<bool>,
+    pub mechanical_post_sl1_complete: Option<bool>,
+    pub specific_input_functionality_complete: Option<bool>,
+    pub modes_of_operation_complete: Option<bool>,
+    pub specific_soos_complete: Option<bool>,
+    pub field_service_report_complete: Option<bool>,
+    pub certificate_of_approval_complete: Option<bool>,
+    pub turned_over_to_customer_complete: Option<bool>,
+    pub start_up_sl03_complete: Option<bool>,
+    
+    // GasGuard Checklist Dates (only used for GASGUARD_SOURCE and GASGUARD_DISTRIBUTION types)
+    pub distribution_system_utility_checklist_date: Option<NaiveDate>,
+    pub inspection_sign_offs_date: Option<NaiveDate>,
+    pub piping_mechanical_date: Option<NaiveDate>,
+    pub electrical_date: Option<NaiveDate>,
+    pub controller_date: Option<NaiveDate>,
+    pub calibration_date: Option<NaiveDate>,
+    pub functional_test_date: Option<NaiveDate>,
+    pub functional_test_relay_outputs_date: Option<NaiveDate>,
+    pub functional_test_user_setpoints_date: Option<NaiveDate>,
+    pub functional_test_program_modes_date: Option<NaiveDate>,
+    pub functional_test_file_verification_date: Option<NaiveDate>,
+    
+    // GasGuard Checklist Boolean Flags
+    pub distribution_system_utility_checklist_complete: Option<bool>,
+    pub inspection_sign_offs_complete: Option<bool>,
+    pub piping_mechanical_complete: Option<bool>,
+    pub electrical_complete: Option<bool>,
+    pub controller_complete: Option<bool>,
+    pub calibration_complete: Option<bool>,
+    pub functional_test_complete: Option<bool>,
+    pub functional_test_relay_outputs_complete: Option<bool>,
+    pub functional_test_user_setpoints_complete: Option<bool>,
+    pub functional_test_program_modes_complete: Option<bool>,
+    pub functional_test_file_verification_complete: Option<bool>,
+    
+    // Collections (stored in separate tables)
+    pub tags: HashSet<String>,              // Tags for categorization
+    
+    // Document and picture collections
+    pub document_paths: HashSet<String>,
+    pub document_names: HashMap<String, String>,
+    pub document_tags: HashMap<String, String>,
+    pub picture_paths: HashSet<String>,      // Legacy
+    pub picture_names: HashMap<String, String>, // Legacy
+}
+
+impl Tool {
+    // Chemblend/Slurry checklist completion methods
+    pub fn is_commission_completed(&self) -> bool {
+        self.commission_complete == Some(true) || self.commission_date.is_some()
+    }
+    // ... other Chemblend/Slurry methods ...
+    
+    // GasGuard checklist completion methods
+    pub fn is_distribution_system_utility_checklist_completed(&self) -> bool {
+        self.distribution_system_utility_checklist_complete == Some(true) 
+            || self.distribution_system_utility_checklist_date.is_some()
+    }
+    // ... other GasGuard methods ...
+    
+    pub fn get_calculated_status(&self) -> ToolStatus {
+        let mut completed = 0;
+        let total_items = match self.tool_type {
+            ToolType::Chemblend | ToolType::Slurry => {
+                // Count Chemblend/Slurry checklist items (15 total: 15 date fields, 12 boolean flags)
+                if self.is_commission_completed() { completed += 1; }
+                // ... count other items ...
+                15
+            },
+            ToolType::GasGuardSource | ToolType::GasGuardDistribution => {
+                // Count GasGuard checklist items (11 total)
+                if self.is_distribution_system_utility_checklist_completed() { completed += 1; }
+                // ... count other items ...
+                11
+            },
+        };
+        
+        if completed == 0 {
+            ToolStatus::NotStarted
+        } else if completed == total_items {
+            ToolStatus::Completed
+        } else {
+            ToolStatus::InProgress
+        }
+    }
+}
+```
+
+Edit History Entity:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolEditHistory {
+    pub id: Option<i64>,
+    pub tool_id: i64,
+    pub edited_by_user_id: i64,
+    pub edited_at: NaiveDateTime,
+    pub field_name: String,        // Field that changed, or "ALL"
+    pub old_value: Option<String>, // Previous value
+    pub new_value: Option<String>, // New value
+    pub edit_type: String,         // "CREATE", "UPDATE", "DELETE"
+}
+```
+
+Database Constraints (SQL):
+- Primary key on id
+- NOT NULL constraints on name, tool_type, status, location_name
+- Index on location_name for efficient filtering
+- Index on tool_type for efficient filtering
+- Index on status for efficient filtering
+- Index on tool_id in tool_edit_history for efficient history queries
+- Index on edited_at for chronological sorting
+
+Validation:
+- name must be non-empty
+- tool_type must be provided
+- status must be provided (defaults to NotStarted)
+- location_name must be non-empty
+
+Relationships:
+- Location: Denormalized string reference (tools.location_name)
+- Users: ManyToMany (tool_technicians join table)
+- RMAs: ManyToMany (rma_tools join table) and OneToMany (rma.tool_id)
+- Passdowns: ManyToMany (passdown_tools join table)
+- NCSRs: OneToMany (ncsrs.tool_id)
+- TrackTrends: ManyToMany (via TrackTrend.affectedTools)
+- Comments: OneToMany (tool_comments.tool_id)
+- PartMovements: OneToMany (part_movements.tool_id)
+- MovingParts: OneToMany (moving_parts.from_tool_id)
+- Edit History: OneToMany (tool_edit_history.tool_id)
+
+================================================================================
+13. EXAMPLE DATA
+================================================================================
+
+Example Tool 1 (Slurry):
+  id: 1
+  name: "Slurry-001"
+  secondary_name: null
+  tool_type: SLURRY
+  serial1: "SN12345"
+  serial2: null
+  model1: "Model-A"
+  model2: null
+  chemical_gas_service: "Chemical"
+  device_description: null
+  location_name: "AZ F52"
+  status: IN_PROGRESS
+  start_date: 2024-01-10
+  set_date: 2024-01-10
+  created_at: 2024-01-10 10:00:00
+  updated_at: 2024-01-15 14:30:00
+  last_edited_date: 2024-01-15 14:30:00
+  last_edited_by_user_id: 5
+  commission_date: 2024-01-10
+  commission_complete: true
+  pre_sl1_date: 2024-01-12
+  pre_sl1_complete: true
+  sl1_date: null
+  sl1_complete: false
+  (other Chemblend/Slurry checklist fields...)
+
+Example Tool 2 (GasGuard Distribution):
+  id: 2
+  name: "GasGuard Distribution Unit 1"
+  secondary_name: null
+  tool_type: GASGUARD_DISTRIBUTION
+  serial1: "GD-001"
+  serial2: null
+  model1: "Model-D"
+  model2: null
+  chemical_gas_service: "Gas"
+  device_description: "Gas Cabinet"
+  location_name: "AMAT ASU"
+  status: IN_PROGRESS
+  start_date: 2024-01-12
+  set_date: null
+  created_at: 2024-01-12 09:15:00
+  updated_at: 2024-01-15 11:20:00
+  last_edited_date: 2024-01-15 11:20:00
+  last_edited_by_user_id: 3
+  distribution_system_utility_checklist_date: 2024-01-12
+  distribution_system_utility_checklist_complete: true
+  inspection_sign_offs_date: 2024-01-13
+  inspection_sign_offs_complete: true
+  (other GasGuard checklist fields...)
+
+Example Tool 3 (GasGuard Source):
+  id: 3
+  name: "GasGuard Source Unit 1"
+  secondary_name: null
+  tool_type: GASGUARD_SOURCE
+  serial1: "GS-001"
+  serial2: null
+  model1: "Model-S"
+  model2: null
+  chemical_gas_service: "Gas"
+  device_description: "VMB"
+  location_name: "AMAT ASU"
+  status: NOT_STARTED
+  start_date: null
+  set_date: null
+  created_at: 2024-01-20 08:00:00
+  updated_at: 2024-01-20 08:00:00
+  last_edited_date: null
+  last_edited_by_user_id: null
+  (GasGuard checklist fields all null...)
+
+Example Edit History Entry:
+  id: 1
+  tool_id: 1
+  edited_by_user_id: 5
+  edited_at: 2024-01-15 14:30:00
+  field_name: "status"
+  old_value: "NOT_STARTED"
+  new_value: "IN_PROGRESS"
+  edit_type: "UPDATE"
+
+================================================================================
+14. MIGRATION NOTES
+================================================================================
+
+When migrating data:
+1. Ensure location_name matches Location.displayName
+2. Preserve all checklist dates and boolean flags (both Chemblend/Slurry and GasGuard checklists)
+3. Map old AMATGASGUARD type to GASGUARD_SOURCE or GASGUARD_DISTRIBUTION
+4. Migrate device_description from custom fields to regular field for GasGuard tools
+5. Maintain tool-technician assignments in tool_technicians table
+6. Preserve all document and picture paths
+7. Maintain all relationships (RMAs, Passdowns, NCSRs, TrackTrends, Comments)
+8. Remove custom fields system (tool_custom_fields, tool_type_field_definitions tables)
+
+Common Issues:
+- Missing location_name should reference system default location
+- Old GasGuard tools need device_description migrated from custom fields
+- Document/picture file paths may need to be updated if upload directory changes
+- Checklist completion logic must check both date AND boolean flag
+- Different tool types have different checklist items (modular system)
+
+================================================================================
+END OF TOOL OBJECT DEFINITION
+================================================================================
+

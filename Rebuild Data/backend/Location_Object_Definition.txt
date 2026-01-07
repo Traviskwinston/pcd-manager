@@ -1,0 +1,744 @@
+================================================================================
+LOCATION OBJECT DEFINITION
+================================================================================
+Purpose: Comprehensive documentation for rebuilding the Location entity/model
+         in Rust (or any other language). This document describes all fields,
+         relationships, behaviors, constraints, and business logic.
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+The Location object represents a physical facility or site where tools are
+deployed and work is performed. Locations are identified by a combination of
+State and Fab (fabrication facility identifier), and serve as the primary
+organizational unit for filtering tools, RMAs, and other entities.
+
+Key Characteristics:
+- Each location represents a distinct physical site (e.g., "Arizona Fab 52")
+- Locations have a unique constraint: (state, fab) combination must be unique
+- One location can be marked as the system default
+- Locations store customer and shipping information for auto-filling RMA forms
+
+================================================================================
+2. DATABASE SCHEMA
+================================================================================
+
+Table Name: locations
+
+Columns:
+---------
+id (BIGINT, PRIMARY KEY, AUTO_INCREMENT)
+  - Unique identifier for the location
+  - Auto-generated sequential ID
+  - Used as foreign key in related tables
+
+address (VARCHAR(255), NULLABLE)
+  - Physical street address
+  - Optional field
+  - Editable in location form
+  - Example: "123 Main St, Phoenix, AZ"
+
+state (VARCHAR(255), NULLABLE)
+  - State or region name
+  - Examples: "Arizona", "New Mexico", "Ireland"
+  - Used in combination with 'fab' for unique identification
+  - Required for creating new locations (enforced at application level)
+
+fab (VARCHAR(255), NULLABLE)
+  - Fabrication facility identifier
+  - Examples: "52", "25", "10", "ASU"
+  - Used in combination with 'state' for unique identification
+  - Required for creating new locations (enforced at application level)
+
+display_name (VARCHAR(255), NULLABLE)
+  - User-friendly display name for the location
+  - If not provided, computed from state + fab (e.g., "AZ F52")
+  - Used throughout the UI for displaying location information
+  - Examples: "AZ F52", "NM F25", "AMAT ASU"
+
+default_location (BOOLEAN, DEFAULT FALSE)
+  - Indicates if this is the system default location
+  - Only ONE location can be default at a time
+  - When setting a location as default, all others are cleared
+  - Used as fallback when user has no active location set
+
+customer_name (VARCHAR(255), NULLABLE)
+  - Default customer name for this location
+  - Used to auto-fill RMA forms when this location is active
+  - Optional field
+
+customer_phone (VARCHAR(50), NULLABLE)
+  - Default customer phone number
+  - Used to auto-fill RMA forms
+  - Optional field
+
+customer_email (VARCHAR(255), NULLABLE)
+  - Default customer email address
+  - Used to auto-fill RMA forms
+  - Optional field
+
+ship_to_name (VARCHAR(255), NULLABLE)
+  - Company name for shipping address
+  - Used to auto-fill RMA shipping information
+  - Optional field
+
+ship_to_address (VARCHAR(255), NULLABLE)
+  - Street address for shipping
+  - Used to auto-fill RMA shipping information
+  - Optional field
+
+ship_to_city (VARCHAR(255), NULLABLE)
+  - City for shipping address
+  - Used to auto-fill RMA shipping information
+  - Optional field
+
+ship_to_state (VARCHAR(255), NULLABLE)
+  - State for shipping address
+  - Used to auto-fill RMA shipping information
+  - Optional field
+
+ship_to_zip (VARCHAR(255), NULLABLE)
+  - ZIP/postal code for shipping address
+  - Used to auto-fill RMA shipping information
+  - Optional field
+
+ship_to_attn (VARCHAR(255), NULLABLE)
+  - Attention line for shipping (e.g., "Attn: John Doe")
+  - Used to auto-fill RMA shipping information
+  - Optional field
+
+created_date (TIMESTAMP, NOT NULL, NOT UPDATABLE)
+  - Timestamp when the location was created
+  - Automatically set on creation (via @PrePersist)
+  - Cannot be updated after creation
+  - Used for audit trail
+
+last_edited_date (TIMESTAMP, NULLABLE)
+  - Timestamp of the MOST RECENT edit to this location
+  - Automatically updated whenever location is modified
+  - NULL if location has never been edited (only created)
+  - NOTE: This field only stores the LAST edit. For complete history, see edit_history table.
+  - Used for quick reference to when location was last modified
+
+last_edited_by_user_id (BIGINT, NULLABLE, FOREIGN KEY -> users.id)
+  - The user who made the MOST RECENT edit
+  - ManyToOne relationship to User
+  - Set automatically to current user when location is updated
+  - NULL if location has never been edited
+  - NOTE: This field only stores the LAST editor. For complete history, see edit_history table.
+  - Used for quick reference to who last modified the location
+
+UNIQUE CONSTRAINT:
+  - (state, fab) combination must be unique across all locations
+  - Enforced at database level
+  - Case-insensitive matching is performed at application level
+  - Example: Cannot have two locations with state="Arizona" and fab="52"
+
+Audit History Table: location_edit_history
+  - Tracks ALL edits to locations (forever growing list)
+  - NEVER deleted - maintains complete audit trail
+  - Stores EVERY edit that has ever been made to a location
+  - Example: If UserB edits on Day 1, UserC edits on Day 2, UserD edits on Day 3,
+    there will be THREE separate entries in this table (one for each edit)
+  - The main locations table only stores the MOST RECENT edit in last_edited_date/last_edited_by_user_id
+  - This table stores the COMPLETE history of all edits
+  - Columns:
+    * id (BIGINT, PRIMARY KEY)
+    * location_id (BIGINT, FOREIGN KEY -> locations.id)
+    * edited_by_user_id (BIGINT, FOREIGN KEY -> users.id)
+    * edited_at (TIMESTAMP, NOT NULL)
+    * field_name (VARCHAR(255)) - Name of field that changed (or "ALL" for general edit)
+    * old_value (TEXT) - Previous value (can be NULL)
+    * new_value (TEXT) - New value (can be NULL)
+    * edit_type (VARCHAR(50)) - Type of edit: "CREATE", "UPDATE", "DELETE" (soft delete)
+  - Index on location_id for efficient history queries
+  - Index on edited_at for chronological sorting
+
+================================================================================
+3. FIELD DESCRIPTIONS AND VALIDATION RULES
+================================================================================
+
+REQUIRED FIELDS (Application-Level Validation):
+  - state: Must not be null or empty when creating/updating
+  - fab: Must not be null or empty when creating/updating
+
+OPTIONAL FIELDS:
+  - All other fields are optional and can be null
+
+VALIDATION RULES:
+  1. state and fab must be provided together (both or neither)
+  2. state/fab combination must be unique (case-insensitive check)
+  3. When editing, state/fab can only be changed if no duplicate exists
+  4. Field keys (state, fab) are trimmed of whitespace before saving
+  5. display_name is trimmed if provided
+
+BUSINESS LOGIC:
+  1. Only ONE location can have default_location = true at any time
+  2. When setting a location as default, all other locations' default_location
+     flags are automatically cleared
+  3. If display_name is not provided, it is computed from state + fab
+  4. State abbreviations are mapped: "Arizona" -> "AZ", "New Mexico" -> "NM",
+     "Ireland" -> "IE"
+  5. Computed display name format: "{STATE_ABBR} F{FAB}" (e.g., "AZ F52")
+
+================================================================================
+4. COMPUTED PROPERTIES / METHODS
+================================================================================
+
+getDisplayName() -> String
+  - Returns the display name for the location
+  - Logic:
+    1. If display_name field is set and not empty, return it
+    2. If state is null/empty, return "Location"
+    3. If fab is null/empty, return first 3 characters of state (uppercase)
+    4. Otherwise, compute: "{STATE_ABBR} F{FAB}"
+  - State abbreviation mapping:
+     - "Arizona" -> "AZ"
+     - "New Mexico" -> "NM"
+     - "Ireland" -> "IE"
+     - Other states: Use first 2 characters (uppercase)
+  - Example outputs:
+     - state="Arizona", fab="52" -> "AZ F52"
+     - state="New Mexico", fab="25" -> "NM F25"
+     - display_name="AMAT ASU" -> "AMAT ASU" (if set)
+
+isDefaultLocation() -> Boolean
+  - Returns the default_location flag value
+  - Alias method for backward compatibility
+
+setDefaultLocation(boolean) -> void
+  - Sets the default_location flag
+  - When setting to true, should trigger clearing other defaults
+
+================================================================================
+5. RELATIONSHIPS WITH OTHER OBJECTS
+================================================================================
+
+5.1 USER RELATIONSHIPS
+----------------------
+Relationship Type: One-to-Many (Location can have many Users)
+
+User.activeSite (ManyToOne -> Location)
+  - Users can have an "active site" which is a Location
+  - When user switches locations, this field is updated
+  - Used to filter tools and other data by location
+  - Foreign Key: users.active_site_id -> locations.id
+  - Fetch Type: EAGER (loaded immediately)
+
+User.defaultLocation (ManyToOne -> Location)
+  - Users can have a default location preference
+  - Used as fallback if activeSite is not set
+  - Foreign Key: users.default_location_id -> locations.id
+  - Fetch Type: EAGER (loaded immediately)
+
+Business Logic:
+  - When a user switches to a location, their activeSite is updated
+  - If user has no activeSite, system may use their defaultLocation
+  - If user has neither, system uses the system default location
+
+5.2 TOOL RELATIONSHIPS
+----------------------
+Relationship Type: One-to-Many (Location can have many Tools)
+
+Tool.locationName (String field, NOT a foreign key)
+  - Tools store location as a STRING field (not a foreign key)
+  - This was converted from a foreign key relationship for performance
+  - The string value should match Location.displayName
+  - Foreign Key: NONE (denormalized for performance)
+  - Field: tools.location_name (VARCHAR, NOT NULL)
+
+Business Logic:
+  - When creating/editing a tool, locationName is set to Location.displayName
+  - Tools are filtered by matching locationName string to Location.displayName
+  - This allows fast filtering without JOINs
+
+5.3 RMA RELATIONSHIPS
+---------------------
+Relationship Type: One-to-Many (Location can have many RMAs)
+
+Rma.location (ManyToOne -> Location)
+  - RMAs are associated with a Location
+  - Used to track which location the RMA belongs to
+  - Foreign Key: rma.location_id -> locations.id
+  - Fetch Type: LAZY (loaded on demand)
+
+Business Logic:
+  - When creating an RMA, location can be auto-filled from user's activeSite
+  - Location's customer info (name, phone, email) auto-fills RMA customer fields
+  - Location's shipping info auto-fills RMA shipping fields
+
+5.4 CUSTOM LOCATION RELATIONSHIPS
+---------------------------------
+Relationship Type: One-to-Many (Location can have many CustomLocations)
+
+CustomLocation.location (ManyToOne -> Location)
+  - CustomLocations are sub-locations within a Location
+  - Examples: "Cabinet", "Intel Cage", "Office" within a facility
+  - Foreign Key: custom_locations.location_id -> locations.id
+  - Fetch Type: EAGER (loaded immediately)
+
+Business Logic:
+  - CustomLocations are location-specific storage areas
+  - Used for tracking part movements within a location
+  - Each CustomLocation belongs to exactly one Location
+
+5.5 PROJECT RELATIONSHIPS
+-------------------------
+Relationship Type: One-to-Many (Location can have many Projects)
+
+Project.location (ManyToOne -> Location)
+  - Projects can be associated with a Location
+  - Foreign Key: projects.location_id -> locations.id
+  - Fetch Type: LAZY (loaded on demand)
+
+5.6 EDIT HISTORY RELATIONSHIPS
+------------------------------
+Relationship Type: One-to-Many (Location can have many Edit History entries)
+
+Location.editHistory (OneToMany -> LocationEditHistory)
+  - Complete audit trail of all edits to this location
+  - Foreign Key: location_edit_history.location_id -> locations.id
+  - Fetch Type: LAZY (loaded on demand)
+  - Never deleted - maintains complete history
+  - Ordered by edited_at descending (newest first)
+
+LocationEditHistory Entity:
+  - id: Primary key
+  - location: ManyToOne reference to Location
+  - editedBy: ManyToOne reference to User (who made the edit)
+  - editedAt: Timestamp of the edit
+  - fieldName: Name of field that changed (or "ALL" for general edit)
+  - oldValue: Previous value (TEXT, can be NULL)
+  - newValue: New value (TEXT, can be NULL)
+  - editType: "CREATE", "UPDATE", or "DELETE" (soft delete)
+
+Business Logic:
+  - Every edit creates a new history entry
+  - History entries are never deleted (forever growing list)
+  - Can track field-level changes or general edits
+  - Used for audit trail and accountability
+
+================================================================================
+6. REPOSITORY QUERIES / DATA ACCESS METHODS
+================================================================================
+
+Standard CRUD Operations:
+  - findAll() -> List<Location>
+  - findById(Long id) -> Optional<Location>
+  - save(Location) -> Location
+  - deleteById(Long id) -> void
+
+Custom Query Methods:
+
+findByDefaultLocationIsTrue() -> Optional<Location>
+  - Finds the location where default_location = true
+  - Returns Optional because there should be exactly one (or zero)
+  - Used to get the system default location
+
+findByStateAndFab(String state, String fab) -> Optional<Location>
+  - Finds location by exact state and fab match (case-sensitive)
+  - Used for duplicate checking
+
+findByStateAndFabIgnoreCase(String state, String fab) -> Optional<Location>
+  - Finds location by state and fab (case-insensitive)
+  - Uses UPPER() function in SQL for comparison
+  - Used for duplicate validation when saving
+
+findByDisplayName(String displayName) -> Optional<Location>
+  - Searches for location by display_name
+  - Used when looking up locations by user input
+  - Example: Can find by "AZ F52" or "AMAT ASU"
+
+findDefaultLocationId() -> Long
+  - Native SQL query: SELECT id FROM locations WHERE default_location = TRUE LIMIT 1
+  - Returns just the ID (not full entity) for performance
+  - Used during initialization
+
+clearDefaultLocations() -> void
+  - Native SQL query: UPDATE locations SET default_location = FALSE
+  - Clears all default flags (used before setting a new default)
+  - Transactional operation
+
+================================================================================
+7. SERVICE LAYER METHODS
+================================================================================
+
+LocationService provides the following operations:
+
+getAllLocations() -> List<Location>
+  - Returns all locations
+  - Cached with key "all-locations"
+  - Cache is evicted when locations are modified
+
+getLocationById(Long id) -> Optional<Location>
+  - Retrieves a single location by ID
+  - No caching
+
+getLocationByName(String name) -> Optional<Location>
+  - Finds location by display_name
+  - Uses findByDisplayName repository method
+
+getDefaultLocation() -> Optional<Location>
+  - Gets the system default location
+  - Cached with key "default"
+  - Returns Optional.empty() if no default is set
+  - Cache is evicted when default location changes
+
+saveLocation(Location location) -> Location
+  - Saves or updates a location
+  - Business Logic:
+    1. If location.isDefaultLocation() is true:
+       - Clears all other locations' default flags
+    2. If updating existing location:
+       - Sets lastEditedDate to current timestamp
+       - Sets lastEditedBy to current user
+       - Creates edit history entry with field changes
+    3. If creating new location:
+       - Sets createdDate to current timestamp
+       - Creates initial "CREATE" edit history entry
+    4. Saves the location
+    5. Evicts all location-related caches
+  - Returns the saved location
+
+getLocationEditHistory(Long locationId) -> List<LocationEditHistory>
+  - Retrieves all edit history entries for a location
+  - Ordered by editedAt descending (newest first)
+  - Used for displaying audit trail
+
+createEditHistoryEntry(Location location, User editedBy, String fieldName, String oldValue, String newValue, String editType) -> LocationEditHistory
+  - Creates a new edit history entry
+  - Never deletes existing entries
+  - Used internally by saveLocation()
+
+deleteLocation(Long id) -> void
+  - Deletes a location by ID
+  - Evicts all location-related caches
+  - Note: May fail if location is referenced by other entities
+
+setDefaultLocation(Long id) -> void
+  - Sets a specific location as the default
+  - Business Logic:
+    1. Clears all default flags
+    2. Sets the specified location's default flag to true
+    3. Evicts caches
+
+initializeDefaultLocation() -> void
+  - Called on application startup (@PostConstruct)
+  - Ensures a default location exists
+  - Logic:
+    1. Checks if default location exists
+    2. If not, looks for "Arizona" state with "52" fab
+    3. If found, sets it as default
+    4. If not found, creates new location with state="Arizona", fab="52",
+       defaultLocation=true
+
+================================================================================
+8. CONTROLLER ENDPOINTS / API
+================================================================================
+
+GET /locations
+  - Lists all locations
+  - Returns: locations/list.html template
+  - Model attributes: locations (List<Location>)
+
+GET /locations/new
+  - Shows form to create new location
+  - Returns: locations/form.html template
+  - Model attributes: location (new Location())
+
+GET /locations/{id}
+  - Shows location details
+  - Returns: locations/view.html template
+  - Model attributes: location (Location)
+
+GET /locations/{id}/history
+  - Shows edit history for a location
+  - Returns: locations/history.html template
+  - Model attributes: location (Location), editHistory (List<LocationEditHistory>)
+
+GET /locations/edit/{id}
+  - Shows form to edit existing location
+  - Returns: locations/form.html template
+  - Model attributes: location (Location)
+
+POST /locations/save
+  - Saves new or updates existing location
+  - Request Body: Location object (form data)
+  - Validation:
+     - state and fab are required
+     - state/fab combination must be unique (case-insensitive)
+  - On Success: Redirects to /locations
+  - On Error: Returns locations/form.html with errors
+
+POST /locations/{id}/default
+  - Sets a location as the system default
+  - Clears all other default flags
+  - Redirects to /locations
+
+POST /locations/switch/{id}
+  - Switches the current user's active site to this location
+  - Updates User.activeSite
+  - Redirects to /locations with success message
+
+POST /locations/{id}/update
+  - REST API endpoint for updating location fields
+  - Request Body: JSON map of field names to values
+  - Supported fields: state, fab, displayName
+  - Returns: JSON response with updated location data
+
+POST /locations/{id}/delete
+  - Deletes a location
+  - Redirects to /locations
+
+================================================================================
+9. BUSINESS RULES AND CONSTRAINTS
+================================================================================
+
+UNIQUENESS CONSTRAINTS:
+  1. (state, fab) combination must be unique (database constraint)
+  2. Application performs case-insensitive duplicate checking
+  3. When editing, duplicate check excludes the current location
+
+DEFAULT LOCATION RULES:
+  1. Only ONE location can be default at a time
+  2. Setting a location as default clears all others
+  3. System should always have a default location (enforced at startup)
+  4. If no default exists, "Arizona Fab 52" is created automatically
+
+DISPLAY NAME RULES:
+  1. If display_name is explicitly set, use it
+  2. Otherwise, compute from state + fab
+  3. Format: "{STATE_ABBR} F{FAB}"
+  4. State abbreviations are mapped (Arizona->AZ, New Mexico->NM, etc.)
+  5. Fallback: If state is missing, return "Location"
+
+VALIDATION RULES:
+  1. state and fab are required when creating/updating
+  2. state and fab are trimmed of whitespace
+  3. display_name is trimmed if provided
+  4. Duplicate state/fab combinations are rejected with error message
+
+CACHING STRATEGY:
+  1. getAllLocations() is cached with key "all-locations"
+  2. getDefaultLocation() is cached with key "default"
+  3. Caches are evicted when:
+     - Location is saved
+     - Location is deleted
+     - Default location is changed
+
+EDIT TRACKING AND AUDIT TRAIL:
+  1. EVERY edit creates a NEW history entry in location_edit_history table (never deleted)
+  2. The main locations table fields (lastEditedDate, lastEditedBy) are updated to reflect ONLY the most recent edit
+  3. The edit_history table stores ALL edits forever (complete audit trail)
+  4. History entries track:
+     - Who made the edit (user)
+     - When the edit was made (timestamp)
+     - What field changed (or "ALL" for general edit)
+     - Old value and new value
+     - Type of edit (CREATE, UPDATE, DELETE)
+  5. History is displayed in chronological order (newest first)
+  6. Nothing is truly deleted - soft deletes are tracked in history
+  7. Example:
+     - UserA creates location on 2024-01-10 → Creates history entry #1
+     - UserB edits display_name on 2024-01-15 → Creates history entry #2, updates lastEditedDate/lastEditedBy to UserB
+     - UserC edits address on 2024-01-20 → Creates history entry #3, updates lastEditedDate/lastEditedBy to UserC
+     - UserD edits customer_name on 2024-01-25 → Creates history entry #4, updates lastEditedDate/lastEditedBy to UserD
+     - Result: 4 entries in edit_history table (ALL edits preserved), lastEditedDate/lastEditedBy point to UserD's edit
+
+================================================================================
+10. STATE ABBREVIATION MAPPING
+================================================================================
+
+The Location object maintains a static mapping of state names to abbreviations:
+
+"Arizona" -> "AZ"
+"New Mexico" -> "NM"
+"Ireland" -> "IE"
+
+For states not in the mapping:
+- Use first 2 characters of state name (uppercase)
+- If state is less than 2 characters, use entire state (uppercase)
+
+This mapping is used when computing display_name from state + fab.
+
+================================================================================
+11. RUST IMPLEMENTATION NOTES
+================================================================================
+
+Suggested Rust Structure:
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Location {
+    pub id: Option<i64>,                    // Primary key, None for new records
+    pub address: Option<String>,              // Physical address
+    pub state: Option<String>,               // State/region name
+    pub fab: Option<String>,                 // Fab identifier
+    pub display_name: Option<String>,        // User-friendly display name
+    pub default_location: bool,              // Is system default?
+    pub created_date: NaiveDateTime,        // When location was created
+    pub last_edited_date: Option<NaiveDateTime>, // When last edited (None if never edited)
+    pub last_edited_by_user_id: Option<i64>, // Who last edited (None if never edited)
+    
+    // Customer info fields (used for RMA auto-fill)
+    pub customer_name: Option<String>,
+    pub customer_phone: Option<String>,
+    pub customer_email: Option<String>,
+    
+    // Shipping info fields (used for RMA auto-fill)
+    pub ship_to_name: Option<String>,
+    pub ship_to_address: Option<String>,
+    pub ship_to_city: Option<String>,
+    pub ship_to_state: Option<String>,
+    pub ship_to_zip: Option<String>,
+    pub ship_to_attn: Option<String>,
+}
+
+impl Location {
+    // Computed property: display_name
+    pub fn display_name(&self) -> String {
+        if let Some(ref dn) = self.display_name {
+            if !dn.trim().is_empty() {
+                return dn.clone();
+            }
+        }
+        
+        // Fallback computation
+        let state = self.state.as_deref().unwrap_or("");
+        if state.is_empty() {
+            return "Location".to_string();
+        }
+        
+        let fab = self.fab.as_deref().unwrap_or("");
+        if fab.is_empty() {
+            return state.chars().take(3).collect::<String>().to_uppercase();
+        }
+        
+        let state_abbr = self.state_abbreviation(state);
+        format!("{} F{}", state_abbr, fab)
+    }
+    
+    fn state_abbreviation(&self, state: &str) -> String {
+        match state {
+            "Arizona" => "AZ".to_string(),
+            "New Mexico" => "NM".to_string(),
+            "Ireland" => "IE".to_string(),
+            _ => {
+                if state.len() >= 2 {
+                    state.chars().take(2).collect::<String>().to_uppercase()
+                } else {
+                    state.to_uppercase()
+                }
+            }
+        }
+    }
+}
+```
+
+Database Constraints (SQL):
+- UNIQUE constraint on (state, fab)
+- Index on default_location for fast default lookup
+- Consider index on display_name for lookups
+
+Validation:
+- state and fab must be Some(String) when creating/updating
+- state/fab combination must be unique (case-insensitive check)
+- When setting default_location=true, clear all other defaults
+
+Relationships:
+- Users: One-to-Many (users.active_site_id, users.default_location_id)
+- Tools: One-to-Many (tools.location_name stores display_name as string)
+- RMAs: One-to-Many (rma.location_id)
+- CustomLocations: One-to-Many (custom_locations.location_id)
+- Projects: One-to-Many (projects.location_id)
+- Edit History: One-to-Many (location_edit_history.location_id)
+
+Edit History Entity:
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocationEditHistory {
+    pub id: Option<i64>,
+    pub location_id: i64,
+    pub edited_by_user_id: i64,
+    pub edited_at: NaiveDateTime,
+    pub field_name: String,        // Field that changed, or "ALL"
+    pub old_value: Option<String>, // Previous value
+    pub new_value: Option<String>, // New value
+    pub edit_type: String,         // "CREATE", "UPDATE", "DELETE"
+}
+```
+
+================================================================================
+12. EXAMPLE DATA
+================================================================================
+
+Example Location 1:
+  id: 1
+  address: null
+  state: "Arizona"
+  fab: "52"
+  display_name: "AZ F52"
+  default_location: true
+  created_date: 2024-01-10 10:00:00
+  last_edited_date: 2024-01-15 14:30:00
+  last_edited_by_user_id: 5
+  customer_name: null
+  customer_phone: null
+  customer_email: null
+  ship_to_name: null
+  ship_to_address: null
+  ship_to_city: null
+  ship_to_state: null
+  ship_to_zip: null
+  ship_to_attn: null
+
+Example Location 2:
+  id: 2
+  address: null
+  state: "AZ"
+  fab: "ASU"
+  display_name: "AMAT ASU"
+  default_location: false
+  created_date: 2024-01-12 09:15:00
+  last_edited_date: null
+  last_edited_by_user_id: null
+  customer_name: null
+  customer_phone: null
+  customer_email: null
+  ship_to_name: null
+  ship_to_address: null
+  ship_to_city: null
+  ship_to_state: null
+  ship_to_zip: null
+  ship_to_attn: null
+
+Example Edit History Entry:
+  id: 1
+  location_id: 1
+  edited_by_user_id: 5
+  edited_at: 2024-01-15 14:30:00
+  field_name: "display_name"
+  old_value: "AZ F52"
+  new_value: "Arizona Fab 52"
+  edit_type: "UPDATE"
+
+================================================================================
+13. MIGRATION NOTES
+================================================================================
+
+When migrating data:
+1. Ensure (state, fab) uniqueness is maintained
+2. Compute display_name for locations that don't have it
+3. Set one location as default if none exists
+4. Preserve all customer and shipping information
+
+Common Issues:
+- Duplicate state/fab combinations must be resolved
+- Missing display_name should be computed from state+fab
+- Default location must exist (create if missing)
+
+================================================================================
+END OF LOCATION OBJECT DEFINITION
+================================================================================
+

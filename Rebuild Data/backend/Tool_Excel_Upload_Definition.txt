@@ -1,0 +1,556 @@
+================================================================================
+TOOL EXCEL UPLOAD FUNCTIONALITY DEFINITION
+================================================================================
+Purpose: Comprehensive documentation for rebuilding the Tool Excel Upload
+         functionality in Rust (or any other language). This document describes
+         the bulk upload process, flexible column detection, tool type detection,
+         location resolution, and all business logic required to recreate this feature.
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+The Tool Excel Upload feature allows users to bulk import multiple tools at once
+from an Excel file (.xlsx or .xls format). The system automatically detects
+column headers, parses tool data, handles different tool types (including
+GasGuard tools), and creates Tool entities in the database.
+
+Key Features:
+- Flexible column header detection (supports various header name variations)
+- Automatic tool type detection (ChemBlend, Slurry, GasGuard)
+- GasGuard tool detection (based on Equipment Location field)
+- System name inheritance for GasGuard tools
+- Location matching and resolution
+- Duplicate detection (skips tools that already exist)
+- Automatic status and date assignment
+- Upload date tracking for GasGuard tools (with millisecond offsets)
+
+================================================================================
+2. EXCEL FILE FORMAT REQUIREMENTS
+================================================================================
+
+File Format:
+- File Type: .xlsx or .xls (Excel format)
+- First sheet is used (sheet index 0)
+- First row must be header row with column names
+- Data rows start from row 2 (index 1)
+
+Required Columns (Flexible Header Names):
+The system uses flexible header matching (case-insensitive, partial match):
+
+1. **Tool Name** (Primary identifier for standard tools):
+   - Headers: "Tool Name", "ToolName", "Name"
+   - Required for non-GasGuard tools
+   - Used as primary identifier
+
+2. **Tool Name 2** (Secondary name):
+   - Headers: "Tool Name 2", "ToolName2", "Name 2", "Secondary Name"
+   - Optional
+
+3. **Type** (Tool type):
+   - Headers: "Type", "Tool Type", "ToolType"
+   - Values: CHEMBLEND, SLURRY, GASGUARD (or aliases - see Tool Type Normalization)
+   - Optional (can be inferred for GasGuard tools)
+
+4. **Model Number** (First model):
+   - Headers: "Model", "Model Number", "Model#"
+   - If multiple "Model" columns exist, first = model1, second = model2
+   - Optional
+
+5. **Model Number 2** (Second model):
+   - Headers: Second occurrence of "Model", "Model Number", "Model#"
+   - Optional
+
+6. **Serial Number** (First serial):
+   - Headers: "Serial", "Serial Number", "Serial#"
+   - If multiple "Serial" columns exist, first = serial1, second = serial2
+   - Optional
+
+7. **Serial Number 2** (Second serial):
+   - Headers: Second occurrence of "Serial", "Serial Number", "Serial#"
+   - Optional
+
+8. **Location**:
+   - Headers: "Location"
+   - Optional (falls back to user's active/default location)
+
+GasGuard-Specific Columns:
+9. **System** (System name):
+   - Headers: "System"
+   - Optional (can be inherited from previous row)
+   - Used for GasGuard tool naming
+
+10. **Equipment Location**:
+    - Headers: "Equipment Location", "EquipmentLocation", "Tool Location", 
+               "ToolLocation", "Equipment/Location", "Equipment / Location",
+               "Equipment/ Location", "Equipment /Location"
+    - Presence of this field triggers GasGuard tool detection
+    - Required for GasGuard tools
+
+11. **Config Number**:
+    - Headers: "Config", "Config#", "Config Number"
+    - Optional
+
+12. **Equipment Set**:
+    - Headers: "Equipment Set", "EquipmentSet", "Set"
+    - Can be percentage (e.g., "100", "100.0", "100%")
+    - Defaults to 100 if not specified
+    - Optional
+
+================================================================================
+3. UPLOAD PROCESS
+================================================================================
+
+Endpoint: POST /tools/upload-excel
+Request: MultipartFile (Excel file)
+Response: {
+    success: boolean,
+    toolsCreated: number,
+    error?: string
+}
+
+Process Flow:
+1. Validate file (not empty, correct format)
+2. Open Excel workbook (first sheet)
+3. Read header row (row 0)
+4. Map column headers to field names (flexible matching)
+5. Process each data row:
+   a. Extract values using column mapping
+   b. Detect tool type (GasGuard vs standard)
+   c. Resolve location
+   d. Check for duplicates
+   e. Create and save Tool entity
+6. Return count of tools created
+
+Error Handling:
+- Empty file: Returns error "Please select a file to upload"
+- Invalid format: Returns error "Please upload an Excel file (.xlsx or .xls)"
+- No valid tools: Returns error "No valid tools were found in the Excel file..."
+- Row processing errors: Logged but don't stop entire process
+
+================================================================================
+4. FLEXIBLE COLUMN HEADER DETECTION
+================================================================================
+
+Header Mapping Process:
+1. Read header row (row 0)
+2. For each cell in header row:
+   a. Get cell value as string
+   b. Trim and convert to lowercase
+   c. Match against known patterns (case-insensitive, partial match)
+   d. Map to field name
+
+Pattern Matching (matchesPattern):
+- Case-insensitive comparison
+- Supports multiple aliases per field
+- Examples:
+  - "equipment location" matches: "Equipment Location", "EquipmentLocation", etc.
+  - "serial" matches: "Serial", "Serial Number", "Serial#"
+
+Special Handling:
+- Multiple "Model" columns: First = model1, second = model2
+- Multiple "Serial" columns: First = serial1, second = serial2
+- If header matches multiple patterns, first match wins
+
+================================================================================
+5. TOOL TYPE DETECTION AND NORMALIZATION
+================================================================================
+
+Tool Type Detection:
+1. **GasGuard Detection**:
+   - If "Equipment Location" field has value → GasGuard tool
+   - Tool type automatically set to AMATGASGUARD
+   - System name is optional (can be inherited)
+
+2. **Standard Tool Type**:
+   - Read from "Type" column
+   - Normalize using normalizeToolType() function
+
+Tool Type Normalization (normalizeToolType):
+Input: String from Excel (case-insensitive, space-insensitive)
+
+CHEMBLEND Aliases:
+- "c"
+- "chemrinse"
+- "chemblend"
+- "chemrins" (from "chem rinse")
+- "chemrin" (from "chem rinse")
+- "chemblnd" (from "chem blend")
+- "chemblen" (from "chem blend")
+- "chemble" (from "chem blend")
+
+SLURRY Aliases:
+- "s"
+- "slurry"
+- "feed"
+- "f"
+
+GASGUARD Aliases:
+- "gasguard"
+- "amatgasguard"
+- "gasgd"
+- "gg"
+
+Process:
+1. Trim input
+2. Convert to lowercase
+3. Remove extra spaces (replaceAll("\\s+", ""))
+4. Match against aliases
+5. Return corresponding ToolType enum value
+6. Return null if no match
+
+================================================================================
+6. GASGUARD TOOL HANDLING
+================================================================================
+
+GasGuard Tool Detection:
+- Trigger: "Equipment Location" field has non-empty value
+- Tool type: Automatically set to AMATGASGUARD
+
+GasGuard Tool Naming:
+1. If "System" field has value:
+   - Tool name = System value
+   - Set systemName = System value
+2. If "System" field is empty:
+   - Tool name = Equipment Location value
+   - Set systemName = null
+
+System Name Inheritance:
+- If current row's System is empty but previous row had System value:
+  - Inherit System from previous row
+  - Log inheritance for debugging
+- This allows grouping GasGuard tools under same system
+
+Equipment Set Parsing:
+- Input can be: "100", "100.0", "100%", "100.0%"
+- Process:
+  1. Remove all non-digit/non-decimal characters (replaceAll("[^\\d.]", ""))
+  2. Parse as double
+  3. Round to integer
+  4. Default to 100 if parsing fails or not specified
+
+Upload Date for GasGuard Tools:
+- Base time: Current timestamp when upload starts
+- Each GasGuard tool gets incremental millisecond offset:
+  - Tool 1: baseTime + 0ms
+  - Tool 2: baseTime + 1ms
+  - Tool 3: baseTime + 2ms
+  - etc.
+- Purpose: Maintain chronological order of GasGuard tools
+- Formula: baseUploadTime.plusNanos(toolsCreated * 1_000_000L)
+  (1 millisecond = 1,000,000 nanoseconds)
+
+================================================================================
+7. LOCATION RESOLUTION
+================================================================================
+
+Location Resolution Priority:
+1. **Excel Location Value** (if provided):
+   a. Search for Location by name (case-insensitive)
+   b. Match against Location.name or Location.displayName
+   c. If found: Use matched location's displayName (or name if displayName is null)
+
+2. **User's Active Location** (if Excel location not found/matched):
+   a. Get current authenticated user
+   b. Check user.activeSite
+   c. If set: Use activeSite.displayName (or name)
+
+3. **User's Default Location** (if activeSite not set):
+   a. Check user.defaultLocation
+   b. If set: Use defaultLocation.displayName (or name)
+
+4. **System Default Location** (if user locations not available):
+   a. Query Location where defaultLocation = true
+   b. If found: Use displayName (or name)
+
+5. **Empty String** (if no location found):
+   - Set locationName to "" (empty string)
+   - Tool created without location assignment
+
+Location Matching (findLocationByName):
+- Search all locations in database
+- Case-insensitive match on:
+  - Location.name
+  - Location.displayName
+- Return first match found
+
+================================================================================
+8. DUPLICATE DETECTION
+================================================================================
+
+Duplicate Check:
+- Before creating tool, check if tool with same name already exists
+- Query: toolRepository.findByName(primaryName)
+- Primary name determination:
+  - GasGuard: System name (or Equipment Location if System is empty)
+  - Standard: Tool Name value
+
+If Duplicate Found:
+- Log warning: "Tool 'X' already exists, skipping row Y"
+- Skip row (don't create tool)
+- Continue processing next row
+- Does not count as error
+
+================================================================================
+9. TOOL ENTITY CREATION
+================================================================================
+
+Standard Tool Creation:
+```rust
+// Pseudo-code structure
+Tool {
+    name: String,                    // From "Tool Name" column
+    secondaryName: Option<String>,   // From "Tool Name 2" column
+    toolType: ToolType,              // Normalized from "Type" column
+    model1: Option<String>,          // From first "Model" column
+    model2: Option<String>,          // From second "Model" column
+    serial1: Option<String>,         // From first "Serial" column
+    serial2: Option<String>,         // From second "Serial" column
+    locationName: String,            // Resolved location (see Location Resolution)
+    status: ToolStatus,              // Always NOT_STARTED
+    setDate: LocalDate,              // Always current date (LocalDate.now())
+    // Other fields use defaults
+}
+```
+
+GasGuard Tool Creation:
+```rust
+Tool {
+    name: String,                    // System name OR Equipment Location
+    systemName: Option<String>,      // From "System" column (or null)
+    equipmentLocation: String,       // From "Equipment Location" column
+    configNumber: Option<String>,    // From "Config" column
+    equipmentSet: i32,               // From "Equipment Set" (default: 100)
+    toolType: ToolType,              // Always AMATGASGUARD
+    uploadDate: Option<LocalDateTime>, // Base time + millisecond offset
+    locationName: String,            // Resolved location
+    status: ToolStatus,              // Always NOT_STARTED
+    setDate: LocalDate,              // Always current date
+    // Other fields use defaults
+}
+```
+
+Default Values:
+- status: NOT_STARTED
+- setDate: LocalDate.now() (current date)
+- All optional fields: null/empty if not provided
+
+================================================================================
+10. CELL VALUE EXTRACTION
+================================================================================
+
+getCellValueAsString:
+Handles all Excel cell types and converts to string representation.
+
+Cell Type Handling:
+1. STRING: Return string value directly
+2. NUMERIC:
+   a. If date-formatted: Convert to date string (toString())
+   b. Otherwise: Convert to long (removes decimals), then to string
+3. BOOLEAN: Convert to "true" or "false" string
+4. FORMULA: Return formula string (not evaluated)
+5. BLANK: Return null
+
+Date Detection:
+- Uses DateUtil.isCellDateFormatted(cell) to detect Excel date cells
+- Converts to Date object, then to string
+
+Numeric Handling:
+- Whole numbers: Convert to long, then string (removes ".0")
+- Decimals: Convert to string with decimal
+
+getCellValueFromMapping:
+- Gets cell at column index from header mapping
+- Calls getCellValueAsString on cell
+- Returns null if column not mapped or cell is null
+
+================================================================================
+11. ROW PROCESSING
+================================================================================
+
+Row Validation:
+- Skip null rows (row doesn't exist in sheet)
+- Skip rows where primary identifier is empty:
+  - GasGuard: System name OR Equipment Location
+  - Standard: Tool Name
+
+Empty Row Detection:
+- If primary identifier is null/empty after trimming → skip row
+- Log: "Skipping row X - no primary identifier"
+- Continue to next row
+
+Error Handling:
+- If error occurs processing a row:
+  - Log error: "Error processing row X: [error message]"
+  - Continue processing other rows (don't stop entire process)
+  - Row is not counted in toolsCreated
+
+Row Counter:
+- Starts at 1 (after header row at index 0)
+- Increments for each row processed (even if skipped)
+
+================================================================================
+12. VALIDATION AND ERROR HANDLING
+================================================================================
+
+File Validation:
+1. File not empty: Check file.size > 0
+2. File format: Check filename ends with ".xlsx" or ".xls" (case-insensitive)
+3. Excel file readable: Try to open workbook
+
+Excel Structure Validation:
+1. Sheet exists: Check sheet at index 0 exists
+2. Header row exists: Check row 0 exists
+3. Header row not empty: Check at least one cell has value
+
+Error Responses:
+- Empty file: {success: false, error: "Please select a file to upload"}
+- Invalid format: {success: false, error: "Please upload an Excel file (.xlsx or .xls)"}
+- No tools created: {success: false, error: "No valid tools were found in the Excel file. Please check the format and data."}
+- Success: {success: true, toolsCreated: number}
+
+Exception Handling:
+- IllegalArgumentException: Return error message in response
+- IOException: Return "Error reading Excel file: [message]"
+- Other exceptions: Return "Error processing Excel file: [message]"
+
+================================================================================
+13. LOGGING AND DEBUGGING
+================================================================================
+
+Key Log Points:
+1. Upload start: "Starting Excel tool creation process"
+2. Header mapping: "Flexible header mapping completed. Found headers: [list]"
+3. Location resolution: "Matched location 'X' to 'Y' for tool 'Z' at row N"
+4. GasGuard detection: "Detected GasGuard tool 'X' with equipment location 'Y' at row N"
+5. System inheritance: "Row N: Inherited system name 'X' from previous row"
+6. Tool creation: "Created tool 'X' from row N"
+7. Duplicate skip: "Tool 'X' already exists, skipping row N"
+8. Upload completion: "Excel tool creation completed. N tools created"
+
+Debug Information:
+- Header values processed
+- Column index mappings
+- Tool type normalization
+- Location matching attempts
+- GasGuard tool detection
+- Upload date calculations
+
+================================================================================
+14. RUST IMPLEMENTATION NOTES
+================================================================================
+
+Suggested Dependencies:
+- calamine or rust_xlsxwriter for Excel parsing (.xlsx/.xls files)
+- chrono for date/time handling
+- regex for pattern matching
+- serde for JSON serialization
+
+Key Structures:
+
+```rust
+// Header mapping
+type HeaderMap = HashMap<String, usize>; // field_name -> column_index
+
+// Tool creation result
+struct UploadResult {
+    success: bool,
+    tools_created: i32,
+    error: Option<String>,
+}
+
+// Column header patterns
+struct ColumnPattern {
+    field_name: String,
+    aliases: Vec<String>,
+}
+```
+
+Key Functions to Implement:
+
+1. upload_tools_from_excel(file) -> Result<UploadResult>
+2. parse_excel_headers(sheet) -> HeaderMap
+3. matches_pattern(header: &str, patterns: &[&str]) -> bool
+4. normalize_tool_type(input: &str) -> Option<ToolType>
+5. detect_gasguard_tool(row, header_map) -> bool
+6. resolve_location(excel_location, user) -> String
+7. find_location_by_name(name: &str) -> Option<Location>
+8. parse_equipment_set(value: &str) -> i32
+9. get_cell_value_as_string(cell) -> Option<String>
+10. get_cell_value_from_mapping(row, header_map, field) -> Option<String>
+11. create_tool_from_row(row, header_map, user) -> Result<Tool>
+12. check_duplicate_tool(name: &str) -> bool
+
+Tool Type Enum:
+```rust
+#[derive(Debug, Clone)]
+pub enum ToolType {
+    ChemBlend,
+    Slurry,
+    AmatGasGuard,  // Note: This may be GASGUARD_SOURCE or GASGUARD_DISTRIBUTION in new system
+    Unknown,
+}
+```
+
+Header Pattern Matching:
+- Use case-insensitive string comparison
+- Support multiple aliases per field
+- First match wins if multiple patterns match
+
+Location Resolution:
+- Implement priority chain: Excel → User Active → User Default → System Default → Empty
+- Use case-insensitive matching for location names
+
+GasGuard Detection:
+- Check if "Equipment Location" column has value
+- If yes → GasGuard tool
+- Handle system name inheritance (track last system name)
+
+Error Handling:
+- Use Result<T, E> for all operations
+- Continue processing rows even if one fails
+- Collect errors and return summary
+
+================================================================================
+15. EXAMPLE WORKFLOW
+================================================================================
+
+Example Excel File:
+Row 0 (Header): Tool Name | Type | Model | Serial | Location
+Row 1: BT151 | Slurry | Model-A | SN123 | AZ F52
+Row 2: GR151 | ChemBlend | Model-B | SN456 | AZ F52
+Row 3: System A | Equipment Location | Config | Equipment Set
+Row 4: | Cabinet 1 | CONFIG-001 | 100
+Row 5: | Cabinet 2 | CONFIG-002 | 100
+
+Processing:
+1. Parse headers: Map "Tool Name"→0, "Type"→1, "Model"→2, "Serial"→3, "Location"→4
+2. Row 1: Create Slurry tool "BT151" with model "Model-A", serial "SN123", location "AZ F52"
+3. Row 2: Create ChemBlend tool "GR151" with model "Model-B", serial "SN456", location "AZ F52"
+4. Row 3: Header row (skip)
+5. Row 4: Detect GasGuard (Equipment Location="Cabinet 1"), create tool "System A" (inherited from row 3)
+6. Row 5: Detect GasGuard (Equipment Location="Cabinet 2"), create tool "System A" (inherited from row 3)
+
+Result: 4 tools created (2 standard, 2 GasGuard)
+
+================================================================================
+16. MIGRATION NOTES
+================================================================================
+
+When migrating to new Tool structure:
+1. Remove GasGuard-specific fields: systemName, equipmentLocation, configNumber, equipmentSet, uploadDate
+2. Add device_description field (for GasGuard types only)
+3. Update tool types: AMATGASGUARD → GASGUARD_SOURCE or GASGUARD_DISTRIBUTION
+4. Remove upload date tracking (no longer needed)
+5. Update location resolution to use new Location structure
+6. Update tool type normalization for new enum values
+
+Column Mapping Updates:
+- Remove: System, Equipment Location, Config, Equipment Set
+- Add: Device Description (for GasGuard types)
+- Keep: All standard tool columns (Name, Type, Model, Serial, Location)
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+

@@ -1,0 +1,595 @@
+================================================================================
+CUSTOM LOCATION OBJECT DEFINITION
+================================================================================
+Purpose: Comprehensive documentation for rebuilding the CustomLocation entity/model
+         in Rust (or any other language). This document describes all fields,
+         relationships, behaviors, constraints, and business logic.
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+The CustomLocation object represents a sub-location or storage area within a
+main Location (facility). These are location-specific places where parts can be
+stored or moved, distinct from actual Tool entities.
+
+Key Characteristics:
+- CustomLocations are sub-locations within a Location (e.g., "Cabinet", "Intel Cage", "Office")
+- Each CustomLocation belongs to exactly one Location
+- Used for tracking part movements within a location
+- Supports both entity-based references and text-based references (for backward compatibility)
+- Examples: "Cabinet", "Intel Cage", "Chandler Office", "Intel Cabinet"
+
+Use Cases:
+- Track parts stored in cabinets or storage areas
+- Monitor parts moved to/from specific storage locations
+- Organize parts within a facility by storage area
+- Track inventory at custom storage locations
+
+================================================================================
+2. DATABASE SCHEMA
+================================================================================
+
+Table Name: custom_locations
+
+Columns:
+---------
+id (BIGINT, PRIMARY KEY, AUTO_INCREMENT)
+  - Unique identifier for the custom location
+  - Auto-generated sequential ID
+  - Used as foreign key in related tables
+
+name (VARCHAR(255), NOT NULL)
+  - Name of the custom location
+  - Required field
+  - Examples: "Cabinet", "Intel Cage", "Intel Cabinet", "Chandler Office"
+  - Case-insensitive matching supported
+  - Editable in form
+
+description (TEXT, NULLABLE)
+  - Description of the custom location
+  - Optional field
+  - Editable in form
+  - Examples: "Storage cabinet for parts and equipment", "Intel equipment cage storage area"
+
+location_id (BIGINT, NOT NULL, FOREIGN KEY -> locations.id)
+  - The parent Location this custom location belongs to
+  - Required field
+  - Foreign Key: custom_locations.location_id -> locations.id
+  - Cascade delete: If Location is deleted, CustomLocations are deleted
+  - Each CustomLocation belongs to exactly one Location
+
+created_at (TIMESTAMP, NULLABLE)
+  - Timestamp when custom location was created
+  - Automatically set on creation (via @PrePersist)
+  - Used for audit trail
+
+updated_at (TIMESTAMP, NULLABLE)
+  - Timestamp when custom location was last updated
+  - Automatically updated on modification (via @PreUpdate)
+  - Used for audit trail
+
+Indexes:
+--------
+- Primary key on id
+- Foreign key index on location_id
+- Implicit index for queries by location
+
+================================================================================
+3. FIELD DESCRIPTIONS AND VALIDATION RULES
+================================================================================
+
+REQUIRED FIELDS (Database-Level Validation):
+  - name: Must not be null (VARCHAR NOT NULL)
+  - location_id: Must not be null (FOREIGN KEY NOT NULL)
+
+AUTO-SET FIELDS:
+  - createdAt: Automatically set to current timestamp on creation
+  - updatedAt: Automatically updated on modification
+
+VALIDATION RULES:
+  1. name is required (non-empty string)
+  2. location_id is required (must reference existing Location)
+  3. name should be unique within a Location (enforced at application level, not database)
+  4. description is optional (can be null or empty)
+
+BUSINESS LOGIC:
+  1. CustomLocation names are case-insensitive within a Location
+  2. When name is updated, all MovingPart references are updated automatically
+  3. CustomLocations are scoped to their parent Location
+  4. Part counts are calculated from MovingPart records
+
+================================================================================
+4. RELATIONSHIPS WITH OTHER OBJECTS
+================================================================================
+
+4.1 LOCATION RELATIONSHIP
+--------------------------
+Relationship Type: Many-to-One (Many CustomLocations belong to one Location)
+
+CustomLocation.location (ManyToOne -> Location)
+  - The parent Location this custom location belongs to
+  - Foreign Key: custom_locations.location_id -> locations.id
+  - Required field
+  - Cascade delete: If Location is deleted, CustomLocations are deleted
+  - Fetch Type: EAGER (loaded immediately)
+
+Business Logic:
+  - Each CustomLocation belongs to exactly one Location
+  - CustomLocations are location-specific (same name can exist in different Locations)
+  - When querying CustomLocations, filter by Location
+
+4.2 MOVING PART RELATIONSHIPS
+------------------------------
+Relationship Type: One-to-Many (One CustomLocation can have many MovingParts)
+
+MovingPart.fromCustomLocationEntity (ManyToOne -> CustomLocation)
+  - MovingParts that originated from this custom location
+  - Foreign Key: moving_parts.from_custom_location_id -> custom_locations.id
+  - Optional (MovingPart can come from Tool or CustomLocation)
+  - Cascade: ALL (if CustomLocation deleted, MovingParts are deleted)
+
+MovingPart.toCustomLocationEntity (ManyToOne -> CustomLocation)
+  - MovingParts that were moved to this custom location
+  - Foreign Key: moving_parts.to_custom_location_id -> custom_locations.id
+  - Optional (MovingPart can go to Tool or CustomLocation)
+  - No cascade (MovingPart remains if CustomLocation deleted, foreign key set to NULL)
+
+CustomLocation.outgoingMovingParts (OneToMany -> MovingPart)
+  - Set of MovingParts that have this custom location as their source
+  - Mapped by: MovingPart.fromCustomLocationEntity
+  - Cascade: ALL
+
+CustomLocation.incomingMovingParts (OneToMany -> MovingPart)
+  - Set of MovingParts that have this custom location as their destination
+  - Mapped by: MovingPart.toCustomLocationEntity
+  - No cascade
+
+Text-Based References (Backward Compatibility):
+  - MovingPart.fromCustomLocation (String): Text-based reference to custom location name
+  - MovingPart.toCustomLocations (TEXT, JSON): List of custom location names as JSON array
+  - These are matched by name (case-insensitive) for backward compatibility
+  - When CustomLocation name is updated, text-based references are also updated
+
+Business Logic:
+  - MovingParts can reference CustomLocations via entity (preferred) or text (legacy)
+  - System supports both entity-based and text-based references
+  - Part counts include both entity-linked and text-based references
+  - When CustomLocation name changes, all text-based references are updated
+
+================================================================================
+5. COMPUTED PROPERTIES / METHODS
+================================================================================
+
+getPartCount() -> int
+  - Calculates count of parts currently at this custom location
+  - Formula: (parts moved TO this location) - (parts moved FROM this location)
+  - Note: This is a simplified count - actual implementation tracks current inventory
+  - Returns: Integer count of parts
+
+PrePersist Hook:
+  - Sets createdAt to current timestamp if null
+  - Sets updatedAt to current timestamp if null
+
+PreUpdate Hook:
+  - Sets updatedAt to current timestamp
+
+================================================================================
+6. REPOSITORY QUERIES / DATA ACCESS METHODS
+================================================================================
+
+Standard CRUD Operations:
+  - findAll() -> List<CustomLocation>
+  - findById(Long id) -> Optional<CustomLocation>
+  - save(CustomLocation) -> CustomLocation
+  - deleteById(Long id) -> void
+
+Custom Query Methods:
+
+findByLocationOrderByNameAsc(Location location) -> List<CustomLocation>
+  - Finds all custom locations for a specific location
+  - Ordered by name ascending (alphabetical)
+  - Used for displaying custom locations in dropdowns/lists
+
+findByNameAndLocation(String name, Location location) -> Optional<CustomLocation>
+  - Finds a custom location by exact name and location
+  - Case-sensitive name matching
+  - Used for checking if custom location exists
+
+findByNameIgnoreCaseAndLocation(String name, Location location) -> Optional<CustomLocation>
+  - Finds a custom location by name (case-insensitive) and location
+  - Uses LOWER() function for case-insensitive comparison
+  - Used for finding custom locations when name case may vary
+
+findByLocationWithPartCounts(Location location) -> List<Object[]>
+  - Finds all custom locations for a location with part counts
+  - Returns Object[] array: [CustomLocation, Long count]
+  - Count is number of MovingParts with toCustomLocationEntity = this custom location
+  - Ordered by name ascending
+  - Used for displaying custom locations with inventory counts
+
+================================================================================
+7. SERVICE LAYER METHODS
+================================================================================
+
+CustomLocationService provides the following operations:
+
+getCustomLocationsByLocation(Location location) -> List<CustomLocation>
+  - Returns all custom locations for a specific location
+  - Ordered by name ascending
+  - Used for dropdowns and lists
+
+getCustomLocationsWithPartCounts(Location location) -> Map<CustomLocation, Integer>
+  - Returns custom locations with their part counts
+  - Part count = number of MovingParts moved TO this custom location
+  - Returns LinkedHashMap (preserves order)
+  - Used for displaying custom locations with inventory information
+
+getCustomLocationById(Long id) -> Optional<CustomLocation>
+  - Retrieves a single custom location by ID
+  - Used for detail pages and updates
+
+findByNameAndLocation(String name, Location location) -> Optional<CustomLocation>
+  - Finds custom location by name and location (case-insensitive)
+  - Used for lookups and validation
+
+findOrCreateCustomLocation(String name, Location location) -> CustomLocation
+  - Finds existing custom location or creates new one
+  - Case-insensitive name matching
+  - If not found: Creates new CustomLocation with:
+    - name: provided name
+    - location: provided location
+    - description: "Auto-created custom location"
+  - Used for backward compatibility with text-based custom locations
+  - Transactional operation
+
+createCustomLocation(CustomLocation customLocation) -> CustomLocation
+  - Creates a new custom location
+  - Validates required fields
+  - Sets timestamps automatically
+  - Transactional operation
+
+updateCustomLocation(Long id, CustomLocation updatedLocation) -> CustomLocation
+  - Updates an existing custom location
+  - Updates: name, description
+  - Preserves: id, location, timestamps (updated_at auto-updated)
+  - Transactional operation
+
+updateCustomLocationAndReferences(Long id, CustomLocation updatedLocation, String oldName) -> CustomLocation
+  - Updates custom location AND updates all MovingPart references
+  - If name changed:
+    a. Updates all MovingPart.fromCustomLocation (text-based) that match old name
+    b. Updates all MovingPart.toCustomLocationsList (text-based) that contain old name
+  - Preserves entity-based references (fromCustomLocationEntity, toCustomLocationEntity)
+  - Used when renaming custom locations to maintain data integrity
+  - Transactional operation
+
+deleteCustomLocation(Long id) -> void
+  - Deletes a custom location by ID
+  - Cascade deletes: MovingParts with fromCustomLocationEntity = this (CASCADE ALL)
+  - Sets to NULL: MovingParts with toCustomLocationEntity = this (ON DELETE SET NULL)
+  - Text-based references are NOT deleted (they remain as strings)
+  - Transactional operation
+  - Admin-only operation
+
+getMovingPartsForCustomLocation(Long customLocationId) -> Map<String, List<MovingPart>>
+  - Gets all moving parts for a custom location (incoming and outgoing)
+  - Includes both entity-linked and text-based references
+  - Returns Map with keys:
+    - "incoming": List of MovingParts moved TO this custom location
+    - "outgoing": List of MovingParts moved FROM this custom location
+  - Matching logic:
+    - Entity reference: MovingPart.toCustomLocationEntity.id == customLocationId
+    - Text reference: MovingPart.toCustomLocationsList contains custom location name (case-insensitive)
+    - Entity reference: MovingPart.fromCustomLocationEntity.id == customLocationId
+    - Text reference: MovingPart.fromCustomLocation equals custom location name (case-insensitive)
+
+getCurrentPartsAtLocation(Long customLocationId) -> List<Map<String, Object>>
+  - Gets list of parts currently at this custom location
+  - Calculates: (parts moved TO) - (parts moved FROM)
+  - Returns list of part information maps:
+    - partName: String
+    - serialNumber: String (optional)
+    - partNumber: String (optional)
+    - quantity: Integer
+    - moveDate: LocalDateTime
+    - movingPartId: Long
+  - Uses part identifier: partName + "|" + serialNumber (or empty string)
+  - Filters out parts that have been moved out
+
+================================================================================
+8. CONTROLLER ENDPOINTS
+================================================================================
+
+GET /custom-locations/{id}
+  - Shows custom location detail page by ID
+  - Returns: custom-locations/details.html template
+  - Model attributes:
+    - customLocation: CustomLocation entity
+    - incomingMovingParts: List<MovingPart> (parts moved TO this location)
+    - outgoingMovingParts: List<MovingPart> (parts moved FROM this location)
+    - currentParts: List<Map> (parts currently at this location)
+
+GET /Storage/{name}
+  - Shows custom location detail page by name (pretty URL)
+  - Finds or creates custom location by name within user's active site
+  - If not found: Creates new CustomLocation automatically
+  - Returns: custom-locations/details.html template
+  - Model attributes: same as /custom-locations/{id}
+
+POST /custom-locations/{id}/update-basic-info
+  - Updates custom location name and description (AJAX)
+  - Request Parameters:
+    - name: String (new name)
+    - description: String (new description)
+  - Response: {success: boolean, message: string}
+  - Business Logic:
+    - Updates custom location
+    - Updates all MovingPart text-based references if name changed
+  - Returns JSON response
+
+POST /custom-locations/{id}/delete
+  - Deletes a custom location (Admin only)
+  - Requires: User role = "Admin"
+  - On Success: Redirects to /tools
+  - On Error: Redirects back to custom location detail page
+  - Flash attributes: success/error message
+
+================================================================================
+9. PRESET CUSTOM LOCATIONS
+================================================================================
+
+When database is initialized, preset custom locations are created for all Locations:
+
+1. **Cabinet**
+   - Name: "Cabinet"
+   - Description: "Storage cabinet for parts and equipment"
+   - Created for all existing locations
+
+2. **Intel Cage**
+   - Name: "Intel Cage"
+   - Description: "Intel equipment cage storage area"
+   - Created for all existing locations
+
+3. **Chandler Office**
+   - Name: "Chandler Office"
+   - Description: "Office storage and administrative area"
+   - Created for all existing locations
+
+Migration Process:
+- Runs during database migration (V38__create_custom_locations.sql)
+- Inserts preset custom locations for all locations in database
+- Uses SQL INSERT with SELECT from locations table
+
+================================================================================
+10. MOVING PART INTEGRATION
+================================================================================
+
+CustomLocations are used in MovingPart records to track part movements:
+
+Source (FROM):
+- MovingPart.fromCustomLocationEntity: Entity reference (preferred)
+- MovingPart.fromCustomLocation: Text reference (legacy, backward compatibility)
+
+Destination (TO):
+- MovingPart.toCustomLocationEntity: Entity reference (preferred)
+- MovingPart.toCustomLocationsList: List of text references (legacy, supports multiple destinations)
+
+Matching Logic:
+- System supports both entity-based and text-based references
+- Text-based references are matched by name (case-insensitive)
+- When CustomLocation name changes, text-based references are updated
+
+Part Movement Flow:
+1. Part moved FROM Tool TO CustomLocation:
+   - MovingPart.fromTool = Tool
+   - MovingPart.toCustomLocationEntity = CustomLocation (or toCustomLocationsList contains name)
+
+2. Part moved FROM CustomLocation TO Tool:
+   - MovingPart.fromCustomLocationEntity = CustomLocation (or fromCustomLocation = name)
+   - MovingPart.destinationToolIds contains Tool.id
+
+3. Part moved FROM CustomLocation TO CustomLocation:
+   - MovingPart.fromCustomLocationEntity = Source CustomLocation
+   - MovingPart.toCustomLocationEntity = Destination CustomLocation
+
+Part Count Calculation:
+- Count = (MovingParts with toCustomLocationEntity = this) - (MovingParts with fromCustomLocationEntity = this)
+- Includes both entity-linked and text-based references
+- Text-based matching is case-insensitive
+
+================================================================================
+11. NAME UNIQUENESS AND CASE HANDLING
+================================================================================
+
+Name Uniqueness:
+- CustomLocation names should be unique within a Location (application-level constraint)
+- Same name can exist in different Locations
+- Example: "Cabinet" can exist in Location "AZ F52" and Location "CA F12"
+
+Case Handling:
+- Names are stored as provided (case-sensitive in database)
+- Matching is case-insensitive (uses LOWER() for comparisons)
+- Example: "Cabinet" and "cabinet" are treated as the same within a Location
+
+Name Updates:
+- When CustomLocation name is updated:
+  1. Update CustomLocation entity
+  2. Update all MovingPart.fromCustomLocation (text-based) that match old name
+  3. Update all MovingPart.toCustomLocationsList (text-based) that contain old name
+  4. Entity-based references (fromCustomLocationEntity, toCustomLocationEntity) are NOT updated
+     (they remain linked to the same entity)
+
+================================================================================
+12. RUST IMPLEMENTATION NOTES
+================================================================================
+
+Suggested Dependencies:
+- chrono for date/time handling
+- serde for JSON serialization (for MovingPart.toCustomLocationsList)
+
+Key Structures:
+
+```rust
+use chrono::{NaiveDateTime};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomLocation {
+    pub id: Option<i64>,                    // Primary key, None for new records
+    pub name: String,                       // Required
+    pub description: Option<String>,        // Optional
+    pub location_id: i64,                     // Required, foreign key to Location
+    pub created_at: Option<NaiveDateTime>, // Auto-set on creation
+    pub updated_at: Option<NaiveDateTime>,  // Auto-updated on modification
+}
+
+impl CustomLocation {
+    pub fn get_part_count(&self) -> i32 {
+        // Calculate: (incoming parts) - (outgoing parts)
+        // Implementation depends on MovingPart queries
+    }
+}
+```
+
+Database Constraints (SQL):
+- Primary key on id
+- NOT NULL constraints on name, location_id
+- Foreign key constraint on location_id -> locations.id ON DELETE CASCADE
+- Index on location_id for efficient queries
+
+Validation:
+- name must be non-empty
+- location_id must reference existing Location
+- name should be unique within location (application-level check)
+
+Relationships:
+- Location: ManyToOne (custom_locations.location_id -> locations.id)
+- MovingParts: OneToMany (via fromCustomLocationEntity and toCustomLocationEntity)
+
+Key Functions to Implement:
+
+1. get_custom_locations_by_location(location_id) -> Vec<CustomLocation>
+2. get_custom_locations_with_part_counts(location_id) -> HashMap<CustomLocation, i32>
+3. find_by_name_and_location(name, location_id) -> Option<CustomLocation>
+4. find_by_name_ignore_case_and_location(name, location_id) -> Option<CustomLocation>
+5. find_or_create_custom_location(name, location_id) -> CustomLocation
+6. create_custom_location(custom_location) -> CustomLocation
+7. update_custom_location(id, updated) -> CustomLocation
+8. update_custom_location_and_references(id, updated, old_name) -> CustomLocation
+9. delete_custom_location(id) -> Result<()>
+10. get_moving_parts_for_custom_location(id) -> HashMap<String, Vec<MovingPart>>
+11. get_current_parts_at_location(id) -> Vec<HashMap<String, Value>>
+
+Case-Insensitive Matching:
+- Use to_lowercase() for name comparisons
+- Store names as provided (case-sensitive in database)
+- Match using case-insensitive comparison
+
+Text-Based Reference Updates:
+- When name changes, search all MovingParts
+- Update fromCustomLocation if matches old name (case-insensitive)
+- Update toCustomLocationsList if contains old name (case-insensitive)
+- Preserve entity-based references (they don't need updating)
+
+================================================================================
+13. EXAMPLE DATA
+================================================================================
+
+Example CustomLocation 1 (Cabinet):
+  id: 1
+  name: "Cabinet"
+  description: "Storage cabinet for parts and equipment"
+  location_id: 1 (AZ F52)
+  created_at: 2024-01-10 10:00:00
+  updated_at: 2024-01-10 10:00:00
+
+Example CustomLocation 2 (Intel Cage):
+  id: 2
+  name: "Intel Cage"
+  description: "Intel equipment cage storage area"
+  location_id: 1 (AZ F52)
+  created_at: 2024-01-10 10:00:00
+  updated_at: 2024-01-10 10:00:00
+
+Example CustomLocation 3 (Intel Cabinet):
+  id: 3
+  name: "Intel Cabinet"
+  description: "Intel-specific storage cabinet"
+  location_id: 1 (AZ F52)
+  created_at: 2024-01-15 14:30:00
+  updated_at: 2024-01-15 14:30:00
+
+Example MovingPart using CustomLocation:
+  id: 1
+  partName: "Valve Assembly"
+  fromTool: null
+  fromCustomLocationEntity: CustomLocation(id=1, name="Cabinet")
+  toCustomLocationEntity: CustomLocation(id=2, name="Intel Cage")
+  moveDate: 2024-01-20 09:00:00
+
+Example MovingPart using text-based reference:
+  id: 2
+  partName: "Pump Component"
+  fromCustomLocation: "Cabinet" (text-based, not entity)
+  toCustomLocationsList: ["Intel Cage", "Intel Cabinet"] (JSON array as text)
+  moveDate: 2024-01-21 11:00:00
+
+================================================================================
+14. MIGRATION NOTES
+================================================================================
+
+When migrating data:
+1. Preset custom locations are created for all existing locations
+2. Text-based custom location references in MovingParts are preserved
+3. Entity-based references are created when MovingParts are updated
+4. Both text-based and entity-based references are supported for backward compatibility
+
+Common Issues:
+- Duplicate custom location names within same location (should be prevented)
+- Text-based references that don't match any CustomLocation (can be auto-created)
+- Case sensitivity in name matching (use case-insensitive comparison)
+
+Backward Compatibility:
+- System supports both entity-based and text-based references
+- Text-based references are matched by name (case-insensitive)
+- When CustomLocation name changes, text-based references are updated
+- Entity-based references remain linked to the same entity (ID-based)
+
+================================================================================
+15. BUSINESS RULES AND CONSTRAINTS
+================================================================================
+
+1. **Location Scoping**:
+   - CustomLocations are scoped to their parent Location
+   - Same name can exist in different Locations
+   - Queries must filter by Location
+
+2. **Name Uniqueness**:
+   - Names should be unique within a Location (application-level)
+   - Case-insensitive matching for uniqueness checks
+   - Database does not enforce uniqueness (allows flexibility)
+
+3. **Part Tracking**:
+   - Parts are tracked via MovingPart records
+   - Supports both entity-based and text-based references
+   - Part counts include both reference types
+
+4. **Name Updates**:
+   - When name changes, all text-based MovingPart references are updated
+   - Entity-based references are NOT updated (remain linked by ID)
+   - This maintains data integrity while supporting legacy text references
+
+5. **Deletion**:
+   - Cascade delete: MovingParts with fromCustomLocationEntity are deleted
+   - Set NULL: MovingParts with toCustomLocationEntity have foreign key set to NULL
+   - Text-based references are NOT deleted (remain as strings)
+
+6. **Auto-Creation**:
+   - CustomLocations can be auto-created when referenced by name
+   - Used for backward compatibility with text-based references
+   - Description set to "Auto-created custom location"
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+

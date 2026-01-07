@@ -116,6 +116,72 @@
                         </div>
                     </div>
                     
+                    <!-- Custom Fields Section -->
+                    <div th:if="${fieldDefinitions != null && !fieldDefinitions.isEmpty()}" class="mt-4">
+                        <h4 class="mb-3">Custom Fields</h4>
+                        <div class="row">
+                            <div th:each="fieldDef : ${fieldDefinitions}" class="col-md-6 mb-3">
+                                <label th:for="${'customField_' + fieldDef.fieldKey}" class="form-label">
+                                    <span th:text="${fieldDef.fieldLabel}"></span>
+                                    <span th:if="${fieldDef.isRequired}" class="text-danger">*</span>
+                                </label>
+                                
+                                <!-- Text Input -->
+                                <input th:if="${fieldDef.fieldType.name() == 'TEXT'}"
+                                       type="text"
+                                       class="form-control"
+                                       th:id="${'customField_' + fieldDef.fieldKey}"
+                                       th:name="${'customFields[' + fieldDef.fieldKey + ']'}"
+                                       th:value="${customFields != null ? customFields.get(fieldDef.fieldKey) : ''}"
+                                       th:required="${fieldDef.isRequired}">
+                                
+                                <!-- Number Input -->
+                                <input th:if="${fieldDef.fieldType.name() == 'NUMBER'}"
+                                       type="number"
+                                       class="form-control"
+                                       th:id="${'customField_' + fieldDef.fieldKey}"
+                                       th:name="${'customFields[' + fieldDef.fieldKey + ']'}"
+                                       th:value="${customFields != null ? customFields.get(fieldDef.fieldKey) : ''}"
+                                       th:required="${fieldDef.isRequired}">
+                                
+                                <!-- Dropdown -->
+                                <select th:if="${fieldDef.fieldType.name() == 'DROPDOWN'}"
+                                        class="form-select"
+                                        th:id="${'customField_' + fieldDef.fieldKey}"
+                                        th:name="${'customFields[' + fieldDef.fieldKey + ']'}"
+                                        th:required="${fieldDef.isRequired}">
+                                    <option value="">-- Select --</option>
+                                    <option th:each="option : ${fieldDef.dropdownOptions}"
+                                            th:value="${option}"
+                                            th:text="${option}"
+                                            th:selected="${customFields != null && customFields.get(fieldDef.fieldKey) == option}">
+                                    </option>
+                                </select>
+                                
+                                <!-- Date Input -->
+                                <input th:if="${fieldDef.fieldType.name() == 'DATE'}"
+                                       type="date"
+                                       class="form-control"
+                                       th:id="${'customField_' + fieldDef.fieldKey}"
+                                       th:name="${'customFields[' + fieldDef.fieldKey + ']'}"
+                                       th:value="${customFields != null ? customFields.get(fieldDef.fieldKey) : ''}"
+                                       th:required="${fieldDef.isRequired}">
+                                
+                                <!-- Boolean Checkbox -->
+                                <div th:if="${fieldDef.fieldType.name() == 'BOOLEAN'}" class="form-check">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           th:id="${'customField_' + fieldDef.fieldKey}"
+                                           th:name="${'customFields[' + fieldDef.fieldKey + ']'}"
+                                           th:checked="${customFields != null && 'true'.equals(customFields.get(fieldDef.fieldKey))}">
+                                    <label class="form-check-label" th:for="${'customField_' + fieldDef.fieldKey}">
+                                        Yes
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <h4 class="mt-4 mb-3">Tool Checklist</h4>
                     <div class="row">
                         <div class="col-md-6">

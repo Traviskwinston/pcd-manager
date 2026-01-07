@@ -9,6 +9,7 @@ import com.pcd.manager.model.MovingPart;
 import com.pcd.manager.model.ToolComment;
 import com.pcd.manager.model.User;
 import com.pcd.manager.model.Location;
+import com.pcd.manager.model.ToolCustomField;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.repository.RmaRepository;
 import com.pcd.manager.repository.RmaDocumentRepository;
@@ -17,6 +18,7 @@ import com.pcd.manager.repository.MovingPartRepository;
 import com.pcd.manager.repository.ToolCommentRepository;
 import com.pcd.manager.repository.UserRepository;
 import com.pcd.manager.repository.LocationRepository;
+import com.pcd.manager.repository.ToolCustomFieldRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +65,7 @@ public class ToolService {
     private final ToolCommentRepository toolCommentRepository;
     private final UserRepository userRepository;
     private final LocationRepository locationRepository;
+    private final ToolCustomFieldRepository toolCustomFieldRepository;
     private PassdownService passdownService; // Not final anymore, will be set by setter
 
     @Autowired
@@ -73,7 +76,8 @@ public class ToolService {
                       MovingPartRepository movingPartRepository,
                       ToolCommentRepository toolCommentRepository,
                       UserRepository userRepository,
-                      LocationRepository locationRepository) {
+                      LocationRepository locationRepository,
+                      ToolCustomFieldRepository toolCustomFieldRepository) {
         this.toolRepository = toolRepository;
         this.rmaRepository = rmaRepository;
         this.documentRepository = documentRepository;
@@ -82,6 +86,7 @@ public class ToolService {
         this.toolCommentRepository = toolCommentRepository;
         this.userRepository = userRepository;
         this.locationRepository = locationRepository;
+        this.toolCustomFieldRepository = toolCustomFieldRepository;
         // PassdownService will be injected via setter
     }
     
@@ -1884,5 +1889,82 @@ public class ToolService {
             return null;
         }
         return getCellValueAsString(row.getCell(columnIndex));
+    }
+    
+    /**
+     * Get all custom fields for a tool as a Map of fieldKey to fieldValue
+     */
+    public Map<String, String> getCustomFieldsForTool(Long toolId) {
+        logger.debug("Fetching custom fields for tool: {}", toolId);
+        List<ToolCustomField> customFields = toolCustomFieldRepository.findByToolId(toolId);
+        Map<String, String> result = new HashMap<>();
+        for (ToolCustomField field : customFields) {
+            result.put(field.getFieldKey(), field.getFieldValue());
+        }
+        return result;
+    }
+    
+    /**
+     * Save or update custom fields for a tool
+     */
+    @Transactional
+    public void saveCustomFields(Long toolId, Map<String, String> customFields) {
+        logger.debug("Saving custom fields for tool: {}", toolId);
+        
+        Optional<Tool> toolOpt = toolRepository.findById(toolId);
+        if (!toolOpt.isPresent()) {
+            throw new IllegalArgumentException("Tool not found with id: " + toolId);
+        }
+        
+        Tool tool = toolOpt.get();
+        
+        for (Map.Entry<String, String> entry : customFields.entrySet()) {
+            String fieldKey = entry.getKey();
+            String fieldValue = entry.getValue();
+            
+            // Skip null or empty keys
+            if (fieldKey == null || fieldKey.trim().isEmpty()) {
+                continue;
+            }
+            
+            Optional<ToolCustomField> existingField = toolCustomFieldRepository.findByToolIdAndFieldKey(toolId, fieldKey);
+            
+            if (fieldValue == null || fieldValue.trim().isEmpty()) {
+                // Delete if value is empty
+                if (existingField.isPresent()) {
+                    toolCustomFieldRepository.delete(existingField.get());
+                }
+            } else {
+                // Save or update
+                ToolCustomField customField;
+                if (existingField.isPresent()) {
+                    customField = existingField.get();
+                } else {
+                    customField = new ToolCustomField();
+                    customField.setTool(tool);
+                    customField.setFieldKey(fieldKey);
+                }
+                customField.setFieldValue(fieldValue.trim());
+                toolCustomFieldRepository.save(customField);
+            }
+        }
+    }
+    
+    /**
+     * Delete a specific custom field for a tool
+     */
+    @Transactional
+    public void deleteCustomField(Long toolId, String fieldKey) {
+        logger.debug("Deleting custom field: toolId={}, fieldKey={}", toolId, fieldKey);
+        toolCustomFieldRepository.deleteByToolIdAndFieldKey(toolId, fieldKey);
+    }
+    
+    /**
+     * Delete all custom fields for a tool
+     */
+    @Transactional
+    public void deleteAllCustomFields(Long toolId) {
+        logger.debug("Deleting all custom fields for tool: {}", toolId);
+        toolCustomFieldRepository.deleteByToolId(toolId);
     }
 }

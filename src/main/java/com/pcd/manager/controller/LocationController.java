@@ -103,18 +103,73 @@ public class LocationController {
     }
 
     @PostMapping("/save")
-    public String saveLocation(@Valid @ModelAttribute("location") Location location, BindingResult result) {
+    public String saveLocation(@Valid @ModelAttribute("location") Location location, BindingResult result, 
+                              Model model, RedirectAttributes redirectAttributes) {
         if (result.hasErrors()) {
             return "locations/form";
         }
         
-        // If this location is set as default, clear any other default locations
-        if (location.isDefault()) {
-            locationRepository.clearDefaultLocations();
+        // Validate state and fab are not empty
+        if (location.getState() == null || location.getState().trim().isEmpty()) {
+            result.rejectValue("state", "error.state", "State is required");
+            return "locations/form";
         }
         
-        locationRepository.save(location);
-        return "redirect:/locations";
+        if (location.getFab() == null || location.getFab().trim().isEmpty()) {
+            result.rejectValue("fab", "error.fab", "Fab is required");
+            return "locations/form";
+        }
+        
+        // Check for duplicate state/fab combination (case-insensitive)
+        // Only if this is a new location or if state/fab changed
+        Optional<Location> existingLocation = locationRepository.findByStateAndFabIgnoreCase(
+            location.getState().trim(), 
+            location.getFab().trim()
+        );
+        
+        if (existingLocation.isPresent()) {
+            // If editing an existing location, allow if it's the same location
+            if (location.getId() == null || !existingLocation.get().getId().equals(location.getId())) {
+                result.rejectValue("fab", "error.duplicate", 
+                    "A location with State '" + location.getState() + "' and Fab '" + location.getFab() + "' already exists.");
+                logger.warn("Attempted to create duplicate location: state={}, fab={}", 
+                           location.getState(), location.getFab());
+                return "locations/form";
+            }
+        }
+        
+        try {
+            // If this location is set as default, clear any other default locations
+            if (location.isDefault()) {
+                locationRepository.clearDefaultLocations();
+            }
+            
+            // Trim state and fab before saving
+            location.setState(location.getState().trim());
+            location.setFab(location.getFab().trim());
+            if (location.getDisplayName() != null) {
+                location.setDisplayName(location.getDisplayName().trim());
+            }
+            
+            Location saved = locationRepository.save(location);
+            logger.info("Saved location: id={}, state={}, fab={}, displayName={}", 
+                       saved.getId(), saved.getState(), saved.getFab(), saved.getDisplayName());
+            
+            redirectAttributes.addFlashAttribute("message", 
+                "Location '" + saved.getDisplayName() + "' saved successfully.");
+            return "redirect:/locations";
+            
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            logger.error("Database constraint violation saving location: state={}, fab={}, error={}", 
+                        location.getState(), location.getFab(), e.getMessage());
+            result.rejectValue("fab", "error.duplicate", 
+                "A location with State '" + location.getState() + "' and Fab '" + location.getFab() + "' already exists.");
+            return "locations/form";
+        } catch (Exception e) {
+            logger.error("Error saving location: {}", e.getMessage(), e);
+            result.reject("error.save", "An error occurred while saving the location: " + e.getMessage());
+            return "locations/form";
+        }
     }
 
     @PostMapping("/{id}/default")

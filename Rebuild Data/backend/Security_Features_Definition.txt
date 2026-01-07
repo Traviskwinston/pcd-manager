@@ -1,0 +1,1176 @@
+================================================================================
+SECURITY FEATURES DEFINITION
+================================================================================
+Purpose: Comprehensive documentation for rebuilding the security and authentication
+         system in Rust (or any other language). This document describes all
+         authentication, authorization, session management, and security features
+         required to recreate the system.
+
+================================================================================
+1. OVERVIEW
+================================================================================
+
+The security system provides authentication, authorization, and session management
+for the PCD Manager application. It uses email-based authentication with BCrypt
+password hashing, role-based access control, and session-based authentication.
+
+Key Characteristics:
+- Email as username (not separate username field)
+- BCrypt password hashing (secure one-way encryption)
+- Role-based access control (ADMIN, USER, TECHNICIAN)
+- Session-based authentication (HTTP sessions)
+- Account status management (active/inactive)
+- Session timeout and expiration handling
+- Unlimited concurrent sessions per user
+- Session fixation protection
+- Comprehensive error handling and logging
+
+✓ ALL KNOWN ISSUES RESOLVED:
+- ✓ LegacyPasswordUpgradeService removed (was causing password corruption)
+- ✓ Remember-me functionality implemented (30-day sessions when checked)
+- ✓ Debug/emergency endpoints removed (security risk eliminated)
+- ✓ CSRF protection enabled (security improved)
+- ✓ Dead code for account expiration/locking removed
+
+================================================================================
+2. AUTHENTICATION SYSTEM
+================================================================================
+
+2.1 AUTHENTICATION METHOD
+-------------------------
+Type: Form-based authentication (username/password)
+
+Login Form:
+- URL: POST /login
+- Fields:
+  - username: Email address (required)
+  - password: Plaintext password (required)
+- Processing: Handled by Spring Security filter chain
+- Success Redirect: /dashboard
+- Failure Redirect: /login?error=[error_type]
+
+Username/Email:
+- Email address is used as the username identifier
+- Case-insensitive email matching
+- Email must be unique in database
+- Format: Standard email format (user@domain.com)
+
+Password:
+- Plaintext password submitted in form
+- Stored in database as BCrypt hash
+- Never stored or logged in plaintext
+- Minimum requirements: None (application-level validation can be added)
+
+2.2 PASSWORD HASHING
+--------------------
+Algorithm: BCrypt
+
+BCrypt Details:
+- Cost factor: Default (typically 10 rounds)
+- Hash format: Starts with $2a$, $2b$, or $2y$
+- Hash length: 60 characters
+- Example: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+
+Password Encoding:
+- All passwords stored in database are BCrypt hashed
+- Encoding happens on user creation/update
+- Double-encoding prevention: Checks if password already encoded before encoding
+- Validation: Checks hash format (starts with $2a$, $2b$, or $2y$)
+
+Password Verification:
+- Uses BCrypt.matches(rawPassword, encodedPassword)
+- Case-sensitive password matching
+- Returns boolean: true if match, false otherwise
+
+
+2.3 USER LOOKUP
+---------------
+Method: Email-based lookup
+
+Process:
+1. User submits email in "username" field
+2. System searches users table by email (case-insensitive)
+3. If found: Load user details
+4. If not found: Throw UsernameNotFoundException
+
+Database Query:
+- findByEmailIgnoreCase(email) -> Optional<User>
+- Case-insensitive email matching
+- Returns User entity or empty
+
+2.4 AUTHENTICATION PROVIDER
+---------------------------
+Type: DaoAuthenticationProvider (custom with logging)
+
+Features:
+- Custom logging for authentication attempts
+- Password comparison logging
+- User details service integration
+- Password encoder integration
+- Shows user not found exceptions (hideUserNotFoundExceptions = false)
+
+Logging:
+- Logs authentication attempts
+- Logs password comparison attempts
+- Logs success/failure with detailed messages
+- Logs user status (active/inactive)
+
+================================================================================
+3. SESSION MANAGEMENT
+================================================================================
+
+3.1 SESSION CREATION
+--------------------
+Policy: ALWAYS (sessions always created for authenticated users)
+
+Session Creation:
+- Sessions created on successful login
+- Session ID stored in cookie (JSESSIONID)
+- Session stored server-side
+- Security context stored in session
+
+Session Fixation Protection:
+- Strategy: newSession()
+- On login: Creates completely new session
+- Old session invalidated
+- New session ID generated
+- Prevents session fixation attacks
+
+3.2 SESSION TIMEOUT
+-------------------
+Current Configuration: 24 hours of inactivity
+
+Timeout Settings:
+- server.servlet.session.timeout=24h (application.properties)
+- Max inactive interval: 24 hours (86,400 seconds)
+- Timeout triggers: After 24 hours of no activity
+- On timeout: Session invalidated, user redirected to /login?timeout=true
+- ⚠️ PROBLEM: Users expect to "stay logged in" for longer periods (1 week).
+  Current 24-hour timeout is too short for this use case.
+
+Remember-Me Configuration: 1 month (30 days)
+- When remember-me checkbox is checked: Session timeout = 30 days (2,592,000 seconds)
+- When remember-me checkbox is NOT checked: Session timeout = 24 hours (86,400 seconds)
+- This is the "stay logged in" feature
+- User remains authenticated for 30 days of inactivity when remember-me is enabled
+- ✓ IMPLEMENTED: Remember-me functionality exists with checkbox on login form
+
+Session Invalidation:
+- Automatic: After timeout period
+- Manual: User logout
+- On invalid session access: Redirect to /login?timeout=true
+- ✓ FIXED: Password corruption bug resolved by removing LegacyPasswordUpgradeService
+- ✓ FIXED: Remember-me functionality allows 30-day sessions
+
+3.3 CONCURRENT SESSIONS
+-----------------------
+Policy: Unlimited concurrent sessions per user
+
+Configuration:
+- maximumSessions: -1 (unlimited)
+- maxSessionsPreventsLogin: false (doesn't prevent login)
+- SessionRegistry: Tracks all active sessions
+
+Behavior:
+- User can be logged in from multiple devices/browsers
+- Each login creates new session
+- Sessions tracked independently
+- No limit on number of concurrent sessions
+
+Session Registry:
+- Tracks all active sessions
+- Can query sessions by user
+- Can expire sessions programmatically
+- Used for session management and debugging
+
+3.4 SESSION STORAGE
+-------------------
+Storage: Server-side HTTP sessions
+
+Session Data:
+- Security context (authentication information)
+- User principal (email/username)
+- User authorities (roles)
+- Session attributes (application-specific data)
+
+Session Cookie:
+- Name: JSESSIONID
+- HttpOnly: Yes (default)
+- Secure: Depends on HTTPS configuration
+- SameSite: Default browser behavior
+- Path: Application root (/)
+
+3.5 SESSION EVENTS
+-------------------
+Event Publisher: HttpSessionEventPublisher
+
+Events Tracked:
+- Session created
+- Session destroyed
+- Session expired
+- Used for session registry updates
+
+================================================================================
+4. REMEMBER ME FUNCTIONALITY
+================================================================================
+
+Current Status: IMPLEMENTED
+
+Feature: "Stay Logged In" for 1 month (30 days)
+
+Implementation:
+- Checkbox on login form: "Stay logged in for 30 days"
+- When checked: Session timeout = 30 days (2,592,000 seconds)
+- When unchecked: Session timeout = 24 hours (86,400 seconds)
+- Session-based implementation (uses HTTP session timeout)
+- Persistent across browser restarts (session cookie persists)
+
+Implementation Details:
+1. Login form includes checkbox: <input type="checkbox" name="remember-me">
+2. AuthenticationSuccessHandler checks for "remember-me" parameter
+3. If checked: Sets session.setMaxInactiveInterval(2592000) // 30 days
+4. If unchecked: Sets session.setMaxInactiveInterval(86400) // 24 hours
+5. Session cookie (JSESSIONID) persists based on session timeout
+
+Note: This is a session-based remember-me. For more security, a token-based
+approach could be implemented in the future, but the current implementation
+is sufficient for the use case.
+
+================================================================================
+5. ROLE-BASED ACCESS CONTROL (RBAC)
+================================================================================
+
+5.1 USER ROLES
+--------------
+Role Types:
+- ADMIN: Full system access, can manage users, settings, delete records
+- USER: Standard user access (if used)
+- TECHNICIAN: Standard user access for technicians
+
+Role Storage:
+- Stored in User.role field (VARCHAR)
+- Values: "ADMIN", "USER", "TECHNICIAN" (case-sensitive in database)
+- Default: "USER" if role is null or empty
+
+Role Authority Format:
+- Spring Security format: "ROLE_" + role
+- Examples: "ROLE_ADMIN", "ROLE_USER", "ROLE_TECHNICIAN"
+- Authorities added to authentication token
+
+5.2 ROLE ASSIGNMENT
+-------------------
+Assignment:
+- Set during user creation
+- Can be updated by admins
+- Stored in users.role column
+- Case-sensitive storage (uppercase recommended)
+
+Default Role:
+- If role is null or empty: Assigned "ROLE_USER"
+- Can be overridden during user creation
+
+5.3 AUTHORIZATION CHECKS
+------------------------
+Method-Level Security:
+- @PreAuthorize("hasRole('ADMIN')"): Admin-only endpoints
+- @PreAuthorize("hasRole('ROLE_ADMIN')"): Alternative format
+- Applied to controller methods
+
+URL-Based Security:
+- Most endpoints: .authenticated() (any authenticated user)
+- Admin endpoints: Check role in controller logic
+- Public endpoints: .permitAll()
+
+Authorization Examples:
+- UserController: @PreAuthorize("hasRole('ROLE_ADMIN')")
+- RmaSettingsController: @PreAuthorize("hasRole('ADMIN')")
+- CustomLocationController: Admin check in delete method
+
+5.4 ROLE HIERARCHY
+------------------
+Current: Flat role structure (no hierarchy)
+
+Roles:
+- ADMIN: Highest privileges
+- USER/TECHNICIAN: Standard privileges
+
+Future Enhancement:
+- Could implement role hierarchy (e.g., ADMIN > USER > GUEST)
+- Not currently implemented
+
+================================================================================
+6. ACCOUNT STATUS MANAGEMENT
+================================================================================
+
+6.1 ACCOUNT STATUS
+------------------
+Field: User.active (Boolean)
+
+Status Values:
+- true: Account is active (can log in)
+- false: Account is inactive (cannot log in)
+- null: Treated as active (defaults to true)
+
+Account Activation:
+- Set during user creation
+- Can be toggled by admins
+- Inactive accounts cannot authenticate
+- Error message: "Your account has been disabled. Please contact an administrator."
+
+6.2 ACCOUNT VALIDATION
+----------------------
+During Authentication:
+1. Check if user exists (email lookup)
+2. Check if account is active (user.active == true)
+3. Check password match
+4. If any check fails: Authentication exception thrown
+
+Account States (Spring Security):
+- enabled: Based on user.active (true = enabled, false/null = disabled)
+- accountNonExpired: Always true (not implemented)
+- credentialsNonExpired: Always true (not implemented)
+- accountNonLocked: Always true (not implemented)
+⚠️ UNUSED FEATURES: Account expiration, credential expiration, and account locking
+  are not implemented. These features are always set to true, making the error
+  handling for them unused/dead code.
+
+6.3 ACCOUNT ERRORS
+-----------------
+Error Types:
+- Account Disabled: user.active == false
+- User Not Found: Email doesn't exist in database
+- Bad Credentials: Password doesn't match
+- Account Expired: Not implemented (always true)
+- Credentials Expired: Not implemented (always true)
+- Account Locked: Not implemented (always true)
+
+Error Handling:
+- Each error type has specific error parameter
+- Redirects to /login?error=[error_type]
+- Error messages displayed on login page
+
+================================================================================
+7. AUTHENTICATION FLOW
+================================================================================
+
+7.1 LOGIN PROCESS
+-----------------
+Step 1: User submits login form
+- POST /login
+- Parameters: username (email), password
+
+Step 2: Spring Security processes request
+- UsernamePasswordAuthenticationFilter intercepts request
+- Creates UsernamePasswordAuthenticationToken
+- Calls authenticationProvider.authenticate()
+
+Step 3: User lookup
+- CustomUserDetailsService.loadUserByUsername(email)
+- Searches database by email (case-insensitive)
+- If not found: UsernameNotFoundException
+
+Step 4: Password verification
+- BCrypt.matches(rawPassword, encodedPassword)
+- If mismatch: BadCredentialsException
+
+Step 5: Account status check
+- Check user.active == true
+- If false: DisabledException
+
+Step 6: Create authentication
+- Build UserDetails object
+- Set authorities (roles)
+- Return authenticated token
+
+Step 7: Session creation
+- Create new session (sessionFixation.newSession())
+- Store security context in session
+- Set JSESSIONID cookie
+
+Step 8: Success handler
+- Redirect to /dashboard
+- Log successful login
+
+7.2 LOGOUT PROCESS
+------------------
+Endpoint: POST /logout (Spring Security default)
+
+Process:
+1. Invalidate HTTP session
+2. Clear authentication
+3. Delete JSESSIONID cookie
+4. Redirect to /login?logout=true
+
+Logout Configuration:
+- logoutSuccessUrl: /login?logout=true
+- invalidateHttpSession: true
+- clearAuthentication: true
+- deleteCookies: ["JSESSIONID"]
+- permitAll: true (anyone can logout)
+
+7.3 SESSION EXPIRATION
+----------------------
+Automatic Expiration:
+- After max inactive interval (24 hours or 7 days with remember-me)
+- Session marked as expired
+- Security context cleared
+- Redirect to /login?timeout=true or /login?expired=true
+
+Manual Session Clearing:
+- POST /api/auth/clear-my-session: Clear current user's session
+- POST /api/auth/clear-session: Admin endpoint to clear all sessions for a user
+
+================================================================================
+8. ERROR HANDLING
+================================================================================
+
+8.1 AUTHENTICATION ERRORS
+--------------------------
+Error Types and Messages:
+
+1. Bad Credentials:
+   - Exception: BadCredentialsException
+   - Parameter: error=bad_credentials
+   - Message: "Invalid email or password!"
+
+2. User Not Found:
+   - Exception: UsernameNotFoundException
+   - Parameter: error=user_not_found
+   - Message: "No account found with that email address."
+
+3. Account Disabled:
+   - Exception: DisabledException
+   - Parameter: error=account_disabled
+   - Message: "Your account has been disabled. Please contact an administrator."
+
+4. Account Locked:
+   - Exception: LockedException
+   - Parameter: error=account_locked
+   - Message: "Your account has been locked. Please contact an administrator."
+   - Note: Not currently implemented (always returns true)
+
+5. Account Expired:
+   - Exception: AccountExpiredException
+   - Parameter: error=account_expired
+   - Message: "Your account has expired. Please contact an administrator."
+   - Note: Not currently implemented (always returns true)
+
+6. Credentials Expired:
+   - Exception: CredentialsExpiredException
+   - Parameter: error=credentials_expired
+   - Message: "Your password has expired. Please contact an administrator."
+   - Note: Not currently implemented (always returns true)
+
+7. Session Timeout:
+   - Parameter: timeout=true
+   - Message: "Your session has expired due to inactivity. Please log in again."
+
+8. Session Expired:
+   - Parameter: expired=true
+   - Message: "Your session has expired. Please log in again."
+
+8.2 ERROR DISPLAY
+-----------------
+Login Page Error Display:
+- Errors displayed in alert-danger div
+- Message from model attribute "error"
+- User-friendly messages (not technical details)
+
+Logging:
+- All authentication errors logged
+- Includes exception type and message
+- Logs include user email (if available)
+- Security-sensitive information not logged (passwords)
+
+================================================================================
+9. PUBLIC AND PROTECTED ENDPOINTS
+================================================================================
+
+9.1 PUBLIC ENDPOINTS (No Authentication Required)
+-------------------------------------------------
+GET /login
+  - Login page display
+  - Permit all access
+
+POST /login
+  - Login form submission
+  - Handled by Spring Security
+  - Permit all access
+
+GET /manual-login
+  - Debug login endpoint
+  - Permit all access
+
+POST /manual-login
+  - Debug credential check
+  - Permit all access
+
+Static Resources:
+- /css/** (CSS files)
+- /js/** (JavaScript files)
+- /images/** (Image files)
+- /login.css (Login page stylesheet)
+
+H2 Console (Development):
+- /h2-console/** (Database console)
+- Permit all access (development only)
+
+API Endpoints:
+- /api/public/** (Public API endpoints)
+- /api/auth/** (Authentication endpoints)
+- /api/auth/clear-my-session (Session clearing)
+- /api/auth/clear-session (Admin session clearing)
+
+Emergency Endpoints:
+- /admin/emergency-reset (Emergency password reset)
+- /create-simple-admin (Simple admin creation)
+- /direct-login (Direct login bypass)
+
+9.2 PROTECTED ENDPOINTS (Authentication Required)
+-------------------------------------------------
+All other endpoints require authentication:
+- .anyRequest().authenticated()
+
+Examples:
+- /dashboard (Dashboard page)
+- /tools/** (Tool management)
+- /rma/** (RMA management)
+- /passdowns/** (Passdown management)
+- /locations/** (Location management)
+- /users/** (User management - also requires ADMIN role)
+
+9.3 ROLE-BASED PROTECTION
+-------------------------
+Admin-Only Endpoints:
+- /users/** (UserController: @PreAuthorize("hasRole('ROLE_ADMIN')"))
+- /rma-settings/** (RmaSettingsController: @PreAuthorize("hasRole('ADMIN')"))
+- CustomLocation delete: Admin check in controller logic
+
+Standard User Endpoints:
+- Most endpoints: Any authenticated user
+- Role checked in controller logic where needed
+
+================================================================================
+10. SECURITY CONFIGURATION
+================================================================================
+
+10.1 CSRF PROTECTION
+--------------------
+Current Status: ENABLED
+✓ CSRF protection is enabled
+
+Configuration:
+- csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+- CSRF tokens required for all POST/PUT/DELETE requests
+- Token stored in cookie (accessible to JavaScript for AJAX requests)
+- Token included in forms as hidden input: <input type="hidden" name="_csrf" value="..."/>
+- Spring Security automatically validates CSRF tokens
+
+Future Enhancement:
+- Enable CSRF protection
+- Use CookieCsrfTokenRepository
+- Add CSRF tokens to forms
+- Validate CSRF tokens on POST requests
+
+10.2 HEADERS CONFIGURATION
+--------------------------
+Frame Options:
+- X-Frame-Options: Disabled (for H2 console)
+- Allows iframes (development only)
+- Should be enabled in production
+
+10.3 PASSWORD ENCODER
+---------------------
+Type: BCryptPasswordEncoder
+
+Configuration:
+- Default cost factor (typically 10)
+- Supports $2a$, $2b$, $2y$ formats
+- Thread-safe
+- One-way hashing (cannot be reversed)
+
+10.4 METHOD SECURITY
+--------------------
+Enabled: @EnableMethodSecurity
+
+Features:
+- @PreAuthorize annotation support
+- Method-level authorization
+- Role-based method protection
+
+================================================================================
+11. SESSION MANAGEMENT ENDPOINTS
+================================================================================
+
+11.1 CLEAR CURRENT SESSION
+---------------------------
+Endpoint: POST /api/auth/clear-my-session
+Access: Public (permitAll)
+
+Purpose: Clear current user's session (client-initiated)
+
+Process:
+1. Get current session (if exists)
+2. Invalidate session
+3. Clear security context
+4. Return "OK"
+
+Use Case: User stuck in bad session state, wants to reset
+
+11.2 CLEAR ALL SESSIONS FOR USER
+---------------------------------
+Endpoint: POST /api/auth/clear-session
+Access: Public (with optional security code)
+
+Parameters:
+- email: User email to clear sessions for
+- code: Optional security code ("pcd-emergency-override-2025")
+
+Purpose: Admin/diagnostic - clear all server-side sessions for a user
+
+Process:
+1. Optional: Verify security code
+2. Find all sessions for user in SessionRegistry
+3. Expire all sessions
+4. Return count of cleared sessions
+
+Use Case: User stuck with multiple sessions, admin needs to reset
+
+11.3 SESSION INFO (DEBUG)
+-------------------------
+Endpoint: GET /session-info
+Access: Authenticated users
+
+Purpose: Debug endpoint to view session information
+
+Returns:
+- Session ID
+- Creation time
+- Last accessed time
+- Max inactive interval
+- Is new flag
+- All session attributes
+
+Use Case: Debugging session issues
+
+================================================================================
+12. EMERGENCY AND ADMIN ENDPOINTS
+================================================================================
+
+⚠️ SECURITY WARNING: All emergency/debug endpoints are PUBLICLY ACCESSIBLE
+without authentication. These should be disabled or secured in production.
+
+12.1 EMERGENCY ADMIN RESET
+--------------------------
+Endpoint: GET /admin/emergency-reset
+Access: Public (with security code)
+⚠️ UNUSED IN PRODUCTION: Debug/emergency endpoint, should be removed or secured
+
+Parameters:
+- email: User email to reset
+- code: Security code ("pcd-emergency-override-2025")
+- newPassword: New password to set
+
+Purpose: Emergency password reset when admin is locked out
+
+Process:
+1. Verify security code
+2. Find user by email
+3. Set user.active = true
+4. Set user.role = "ADMIN" (if not already)
+5. Encode and set new password
+6. Save user
+7. Verify password was set correctly
+
+Security:
+- Hard-coded security code (should use environment variable in production)
+- Extensive logging of reset attempts
+- Returns success message with new password
+- ⚠️ PUBLICLY ACCESSIBLE: Anyone with the code can reset any user's password
+
+12.2 CREATE SIMPLE ADMIN
+-------------------------
+Endpoint: GET /create-simple-admin
+Access: Public
+⚠️ UNUSED IN PRODUCTION: Debug endpoint, should be removed
+
+Purpose: Create a simple admin user for testing/emergency access
+
+Process:
+1. Check if user "simple@admin.com" exists
+2. If exists: Update password and ensure admin role
+3. If not exists: Create new admin user
+4. Email: "simple@admin.com"
+5. Password: "simple123"
+6. Role: "ADMIN"
+7. Active: true
+
+Returns: Success message with credentials
+⚠️ SECURITY RISK: Creates admin user with known credentials, publicly accessible
+
+12.3 DIRECT LOGIN
+-----------------
+Endpoint: GET /direct-login
+Access: Public
+⚠️ UNUSED IN PRODUCTION: Debug endpoint, should be removed
+
+Parameters:
+- email: User email (default: "admin@pcd.com")
+- password: User password (default: "admin123")
+
+Purpose: Direct login bypass for development/testing
+
+Process:
+1. Find or create user with email
+2. Ensure user is active and has ADMIN role
+3. Create authentication token manually
+4. Set security context
+5. Create session
+6. Redirect to /dashboard
+
+Security Warning:
+- Bypasses normal authentication flow
+- Should be disabled in production
+- Creates users automatically if they don't exist
+- ⚠️ CRITICAL SECURITY RISK: Allows anyone to log in as any user without password
+
+12.4 MANUAL LOGIN (DEBUG)
+--------------------------
+Endpoint: POST /manual-login
+Access: Public
+⚠️ UNUSED IN PRODUCTION: Debug endpoint, should be removed
+
+Purpose: Debug credential checking without actually logging in
+
+Process:
+1. Check if user exists
+2. Verify password
+3. Return success/error message (doesn't create session)
+
+⚠️ UNUSED: Only for debugging, not used in production workflow
+
+================================================================================
+13. USER DETAILS SERVICE
+================================================================================
+
+13.1 CUSTOM USER DETAILS SERVICE
+----------------------------------
+Service: CustomUserDetailsService implements UserDetailsService
+
+Method: loadUserByUsername(String username)
+
+Process:
+1. Receive email as "username" parameter
+2. Search database: findByEmailIgnoreCase(email)
+3. If not found: Throw UsernameNotFoundException
+4. Validate password hash format
+5. Check account status (active/inactive)
+6. Build authorities from role
+7. Create Spring Security UserDetails object
+8. Return UserDetails
+
+UserDetails Object:
+- username: User email
+- password: BCrypt hash from database
+- enabled: user.active (true/false)
+- accountNonExpired: true (always)
+- credentialsNonExpired: true (always)
+- accountNonLocked: true (always)
+- authorities: ["ROLE_" + user.role]
+
+Logging:
+- Logs authentication attempts
+- Logs user found/not found
+- Logs account status
+- Logs password hash validation
+- Logs authority creation
+
+13.2 PASSWORD VALIDATION
+-------------------------
+Validation Checks:
+1. Password hash not null or empty
+2. Password hash format: Starts with $2a$, $2b$, or $2y$
+3. Password hash length: Typically 60 characters
+
+Error Handling:
+- Null/empty password: Logs critical error
+- Invalid format: Logs critical error
+- Valid format: Logs debug message
+
+================================================================================
+14. AUTHENTICATION SUCCESS HANDLER
+================================================================================
+
+Custom Success Handler:
+- Logs successful login
+- Creates new session (handled by Spring Security)
+- Redirects to /dashboard
+- Handles exceptions gracefully
+
+Process:
+1. Log: "=== LOGIN SUCCESS HANDLER ==="
+2. Log: User email who logged in
+3. Spring Security creates new session (sessionFixation.newSession())
+4. Log: "New session created by Spring Security"
+5. Redirect to /dashboard
+6. On error: Redirect to /login?error=true
+
+================================================================================
+15. AUTHENTICATION FAILURE HANDLER
+================================================================================
+
+Custom Failure Handler:
+- Logs authentication failures
+- Determines failure type
+- Redirects with appropriate error parameter
+- Provides user-friendly error messages
+
+Failure Types Handled:
+1. BadCredentialsException → error=bad_credentials
+2. UsernameNotFoundException → error=user_not_found
+3. DisabledException → error=account_disabled
+4. LockedException → error=account_locked
+5. AccountExpiredException → error=account_expired
+6. CredentialsExpiredException → error=credentials_expired
+7. Default → error=true
+
+Process:
+1. Log: "=== LOGIN FAILURE HANDLER ==="
+2. Log exception type and message
+3. Determine error parameter based on exception type
+4. Redirect to /login?[error_param]
+
+================================================================================
+16. RUST IMPLEMENTATION NOTES
+================================================================================
+
+Suggested Dependencies:
+- bcrypt: Password hashing (bcrypt crate)
+- chrono: Date/time handling for sessions
+- serde: Serialization for session data
+- uuid: Session ID generation
+- jsonwebtoken: Optional - for token-based remember-me
+- cookie: HTTP cookie handling
+- actix-session or tower-sessions: Session management
+
+Key Structures:
+
+```rust
+// User authentication
+pub struct User {
+    pub id: i64,
+    pub email: String,
+    pub password_hash: String,  // BCrypt hash
+    pub role: String,           // "ADMIN", "USER", "TECHNICIAN"
+    pub active: bool,
+}
+
+// Session data
+pub struct SessionData {
+    pub user_id: i64,
+    pub email: String,
+    pub role: String,
+    pub created_at: DateTime<Utc>,
+    pub last_accessed: DateTime<Utc>,
+    pub remember_me: bool,      // For 1-week timeout
+}
+
+// Authentication result
+pub enum AuthResult {
+    Success(SessionData),
+    BadCredentials,
+    UserNotFound,
+    AccountDisabled,
+    AccountLocked,
+    AccountExpired,
+    CredentialsExpired,
+}
+```
+
+Key Functions to Implement:
+
+1. authenticate_user(email: &str, password: &str) -> Result<SessionData, AuthError>
+2. hash_password(password: &str) -> Result<String, Error>
+3. verify_password(password: &str, hash: &str) -> bool
+4. create_session(user: &User, remember_me: bool) -> SessionData
+5. validate_session(session_id: &str) -> Option<SessionData>
+6. extend_session(session_id: &str) -> Result<(), Error>
+7. invalidate_session(session_id: &str) -> Result<(), Error>
+8. get_user_by_email(email: &str) -> Option<User>
+9. check_user_active(user: &User) -> bool
+10. get_user_authorities(user: &User) -> Vec<String>
+11. check_role_permission(user: &User, required_role: &str) -> bool
+
+Session Management:
+- Use actix-session or tower-sessions for HTTP sessions
+- Store session data server-side (Redis, database, or memory)
+- Set session cookie: JSESSIONID or custom name
+- Configure session timeout based on remember_me flag:
+  - Remember me: 7 days (604,800 seconds)
+  - No remember me: 24 hours (86,400 seconds)
+
+Password Hashing:
+- Use bcrypt crate
+- Cost factor: 10 (default)
+- Hash format: $2a$, $2b$, or $2y$
+- Always hash before storing
+- Never store plaintext passwords
+
+Remember-Me Implementation:
+1. Add checkbox to login form
+2. Store remember_me preference in session
+3. Adjust session timeout:
+   - If remember_me: Set max_age to 7 days
+   - If not: Set max_age to 24 hours
+4. Alternative (more secure): Token-based remember-me:
+   - Generate secure token on login
+   - Store in database (user_id, token, expires_at)
+   - Store in secure HTTP-only cookie
+   - Validate token on each request
+   - Expires after 7 days
+
+Role-Based Access Control:
+- Check user.role field
+- Compare with required role
+- Return 403 Forbidden if insufficient permissions
+- Use middleware for role checking
+
+Error Handling:
+- Return appropriate HTTP status codes
+- Provide user-friendly error messages
+- Log security events (authentication attempts, failures)
+- Never expose sensitive information in errors
+
+Session Security:
+- Use secure, HTTP-only cookies
+- Set SameSite attribute (Strict or Lax)
+- Regenerate session ID on login (prevent fixation)
+- Validate session on each request
+- Clear session on logout
+
+================================================================================
+17. SECURITY BEST PRACTICES
+================================================================================
+
+Current Implementation:
+✓ BCrypt password hashing
+✓ Session-based authentication
+✓ Role-based access control
+✓ Account status management
+✓ Session fixation protection
+✓ Comprehensive error handling
+✓ Security logging
+
+✓ FIXED ISSUES:
+1. ✓ REMOVED LegacyPasswordUpgradeService
+   - Service deleted, no longer corrupts passwords after login
+   - Password corruption bug fixed
+2. ✓ REMOVED debug/emergency endpoints
+   - /direct-login, /create-simple-admin, /manual-login, /admin/emergency-reset removed
+   - All publicly accessible debug endpoints removed
+3. ✓ ENABLED CSRF protection
+   - CSRF protection enabled with CookieCsrfTokenRepository
+   - All forms now include CSRF tokens
+4. ✓ IMPLEMENTED remember-me functionality (30 days)
+   - Remember-me checkbox added to login form
+   - 30-day session timeout when checked, 24 hours when unchecked
+
+Recommended Enhancements:
+- Enable CSRF protection
+- Implement remember-me functionality (1 week)
+- Add password complexity requirements
+- Implement account lockout after failed attempts
+- Add two-factor authentication (optional)
+- Implement password expiration (optional)
+- Add security headers (X-Frame-Options, etc.)
+- Use HTTPS in production
+- Implement rate limiting for login attempts
+- Add audit logging for security events
+
+Remember-Me Feature (Implemented):
+- ✓ "Remember me" checkbox added to login form
+- ✓ Session timeout set to 30 days when checked
+- ✓ Session timeout set to 24 hours when unchecked
+- Session-based implementation (uses HTTP session)
+
+REMOVED FEATURES:
+- ✓ LegacyPasswordUpgradeService: REMOVED (was causing password corruption)
+- ✓ Account expiration/locking error handling: REMOVED (dead code)
+- ✓ Debug endpoints: REMOVED (/direct-login, /manual-login, /create-simple-admin, /admin/emergency-reset, /auth/test-post, /session-info)
+- ✓ Emergency endpoints: REMOVED (security risk)
+
+================================================================================
+18. CONFIGURATION VALUES
+================================================================================
+
+Session Timeout:
+- Default: 24 hours (86,400 seconds)
+- With remember-me: 30 days (2,592,000 seconds)
+- Configuration: Set dynamically based on remember-me checkbox
+- server.servlet.session.timeout=24h (base configuration, overridden by remember-me)
+
+Password Encoding:
+- Algorithm: BCrypt
+- Cost factor: 10 (default)
+- Hash prefix: $2a$, $2b$, or $2y$
+
+Concurrent Sessions:
+- Maximum: -1 (unlimited)
+- Prevent login on max: false
+
+Session Cookie:
+- Name: JSESSIONID
+- HttpOnly: Yes
+- Secure: Depends on HTTPS
+- SameSite: Default
+
+Roles:
+- ADMIN: Full access
+- USER: Standard access (default)
+- TECHNICIAN: Standard access
+
+Account Status:
+- Active: true (can log in)
+- Inactive: false (cannot log in)
+- Default: true
+
+================================================================================
+19. EXAMPLE AUTHENTICATION FLOW
+================================================================================
+
+Example: User logs in with remember-me
+
+1. User visits /login page
+2. User enters email and password
+3. User checks "Remember me" checkbox
+4. User submits form (POST /login)
+
+5. System processes authentication:
+   - Lookup user by email
+   - Verify password (BCrypt)
+   - Check account active
+   - Create authentication token
+
+6. System creates session:
+   - Generate new session ID
+   - Store security context
+   - Set remember_me flag = true
+   - Set session timeout = 7 days (604,800 seconds)
+   - Set JSESSIONID cookie with max-age = 7 days
+
+7. Redirect to /dashboard
+
+8. On subsequent requests:
+   - Validate session
+   - Check session not expired
+   - Load user from session
+   - Allow access
+
+9. After 7 days of inactivity:
+   - Session expires
+   - User redirected to /login?timeout=true
+   - User must log in again
+
+Example: User logs in without remember-me
+
+1-4. Same as above (no checkbox checked)
+
+5. System creates session:
+   - Generate new session ID
+   - Store security context
+   - Set remember_me flag = false
+   - Set session timeout = 24 hours (86,400 seconds)
+   - Set JSESSIONID cookie with max-age = 24 hours
+
+6. After 24 hours of inactivity:
+   - Session expires
+   - User redirected to /login?timeout=true
+
+================================================================================
+20. SECURITY LOGGING
+================================================================================
+
+Logged Events:
+- Authentication attempts (success and failure)
+- User lookup (found/not found)
+- Password comparison (match/mismatch)
+- Account status checks
+- Session creation
+- Session expiration
+- Logout events
+- Role assignments
+- Emergency resets
+- Direct logins
+
+Log Levels:
+- INFO: Normal authentication flow
+- WARN: Authentication failures, inactive accounts
+- ERROR: Critical security issues, password hash problems
+- DEBUG: Detailed password comparison, session details
+
+Security-Sensitive Information:
+- Passwords: Never logged (only "Password match success/failed")
+- Password hashes: Logged for debugging (first 10 chars only)
+- Session IDs: Logged for debugging
+- User emails: Logged (not sensitive)
+
+================================================================================
+21. KNOWN BUGS AND ISSUES
+================================================================================
+
+21.1 ✓ FIXED: PASSWORD CORRUPTION BUG
+--------------------------------------
+Status: RESOLVED
+
+Fix Applied: LegacyPasswordUpgradeService has been completely removed from the codebase.
+- Service file deleted
+- References removed from SecurityConfig
+- No longer called after login
+- Password corruption bug eliminated
+
+21.2 ✓ FIXED: SESSION TIMEOUT
+-----------------------------
+Status: RESOLVED
+
+Fix Applied: Remember-me functionality implemented
+- Checkbox added to login form
+- 30-day session timeout when checked
+- 24-hour session timeout when unchecked
+- Users can now stay logged in for 1 month
+
+21.3 ✓ FIXED: PUBLIC DEBUG ENDPOINTS
+------------------------------------
+Status: RESOLVED
+
+Fix Applied: All debug/emergency endpoints removed
+- /direct-login: REMOVED
+- /create-simple-admin: REMOVED
+- /manual-login: REMOVED
+- /admin/emergency-reset: REMOVED
+- /auth/test-post: REMOVED
+- /session-info: REMOVED
+- /api/auth/clear-session: REMOVED
+
+21.4 ✓ FIXED: CSRF PROTECTION
+-----------------------------
+Status: RESOLVED
+
+Fix Applied: CSRF protection enabled
+- CookieCsrfTokenRepository configured
+- CSRF tokens added to login form
+- All POST requests now require valid CSRF tokens
+
+21.5 ✓ FIXED: UNUSED ERROR HANDLING
+-----------------------------------
+Status: RESOLVED
+
+Fix Applied: Dead code removed
+- Account expiration error handling: REMOVED
+- Credential expiration error handling: REMOVED
+- Account locking error handling: REMOVED
+- Cleaner, more maintainable codebase
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+

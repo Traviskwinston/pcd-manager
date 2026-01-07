@@ -13,6 +13,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,9 +22,11 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.pcd.manager.model.ToolChecklistTemplate;
+import com.pcd.manager.model.ToolTypeFieldDefinition;
 import com.pcd.manager.repository.ToolChecklistTemplateRepository;
 import com.pcd.manager.repository.ToolRepository;
 import com.pcd.manager.service.ToolService;
+import com.pcd.manager.service.ToolTypeFieldDefinitionService;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import jakarta.persistence.EntityManager;
@@ -44,6 +47,7 @@ public class SettingsController {
     private final ToolService toolService;
     private final UserService userService;
     private final ExcelCheckboxService excelCheckboxService;
+    private final ToolTypeFieldDefinitionService fieldDefinitionService;
     
     @PersistenceContext
     private EntityManager entityManager;
@@ -53,12 +57,14 @@ public class SettingsController {
                               ToolRepository toolRepository, 
                               ToolService toolService,
                               UserService userService,
-                              ExcelCheckboxService excelCheckboxService) {
+                              ExcelCheckboxService excelCheckboxService,
+                              ToolTypeFieldDefinitionService fieldDefinitionService) {
         this.templateRepository = templateRepository;
         this.excelCheckboxService = excelCheckboxService;
         this.toolRepository = toolRepository;
         this.toolService = toolService;
         this.userService = userService;
+        this.fieldDefinitionService = fieldDefinitionService;
     }
 
     @GetMapping
@@ -292,6 +298,112 @@ public class SettingsController {
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+    
+    /**
+     * Get field definitions for a tool type
+     */
+    @GetMapping("/tool-fields/{toolType}")
+    public ResponseEntity<?> getFieldDefinitions(@PathVariable String toolType) {
+        try {
+            List<ToolTypeFieldDefinition> definitions = fieldDefinitionService.getFieldDefinitionsForToolType(toolType);
+            return ResponseEntity.ok(definitions);
+        } catch (Exception e) {
+            logger.error("Error fetching field definitions for tool type: {}", toolType, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error fetching field definitions: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Save field definition (create or update)
+     */
+    @PostMapping("/tool-fields/{toolType}")
+    public ResponseEntity<?> saveFieldDefinition(@PathVariable String toolType, @RequestBody Map<String, Object> requestData) {
+        try {
+            ToolTypeFieldDefinition definition = new ToolTypeFieldDefinition();
+            
+            // Set ID if provided (for updates)
+            if (requestData.containsKey("id") && requestData.get("id") != null) {
+                definition.setId(Long.valueOf(requestData.get("id").toString()));
+            }
+            
+            // Ensure tool type matches path
+            definition.setToolType(toolType);
+            
+            // Set basic fields
+            if (requestData.containsKey("fieldKey")) {
+                definition.setFieldKey(requestData.get("fieldKey").toString());
+            }
+            if (requestData.containsKey("fieldLabel")) {
+                definition.setFieldLabel(requestData.get("fieldLabel").toString());
+            }
+            if (requestData.containsKey("fieldType")) {
+                try {
+                    definition.setFieldType(ToolTypeFieldDefinition.FieldType.valueOf(requestData.get("fieldType").toString()));
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest().body("Invalid field type");
+                }
+            }
+            if (requestData.containsKey("isRequired")) {
+                definition.setIsRequired(Boolean.valueOf(requestData.get("isRequired").toString()));
+            }
+            if (requestData.containsKey("displayOrder")) {
+                definition.setDisplayOrder(Integer.valueOf(requestData.get("displayOrder").toString()));
+            }
+            
+            // Handle dropdown options
+            if (requestData.containsKey("dropdownOptions") && definition.getFieldType() == ToolTypeFieldDefinition.FieldType.DROPDOWN) {
+                @SuppressWarnings("unchecked")
+                List<String> options = (List<String>) requestData.get("dropdownOptions");
+                definition.setDropdownOptions(options);
+            }
+            
+            // Validate field key format (alphanumeric and underscores only)
+            if (definition.getFieldKey() != null && !definition.getFieldKey().matches("^[a-zA-Z0-9_]+$")) {
+                return ResponseEntity.badRequest()
+                        .body("Field key must contain only letters, numbers, and underscores");
+            }
+            
+            ToolTypeFieldDefinition saved = fieldDefinitionService.saveFieldDefinition(definition);
+            return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("Error saving field definition", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error saving field definition: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Delete a field definition
+     */
+    @DeleteMapping("/tool-fields/{toolType}/{fieldKey}")
+    public ResponseEntity<?> deleteFieldDefinition(@PathVariable String toolType, @PathVariable String fieldKey) {
+        try {
+            fieldDefinitionService.deleteFieldDefinition(toolType, fieldKey);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("Error deleting field definition: toolType={}, fieldKey={}", toolType, fieldKey, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error deleting field definition: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Reorder field definitions
+     */
+    @PostMapping("/tool-fields/{toolType}/reorder")
+    public ResponseEntity<?> reorderFieldDefinitions(@PathVariable String toolType, @RequestBody List<Long> orderedIds) {
+        try {
+            fieldDefinitionService.reorderFieldDefinitions(toolType, orderedIds);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("Error reordering field definitions for toolType: {}", toolType, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error reordering field definitions: " + e.getMessage());
         }
     }
 }
